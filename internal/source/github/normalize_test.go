@@ -138,7 +138,8 @@ func TestTwoPRsStory(t *testing.T) {
 	}
 	// The merge's own close is dropped; the pending review is not shown.
 	want22 := []model.EventKind{model.KindPROpened, model.KindReviewRequested, model.KindReviewRequestRemoved,
-		model.KindRequest, model.KindComment, model.KindReviewSubmitted, model.KindPRMerged}
+		model.KindComment, model.KindRequest, model.KindRequest, model.KindComment, model.KindReviewSubmitted,
+		model.KindPRMerged}
 	if got := eventsOf(recs, 22); !slices.Equal(got, want22) {
 		t.Errorf("pull request 22 = %v, want %v", got, want22)
 	}
@@ -154,6 +155,10 @@ func TestTwoPRsStory(t *testing.T) {
 	}
 	if got := eventByID(t, recs, "issues/comments/5203").Actor.Kind; got != model.ActorService {
 		t.Errorf("bot comment actor kind = %s, want %s", got, model.ActorService)
+	}
+	inline := eventByID(t, recs, "pulls/comments/6202")
+	if inline.Kind != model.KindRequest || inline.Evidence.Ref != "GET "+testRepoPath+"/pulls/22/comments" {
+		t.Errorf("inline /kelos comment = %s from %s, want a request from the review comments", inline.Kind, inline.Evidence.Ref)
 	}
 	if got := eventByID(t, recs, "issues/events/8203").Details["team"]; got != "maintainers" {
 		t.Errorf("team review request names %q, want maintainers", got)
@@ -295,8 +300,8 @@ func TestCheckRunUnknownTimes(t *testing.T) {
 // A comment repeated across two pages counts once.
 func TestNormalizeDedupesRecords(t *testing.T) {
 	s := testSnapshot()
-	c := IssueComment{ID: 5, User: testOwner, CreatedAt: testCreated}
-	s.Comments = []IssueComment{c, c}
+	c := Comment{ID: 5, User: testOwner, CreatedAt: testCreated}
+	s.Comments = []Comment{c, c}
 	recs, err := Normalize(s)
 	if err != nil {
 		t.Fatal(err)

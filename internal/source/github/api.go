@@ -77,9 +77,11 @@ const (
 	timelineForcePushed          = "head_ref_force_pushed"
 )
 
-// IssueComment is a pull request's conversation comment, from GET
-// /repos/{owner}/{repo}/issues/{number}/comments.
-type IssueComment struct {
+// Comment is a pull request comment: a conversation comment, from GET
+// /repos/{owner}/{repo}/issues/{number}/comments, or an inline review
+// comment on the diff, from GET /repos/{owner}/{repo}/pulls/{number}/
+// comments.
+type Comment struct {
 	ID        int64     `json:"id"`
 	User      *User     `json:"user"`
 	Body      string    `json:"body"`
@@ -124,10 +126,13 @@ type Snapshot struct {
 	// Repository is the base repository the pull request was read from.
 	Repository  Repository
 	PullRequest PullRequest
-	// Timeline, Comments and Reviews are in GitHub's order, oldest first.
+	// Timeline, Comments, ReviewComments and Reviews are in GitHub's
+	// order, oldest first.
 	Timeline []TimelineEvent
-	Comments []IssueComment
-	Reviews  []Review
+	Comments []Comment
+	// ReviewComments are the inline comments on the diff.
+	ReviewComments []Comment
+	Reviews        []Review
 	// SHAs are the commits whose check runs were read: those the timeline
 	// names, in its order, then the head.
 	SHAs []string

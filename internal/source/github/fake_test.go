@@ -78,6 +78,9 @@ func newFakeGitHub(t *testing.T, story string) *fakeGitHub {
 	f.mux.HandleFunc("GET "+testRepoPath+"/pulls/{n}/reviews", func(w http.ResponseWriter, r *http.Request) {
 		f.serveList(w, r, "reviews-"+r.PathValue("n"))
 	})
+	f.mux.HandleFunc("GET "+testRepoPath+"/pulls/{n}/comments", func(w http.ResponseWriter, r *http.Request) {
+		f.serveList(w, r, "review-comments-"+r.PathValue("n"))
+	})
 	f.mux.HandleFunc("GET "+testRepoPath+"/issues/{n}/timeline", func(w http.ResponseWriter, r *http.Request) {
 		f.serveList(w, r, "timeline-"+r.PathValue("n"))
 	})

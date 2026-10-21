@@ -25,11 +25,12 @@ const (
 
 // Normalize turns one read of a pull request into model records: the pull
 // request with its check runs, and its events (opened, closed, merged,
-// reopened, review requests, comments and requests, submitted reviews), in
-// time order. Each event's actor is the GitHub account; its executor stays
-// unset unless executorOf finds evidence. A merge is a pr.merged event and
-// the close that comes with it is dropped: pr.closed means closed without
-// being merged. Neither is the task being done. Every record is validated.
+// reopened, review requests, conversation and inline review comments and
+// requests, submitted reviews), in time order. Each event's actor is the
+// GitHub account; its executor stays unset unless executorOf finds
+// evidence. A merge is a pr.merged event and the close that comes with it
+// is dropped: pr.closed means closed without being merged. Neither is the
+// task being done. Every record is validated.
 func Normalize(s Snapshot) (model.Records, error) {
 	n := normalizer{s: s, key: prKey(s), seen: make(map[string]bool)}
 	n.add(n.opened())
@@ -37,7 +38,10 @@ func Normalize(s Snapshot) (model.Records, error) {
 		return model.Records{}, err
 	}
 	for _, c := range s.Comments {
-		n.add(n.comment(c))
+		n.add(n.comment(c, "issues/comments/", commentsPath(s.Repository, s.PullRequest.Number), "comment "))
+	}
+	for _, c := range s.ReviewComments {
+		n.add(n.comment(c, "pulls/comments/", reviewCommentsPath(s.Repository, s.PullRequest.Number), "review comment "))
 	}
 	for _, r := range s.Reviews {
 		if r.SubmittedAt != nil && r.State != reviewPending {
@@ -132,14 +136,15 @@ func (n *normalizer) opened() model.Event {
 	return e
 }
 
-func (n *normalizer) comment(c IssueComment) model.Event {
+// comment is a comment, or a request when it asks an agent to act. Its id
+// is idPrefix and GitHub's id, unique among comments of its endpoint path.
+func (n *normalizer) comment(c Comment, idPrefix, path, notePrefix string) model.Event {
 	id := strconv.FormatInt(c.ID, 10)
 	kind := model.KindComment
 	if isRequest(c.Body) {
 		kind = model.KindRequest
 	}
-	return n.event(kind, "issues/comments/"+id, c.CreatedAt, c.User,
-		commentsPath(n.s.Repository, n.s.PullRequest.Number), "comment "+id)
+	return n.event(kind, idPrefix+id, c.CreatedAt, c.User, path, notePrefix+id)
 }
 
 // isRequest reports whether a comment body starts with requestPrefix as a

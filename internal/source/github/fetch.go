@@ -90,7 +90,8 @@ func (c *Client) FetchPR(ctx context.Context, repo Repository, number int) (Snap
 	return c.fetchDetails(ctx, repo, pr)
 }
 
-// fetchDetails reads pr's timeline, comments, reviews and the check runs
+// fetchDetails reads pr's timeline, comments, inline review comments,
+// reviews and the check runs
 // of every commit the timeline names.
 func (c *Client) fetchDetails(ctx context.Context, repo Repository, pr PullRequest) (Snapshot, error) {
 	snap := Snapshot{Instance: c.instance, Repository: repo, PullRequest: pr}
@@ -98,7 +99,10 @@ func (c *Client) fetchDetails(ctx context.Context, repo Repository, pr PullReque
 	if snap.Timeline, err = listAll[TimelineEvent](ctx, c, timelinePath(repo, pr.Number), nil); err != nil {
 		return Snapshot{}, err
 	}
-	if snap.Comments, err = listAll[IssueComment](ctx, c, commentsPath(repo, pr.Number), nil); err != nil {
+	if snap.Comments, err = listAll[Comment](ctx, c, commentsPath(repo, pr.Number), nil); err != nil {
+		return Snapshot{}, err
+	}
+	if snap.ReviewComments, err = listAll[Comment](ctx, c, reviewCommentsPath(repo, pr.Number), nil); err != nil {
 		return Snapshot{}, err
 	}
 	if snap.Reviews, err = listAll[Review](ctx, c, pullPath(repo, pr.Number)+"/reviews", nil); err != nil {
@@ -167,4 +171,8 @@ func timelinePath(repo Repository, number int) string {
 
 func commentsPath(repo Repository, number int) string {
 	return repo.apiPath() + "/issues/" + strconv.Itoa(number) + "/comments"
+}
+
+func reviewCommentsPath(repo Repository, number int) string {
+	return pullPath(repo, number) + "/comments"
 }
