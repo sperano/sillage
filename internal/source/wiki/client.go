@@ -123,24 +123,24 @@ func NewClient(cfg Config, hc *http.Client) (*Client, error) {
 	}, nil
 }
 
-// request is a GraphQL request body.
-type request struct {
+// graphQLRequest is a GraphQL request body.
+type graphQLRequest struct {
 	OperationName string         `json:"operationName"`
 	Query         string         `json:"query"`
 	Variables     map[string]any `json:"variables"`
 }
 
-// reply is a GraphQL reply body.
-type reply struct {
+// graphQLReply is a GraphQL reply body.
+type graphQLReply struct {
 	Data   json.RawMessage `json:"data"`
 	Errors []ResponseError `json:"errors"`
 }
 
-// query sends operation op and decodes its data into out. A reply with
-// errors is a *GraphQLError, whatever data it also carries. Errors name
-// the operation, never the token or the URL.
-func (c *Client) query(ctx context.Context, op, query string, vars map[string]any, out any) error {
-	body, err := json.Marshal(request{OperationName: op, Query: query, Variables: vars})
+// query sends operation op, whose GraphQL document is doc, and decodes its
+// data into out. A reply with errors is a *GraphQLError, whatever data it
+// also carries. Errors name the operation, never the token or the URL.
+func (c *Client) query(ctx context.Context, op, doc string, vars map[string]any, out any) error {
+	body, err := json.Marshal(graphQLRequest{OperationName: op, Query: doc, Variables: vars})
 	if err != nil {
 		return fmt.Errorf("wiki: %s: %w", op, err)
 	}
@@ -156,15 +156,18 @@ func (c *Client) query(ctx context.Context, op, query string, vars map[string]an
 		return fmt.Errorf("wiki: %s: %w", op, unwrapURLError(err))
 	}
 	defer resp.Body.Close()
+	// Reading to EOF after the reply lets the connection be reused.
+	defer func() { _, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, drainBytes)) }()
 	if resp.StatusCode != http.StatusOK {
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, drainBytes))
 		return &StatusError{Operation: op, Code: resp.StatusCode, Status: resp.Status}
 	}
 	return c.decode(op, resp.Body, out)
 }
 
+// decode reads a reply from body, a ReadCloser as http.MaxBytesReader
+// needs.
 func (c *Client) decode(op string, body io.ReadCloser, out any) error {
-	var r reply
+	var r graphQLReply
 	if err := json.NewDecoder(http.MaxBytesReader(nil, body, c.maxBody)).Decode(&r); err != nil {
 		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 			return fmt.Errorf("wiki: %s: response larger than %d bytes", op, c.maxBody)

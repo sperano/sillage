@@ -87,19 +87,20 @@ func summarize(events []model.Event) []summary {
 	return out
 }
 
-func liveFingerprint(at string, action string, pageID string) string {
-	t, err := time.Parse(time.RFC3339Nano, at)
+func liveFingerprint(t *testing.T, at, action, pageID string) string {
+	t.Helper()
+	when, err := time.Parse(time.RFC3339Nano, at)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
-	return model.Fingerprint(t, "pages/"+pageID, action, "")
+	return model.Fingerprint(when, "pages/"+pageID, action, "")
 }
 
 // The newest save is only in the live page: it must be an edit, after the
 // trail's, with the live page's author and a fingerprint id.
 func TestNormalizeAddsLiveEdit(t *testing.T) {
 	events := storyEvents(t, "live-edit-not-in-trail")
-	live := liveFingerprint("2026-03-04T15:16:45.900Z", actionEdited, "57")
+	live := liveFingerprint(t, "2026-03-04T15:16:45.900Z", actionEdited, "57")
 	want := []summary{
 		{model.KindPageCreated, "pages/57", "Robin Owner/person"},
 		{model.KindRequest, "comments/880", "Robin Owner/person"},
@@ -137,7 +138,7 @@ func TestNormalizeTwoAgents(t *testing.T) {
 		{model.KindPageEdited, "pages/58/versions/203", "Agent Sol/agent"},
 		{model.KindPageMoved, "pages/58/versions/204", "/unknown"},
 		{model.KindPageEdited, "pages/58/versions/205", "Agent Opus/agent"},
-		{model.KindPageEdited, liveFingerprint("2026-03-05T11:44:00.700Z", actionEdited, "58"), "Agent Opus/agent"},
+		{model.KindPageEdited, liveFingerprint(t, "2026-03-05T11:44:00.700Z", actionEdited, "58"), "Agent Opus/agent"},
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("page events =\n%v\nwant\n%v", got, want)
@@ -164,7 +165,7 @@ func TestNormalizeAnnouncementWithoutReply(t *testing.T) {
 		{model.KindRunAnnounced, "comments/951", "Agent Opus/agent"},
 		{model.KindComment, "comments/952", "Robin Owner/person"},
 		{model.KindComment, "comments/953", "Agent Opus/agent"},
-		{model.KindPageEdited, liveFingerprint("2026-03-06T09:30:00.800Z", actionEdited, "59"), "/unknown"},
+		{model.KindPageEdited, liveFingerprint(t, "2026-03-06T09:30:00.800Z", actionEdited, "59"), "/unknown"},
 	}
 	if got := summarize(events); !slices.Equal(got, want) {
 		t.Fatalf("events =\n%v\nwant\n%v", got, want)
@@ -232,7 +233,7 @@ func TestNormalizeArchivedVersionSupersedesLive(t *testing.T) {
 	created := handVersion(1, t0.Add(renderDelay), testOwner)
 	edited := handVersion(2, edit, testOpus)
 	move := handVersion(3, moved, testOpus)
-	move.ActionType, move.ValueBefore, move.ValueAfter = actionMove, ptr(oldPath), ptr(newPath)
+	move.ActionType, move.ValueBefore, move.ValueAfter = trailActionMove, ptr(oldPath), ptr(newPath)
 
 	afterEdit := normalizeHand(t, Snapshot{Page: handPage(edit, testOpus), Trail: []Version{created}})
 	movedPage := handPage(moved, testOpus)
@@ -287,7 +288,7 @@ func TestNormalizePurgedTrail(t *testing.T) {
 	want := []summary{
 		{model.KindPageCreated, "pages/60", "Robin Owner/person"},
 		{model.KindPageEdited, "pages/60/versions/9", "Agent Opus/agent"},
-		{model.KindPageEdited, liveFingerprint(t0.Add(2*time.Hour).Format(time.RFC3339Nano), actionEdited, "60"),
+		{model.KindPageEdited, liveFingerprint(t, t0.Add(2*time.Hour).Format(time.RFC3339Nano), actionEdited, "60"),
 			"Agent Opus/agent"},
 	}
 	if got := summarize(events); !slices.Equal(got, want) {

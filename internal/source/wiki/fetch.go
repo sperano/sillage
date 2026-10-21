@@ -94,8 +94,10 @@ func (c *Client) fetchPage(ctx context.Context, pageID int64) (page Page, restri
 	}
 	err = c.query(ctx, opPage, queryPage, map[string]any{"id": pageID}, &data)
 	if ge, ok := errors.AsType[*GraphQLError](err); ok && ge.forbidden() {
-		page, err = c.listPage(ctx, pageID)
-		return page, true, err
+		if page, err = c.listPage(ctx, pageID); err != nil {
+			return Page{}, false, err
+		}
+		return page, true, nil
 	}
 	if err != nil {
 		return Page{}, false, err
@@ -124,9 +126,10 @@ func (c *Client) listPage(ctx context.Context, pageID int64) (Page, error) {
 }
 
 // fetchTrail reads the trail page by page until it holds the reported
-// total. The trail is newest first, so a save during the read shifts
-// older versions to later pages: one can repeat, none is skipped. The
-// result is oldest first, each version once.
+// total, or a page is empty or brings no version not seen, as from a
+// server that ignores offsetPage. The trail is newest first, so a save
+// during the read shifts older versions to later pages: one can repeat,
+// none is skipped. The result is oldest first, each version once.
 func (c *Client) fetchTrail(ctx context.Context, pageID int64) ([]Version, error) {
 	var all []Version
 	seen := make(map[int64]bool)
@@ -138,13 +141,14 @@ func (c *Client) fetchTrail(ctx context.Context, pageID int64) ([]Version, error
 		if err != nil {
 			return nil, err
 		}
+		before := len(all)
 		for _, v := range batch {
 			if !seen[v.VersionID] {
 				seen[v.VersionID] = true
 				all = append(all, v)
 			}
 		}
-		if len(batch) == 0 || len(all) >= total {
+		if len(all) == before || len(all) >= total {
 			break
 		}
 	}

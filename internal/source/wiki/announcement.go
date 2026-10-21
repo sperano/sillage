@@ -33,8 +33,8 @@ const (
 	k8sName = `[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?`
 	// k8sLabel matches a namespace or workspace name (DNS label).
 	k8sLabel = `[a-z0-9](?:[a-z0-9-]*[a-z0-9])?`
-	// positive matches a positive decimal id.
-	positive = `[1-9][0-9]*`
+	// idPattern matches a positive decimal id.
+	idPattern = `[1-9][0-9]*`
 )
 
 var (
@@ -51,8 +51,8 @@ var (
 	namespaceNote = regexp.MustCompile(`\(namespace (` + k8sLabel + `)\)`)
 	// taskName is a wiki follow-up's Kelos Task name. The workspace is
 	// matched greedily: the page and comment ids are the last two parts.
-	taskName = regexp.MustCompile(`^wiki-fu-(` + k8sLabel + `)-(` + positive + `)-c(` + positive + `)(?:-retry` +
-		positive + `)?$`)
+	taskName = regexp.MustCompile(`^wiki-fu-(` + k8sLabel + `)-(` + idPattern + `)-c(` + idPattern + `)(?:-retry` +
+		idPattern + `)?$`)
 )
 
 // Announcement is what a start announcement says about its run. It names

@@ -107,7 +107,7 @@ func (n *normalizer) states() []state {
 		// The oldest version of a trail whose length is a multiple of the
 		// page size has nothing older to compare with, and Wiki.js calls
 		// it a move from "": that is no move.
-		if v.ActionType == actionMove && v.ValueBefore != nil && v.ValueAfter != nil && *v.ValueBefore != "" {
+		if v.ActionType == trailActionMove && v.ValueBefore != nil && v.ValueAfter != nil && *v.ValueBefore != "" {
 			st.from, st.to = *v.ValueBefore, *v.ValueAfter
 		}
 		out = append(out, st)

@@ -117,20 +117,36 @@ func TestFetchFailures(t *testing.T) {
 		name    string
 		pageID  int64
 		history func(int) any
-		want    string
+		// noPath makes the version reply name no path.
+		noPath bool
+		want   string
 	}{
-		{"another page", 61, nil, "no page 61"},
-		{"no history", 60, func(int) any { return nil }, "no history"},
+		{"another page", 61, nil, false, "no page 61"},
+		{"no history", 60, func(int) any { return nil }, false, "no history"},
+		{"repeating trail", 60, func(int) any {
+			return trailPage(9, handVersion(1, t0, testOwner), handVersion(2, t0, testOwner))
+		}, false, ""},
 		{"endless trail", 60, func(p int) any {
 			return trailPage(9, handVersion(int64(2*p+1), t0, testOwner), handVersion(int64(2*p+2), t0, testOwner))
-		}, "more than 3 history pages"},
-		{"no version path", 60, func(int) any { return trailPage(1, handVersion(1, t0, testOwner)) }, "no path for version 1"},
+		}, false, "more than 3 history pages"},
+		{"no version path", 60, func(int) any { return trailPage(1, handVersion(1, t0, testOwner)) }, true,
+			"no path for version 1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := newTestClient(t, handServer(page, tt.history, ""))
+			path := page.Path
+			if tt.noPath {
+				path = ""
+			}
+			c := newTestClient(t, handServer(page, tt.history, path))
 			c.maxHistoryPages = 3
 			_, err := c.Fetch(t.Context(), tt.pageID)
+			if tt.want == "" {
+				if err != nil {
+					t.Errorf("Fetch: %v", err)
+				}
+				return
+			}
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Errorf("Fetch error = %v, want %q", err, tt.want)
 			}

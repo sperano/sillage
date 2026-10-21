@@ -41,8 +41,9 @@ type Version struct {
 	ValueAfter  *string `json:"valueAfter"`
 }
 
-// The trail's action types sillage reads.
-const actionMove = "move"
+// trailActionMove is the trail's action type for a version whose path
+// differs from the previous version's.
+const trailActionMove = "move"
 
 // Comment is a page comment from comments.list. Render is its HTML: the
 // Markdown source needs write:comments. Its updatedAt is not read: it

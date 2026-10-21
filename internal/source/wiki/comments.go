@@ -46,16 +46,17 @@ func announced(e *model.Event, a Announcement) {
 	if a.Agent != "" {
 		e.Executor = &model.Executor{Name: a.Agent, Kind: model.ActorAgent}
 	}
-	for key, value := range map[string]string{
-		"taskName":       a.TaskName,
-		"pod":            a.Pod,
-		"namespace":      a.Namespace,
-		"model":          a.Model,
-		"workspace":      a.Workspace,
-		"requestComment": strconv.FormatInt(a.RequestComment, 10),
-	} {
-		if value != "" {
-			setDetail(e, key, value)
+	details := [][2]string{
+		{"taskName", a.TaskName},
+		{"pod", a.Pod},
+		{"namespace", a.Namespace},
+		{"model", a.Model},
+		{"workspace", a.Workspace},
+		{"requestComment", strconv.FormatInt(a.RequestComment, 10)},
+	}
+	for _, d := range details {
+		if d[1] != "" {
+			setDetail(e, d[0], d[1])
 		}
 	}
 }
