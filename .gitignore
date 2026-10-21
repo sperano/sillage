@@ -1,0 +1,6 @@
+# The binary built by `go build ./cmd/sillage`. web/ has its own .gitignore.
+/sillage
+
+.env
+.env.*
+!.env.example

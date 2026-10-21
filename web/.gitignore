@@ -1,0 +1,7 @@
+node_modules/
+# Vite's output; the Go binary embeds it only with -tags webdist.
+dist/
+test-results/
+playwright-report/
+__screenshots__/
+vite.config.*.timestamp-*
