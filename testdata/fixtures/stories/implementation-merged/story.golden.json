@@ -1,0 +1,424 @@
+{
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 102
+    }
+  },
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "tasks/102",
+      "idKind": "source",
+      "kind": "task.created",
+      "sourceTime": "2026-03-03T18:00:00Z",
+      "observedAt": "2026-03-03T18:05:00Z",
+      "actor": {
+        "login": "owner",
+        "kind": "person"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 102
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/102",
+        "note": "created, created_by"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:3c0b049e1b0ddc9bfda7394b6aaa6d00b361b77bb70668c627bcd589a6c4a54f",
+      "idKind": "fingerprint",
+      "kind": "task.bucket_observed",
+      "observedAt": "2026-03-03T18:05:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 102
+        }
+      },
+      "details": {
+        "bucket": "Doing"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/102?expand=buckets",
+        "note": "buckets"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/5101",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-03-03T18:05:40Z",
+      "observedAt": "2026-03-03T18:06:00Z",
+      "actor": {
+        "login": "kelos-bot",
+        "kind": "service"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 102
+        }
+      },
+      "details": {
+        "pod": "vikunja-widgets-agent-opus-102-bcdef",
+        "taskName": "vikunja-widgets-agent-opus-102"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/102/comments",
+        "note": "comment 5101"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "pulls/7",
+      "idKind": "source",
+      "kind": "pr.opened",
+      "sourceTime": "2026-03-03T18:24:02Z",
+      "observedAt": "2026-03-03T18:25:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "executor": {
+        "name": "agent-opus",
+        "kind": "agent"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 7
+        }
+      },
+      "details": {
+        "branch": "kelos/vikunja-102"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/7",
+        "note": "user owner-gh; label kelos:agent-opus names the executor"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/5102",
+      "idKind": "source",
+      "kind": "comment.created",
+      "sourceTime": "2026-03-03T18:24:30Z",
+      "observedAt": "2026-03-03T18:25:00Z",
+      "actor": {
+        "login": "agent-opus",
+        "kind": "agent"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 102
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/102/comments",
+        "note": "comment 5102 links pull request 7"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:22a29c9bec6748f4d6fd3d035fa018591bf61a4fe69afc52c9891569db0a6f19",
+      "idKind": "fingerprint",
+      "kind": "task.bucket_observed",
+      "observedAt": "2026-03-03T18:26:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 102
+        }
+      },
+      "details": {
+        "bucket": "Review"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/102?expand=buckets",
+        "note": "buckets"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "reviews/3001",
+      "idKind": "source",
+      "kind": "pr.review_submitted",
+      "sourceTime": "2026-03-03T19:10:00Z",
+      "observedAt": "2026-03-03T19:11:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 7
+        }
+      },
+      "details": {
+        "state": "approved"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/7/reviews",
+        "note": "review 3001"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/events/7001",
+      "idKind": "source",
+      "kind": "pr.merged",
+      "sourceTime": "2026-03-03T19:12:00Z",
+      "observedAt": "2026-03-03T19:13:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 7
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/7/timeline",
+        "note": "event 7001, merged"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:0e27d1ba7fd7a2d346f385ab2db41131760abbd523d025021b621671deeb520b",
+      "idKind": "fingerprint",
+      "kind": "task.done",
+      "sourceTime": "2026-03-03T19:25:03Z",
+      "observedAt": "2026-03-03T19:30:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 102
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/102",
+        "note": "done, done_at"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000000102"
+      },
+      "taskName": "vikunja-widgets-agent-opus-102",
+      "pod": "vikunja-widgets-agent-opus-102-bcdef",
+      "agent": "agent-opus",
+      "role": "implementation",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-03T18:05:37Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-03-03T18:31:10Z"
+        }
+      },
+      "outcome": "succeeded",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/vikunja-widgets-agent-opus-102-00000000",
+          "note": "phase Succeeded, startTime, completionTime"
+        }
+      ]
+    }
+  ],
+  "pullRequests": [
+    {
+      "key": {
+        "instance": "github.example.com",
+        "repository": "example-org/widgets",
+        "number": 7
+      },
+      "branch": "kelos/vikunja-102",
+      "checks": [
+        {
+          "id": 9001,
+          "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "test",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-03-03T18:24:10Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-03-03T18:27:40Z"
+            }
+          },
+          "conclusion": "failure"
+        },
+        {
+          "id": 9002,
+          "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "name": "test",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-03-03T18:30:15Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-03-03T18:33:50Z"
+            }
+          },
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "correlations": [
+    {
+      "from": {
+        "kind": "event",
+        "id": "vikunja/vikunja.example.com/comments/5101"
+      },
+      "to": {
+        "kind": "run",
+        "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000000102"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "ref": "GET /api/v1/tasks/102/comments",
+          "note": "comment 5101 names pod vikunja-widgets-agent-opus-102-bcdef"
+        }
+      ]
+    },
+    {
+      "from": {
+        "kind": "pr",
+        "id": "github.example.com/example-org/widgets/pull/7"
+      },
+      "to": {
+        "kind": "run",
+        "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000000102"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "source": "github",
+          "instance": "github.example.com",
+          "ref": "GET /repos/example-org/widgets/pulls/7",
+          "note": "opened on the task's branch inside the run's interval; a branch is shared by every run on the task"
+        }
+      ]
+    },
+    {
+      "from": {
+        "kind": "pr",
+        "id": "github.example.com/example-org/widgets/pull/7"
+      },
+      "to": {
+        "kind": "task",
+        "id": "vikunja.example.com/tasks/102"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "github",
+          "instance": "github.example.com",
+          "ref": "GET /repos/example-org/widgets/pulls/7",
+          "note": "head branch kelos/vikunja-102"
+        }
+      ]
+    },
+    {
+      "from": {
+        "kind": "run",
+        "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000000102"
+      },
+      "to": {
+        "kind": "task",
+        "id": "vikunja.example.com/tasks/102"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/vikunja-widgets-agent-opus-102-00000000",
+          "note": "label vikunja-task=102"
+        }
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "lastSuccessfulRead": "2026-03-03T20:00:00Z"
+    },
+    {
+      "source": "kelos",
+      "instance": "cluster-a",
+      "lastSuccessfulRead": "2026-03-03T20:00:00Z"
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "lastSuccessfulRead": "2026-03-03T20:00:00Z"
+    }
+  ]
+}

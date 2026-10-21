@@ -1,0 +1,202 @@
+{
+  "description": "A task labelled discuss. One discussion run; its deliverable is a wiki page and a reply comment. GitHub was read and holds no pull request for it.",
+  "root": {
+    "task": { "instance": "vikunja.example.com", "id": 101 }
+  },
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "tasks/101",
+      "idKind": "source",
+      "kind": "task.created",
+      "sourceTime": "2026-03-02T09:00:00-05:00",
+      "observedAt": "2026-03-02T14:00:30Z",
+      "actor": { "login": "owner", "kind": "person" },
+      "related": { "task": { "instance": "vikunja.example.com", "id": 101 } },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/101",
+        "note": "created, created_by"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:c7d7a80fe054db05baa1098f9dc9d51f167162e2e4854788c9e9336d76a99c8b",
+      "idKind": "fingerprint",
+      "kind": "task.label_observed",
+      "observedAt": "2026-03-02T14:00:30Z",
+      "actor": { "kind": "unknown" },
+      "related": { "task": { "instance": "vikunja.example.com", "id": 101 } },
+      "details": { "label": "discuss" },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/101",
+        "note": "labels"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:41a1252a0dd29fcc6f9700f79601a7d5c08f6e0a859c3beda0cbb2adfa4bf6be",
+      "idKind": "fingerprint",
+      "kind": "task.bucket_observed",
+      "observedAt": "2026-03-02T14:00:30Z",
+      "actor": { "kind": "unknown" },
+      "related": { "task": { "instance": "vikunja.example.com", "id": 101 } },
+      "details": { "bucket": "Doing" },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/101?expand=buckets",
+        "note": "buckets"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/5001",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-03-02T09:01:05-05:00",
+      "observedAt": "2026-03-02T14:01:30Z",
+      "actor": { "login": "kelos-bot", "kind": "service" },
+      "related": { "task": { "instance": "vikunja.example.com", "id": 101 } },
+      "details": {
+        "pod": "vikunja-widgets-agent-opus-101-abcde",
+        "taskName": "vikunja-widgets-agent-opus-101"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/101/comments",
+        "note": "comment 5001"
+      }
+    },
+    {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "id": "pages/41",
+      "idKind": "source",
+      "kind": "page.created",
+      "sourceTime": "2026-03-02T14:07:16Z",
+      "observedAt": "2026-03-02T14:10:00Z",
+      "actor": { "login": "agent-opus", "kind": "agent" },
+      "related": { "page": { "instance": "wiki.example.com", "id": 41, "locale": "en" } },
+      "details": { "path": "widgets/reports/caching-options" },
+      "evidence": {
+        "source": "wiki",
+        "instance": "wiki.example.com",
+        "ref": "pages.single(id: 41)",
+        "note": "createdAt, creatorName"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/5002",
+      "idKind": "source",
+      "kind": "comment.created",
+      "sourceTime": "2026-03-02T09:07:29-05:00",
+      "observedAt": "2026-03-02T14:08:00Z",
+      "actor": { "login": "agent-opus", "kind": "agent" },
+      "related": { "task": { "instance": "vikunja.example.com", "id": 101 } },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/101/comments",
+        "note": "comment 5002"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000000101"
+      },
+      "taskName": "vikunja-widgets-agent-opus-101",
+      "pod": "vikunja-widgets-agent-opus-101-abcde",
+      "agent": "agent-opus",
+      "role": "discussion",
+      "interval": {
+        "start": { "state": "known", "at": "2026-03-02T14:01:02Z" },
+        "end": { "state": "known", "at": "2026-03-02T14:07:51Z" }
+      },
+      "outcome": "succeeded",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/vikunja-widgets-agent-opus-101-00000000",
+          "note": "phase Succeeded, startTime, completionTime"
+        }
+      ]
+    }
+  ],
+  "pullRequests": [],
+  "correlations": [
+    {
+      "from": { "kind": "run", "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000000101" },
+      "to": { "kind": "task", "id": "vikunja.example.com/tasks/101" },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/vikunja-widgets-agent-opus-101-00000000",
+          "note": "label vikunja-task=101"
+        }
+      ]
+    },
+    {
+      "from": { "kind": "event", "id": "vikunja/vikunja.example.com/comments/5001" },
+      "to": { "kind": "run", "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000000101" },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "ref": "GET /api/v1/tasks/101/comments",
+          "note": "comment 5001 names pod vikunja-widgets-agent-opus-101-abcde"
+        }
+      ]
+    },
+    {
+      "from": { "kind": "page", "id": "wiki.example.com/pages/41/en" },
+      "to": { "kind": "task", "id": "vikunja.example.com/tasks/101" },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "ref": "GET /api/v1/tasks/101/comments",
+          "note": "comment 5002 links the page"
+        }
+      ]
+    },
+    {
+      "from": { "kind": "event", "id": "wiki/wiki.example.com/pages/41" },
+      "to": { "kind": "run", "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000000101" },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "source": "wiki",
+          "instance": "wiki.example.com",
+          "ref": "pages.single(id: 41)",
+          "note": "created by agent-opus inside the run's interval; no other agent-opus run was running"
+        }
+      ]
+    }
+  ],
+  "coverage": [
+    { "source": "vikunja", "instance": "vikunja.example.com", "lastSuccessfulRead": "2026-03-02T15:00:00Z" },
+    { "source": "kelos", "instance": "cluster-a", "lastSuccessfulRead": "2026-03-02T15:00:00Z" },
+    { "source": "wiki", "instance": "wiki.example.com", "lastSuccessfulRead": "2026-03-02T15:00:00Z" },
+    { "source": "github", "instance": "github.example.com", "lastSuccessfulRead": "2026-03-02T15:00:00Z" }
+  ]
+}

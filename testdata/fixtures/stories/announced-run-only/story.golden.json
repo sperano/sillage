@@ -1,0 +1,180 @@
+{
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 105
+    }
+  },
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "tasks/105",
+      "idKind": "source",
+      "kind": "task.created",
+      "sourceTime": "2026-01-12T14:00:00Z",
+      "observedAt": "2026-03-01T12:00:00Z",
+      "actor": {
+        "login": "owner",
+        "kind": "person"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 105
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/105",
+        "note": "created, created_by"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/5501",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-01-12T14:03:10Z",
+      "observedAt": "2026-03-01T12:00:00Z",
+      "actor": {
+        "login": "kelos-bot",
+        "kind": "service"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 105
+        }
+      },
+      "details": {
+        "agent": "agent-opus",
+        "pod": "vikunja-widgets-agent-opus-105-x8z2w",
+        "taskName": "vikunja-widgets-agent-opus-105"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/105/comments",
+        "note": "comment 5501"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/5502",
+      "idKind": "source",
+      "kind": "comment.created",
+      "sourceTime": "2026-01-12T14:40:00Z",
+      "observedAt": "2026-03-01T12:00:00Z",
+      "actor": {
+        "login": "agent-opus",
+        "kind": "agent"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 105
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/105/comments",
+        "note": "comment 5502"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "pod": "vikunja-widgets-agent-opus-105-x8z2w"
+      },
+      "taskName": "vikunja-widgets-agent-opus-105",
+      "pod": "vikunja-widgets-agent-opus-105-x8z2w",
+      "agent": "agent-opus",
+      "role": "implementation",
+      "interval": {
+        "start": {
+          "state": "unknown"
+        },
+        "end": {
+          "state": "unknown"
+        }
+      },
+      "outcome": "unknown",
+      "evidence": [
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "ref": "GET /api/v1/tasks/105/comments",
+          "note": "comment 5501 announces the run; no Task or TaskRecord was ever read"
+        }
+      ]
+    }
+  ],
+  "pullRequests": [],
+  "correlations": [
+    {
+      "from": {
+        "kind": "event",
+        "id": "vikunja/vikunja.example.com/comments/5501"
+      },
+      "to": {
+        "kind": "run",
+        "id": "cluster-a/agents/pod/vikunja-widgets-agent-opus-105-x8z2w"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "ref": "GET /api/v1/tasks/105/comments",
+          "note": "comment 5501 names pod vikunja-widgets-agent-opus-105-x8z2w"
+        }
+      ]
+    },
+    {
+      "from": {
+        "kind": "run",
+        "id": "cluster-a/agents/pod/vikunja-widgets-agent-opus-105-x8z2w"
+      },
+      "to": {
+        "kind": "task",
+        "id": "vikunja.example.com/tasks/105"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "ref": "GET /api/v1/tasks/105/comments",
+          "note": "comment 5501 is on task 105"
+        }
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "source": "kelos",
+      "instance": "cluster-a",
+      "lastSuccessfulRead": "2026-03-01T12:00:00Z",
+      "gaps": [
+        {
+          "start": "2026-01-01T00:00:00Z",
+          "end": "2026-02-27T00:00:00Z",
+          "reason": "before the collector's first read; Tasks and TaskRecords of this period had expired"
+        }
+      ]
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "lastSuccessfulRead": "2026-03-01T12:00:00Z"
+    }
+  ]
+}

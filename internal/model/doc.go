@@ -5,6 +5,12 @@
 // pages, pull requests), and coverage (which time ranges each source is
 // known to have been read for, so that a gap stays visibly unknown).
 //
+// BuildStory assembles the records about one root (a Vikunja task, or a
+// wiki page for work requested from the wiki) into a Story: validated, in
+// UTC, in a deterministic order. The fabricated stories under
+// testdata/fixtures/stories are its golden tests and the shared contract
+// between adapters and the web UI.
+//
 // Every source adapter produces these types and every consumer (store, API,
 // web UI) reads them; nothing here knows how a source is queried.
 package model
