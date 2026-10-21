@@ -1,0 +1,13 @@
+[
+  {
+    "id": 9005,
+    "comment": "<p>PR: <a href=\"https://github.example.com/acme/demo/pull/12\">acme/demo#12</a></p>",
+    "author": {
+      "id": 21,
+      "username": "agent-opus",
+      "name": "Agent Opus"
+    },
+    "created": "2026-03-02T10:40:00-05:00",
+    "updated": "2026-03-02T10:41:30-05:00"
+  }
+]

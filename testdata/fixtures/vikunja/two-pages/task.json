@@ -1,0 +1,36 @@
+{
+  "id": 4201,
+  "project_id": 30,
+  "title": "Add a fabricated widget",
+  "identifier": "#1",
+  "created": "2026-03-02T09:00:00-05:00",
+  "updated": "2026-03-02T09:00:00-05:00",
+  "created_by": {
+    "id": 7,
+    "username": "owner",
+    "name": "Robin Owner"
+  },
+  "done": true,
+  "done_at": "2026-03-02T11:30:00-05:00",
+  "labels": [
+    {
+      "id": 3,
+      "title": "backend"
+    }
+  ],
+  "assignees": [
+    {
+      "id": 21,
+      "username": "agent-opus",
+      "name": "Agent Opus"
+    }
+  ],
+  "bucket_id": 0,
+  "buckets": [
+    {
+      "id": 14,
+      "title": "Done",
+      "project_view_id": 4
+    }
+  ]
+}
