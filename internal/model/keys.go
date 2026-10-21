@@ -73,7 +73,10 @@ func (k PageKey) Validate() error {
 // TaskRecord were gone before the collector looked) and the only evidence
 // is a start announcement, which names the pod but not the UID, the pod
 // name stands in for the UID: a pod belongs to exactly one attempt. Exactly
-// one of UID and Pod is set.
+// one of UID and Pod is set. Once the UID is read, the collector re-keys the
+// run by UID: a story never holds both keys for one pod. An announcement
+// names neither cluster nor namespace; the collector takes them from the
+// configuration of the Kelos instance the announcement links to.
 type RunKey struct {
 	Cluster   string `json:"cluster"`
 	Namespace string `json:"namespace"`

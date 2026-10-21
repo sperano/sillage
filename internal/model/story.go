@@ -46,8 +46,9 @@ func (r Records) validate() error {
 	return errors.Join(
 		validateAll(r.Events, Event.Validate, Event.Key),
 		validateAll(r.Runs, Run.Validate, func(run Run) string { return run.Key.String() }),
+		validateRunPods(r.Runs),
 		validateAll(r.PullRequests, PullRequest.Validate, func(p PullRequest) string { return p.Key.String() }),
-		validateAll(r.Correlations, Correlation.Validate, Correlation.String),
+		validateAll(r.Correlations, Correlation.Validate, Correlation.pairKey),
 		validateAll(r.Coverage, Coverage.Validate, Coverage.Key),
 	)
 }
@@ -66,6 +67,25 @@ func validateAll[T any](records []T, validate func(T) error, key func(T) string)
 			errs = append(errs, fmt.Errorf("%s: duplicate record", k))
 		}
 		seen[k] = true
+	}
+	return errors.Join(errs...)
+}
+
+// validateRunPods rejects a run keyed by pod when a run keyed by UID names
+// the same pod: they are one attempt, which the collector must re-key by UID
+// rather than keep twice.
+func validateRunPods(runs []Run) error {
+	byUID := make(map[RunKey]bool)
+	for _, r := range runs {
+		if r.Key.UID != "" && r.Pod != "" {
+			byUID[RunKey{Cluster: r.Key.Cluster, Namespace: r.Key.Namespace, Pod: r.Pod}] = true
+		}
+	}
+	var errs []error
+	for _, r := range runs {
+		if r.Key.Pod != "" && byUID[r.Key] {
+			errs = append(errs, fmt.Errorf("run %s: a run keyed by UID names the same pod", r.Key))
+		}
 	}
 	return errors.Join(errs...)
 }

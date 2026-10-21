@@ -121,6 +121,21 @@ func TestBuildStoryRejectsDuplicateRecords(t *testing.T) {
 			"",
 		},
 		{
+			"one pod keyed by pod and by uid",
+			Records{Runs: []Run{withPod(testRun("uid-1"), testPod), podKeyedRun(testPod)}},
+			"a run keyed by UID names the same pod",
+		},
+		{
+			"a pod-keyed run and a uid-keyed run of another pod",
+			Records{Runs: []Run{withPod(testRun("uid-1"), testPod), podKeyedRun("other-pod")}},
+			"",
+		},
+		{
+			"one correlation recorded from each end",
+			Records{Correlations: []Correlation{testCorrelation(), reversed(testCorrelation())}},
+			"duplicate record",
+		},
+		{
 			"duplicate pull requests",
 			Records{PullRequests: []PullRequest{testPullRequest(), testPullRequest()}},
 			"duplicate record",
@@ -425,4 +440,28 @@ func TestBuildStoryIsRepeatable(t *testing.T) {
 	if !reflect.DeepEqual(first, second) {
 		t.Error("building twice from the same records gave different stories")
 	}
+}
+
+// testPod is the pod of the run the pod-keying tests share.
+const testPod = "task-42-abcde"
+
+func withPod(r Run, pod string) Run {
+	r.Pod = pod
+	return r
+}
+
+// podKeyedRun returns a valid run known only from an announcement naming
+// pod.
+func podKeyedRun(pod string) Run {
+	r := testRun("")
+	r.Key.Pod = pod
+	r.Pod = pod
+	r.Interval = Interval{Start: UnknownBound(), End: UnknownBound()}
+	r.Outcome = OutcomeUnknown
+	return r
+}
+
+func reversed(c Correlation) Correlation {
+	c.From, c.To = c.To, c.From
+	return c
 }

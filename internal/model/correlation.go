@@ -34,6 +34,16 @@ type Correlation struct {
 
 func (c Correlation) String() string { return c.From.String() + " -> " + c.To.String() }
 
+// pairKey identifies the pair of records whatever the direction, so that a
+// link recorded from each end counts as one.
+func (c Correlation) pairKey() string {
+	from, to := c.From.String(), c.To.String()
+	if to < from {
+		from, to = to, from
+	}
+	return from + " <-> " + to
+}
+
 // Validate reports whether the correlation is complete.
 func (c Correlation) Validate() error {
 	if err := c.validate(); err != nil {
