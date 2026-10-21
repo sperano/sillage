@@ -41,10 +41,12 @@ func Branch(pageID int64) string {
 // records is claimed: no comment edits, no reading.
 //
 // A trail version's id is its history version id. The live version has
-// none yet: its id is a fingerprint of its time and action, and once a
-// later save archives it, the version's event names that fingerprint in
-// its "supersedes" detail, so the record from the earlier read can be
-// replaced rather than kept twice. Every event is validated.
+// none yet: its id is a fingerprint of its time and action. A page has at
+// most one live record: whatever a newer read of the page returns
+// replaces it, since its updatedAt can also move without a new version
+// (the render a few seconds after a save, a re-render). Once a later save
+// archives the live version, the version's event also names that
+// fingerprint in its "supersedes" detail. Every event is validated.
 func Normalize(s Snapshot, agentUsers []int64) (model.Records, error) {
 	n := normalizer{
 		s:      s,
@@ -99,7 +101,9 @@ type state struct {
 	from, to  string
 }
 
-// states lists the page's states, oldest first, the live one last.
+// states lists the page's states, oldest first, the live one last. The
+// live page is left out when the newest trail version is not older: a
+// save during the read archived the state the live page showed.
 func (n *normalizer) states() []state {
 	out := make([]state, 0, len(n.s.Trail)+1)
 	for _, v := range n.s.Trail {
@@ -111,6 +115,9 @@ func (n *normalizer) states() []state {
 			st.from, st.to = *v.ValueBefore, *v.ValueAfter
 		}
 		out = append(out, st)
+	}
+	if k := len(n.s.Trail); k > 0 && !n.s.Trail[k-1].VersionDate.Before(n.s.Page.UpdatedAt) {
+		return out
 	}
 	live := state{at: n.s.Page.UpdatedAt}
 	if !n.s.Restricted {

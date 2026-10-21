@@ -47,8 +47,8 @@ const (
 // the newest trail version's path, and its comments.
 //
 // The live page is read first: a save during the read then shows up as a
-// trail version the live page already showed, never as a version missing
-// between the trail and the live page. A token that may not read
+// trail version the live page already showed (Normalize keeps it once),
+// never as a version missing between the trail and the live page. A token that may not read
 // pages.single (it needs manage:pages or delete:pages, and the author
 // fields write:pages) falls back to pages.list, which needs only
 // read:pages but names neither the live version's author nor the

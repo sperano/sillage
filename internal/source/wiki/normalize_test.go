@@ -315,3 +315,20 @@ func TestNormalizeRejectsInvalidPage(t *testing.T) {
 		t.Error("Normalize accepted a page without a locale")
 	}
 }
+
+// A save between the live page's read and the trail's archives the state
+// the live page showed: it is kept once, as the trail version.
+func TestNormalizeSaveDuringRead(t *testing.T) {
+	edit := t0.Add(time.Hour)
+	events := normalizeHand(t, Snapshot{
+		Page:  handPage(edit, testOpus),
+		Trail: []Version{handVersion(1, t0.Add(renderDelay), testOwner), handVersion(2, edit, testOpus)},
+	})
+	want := []summary{
+		{model.KindPageCreated, "pages/60", "Robin Owner/person"},
+		{model.KindPageEdited, "pages/60/versions/2", "Agent Opus/agent"},
+	}
+	if got := summarize(events); !slices.Equal(got, want) {
+		t.Fatalf("events =\n%v\nwant\n%v", got, want)
+	}
+}

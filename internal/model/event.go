@@ -26,7 +26,8 @@ const (
 
 	KindPageCreated EventKind = "page.created"
 	// KindPageEdited: a save of the page (details: "version", the history
-	// version id, or "live" for the current version, which has none yet).
+	// version id, or "live" for the current version, which has none yet;
+	// a page has at most one live record, which a newer read replaces).
 	KindPageEdited EventKind = "page.edited"
 	// KindPageMoved: the page's path changed (details: "from", "to"). The
 	// source does not record who moved it, so its actor is unknown.
