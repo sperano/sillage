@@ -1,0 +1,142 @@
+{
+  "events": [
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "pulls/7041",
+      "idKind": "source",
+      "kind": "pr.opened",
+      "sourceTime": "2026-04-03T08:00:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "executor": {
+        "name": "agent-opus",
+        "kind": "agent"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 41
+        }
+      },
+      "details": {
+        "branch": "kelos/vikunja-4302"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/41",
+        "note": "user owner-gh; label kelos:agent-opus, added by the author at creation (event 8401), names the executor"
+      }
+    }
+  ],
+  "pullRequests": [
+    {
+      "key": {
+        "instance": "github.example.com",
+        "repository": "example-org/widgets",
+        "number": 41
+      },
+      "branch": "kelos/vikunja-4302",
+      "checks": [
+        {
+          "id": 9401,
+          "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "test",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-04-03T08:00:30Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-04-03T08:03:00Z"
+            }
+          },
+          "conclusion": "failure"
+        },
+        {
+          "id": 9402,
+          "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "lint",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-04-03T08:00:30Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-04-03T08:01:00Z"
+            }
+          },
+          "conclusion": "success"
+        },
+        {
+          "id": 9403,
+          "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "name": "test",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-04-03T08:20:10Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-04-03T08:23:00Z"
+            }
+          },
+          "conclusion": "failure"
+        },
+        {
+          "id": 9404,
+          "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "name": "test",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-04-03T08:25:00Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-04-03T08:28:00Z"
+            }
+          },
+          "conclusion": "success"
+        },
+        {
+          "id": 9405,
+          "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "name": "lint",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-04-03T08:20:10Z"
+            },
+            "end": {
+              "state": "open"
+            }
+          },
+          "conclusion": "pending"
+        },
+        {
+          "id": 9406,
+          "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "name": "deploy-preview",
+          "interval": {
+            "start": {
+              "state": "unknown"
+            },
+            "end": {
+              "state": "open"
+            }
+          },
+          "conclusion": "pending"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "total_count": 2,
+  "check_runs": [
+    {
+      "id": 9403,
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "name": "test",
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-04-03T08:20:10Z",
+      "completed_at": "2026-04-03T08:23:00Z"
+    },
+    {
+      "id": 9404,
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "name": "test",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-04-03T08:25:00Z",
+      "completed_at": "2026-04-03T08:28:00Z"
+    }
+  ]
+}

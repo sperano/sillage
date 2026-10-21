@@ -35,28 +35,39 @@ const (
 	// "taskName", "pod").
 	KindRunAnnounced EventKind = "run.announced"
 
-	KindPROpened        EventKind = "pr.opened"
-	KindReviewSubmitted EventKind = "pr.review_submitted"
-	KindPRMerged        EventKind = "pr.merged"
+	KindPROpened EventKind = "pr.opened"
+	// KindReviewRequested: a review was asked of a user (details:
+	// "reviewer") or a team (details: "team").
+	KindReviewRequested EventKind = "pr.review_requested"
+	// KindReviewRequestRemoved: such a request was withdrawn (same
+	// details).
+	KindReviewRequestRemoved EventKind = "pr.review_request_removed"
+	KindReviewSubmitted      EventKind = "pr.review_submitted"
+	KindPRMerged             EventKind = "pr.merged"
 	// KindPRClosed: closed without being merged.
 	KindPRClosed EventKind = "pr.closed"
+	// KindPRReopened: a closed, unmerged pull request was reopened.
+	KindPRReopened EventKind = "pr.reopened"
 )
 
 // kindSources lists the sources each kind can come from.
 var kindSources = map[EventKind][]Source{
-	KindTaskCreated:        {SourceVikunja},
-	KindTaskBucketObserved: {SourceVikunja},
-	KindTaskLabelObserved:  {SourceVikunja},
-	KindTaskDone:           {SourceVikunja},
-	KindPageCreated:        {SourceWiki},
-	KindPageEdited:         {SourceWiki},
-	KindComment:            {SourceVikunja, SourceWiki, SourceGitHub},
-	KindRequest:            {SourceVikunja, SourceWiki, SourceGitHub},
-	KindRunAnnounced:       {SourceVikunja, SourceWiki, SourceGitHub},
-	KindPROpened:           {SourceGitHub},
-	KindReviewSubmitted:    {SourceGitHub},
-	KindPRMerged:           {SourceGitHub},
-	KindPRClosed:           {SourceGitHub},
+	KindTaskCreated:          {SourceVikunja},
+	KindTaskBucketObserved:   {SourceVikunja},
+	KindTaskLabelObserved:    {SourceVikunja},
+	KindTaskDone:             {SourceVikunja},
+	KindPageCreated:          {SourceWiki},
+	KindPageEdited:           {SourceWiki},
+	KindComment:              {SourceVikunja, SourceWiki, SourceGitHub},
+	KindRequest:              {SourceVikunja, SourceWiki, SourceGitHub},
+	KindRunAnnounced:         {SourceVikunja, SourceWiki, SourceGitHub},
+	KindPROpened:             {SourceGitHub},
+	KindReviewRequested:      {SourceGitHub},
+	KindReviewRequestRemoved: {SourceGitHub},
+	KindReviewSubmitted:      {SourceGitHub},
+	KindPRMerged:             {SourceGitHub},
+	KindPRClosed:             {SourceGitHub},
+	KindPRReopened:           {SourceGitHub},
 }
 
 // IDKind says where an event id comes from.

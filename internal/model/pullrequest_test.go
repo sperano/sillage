@@ -102,7 +102,7 @@ func TestPullRequestValidateChecks(t *testing.T) {
 func TestCheckConclusionsValid(t *testing.T) {
 	completed := []CheckConclusion{
 		CheckSuccess, CheckFailure, CheckCancelled, CheckTimedOut,
-		CheckNeutral, CheckSkipped, CheckActionRequired,
+		CheckNeutral, CheckSkipped, CheckActionRequired, CheckStale,
 	}
 	for _, c := range completed {
 		check := testCheck(testCheckID, testSHA)

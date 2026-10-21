@@ -1,0 +1,14 @@
+{
+  "total_count": 1,
+  "check_runs": [
+    {
+      "id": 9301,
+      "head_sha": "3333333333333333333333333333333333333333",
+      "name": "lint",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "started_at": "2026-04-02T09:00:20Z",
+      "completed_at": "2026-04-02T09:01:00Z"
+    }
+  ]
+}

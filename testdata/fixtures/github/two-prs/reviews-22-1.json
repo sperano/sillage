@@ -1,0 +1,19 @@
+[
+  {
+    "id": 3201,
+    "user": {
+      "login": "reviewer-gh",
+      "type": "User"
+    },
+    "state": "APPROVED",
+    "submitted_at": "2026-04-01T12:50:00Z"
+  },
+  {
+    "id": 3202,
+    "user": {
+      "login": "owner-gh",
+      "type": "User"
+    },
+    "state": "PENDING"
+  }
+]

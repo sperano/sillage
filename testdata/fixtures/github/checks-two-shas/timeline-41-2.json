@@ -1,0 +1,22 @@
+[
+  {
+    "event": "committed",
+    "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "author": {
+      "name": "Owner",
+      "date": "2026-04-01T09:59:00Z"
+    }
+  },
+  {
+    "id": 8402,
+    "event": "labeled",
+    "actor": {
+      "login": "owner-gh",
+      "type": "User"
+    },
+    "created_at": "2026-04-03T09:00:00Z",
+    "label": {
+      "name": "kelos:agent-sonnet"
+    }
+  }
+]

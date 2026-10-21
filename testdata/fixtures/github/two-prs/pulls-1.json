@@ -1,0 +1,56 @@
+[
+  {
+    "id": 7021,
+    "number": 21,
+    "state": "closed",
+    "title": "Fabricated change 21",
+    "user": {
+      "login": "owner-gh",
+      "type": "User"
+    },
+    "created_at": "2026-04-01T10:00:00Z",
+    "closed_at": "2026-04-01T12:00:00Z",
+    "merged_at": null,
+    "head": {
+      "ref": "kelos/vikunja-4301",
+      "sha": "1111111111111111111111111111111111111111",
+      "repo": {
+        "full_name": "example-org/widgets"
+      }
+    },
+    "base": {
+      "ref": "main",
+      "sha": "0000000000000000000000000000000000000000",
+      "repo": {
+        "full_name": "example-org/widgets"
+      }
+    }
+  },
+  {
+    "id": 7022,
+    "number": 22,
+    "state": "closed",
+    "title": "Fabricated change 22",
+    "user": {
+      "login": "owner-gh",
+      "type": "User"
+    },
+    "created_at": "2026-04-01T12:05:00Z",
+    "closed_at": "2026-04-01T13:00:00Z",
+    "merged_at": "2026-04-01T13:00:00Z",
+    "head": {
+      "ref": "kelos/vikunja-4301",
+      "sha": "2222222222222222222222222222222222222222",
+      "repo": {
+        "full_name": "example-org/widgets"
+      }
+    },
+    "base": {
+      "ref": "main",
+      "sha": "0000000000000000000000000000000000000000",
+      "repo": {
+        "full_name": "example-org/widgets"
+      }
+    }
+  }
+]

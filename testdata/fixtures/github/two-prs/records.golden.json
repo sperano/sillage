@@ -1,0 +1,418 @@
+{
+  "events": [
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "pulls/7021",
+      "idKind": "source",
+      "kind": "pr.opened",
+      "sourceTime": "2026-04-01T10:00:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "executor": {
+        "name": "agent-opus",
+        "kind": "agent"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 21
+        }
+      },
+      "details": {
+        "branch": "kelos/vikunja-4301"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/21",
+        "note": "user owner-gh; label kelos:agent-opus, added by the author at creation (event 8101), names the executor"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/events/8102",
+      "idKind": "source",
+      "kind": "pr.review_requested",
+      "sourceTime": "2026-04-01T10:05:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 21
+        }
+      },
+      "details": {
+        "reviewer": "reviewer-gh"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/21/timeline",
+        "note": "event 8102, review_requested"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/events/8103",
+      "idKind": "source",
+      "kind": "pr.closed",
+      "sourceTime": "2026-04-01T11:00:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 21
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/21/timeline",
+        "note": "event 8103, closed"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/events/8104",
+      "idKind": "source",
+      "kind": "pr.reopened",
+      "sourceTime": "2026-04-01T11:30:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 21
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/21/timeline",
+        "note": "event 8104, reopened"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5201",
+      "idKind": "source",
+      "kind": "comment.created",
+      "sourceTime": "2026-04-01T11:59:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 21
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/21/comments",
+        "note": "comment 5201"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/events/8105",
+      "idKind": "source",
+      "kind": "pr.closed",
+      "sourceTime": "2026-04-01T12:00:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 21
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/21/timeline",
+        "note": "event 8105, closed"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "pulls/7022",
+      "idKind": "source",
+      "kind": "pr.opened",
+      "sourceTime": "2026-04-01T12:05:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 22
+        }
+      },
+      "details": {
+        "branch": "kelos/vikunja-4301"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/22",
+        "note": "user owner-gh"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/events/8203",
+      "idKind": "source",
+      "kind": "pr.review_requested",
+      "sourceTime": "2026-04-01T12:06:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 22
+        }
+      },
+      "details": {
+        "team": "maintainers"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/22/timeline",
+        "note": "event 8203, review_requested"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/events/8204",
+      "idKind": "source",
+      "kind": "pr.review_request_removed",
+      "sourceTime": "2026-04-01T12:07:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 22
+        }
+      },
+      "details": {
+        "team": "maintainers"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/22/timeline",
+        "note": "event 8204, review_request_removed"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5202",
+      "idKind": "source",
+      "kind": "request.created",
+      "sourceTime": "2026-04-01T12:30:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 22
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/22/comments",
+        "note": "comment 5202"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5203",
+      "idKind": "source",
+      "kind": "comment.created",
+      "sourceTime": "2026-04-01T12:40:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "preview-helper[bot]",
+        "kind": "service"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 22
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/22/comments",
+        "note": "comment 5203"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "reviews/3201",
+      "idKind": "source",
+      "kind": "pr.review_submitted",
+      "sourceTime": "2026-04-01T12:50:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "reviewer-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 22
+        }
+      },
+      "details": {
+        "state": "approved"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/22/reviews",
+        "note": "review 3201"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/events/8205",
+      "idKind": "source",
+      "kind": "pr.merged",
+      "sourceTime": "2026-04-01T13:00:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 22
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/22/timeline",
+        "note": "event 8205, merged"
+      }
+    }
+  ],
+  "pullRequests": [
+    {
+      "key": {
+        "instance": "github.example.com",
+        "repository": "example-org/widgets",
+        "number": 21
+      },
+      "branch": "kelos/vikunja-4301",
+      "checks": [
+        {
+          "id": 9201,
+          "sha": "1111111111111111111111111111111111111111",
+          "name": "test",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-04-01T10:00:30Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-04-01T10:03:00Z"
+            }
+          },
+          "conclusion": "failure"
+        }
+      ]
+    },
+    {
+      "key": {
+        "instance": "github.example.com",
+        "repository": "example-org/widgets",
+        "number": 22
+      },
+      "branch": "kelos/vikunja-4301",
+      "checks": [
+        {
+          "id": 9202,
+          "sha": "2222222222222222222222222222222222222222",
+          "name": "test",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-04-01T12:05:30Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-04-01T12:08:00Z"
+            }
+          },
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}
