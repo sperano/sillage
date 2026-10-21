@@ -1,0 +1,186 @@
+[
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "pages/59",
+    "idKind": "source",
+    "kind": "page.created",
+    "sourceTime": "2026-03-06T08:00:00.3Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Robin Owner",
+      "kind": "person"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 59,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "7"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "pages.list",
+      "note": "createdAt; creator: author of history version 300"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "comments/950",
+    "idKind": "source",
+    "kind": "request.created",
+    "sourceTime": "2026-03-06T09:00:00Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Robin Owner",
+      "kind": "person"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 59,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "7",
+      "command": "/kelos"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "comments.list(locale: en, path: widgets/notes/capacity)",
+      "note": "comment 950: createdAt, authorId, authorName"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "comments/951",
+    "idKind": "source",
+    "kind": "run.announced",
+    "sourceTime": "2026-03-06T09:00:20Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Agent Opus",
+      "kind": "agent"
+    },
+    "executor": {
+      "name": "agent-opus",
+      "kind": "agent"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 59,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "21",
+      "model": "example-model-2[1m]",
+      "namespace": "agents",
+      "pod": "wiki-fu-widgets-59-c950-klmno",
+      "requestComment": "950",
+      "taskName": "wiki-fu-widgets-59-c950",
+      "workspace": "widgets"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "comments.list(locale: en, path: widgets/notes/capacity)",
+      "note": "comment 951: createdAt, authorId, authorName, and the Kelos Task, pod and namespace it names"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "comments/952",
+    "idKind": "source",
+    "kind": "comment.created",
+    "sourceTime": "2026-03-06T09:10:00Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Robin Owner",
+      "kind": "person"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 59,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "7"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "comments.list(locale: en, path: widgets/notes/capacity)",
+      "note": "comment 952: createdAt, authorId, authorName"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "comments/953",
+    "idKind": "source",
+    "kind": "comment.created",
+    "sourceTime": "2026-03-06T09:12:00Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Agent Opus",
+      "kind": "agent"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 59,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "21"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "comments.list(locale: en, path: widgets/notes/capacity)",
+      "note": "comment 953: createdAt, authorId, authorName; reads like a start announcement but names no Kelos Task of this page"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "sha256:dc7eea5626ddff11384d1b09b2857d34f85e247810fbd4fc4d11b06c9b7aa0a4",
+    "idKind": "fingerprint",
+    "kind": "page.edited",
+    "sourceTime": "2026-03-06T09:30:00.8Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "kind": "unknown"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 59,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "version": "live"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "pages.list",
+      "note": "updatedAt of the live page; the token may not read its author (pages.single needs manage:pages or delete:pages, its author write:pages); Wiki.js 2 archives a version only when the next save replaces it"
+    }
+  }
+]

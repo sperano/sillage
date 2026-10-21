@@ -25,14 +25,19 @@ const (
 	KindTaskDone EventKind = "task.done"
 
 	KindPageCreated EventKind = "page.created"
-	KindPageEdited  EventKind = "page.edited"
+	// KindPageEdited: a save of the page (details: "version", the history
+	// version id, or "live" for the current version, which has none yet).
+	KindPageEdited EventKind = "page.edited"
+	// KindPageMoved: the page's path changed (details: "from", "to"). The
+	// source does not record who moved it, so its actor is unknown.
+	KindPageMoved EventKind = "page.moved"
 
 	// KindComment: a comment on a task, a page or a pull request.
 	KindComment EventKind = "comment.created"
 	// KindRequest: a comment asking an agent to act (/kelos).
 	KindRequest EventKind = "request.created"
-	// KindRunAnnounced: the service account announced a run (details:
-	// "taskName", "pod").
+	// KindRunAnnounced: a run's start announcement, posted by the service
+	// account or by the agent's own account (details: "taskName", "pod").
 	KindRunAnnounced EventKind = "run.announced"
 
 	KindPROpened EventKind = "pr.opened"
@@ -58,6 +63,7 @@ var kindSources = map[EventKind][]Source{
 	KindTaskDone:             {SourceVikunja},
 	KindPageCreated:          {SourceWiki},
 	KindPageEdited:           {SourceWiki},
+	KindPageMoved:            {SourceWiki},
 	KindComment:              {SourceVikunja, SourceWiki, SourceGitHub},
 	KindRequest:              {SourceVikunja, SourceWiki, SourceGitHub},
 	KindRunAnnounced:         {SourceVikunja, SourceWiki, SourceGitHub},

@@ -1,0 +1,29 @@
+{
+  "data": {
+    "pages": {
+      "history": {
+        "trail": [
+          {
+            "versionId": 205,
+            "versionDate": "2026-03-05T11:41:00.300Z",
+            "authorId": 21,
+            "authorName": "Agent Opus",
+            "actionType": "edit",
+            "valueBefore": null,
+            "valueAfter": null
+          },
+          {
+            "versionId": 204,
+            "versionDate": "2026-03-05T11:30:00.900Z",
+            "authorId": 22,
+            "authorName": "Agent Sol",
+            "actionType": "move",
+            "valueBefore": "widgets/runbooks/deploy",
+            "valueAfter": "widgets/runbooks/release"
+          }
+        ],
+        "total": 6
+      }
+    }
+  }
+}
