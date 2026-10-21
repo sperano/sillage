@@ -40,7 +40,7 @@ func TestReadOnlyListsItsNamespace(t *testing.T) {
 	objs := append(storyObjects(t, "task-with-record"),
 		object("Task", "elsewhere", "other-task"), object("TaskRecord", "elsewhere", "other-record"))
 	client := newFakeClient(objs...)
-	s, err := newTestReader(client).Read(t.Context())
+	s, err := newTestReader(t, client).Read(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestReadReportsListErrors(t *testing.T) {
 			client.PrependReactor("list", resource, func(k8stesting.Action) (bool, runtime.Object, error) {
 				return true, nil, errors.New("forbidden")
 			})
-			_, err := newTestReader(client).Read(t.Context())
+			_, err := newTestReader(t, client).Read(t.Context())
 			if err == nil || !strings.Contains(err.Error(), "list "+resource+" in agents: forbidden") {
 				t.Errorf("Read error = %v, want the %s list's", err, resource)
 			}
@@ -89,6 +89,14 @@ func (f *fakePages) list(_ context.Context, opts metav1.ListOptions) (*unstructu
 		page.SetContinue("token-" + f.pages[i+1][0])
 	}
 	return page, nil
+}
+
+func TestNewReaderRejectsInvalidConfig(t *testing.T) {
+	cfg := testConfig()
+	cfg.Namespace = ""
+	if _, err := NewReader(newFakeClient(), cfg); err == nil || !strings.Contains(err.Error(), EnvNamespace) {
+		t.Errorf("NewReader error = %v, want the namespace rejected", err)
+	}
 }
 
 func TestListAllFollowsContinue(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -24,6 +25,9 @@ type attempt struct {
 // name stay two runs: nothing is joined by name. Every record is
 // validated; an invalid object fails the whole read, naming the object.
 func Normalize(cfg Config, s Snapshot) (model.Records, error) {
+	if err := cfg.Validate(); err != nil {
+		return model.Records{}, err
+	}
 	attempts, err := pair(cfg, s)
 	if err != nil {
 		return model.Records{}, err
@@ -49,38 +53,36 @@ func Normalize(cfg Config, s Snapshot) (model.Records, error) {
 // TaskRecord names its Task's UID in spec.taskRef.uid.
 func pair(cfg Config, s Snapshot) ([]*attempt, error) {
 	byUID := make(map[types.UID]*attempt)
-	get := func(uid types.UID) *attempt {
-		a, ok := byUID[uid]
-		if !ok {
-			a = &attempt{uid: uid}
-			byUID[uid] = a
-		}
-		return a
-	}
 	var errs []error
 	for i := range s.Tasks {
 		t := &s.Tasks[i]
-		if a := get(t.UID); t.UID == "" || a.task != nil {
-			errs = append(errs, fmt.Errorf("task %s: no uid, or one seen twice", cfg.taskRef(t.Name)))
-		} else {
-			a.task = t
+		switch a := byUID[t.UID]; {
+		case t.UID == "":
+			errs = append(errs, fmt.Errorf("task %s: no uid", cfg.taskRef(t.Name)))
+		case a == nil:
+			byUID[t.UID] = &attempt{uid: t.UID, task: t}
+		default:
+			errs = append(errs, fmt.Errorf("task %s: uid %s seen twice", cfg.taskRef(t.Name), t.UID))
 		}
 	}
 	for i := range s.Records {
 		r := &s.Records[i]
-		if a := get(r.Spec.TaskRef.UID); r.Spec.TaskRef.UID == "" || a.record != nil {
-			errs = append(errs, fmt.Errorf("taskrecord %s: no spec.taskRef.uid, or one seen twice", cfg.recordRef(r.Name)))
-		} else {
+		uid := r.Spec.TaskRef.UID
+		switch a := byUID[uid]; {
+		case uid == "":
+			errs = append(errs, fmt.Errorf("taskrecord %s: no spec.taskRef.uid", cfg.recordRef(r.Name)))
+		case a == nil:
+			byUID[uid] = &attempt{uid: uid, record: r}
+		case a.record == nil:
 			a.record = r
+		default:
+			errs = append(errs, fmt.Errorf("taskrecord %s: task uid %s seen twice", cfg.recordRef(r.Name), uid))
 		}
 	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, fmt.Errorf("kelos: %w", err)
 	}
-	out := make([]*attempt, 0, len(byUID))
-	for _, a := range byUID {
-		out = append(out, a)
-	}
+	out := slices.Collect(maps.Values(byUID))
 	slices.SortFunc(out, func(a, b *attempt) int { return cmp.Compare(a.uid, b.uid) })
 	return out, nil
 }

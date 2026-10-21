@@ -3,7 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
-	"math/big"
+	"regexp"
 	"time"
 )
 
@@ -114,12 +114,13 @@ type Usage struct {
 	OutputTokens *int64 `json:"outputTokens,omitempty"`
 }
 
+// decimalPattern matches a non-negative decimal without sign, exponent or
+// redundant leading zero: "0", "3", "0.42".
+var decimalPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)(\.[0-9]+)?$`)
+
 func (u Usage) validate() error {
-	if u.CostUSD != "" {
-		cost, ok := new(big.Rat).SetString(u.CostUSD)
-		if !ok || cost.Sign() < 0 {
-			return fmt.Errorf("usage: cost %q is not a non-negative decimal", u.CostUSD)
-		}
+	if u.CostUSD != "" && !decimalPattern.MatchString(u.CostUSD) {
+		return fmt.Errorf("usage: cost %q is not a non-negative decimal", u.CostUSD)
 	}
 	if (u.InputTokens != nil && *u.InputTokens < 0) || (u.OutputTokens != nil && *u.OutputTokens < 0) {
 		return errors.New("usage: a token count is negative")
@@ -127,7 +128,8 @@ func (u Usage) validate() error {
 	return nil
 }
 
-func (u *Usage) clone() *Usage {
+// Clone returns a deep copy of u, or nil for a nil u.
+func (u *Usage) Clone() *Usage {
 	if u == nil {
 		return nil
 	}

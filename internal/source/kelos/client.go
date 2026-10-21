@@ -58,12 +58,14 @@ func restConfig() (*rest.Config, error) {
 	return cfg, nil
 }
 
-// Snapshot is one read of a namespace's Tasks and TaskRecords.
+// Snapshot is one read of a namespace's Tasks and TaskRecords. The Tasks
+// are listed first, then the TaskRecords: the two lists are not one atomic
+// view, so a Task that completes in between can appear in both.
 type Snapshot struct {
 	Tasks   []Task
 	Records []TaskRecord
-	// ObservedAt is when the read started: a run still going then has an
-	// open end.
+	// ObservedAt is when the read started, before the first list: the time
+	// a coverage record can claim the namespace was read up to.
 	ObservedAt time.Time
 }
 
@@ -75,11 +77,16 @@ type Reader struct {
 }
 
 // NewReader returns a reader of cfg's namespace through client.
-func NewReader(client dynamic.Interface, cfg Config) *Reader {
-	return &Reader{client: client, cfg: cfg, now: time.Now}
+func NewReader(client dynamic.Interface, cfg Config) (*Reader, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return &Reader{client: client, cfg: cfg, now: time.Now}, nil
 }
 
-// Read lists every Task and TaskRecord of the namespace, page by page.
+// Read lists every Task and TaskRecord of the namespace, page by page. Any
+// failed request fails the read, including a continue token that expired
+// between two pages (410 Gone); the caller reads again later.
 func (r *Reader) Read(ctx context.Context) (Snapshot, error) {
 	s := Snapshot{ObservedAt: r.now()}
 	var err error

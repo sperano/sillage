@@ -141,9 +141,10 @@ func TestNormalizeRejectsObjectsWithoutUIDOrSeenTwice(t *testing.T) {
 		want string
 	}{
 		{"task without uid", Snapshot{Tasks: []Task{noUID}}, "task tasks/agents/no-uid: no uid"},
-		{"task twice", Snapshot{Tasks: []Task{task, task}}, "task tasks/agents/t: no uid, or one seen twice"},
+		{"task twice", Snapshot{Tasks: []Task{task, task}}, "task tasks/agents/t: uid u1 seen twice"},
 		{"record without uid", Snapshot{Records: []TaskRecord{{}}}, "no spec.taskRef.uid"},
-		{"record twice", Snapshot{Records: []TaskRecord{record, record}}, "taskrecord taskrecords/agents/u1: no spec.taskRef.uid, or one seen twice"},
+		{"record twice", Snapshot{Records: []TaskRecord{record, record}}, "taskrecord taskrecords/agents/u1: task uid u1 seen twice"},
+		{"record twice with its task", Snapshot{Tasks: []Task{task}, Records: []TaskRecord{record, record}}, "task uid u1 seen twice"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -151,6 +152,14 @@ func TestNormalizeRejectsObjectsWithoutUIDOrSeenTwice(t *testing.T) {
 				t.Errorf("error = %v, want %q", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestNormalizeRejectsInvalidConfig(t *testing.T) {
+	cfg := testConfig()
+	cfg.LabelDomain = ""
+	if _, err := Normalize(cfg, Snapshot{}); err == nil || !strings.Contains(err.Error(), EnvLabelDomain) {
+		t.Errorf("error = %v, want the label domain rejected", err)
 	}
 }
 

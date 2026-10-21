@@ -43,7 +43,7 @@ func (c Config) build(a *attempt) (model.Run, *model.Correlation) {
 	b.taskOnly()
 	link := b.labels()
 	b.lifecycle()
-	b.model()
+	b.effectiveModel()
 	b.usage()
 	b.run.Evidence = b.evidence()
 	return b.run, link
@@ -147,31 +147,44 @@ func (b *runBuilder) taskLink(labels map[string]string, ref string) *model.Corre
 func (b *runBuilder) lifecycle() {
 	if r := b.a.record; r != nil {
 		s := r.Spec
-		b.timesFromRecord = b.setLifecycle(s.Phase, s.StartTime, s.CompletionTime, "spec.", b.fromRecord)
+		b.timesFromRecord = b.setLifecycle(lifecycleOf{s.Phase, s.StartTime, s.CompletionTime, true}, "spec.", b.fromRecord)
 		return
 	}
 	s := b.a.task.Status
-	if b.setLifecycle(s.Phase, s.StartTime, s.CompletionTime, "status.", b.fromTask) {
+	if b.setLifecycle(lifecycleOf{s.Phase, s.StartTime, s.CompletionTime, false}, "status.", b.fromTask) {
 		b.timesFromTask = true
 	}
 }
 
+// lifecycleOf is an object's phase and times.
+type lifecycleOf struct {
+	phase      Phase
+	start, end *metav1.Time
+	// completed is set for a TaskRecord, which Kelos writes only once its
+	// Task completed.
+	completed bool
+}
+
 // setLifecycle sets the interval and outcome from a phase and its times,
-// and reports whether it took a time. A phase not yet terminal leaves the
-// end open; a phase it does not know makes the outcome unknown.
-func (b *runBuilder) setLifecycle(phase Phase, start, end *metav1.Time, prefix string, from func(string, string)) bool {
-	iv := model.Interval{Start: bound(start), End: bound(end)}
+// and reports whether it took a time. A Task's phase not yet terminal
+// leaves the end open. A phase it does not know, or a TaskRecord's phase
+// that is not terminal, makes the outcome unknown: neither says whether
+// the run ended.
+func (b *runBuilder) setLifecycle(l lifecycleOf, prefix string, from func(field, path string)) bool {
+	iv := model.Interval{Start: bound(l.start), End: bound(l.end)}
 	outcome := model.OutcomeUnknown
-	switch phase {
+	switch l.phase {
 	case PhaseSucceeded:
 		outcome = model.OutcomeSucceeded
 	case PhaseFailed:
 		outcome = model.OutcomeFailed
 	case "", PhasePending, PhaseWaiting, PhaseRunning:
-		outcome, iv.End = model.OutcomeRunning, model.OpenEnd()
+		if !l.completed {
+			outcome, iv.End = model.OutcomeRunning, model.OpenEnd()
+		}
 	}
 	b.run.Interval, b.run.Outcome = iv, outcome
-	from("outcome", prefix+"phase "+string(phase))
+	from("outcome", prefix+"phase "+string(l.phase))
 	if iv.Start.State == model.BoundKnown {
 		from("start", prefix+"startTime")
 	}
@@ -188,9 +201,9 @@ func bound(t *metav1.Time) model.Bound {
 	return model.KnownAt(t.Time)
 }
 
-// model sets the effective model: the TaskRecord's, else the Task's own
+// effectiveModel sets the model: the TaskRecord's, else the Task's own
 // unless a WorkerPool, which is not read, sets it.
-func (b *runBuilder) model() {
+func (b *runBuilder) effectiveModel() {
 	if r := b.a.record; r != nil && r.Spec.Model != "" {
 		b.run.Model = r.Spec.Model
 		b.fromRecord("model", "spec.model")
@@ -219,41 +232,51 @@ func (b *runBuilder) usage() {
 	}
 }
 
+// usageOf converts a usage; its cost becomes a plain decimal ("1234m" is
+// "1.234").
 func usageOf(u *TaskUsage) *model.Usage {
-	out := &model.Usage{InputTokens: cloneInt(u.InputTokens), OutputTokens: cloneInt(u.OutputTokens)}
+	out := model.Usage{InputTokens: u.InputTokens, OutputTokens: u.OutputTokens}
 	if u.CostUSD != nil {
 		out.CostUSD = u.CostUSD.AsDec().String()
 	}
-	return out
-}
-
-func cloneInt(p *int64) *int64 {
-	if p == nil {
-		return nil
-	}
-	v := *p
-	return &v
+	return out.Clone()
 }
 
 // evidence names each object read, the uid and the fields it supplied.
 func (b *runBuilder) evidence() []model.Evidence {
 	var out []model.Evidence
 	if t := b.a.task; t != nil {
-		out = append(out, b.evidenceOf(b.cfg.taskRef(t.Name), b.taskFields, b.timesFromTask, b.a.record == nil, noRecordNote))
+		out = append(out, b.evidenceOf(b.cfg.taskRef(t.Name), objectNote{
+			fields: b.taskFields, times: b.timesFromTask, alone: b.a.record == nil, aloneNote: noRecordNote,
+		}))
 	}
 	if r := b.a.record; r != nil {
-		out = append(out, b.evidenceOf(b.cfg.recordRef(r.Name), b.recordFields, b.timesFromRecord, b.a.task == nil, noTaskNote))
+		out = append(out, b.evidenceOf(b.cfg.recordRef(r.Name), objectNote{
+			fields: b.recordFields, times: b.timesFromRecord, alone: b.a.task == nil, aloneNote: noTaskNote,
+		}))
 	}
 	return out
 }
 
-func (b *runBuilder) evidenceOf(ref string, fields []string, times, alone bool, aloneNote string) model.Evidence {
-	parts := []string{"uid " + string(b.a.uid) + " supplies " + strings.Join(fields, ", ")}
-	if times {
+// objectNote is what one object's evidence says.
+type objectNote struct {
+	// fields are the fields it supplied.
+	fields []string
+	// times is set when it supplied a time.
+	times bool
+	// alone is set when it is the attempt's only object, which aloneNote
+	// explains.
+	alone     bool
+	aloneNote string
+}
+
+func (b *runBuilder) evidenceOf(ref string, n objectNote) model.Evidence {
+	parts := []string{"uid " + string(b.a.uid) + " supplies " + strings.Join(n.fields, ", ")}
+	if n.times {
 		parts = append(parts, lifecycleNote)
 	}
-	if alone {
-		parts = append(parts, aloneNote)
+	if n.alone {
+		parts = append(parts, n.aloneNote)
 	}
 	return model.Evidence{Source: model.SourceKelos, Instance: b.cfg.Cluster, Ref: ref, Note: strings.Join(parts, "; ")}
 }

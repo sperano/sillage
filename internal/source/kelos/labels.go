@@ -44,8 +44,8 @@ var roleLabels = map[string]model.RunRole{
 }
 
 // roleOf derives a run's role from its labels and Task name, and says from
-// what. A role label it does not know, or no label at all, is unknown,
-// with an empty reason.
+// what. A role label it does not know, a task label that is not a task id,
+// or no label at all, is unknown, with an empty reason.
 func (c Config) roleOf(labels map[string]string, taskName string) (model.RunRole, string) {
 	roleKey, taskKey := c.label(labelRole), c.label(labelTask)
 	if value, ok := labels[roleKey]; ok {
@@ -54,7 +54,7 @@ func (c Config) roleOf(labels map[string]string, taskName string) (model.RunRole
 		}
 		return model.RoleUnknown, ""
 	}
-	if labels[taskKey] == "" {
+	if _, ok := c.taskID(labels); !ok {
 		return model.RoleUnknown, ""
 	}
 	if strings.HasPrefix(taskName, discussNamePrefix) {

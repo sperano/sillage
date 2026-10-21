@@ -1,6 +1,7 @@
 package kelos
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -32,8 +33,9 @@ func TestTaskWithRecord(t *testing.T) {
 	if run.Model != "model-effective" {
 		t.Errorf("model = %q, want the record's", run.Model)
 	}
-	if u := run.Usage; u == nil || u.CostUSD != "1.234" || *u.InputTokens != 48000 || *u.OutputTokens != 5200 {
-		t.Errorf("usage = %+v, want cost 1.234 (from 1234m) and both token counts", u)
+	in, out := int64(48000), int64(5200)
+	if want := (&model.Usage{CostUSD: "1.234", InputTokens: &in, OutputTokens: &out}); !reflect.DeepEqual(run.Usage, want) {
+		t.Errorf("usage = %+v, want %+v (cost from 1234m)", run.Usage, want)
 	}
 	checkNote(t, noteOf(t, run, "tasks/agents/"), "created (metadata.creationTimestamp)", "pod (status.podName)",
 		"job (status.jobName)", "message (status.message)", "agent (metadata.labels[vikunja.example.com/variant])",
@@ -134,25 +136,30 @@ func TestSameNameRetry(t *testing.T) {
 func TestLifecyclePhases(t *testing.T) {
 	start, end := metav1.NewTime(time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC)), metav1.NewTime(time.Date(2026, 3, 1, 10, 5, 0, 0, time.UTC))
 	tests := []struct {
-		phase   Phase
-		end     *metav1.Time
-		outcome model.Outcome
-		endKind model.BoundState
+		name      string
+		phase     Phase
+		end       *metav1.Time
+		completed bool
+		outcome   model.Outcome
+		endKind   model.BoundState
 	}{
-		{PhaseSucceeded, &end, model.OutcomeSucceeded, model.BoundKnown},
-		{PhaseFailed, &end, model.OutcomeFailed, model.BoundKnown},
-		{PhaseFailed, nil, model.OutcomeFailed, model.BoundUnknown},
-		{PhaseRunning, nil, model.OutcomeRunning, model.BoundOpen},
-		{PhasePending, nil, model.OutcomeRunning, model.BoundOpen},
-		{PhaseWaiting, nil, model.OutcomeRunning, model.BoundOpen},
-		{"", nil, model.OutcomeRunning, model.BoundOpen},
-		{"Suspended", nil, model.OutcomeUnknown, model.BoundUnknown},
-		{"Suspended", &end, model.OutcomeUnknown, model.BoundKnown},
+		{"succeeded", PhaseSucceeded, &end, false, model.OutcomeSucceeded, model.BoundKnown},
+		{"failed", PhaseFailed, &end, false, model.OutcomeFailed, model.BoundKnown},
+		{"failed without completion", PhaseFailed, nil, false, model.OutcomeFailed, model.BoundUnknown},
+		{"running", PhaseRunning, nil, false, model.OutcomeRunning, model.BoundOpen},
+		{"pending", PhasePending, nil, false, model.OutcomeRunning, model.BoundOpen},
+		{"waiting", PhaseWaiting, nil, false, model.OutcomeRunning, model.BoundOpen},
+		{"no phase yet", "", nil, false, model.OutcomeRunning, model.BoundOpen},
+		{"unknown phase", "Suspended", nil, false, model.OutcomeUnknown, model.BoundUnknown},
+		{"unknown phase with completion", "Suspended", &end, false, model.OutcomeUnknown, model.BoundKnown},
+		{"record succeeded", PhaseSucceeded, &end, true, model.OutcomeSucceeded, model.BoundKnown},
+		{"record running", PhaseRunning, &end, true, model.OutcomeUnknown, model.BoundKnown},
+		{"record without phase", "", nil, true, model.OutcomeUnknown, model.BoundUnknown},
 	}
 	for _, tt := range tests {
-		t.Run(string(tt.phase), func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			b := &runBuilder{a: &attempt{uid: "u"}}
-			b.setLifecycle(tt.phase, &start, tt.end, "status.", b.fromTask)
+			b.setLifecycle(lifecycleOf{tt.phase, &start, tt.end, tt.completed}, "status.", b.fromTask)
 			if b.run.Outcome != tt.outcome || b.run.Interval.End.State != tt.endKind {
 				t.Errorf("outcome %q, end %q, want %q, %q", b.run.Outcome, b.run.Interval.End.State, tt.outcome, tt.endKind)
 			}
@@ -187,7 +194,7 @@ func TestModelSources(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &runBuilder{a: &attempt{uid: "u", task: tt.task, record: tt.record}}
-			b.model()
+			b.effectiveModel()
 			if b.run.Model != tt.want {
 				t.Errorf("model = %q, want %q", b.run.Model, tt.want)
 			}

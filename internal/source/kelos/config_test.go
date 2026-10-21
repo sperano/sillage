@@ -10,7 +10,7 @@ func TestConfigFromEnv(t *testing.T) {
 		EnvCluster:         " cluster-a ",
 		EnvNamespace:       "agents",
 		EnvLabelDomain:     "vikunja.example.com",
-		EnvVikunjaInstance: "vikunja.example.com",
+		EnvVikunjaInstance: "Vikunja.Example.com",
 	}
 	cfg, err := ConfigFromEnv(func(k string) string { return env[k] })
 	if err != nil {

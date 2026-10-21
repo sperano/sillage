@@ -428,6 +428,7 @@ func TestBuildStoryDoesNotModifyInput(t *testing.T) {
 	story.Events[0].ID = "mutated"
 	story.Runs[1].Evidence[0].Ref = "mutated"
 	*story.Runs[1].Usage.InputTokens = -1
+	*story.Runs[1].Created = at(99)
 	story.Runs[1].Usage.CostUSD = "mutated"
 	story.PullRequests[0].Checks[0].ID = -1
 	story.Correlations[1].Evidence[0].Ref = "mutated"

@@ -59,8 +59,12 @@ func newFakeClient(objs ...runtime.Object) *dynamicfake.FakeDynamicClient {
 	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds, objs...)
 }
 
-func newTestReader(client *dynamicfake.FakeDynamicClient) *Reader {
-	r := NewReader(client, testConfig())
+func newTestReader(t *testing.T, client *dynamicfake.FakeDynamicClient) *Reader {
+	t.Helper()
+	r, err := NewReader(client, testConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
 	r.now = func() time.Time { return testObservedAt }
 	return r
 }
@@ -68,7 +72,7 @@ func newTestReader(client *dynamicfake.FakeDynamicClient) *Reader {
 // readStory reads a story through the fake client.
 func readStory(t *testing.T, story string) Snapshot {
 	t.Helper()
-	s, err := newTestReader(newFakeClient(storyObjects(t, story)...)).Read(t.Context())
+	s, err := newTestReader(t, newFakeClient(storyObjects(t, story)...)).Read(t.Context())
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}

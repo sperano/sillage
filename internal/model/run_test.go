@@ -138,6 +138,12 @@ func TestRunValidateUsage(t *testing.T) {
 		{"integer cost", func(r *Run) { r.Usage = &Usage{CostUSD: "3"} }, ""},
 		{"negative cost", func(r *Run) { r.Usage = &Usage{CostUSD: "-0.01"} }, "not a non-negative decimal"},
 		{"cost not a number", func(r *Run) { r.Usage = &Usage{CostUSD: "420m"} }, "not a non-negative decimal"},
+		{"cost a fraction", func(r *Run) { r.Usage = &Usage{CostUSD: "1/3"} }, "not a non-negative decimal"},
+		{"cost in hex", func(r *Run) { r.Usage = &Usage{CostUSD: "0x10"} }, "not a non-negative decimal"},
+		{"cost with exponent", func(r *Run) { r.Usage = &Usage{CostUSD: "1e3"} }, "not a non-negative decimal"},
+		{"cost with sign", func(r *Run) { r.Usage = &Usage{CostUSD: "+1"} }, "not a non-negative decimal"},
+		{"cost with underscore", func(r *Run) { r.Usage = &Usage{CostUSD: "1_0"} }, "not a non-negative decimal"},
+		{"cost without integer part", func(r *Run) { r.Usage = &Usage{CostUSD: ".5"} }, "not a non-negative decimal"},
 		{"negative input", func(r *Run) { r.Usage = &Usage{InputTokens: int64Ptr(-1)} }, "token count is negative"},
 		{"negative output", func(r *Run) { r.Usage = &Usage{OutputTokens: int64Ptr(-1)} }, "token count is negative"},
 	}

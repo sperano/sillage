@@ -27,6 +27,7 @@ func TestRoleOf(t *testing.T) {
 		{"merge close", map[string]string{role: "merge-close"}, "x", model.RoleAutomation},
 		{"conflict reconcile", map[string]string{role: "conflict-reconcile"}, "x", model.RoleAutomation},
 		{"unknown role", map[string]string{task: "7", role: "reviewer"}, "x", model.RoleUnknown},
+		{"task label not an id", map[string]string{task: "seven"}, "vikunja-widgets-agent-opus-7", model.RoleUnknown},
 		{"empty role", map[string]string{task: "7", role: ""}, "x", model.RoleUnknown},
 		{"no labels", nil, "vikunja-widgets-agent-opus-7", model.RoleUnknown},
 		{"another domain", map[string]string{"other.example.com/task": "7"}, "x", model.RoleUnknown},

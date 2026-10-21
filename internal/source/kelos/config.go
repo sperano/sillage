@@ -32,7 +32,8 @@ type Config struct {
 	Namespace string
 	// LabelDomain prefixes the spawners' Task labels.
 	LabelDomain string
-	// VikunjaInstance is the Vikunja host of the task ids in Task labels.
+	// VikunjaInstance is the Vikunja host of the task ids in Task labels,
+	// lower case and without a port, as model.TaskKey names it.
 	VikunjaInstance string
 }
 
@@ -43,15 +44,18 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 		Cluster:         strings.TrimSpace(getenv(EnvCluster)),
 		Namespace:       strings.TrimSpace(getenv(EnvNamespace)),
 		LabelDomain:     strings.TrimSpace(getenv(EnvLabelDomain)),
-		VikunjaInstance: strings.TrimSpace(getenv(EnvVikunjaInstance)),
+		VikunjaInstance: strings.ToLower(strings.TrimSpace(getenv(EnvVikunjaInstance))),
 	}
-	if err := cfg.validate(); err != nil {
+	if err := cfg.Validate(); err != nil {
 		return Config{}, err
 	}
 	return cfg, nil
 }
 
-func (c Config) validate() error {
+// Validate reports whether every setting is present and well formed. An
+// empty namespace would list every namespace, and an empty label domain
+// would match no label, so neither is allowed.
+func (c Config) Validate() error {
 	if c.Cluster == "" {
 		return fmt.Errorf("kelos: %s is not set", EnvCluster)
 	}

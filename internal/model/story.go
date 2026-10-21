@@ -107,7 +107,11 @@ func (r Records) clone() Records {
 	}
 	for i := range out.Runs {
 		out.Runs[i].Evidence = cloneList(out.Runs[i].Evidence)
-		out.Runs[i].Usage = out.Runs[i].Usage.clone()
+		out.Runs[i].Usage = out.Runs[i].Usage.Clone()
+		if c := out.Runs[i].Created; c != nil {
+			created := *c
+			out.Runs[i].Created = &created
+		}
 	}
 	for i := range out.PullRequests {
 		out.PullRequests[i].Checks = cloneList(out.PullRequests[i].Checks)
