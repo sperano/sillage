@@ -9,9 +9,10 @@ being down never blocks anything.
 
 ## Status
 
-Pre-alpha. This is a skeleton: a Go binary that answers `GET /healthz` and
-serves a placeholder page. No source is read, nothing is stored, nothing is
-deployed.
+Pre-alpha. A Go binary that answers `GET /healthz` and serves a placeholder
+page, and the normalized model (`internal/model`) with fabricated fixture
+stories (`testdata/fixtures/stories/`). No source is read, nothing is
+stored, nothing is deployed.
 
 ## Layout
 

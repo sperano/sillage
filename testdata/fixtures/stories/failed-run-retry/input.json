@@ -1,0 +1,193 @@
+{
+  "description": "A run fails; the spawner starts a retry under the same Task name, which gets a new UID and pod and succeeds. They are two runs.",
+  "root": {
+    "task": { "instance": "vikunja.example.com", "id": 104 }
+  },
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "tasks/104",
+      "idKind": "source",
+      "kind": "task.created",
+      "sourceTime": "2026-03-05T08:00:00-05:00",
+      "observedAt": "2026-03-05T13:02:00Z",
+      "actor": { "login": "owner", "kind": "person" },
+      "related": { "task": { "instance": "vikunja.example.com", "id": 104 } },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/104",
+        "note": "created, created_by"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:0b378e1589c64804c3e686d4c28f1ed948b49cc5cf7f6461e7020b5dc4cb8635",
+      "idKind": "fingerprint",
+      "kind": "task.bucket_observed",
+      "observedAt": "2026-03-05T13:02:00Z",
+      "actor": { "kind": "unknown" },
+      "related": { "task": { "instance": "vikunja.example.com", "id": 104 } },
+      "details": { "bucket": "Doing" },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/104?expand=buckets",
+        "note": "buckets"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/5401",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-03-05T08:02:40-05:00",
+      "observedAt": "2026-03-05T13:03:00Z",
+      "actor": { "login": "kelos-bot", "kind": "service" },
+      "related": { "task": { "instance": "vikunja.example.com", "id": 104 } },
+      "details": {
+        "pod": "vikunja-widgets-agent-opus-104-k2m4p",
+        "taskName": "vikunja-widgets-agent-opus-104"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/104/comments",
+        "note": "comment 5401"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/5402",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-03-05T09:00:40-05:00",
+      "observedAt": "2026-03-05T14:01:00Z",
+      "actor": { "login": "kelos-bot", "kind": "service" },
+      "related": { "task": { "instance": "vikunja.example.com", "id": 104 } },
+      "details": {
+        "pod": "vikunja-widgets-agent-opus-104-q7r9t",
+        "taskName": "vikunja-widgets-agent-opus-104"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/104/comments",
+        "note": "comment 5402"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-00000000104b"
+      },
+      "taskName": "vikunja-widgets-agent-opus-104",
+      "pod": "vikunja-widgets-agent-opus-104-q7r9t",
+      "agent": "agent-opus",
+      "role": "implementation",
+      "interval": {
+        "start": { "state": "known", "at": "2026-03-05T14:00:35Z" },
+        "end": { "state": "known", "at": "2026-03-05T14:21:02Z" }
+      },
+      "outcome": "succeeded",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/vikunja-widgets-agent-opus-104-00000000-0000-4000-8000-00000000104b",
+          "note": "phase Succeeded, startTime, completionTime"
+        }
+      ]
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-00000000104a"
+      },
+      "taskName": "vikunja-widgets-agent-opus-104",
+      "pod": "vikunja-widgets-agent-opus-104-k2m4p",
+      "agent": "agent-opus",
+      "role": "implementation",
+      "interval": {
+        "start": { "state": "known", "at": "2026-03-05T13:02:35Z" },
+        "end": { "state": "known", "at": "2026-03-05T13:09:12Z" }
+      },
+      "outcome": "failed",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/vikunja-widgets-agent-opus-104-00000000-0000-4000-8000-00000000104a",
+          "note": "phase Failed, startTime, completionTime"
+        }
+      ]
+    }
+  ],
+  "pullRequests": [],
+  "correlations": [
+    {
+      "from": { "kind": "run", "id": "cluster-a/agents/uid/00000000-0000-4000-8000-00000000104a" },
+      "to": { "kind": "task", "id": "vikunja.example.com/tasks/104" },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/vikunja-widgets-agent-opus-104-00000000-0000-4000-8000-00000000104a",
+          "note": "label vikunja-task=104"
+        }
+      ]
+    },
+    {
+      "from": { "kind": "run", "id": "cluster-a/agents/uid/00000000-0000-4000-8000-00000000104b" },
+      "to": { "kind": "task", "id": "vikunja.example.com/tasks/104" },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/vikunja-widgets-agent-opus-104-00000000-0000-4000-8000-00000000104b",
+          "note": "label vikunja-task=104"
+        }
+      ]
+    },
+    {
+      "from": { "kind": "event", "id": "vikunja/vikunja.example.com/comments/5401" },
+      "to": { "kind": "run", "id": "cluster-a/agents/uid/00000000-0000-4000-8000-00000000104a" },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "ref": "GET /api/v1/tasks/104/comments",
+          "note": "comment 5401 names pod vikunja-widgets-agent-opus-104-k2m4p"
+        }
+      ]
+    },
+    {
+      "from": { "kind": "event", "id": "vikunja/vikunja.example.com/comments/5402" },
+      "to": { "kind": "run", "id": "cluster-a/agents/uid/00000000-0000-4000-8000-00000000104b" },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "ref": "GET /api/v1/tasks/104/comments",
+          "note": "comment 5402 names pod vikunja-widgets-agent-opus-104-q7r9t"
+        }
+      ]
+    }
+  ],
+  "coverage": [
+    { "source": "vikunja", "instance": "vikunja.example.com", "lastSuccessfulRead": "2026-03-05T15:00:00Z" },
+    { "source": "kelos", "instance": "cluster-a", "lastSuccessfulRead": "2026-03-05T15:00:00Z" }
+  ]
+}

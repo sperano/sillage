@@ -82,6 +82,17 @@ go vet -tags=webdist ./... && go test -tags=webdist ./...
 `playwright` is pinned to an exact version (`1.59.1`) whose Chromium build
 matches the one in the agent image; upgrade both together.
 
+## Fixtures
+
+`testdata/fixtures/stories/` holds fabricated stories: normalized records
+in `input.json`, and `story.golden.json`, the `model.BuildStory` output the
+Go tests check and the web tests are to render. To add one, follow "Adding a story" in
+`testdata/fixtures/README.md`: write `input.json`, register an explicit
+invariant check in `internal/model/invariants_test.go` (a test fails until
+you do), then `go test ./internal/model -run TestStoryGolden -update` and
+review the generated golden file. A model change that alters a golden file
+is a contract change: regenerate, read the diff, and say so in the PR.
+
 ## Rules
 
 - **The repository is public.** Fixtures, examples, tests, comments and docs
