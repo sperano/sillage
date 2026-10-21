@@ -115,10 +115,12 @@ func (c *Client) fetchTask(ctx context.Context, taskID int64) (Task, error) {
 }
 
 // fetchComments follows page until one comes back shorter than perPage,
-// unless the total-pages header says more remain. The result is sorted
-// oldest first, each comment once.
+// unless the total-pages header says more remain. It also stops at a page
+// with no comment it has not seen, as a server that ignores page sends. The
+// result is sorted oldest first, each comment once.
 func (c *Client) fetchComments(ctx context.Context, taskID int64) ([]Comment, error) {
 	var all []Comment
+	seen := make(map[int64]bool)
 	for page := 1; ; page++ {
 		if page > c.maxPages {
 			return nil, fmt.Errorf("vikunja: task %d: more than %d comment pages", taskID, c.maxPages)
@@ -132,26 +134,31 @@ func (c *Client) fetchComments(ctx context.Context, taskID int64) ([]Comment, er
 		if err != nil {
 			return nil, err
 		}
-		all = append(all, batch...)
+		before := len(all)
+		all = appendUnseen(all, batch, seen)
+		if len(batch) > 0 && len(all) == before {
+			break
+		}
 		if len(batch) < c.perPage && page >= totalPages(header) {
 			break
 		}
 	}
-	return oldestFirst(all), nil
-}
-
-// oldestFirst sorts comments by creation, then id, and drops repeats of an
-// id, which a comment posted between two page reads can cause.
-func oldestFirst(comments []Comment) []Comment {
-	slices.SortStableFunc(comments, func(a, b Comment) int {
+	slices.SortStableFunc(all, func(a, b Comment) int {
 		return cmp.Or(a.Created.Compare(b.Created), cmp.Compare(a.ID, b.ID))
 	})
-	seen := make(map[int64]bool, len(comments))
-	return slices.DeleteFunc(comments, func(c Comment) bool {
-		dup := seen[c.ID]
-		seen[c.ID] = true
-		return dup
-	})
+	return all, nil
+}
+
+// appendUnseen appends the comments of batch whose id is not in seen, and
+// marks them seen. A comment posted between two page reads can repeat one.
+func appendUnseen(all, batch []Comment, seen map[int64]bool) []Comment {
+	for _, c := range batch {
+		if !seen[c.ID] {
+			seen[c.ID] = true
+			all = append(all, c)
+		}
+	}
+	return all
 }
 
 // totalPages reads headerTotalPages; 0 when it is missing or malformed.

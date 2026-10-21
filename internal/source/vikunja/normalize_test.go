@@ -185,6 +185,20 @@ func TestNormalizeAnnouncementNeedsServiceAccount(t *testing.T) {
 	}
 }
 
+// A snapshot built without CommentsObservedAt stamps comments with
+// ObservedAt rather than the zero time.
+func TestNormalizeCommentsObservedFallback(t *testing.T) {
+	created := at(time.March, 9, 9, 0, 0)
+	snap := Snapshot{
+		Task:       Task{ID: 4207, Created: created},
+		Comments:   []Comment{{ID: 9050, Author: fixtureOwner, Created: created.Add(time.Minute)}},
+		ObservedAt: testObservedAt,
+	}
+	if got := Normalize(snap, serviceAccount)[1]; !got.ObservedAt.Equal(testObservedAt) {
+		t.Errorf("comment observed at %v, want %v", got.ObservedAt, testObservedAt)
+	}
+}
+
 // A done task without done_at keeps its done event, with an unknown time,
 // flagged, after every event whose time is known.
 func TestNormalizeDoneWithoutTime(t *testing.T) {

@@ -243,13 +243,39 @@ func TestFetchSortsAndDedupesComments(t *testing.T) {
 	}
 }
 
+// A server that ignores page sends the same full page every time; the
+// client stops at the first page that brings nothing new.
+func TestFetchStopsWhenPagesRepeat(t *testing.T) {
+	var log pageLog
+	c := newTestClient(t, handcrafted(func(page int, w http.ResponseWriter) {
+		log.add(page)
+		_ = json.NewEncoder(w).Encode([]Comment{
+			{ID: 1, Created: testObservedAt}, {ID: 2, Created: testObservedAt},
+		})
+	}))
+	snap, err := c.Fetch(t.Context(), testTaskID)
+	if err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+	if got, want := log.seen(), []int{1, 2}; !slices.Equal(got, want) {
+		t.Errorf("pages read = %v, want %v", got, want)
+	}
+	if got, want := commentIDs(snap.Comments), []int64{1, 2}; !slices.Equal(got, want) {
+		t.Errorf("comment ids = %v, want %v", got, want)
+	}
+}
+
 // A server that never returns a short page is cut off.
 func TestFetchStopsAtMaxPages(t *testing.T) {
 	const maxPages = 3
 	var log pageLog
 	c := newTestClient(t, handcrafted(func(page int, w http.ResponseWriter) {
 		log.add(page)
-		_ = json.NewEncoder(w).Encode(make([]Comment, testPerPage))
+		batch := make([]Comment, testPerPage)
+		for i := range batch {
+			batch[i].ID = int64(page*testPerPage + i)
+		}
+		_ = json.NewEncoder(w).Encode(batch)
 	}))
 	c.maxPages = maxPages
 	_, err := c.Fetch(t.Context(), testTaskID)

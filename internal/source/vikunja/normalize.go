@@ -65,7 +65,9 @@ func taskCreated(s Snapshot) Event {
 func commentEvent(s Snapshot, c Comment, serviceAccount string) Event {
 	commentID := strconv.FormatInt(c.ID, 10)
 	e := base(s, KindComment, "comment/"+commentID)
-	e.ObservedAt = s.CommentsObservedAt
+	if !s.CommentsObservedAt.IsZero() {
+		e.ObservedAt = s.CommentsObservedAt
+	}
 	e.SourceTime = c.Created
 	author := c.Author
 	e.Actor = &author
