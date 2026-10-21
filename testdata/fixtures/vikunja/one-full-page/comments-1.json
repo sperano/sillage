@@ -1,0 +1,24 @@
+[
+  {
+    "id": 9010,
+    "comment": "<p>Agent <code>agent-opus</code> (model <code>example-model-2[1m]</code>) has started working on this task: Kelos Task <a href=\"https://kelos.example.com/api/resources/tasks/agents/vikunja-demo-agent-opus-4202/logs\"><code>vikunja-demo-agent-opus-4202</code></a>, pod <code>vikunja-demo-agent-opus-4202-q9w3z</code>.</p><p>The link shows its latest log lines once you are logged in to the <a href=\"https://kelos.example.com\">Kelos Console</a> (namespace <code>agents</code>).</p>",
+    "author": {
+      "id": 23,
+      "username": "kelos",
+      "name": "Kelos"
+    },
+    "created": "2026-03-03T14:01:00-05:00",
+    "updated": "2026-03-03T14:01:00-05:00"
+  },
+  {
+    "id": 9011,
+    "comment": "<p>Investigating.</p>",
+    "author": {
+      "id": 21,
+      "username": "agent-opus",
+      "name": "Agent Opus"
+    },
+    "created": "2026-03-03T14:20:00-05:00",
+    "updated": "2026-03-03T14:20:00-05:00"
+  }
+]
