@@ -64,4 +64,7 @@ type Snapshot struct {
 	// ObservedAt is when the task itself was read: the time its current
 	// state (done, buckets, labels, assignees) is known to have held.
 	ObservedAt time.Time
+	// CommentsObservedAt is when the last comment page was read, after
+	// ObservedAt: a comment can be posted while the pages are read.
+	CommentsObservedAt time.Time
 }

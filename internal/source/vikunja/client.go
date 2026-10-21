@@ -94,10 +94,11 @@ func (c *Client) Fetch(ctx context.Context, taskID int64) (Snapshot, error) {
 		return Snapshot{}, err
 	}
 	return Snapshot{
-		Instance:   c.baseURL,
-		Task:       task,
-		Comments:   comments,
-		ObservedAt: observed,
+		Instance:           c.baseURL,
+		Task:               task,
+		Comments:           comments,
+		ObservedAt:         observed,
+		CommentsObservedAt: c.now(),
 	}, nil
 }
 

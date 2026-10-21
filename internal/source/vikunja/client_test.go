@@ -29,8 +29,27 @@ const (
 	testTaskID = 4210
 )
 
-// testObservedAt is the fake clock's time.
-var testObservedAt = time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+var (
+	// testObservedAt is the fake clock's first reading, at the task read.
+	testObservedAt = time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	// testCommentsObservedAt is every later reading.
+	testCommentsObservedAt = testObservedAt.Add(time.Second)
+)
+
+// fakeClock returns testObservedAt, then testCommentsObservedAt.
+func fakeClock() func() time.Time {
+	var mu sync.Mutex
+	calls := 0
+	return func() time.Time {
+		mu.Lock()
+		defer mu.Unlock()
+		calls++
+		if calls == 1 {
+			return testObservedAt
+		}
+		return testCommentsObservedAt
+	}
+}
 
 // pageLog records the comment pages a server was asked for.
 type pageLog struct {
@@ -112,7 +131,7 @@ func newTestClient(t *testing.T, h http.Handler) *Client {
 	t.Cleanup(srv.Close)
 	c := NewClient(Config{BaseURL: srv.URL, Token: testToken}, srv.Client())
 	c.perPage = testPerPage
-	c.now = func() time.Time { return testObservedAt }
+	c.now = fakeClock()
 	return c
 }
 
@@ -173,8 +192,9 @@ func TestFetchPagination(t *testing.T) {
 			if snap.Task.ID != tt.taskID {
 				t.Errorf("task id = %d, want %d", snap.Task.ID, tt.taskID)
 			}
-			if !snap.ObservedAt.Equal(testObservedAt) {
-				t.Errorf("ObservedAt = %v, want %v", snap.ObservedAt, testObservedAt)
+			if !snap.ObservedAt.Equal(testObservedAt) || !snap.CommentsObservedAt.Equal(testCommentsObservedAt) {
+				t.Errorf("observed at %v and %v, want %v and %v", snap.ObservedAt, snap.CommentsObservedAt,
+					testObservedAt, testCommentsObservedAt)
 			}
 		})
 	}

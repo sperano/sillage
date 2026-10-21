@@ -54,7 +54,11 @@ func TestNormalizeTwoPages(t *testing.T) {
 		t.Errorf("kinds = %v, want %v", got, wantKinds)
 	}
 	for _, e := range events {
-		if e.Instance != snap.Instance || e.TaskID != 4201 || !e.ObservedAt.Equal(testObservedAt) {
+		wantObserved := testObservedAt
+		if e.CommentID != 0 {
+			wantObserved = testCommentsObservedAt
+		}
+		if e.Instance != snap.Instance || e.TaskID != 4201 || !e.ObservedAt.Equal(wantObserved) {
 			t.Errorf("%s: instance %q, task %d, observed %v", e.SourceID, e.Instance, e.TaskID, e.ObservedAt)
 		}
 	}
@@ -72,6 +76,9 @@ func TestNormalizeTwoPages(t *testing.T) {
 	}
 	if announced.Run == nil || *announced.Run != wantRun {
 		t.Errorf("run = %+v, want %+v", announced.Run, wantRun)
+	}
+	if announced.Evidence.Path != "/api/v1/tasks/4201/comments/9002" {
+		t.Errorf("announcement evidence = %+v", announced.Evidence)
 	}
 	if announced.CommentID != 9002 || !reflect.DeepEqual(announced.Actor, &fixtureKelos) || len(announced.Flags) != 0 {
 		t.Errorf("announcement = %+v", announced)
