@@ -1,7 +1,6 @@
 package model
 
 import (
-	"errors"
 	"fmt"
 	"time"
 )
@@ -43,15 +42,15 @@ func (c Coverage) Known(t time.Time) bool {
 	return true
 }
 
-// Validate reports whether the coverage is complete and its gaps ordered.
+// Validate reports whether the coverage is complete and each gap has a
+// reason and a positive length.
 func (c Coverage) Validate() error {
 	if !c.Source.valid() || c.Instance == "" {
 		return fmt.Errorf("coverage %s: source and instance are required", c.Key())
 	}
 	for _, g := range c.Gaps {
 		if g.Reason == "" || !g.End.After(g.Start) {
-			return fmt.Errorf("coverage %s: %w", c.Key(),
-				errors.New("a gap needs a reason and an end after its start"))
+			return fmt.Errorf("coverage %s: a gap needs a reason and an end after its start", c.Key())
 		}
 	}
 	return nil

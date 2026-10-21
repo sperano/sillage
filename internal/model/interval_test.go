@@ -16,11 +16,11 @@ func TestBoundValidate(t *testing.T) {
 		{"known start", KnownAt(now), false, ""},
 		{"known end", KnownAt(now), true, ""},
 		{"known without time", Bound{State: BoundKnown}, false, "needs a time"},
-		{"unknown start", Unknown(), false, ""},
-		{"unknown end", Unknown(), true, ""},
+		{"unknown start", UnknownBound(), false, ""},
+		{"unknown end", UnknownBound(), true, ""},
 		{"unknown with time", Bound{State: BoundUnknown, At: &now}, true, "has no time"},
-		{"open end", Open(), true, ""},
-		{"open start", Open(), false, "only an end can be open"},
+		{"open end", OpenEnd(), true, ""},
+		{"open start", OpenEnd(), false, "only an end can be open"},
 		{"open with time", Bound{State: BoundOpen, At: &now}, true, "has no time"},
 		{"unknown state", Bound{State: "maybe"}, true, "unknown bound state"},
 		{"empty state", Bound{}, false, "unknown bound state"},
@@ -39,8 +39,8 @@ func TestBoundTime(t *testing.T) {
 		wantOK bool
 	}{
 		{"known", KnownAt(now), now, true},
-		{"unknown", Unknown(), time.Time{}, false},
-		{"open", Open(), time.Time{}, false},
+		{"unknown", UnknownBound(), time.Time{}, false},
+		{"open", OpenEnd(), time.Time{}, false},
 		{"known without time", Bound{State: BoundKnown}, time.Time{}, false},
 		{"unknown carrying a time", Bound{State: BoundUnknown, At: &now}, time.Time{}, false},
 	}
@@ -62,19 +62,19 @@ func TestIntervalValidate(t *testing.T) {
 	}{
 		{"known to known", Interval{Start: KnownAt(at(0)), End: KnownAt(at(5))}, ""},
 		{"zero length", Interval{Start: KnownAt(at(0)), End: KnownAt(at(0))}, ""},
-		{"known to open", Interval{Start: KnownAt(at(0)), End: Open()}, ""},
-		{"known to unknown", Interval{Start: KnownAt(at(0)), End: Unknown()}, ""},
-		{"unknown to known", Interval{Start: Unknown(), End: KnownAt(at(5))}, ""},
-		{"unknown to unknown", Interval{Start: Unknown(), End: Unknown()}, ""},
+		{"known to open", Interval{Start: KnownAt(at(0)), End: OpenEnd()}, ""},
+		{"known to unknown", Interval{Start: KnownAt(at(0)), End: UnknownBound()}, ""},
+		{"unknown to known", Interval{Start: UnknownBound(), End: KnownAt(at(5))}, ""},
+		{"unknown to unknown", Interval{Start: UnknownBound(), End: UnknownBound()}, ""},
 		{"end before start", Interval{Start: KnownAt(at(5)), End: KnownAt(at(0))}, "ends before it starts"},
 		{
 			"end before start across zones",
 			Interval{Start: KnownAt(at(5)), End: KnownAt(atEST(0))},
 			"ends before it starts",
 		},
-		{"open start", Interval{Start: Open(), End: Open()}, "interval start: only an end can be open"},
-		{"known start without time", Interval{Start: Bound{State: BoundKnown}, End: Open()}, "interval start"},
-		{"invalid end", Interval{Start: Unknown(), End: Bound{State: "maybe"}}, "interval end"},
+		{"open start", Interval{Start: OpenEnd(), End: OpenEnd()}, "interval start: only an end can be open"},
+		{"known start without time", Interval{Start: Bound{State: BoundKnown}, End: OpenEnd()}, "interval start"},
+		{"invalid end", Interval{Start: UnknownBound(), End: Bound{State: "maybe"}}, "interval end"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) { checkErr(t, tt.iv.Validate(), tt.want) })
@@ -93,11 +93,11 @@ func TestIntervalDuration(t *testing.T) {
 		{"zero length", Interval{Start: KnownAt(at(0)), End: KnownAt(at(0))}, 0, true},
 		{"across zones", Interval{Start: KnownAt(atEST(0)), End: KnownAt(at(0).Add(span))}, span, true},
 		{"negative", Interval{Start: KnownAt(at(0).Add(span)), End: KnownAt(at(0))}, -span, true},
-		{"unknown start", Interval{Start: Unknown(), End: KnownAt(at(0))}, 0, false},
-		{"unknown end", Interval{Start: KnownAt(at(0)), End: Unknown()}, 0, false},
-		{"open end", Interval{Start: KnownAt(at(0)), End: Open()}, 0, false},
-		{"unknown start and open end", Interval{Start: Unknown(), End: Open()}, 0, false},
-		{"both unknown", Interval{Start: Unknown(), End: Unknown()}, 0, false},
+		{"unknown start", Interval{Start: UnknownBound(), End: KnownAt(at(0))}, 0, false},
+		{"unknown end", Interval{Start: KnownAt(at(0)), End: UnknownBound()}, 0, false},
+		{"open end", Interval{Start: KnownAt(at(0)), End: OpenEnd()}, 0, false},
+		{"unknown start and open end", Interval{Start: UnknownBound(), End: OpenEnd()}, 0, false},
+		{"both unknown", Interval{Start: UnknownBound(), End: UnknownBound()}, 0, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -110,7 +110,7 @@ func TestIntervalDuration(t *testing.T) {
 }
 
 func TestIntervalNormalize(t *testing.T) {
-	iv := Interval{Start: KnownAt(atEST(0)), End: Open()}
+	iv := Interval{Start: KnownAt(atEST(0)), End: OpenEnd()}
 	iv.normalize()
 	if got := iv.Start.At.Location(); got != time.UTC {
 		t.Errorf("start location = %v, want UTC", got)

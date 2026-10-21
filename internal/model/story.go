@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 )
 
@@ -69,28 +70,42 @@ func validateAll[T any](records []T, validate func(T) error, key func(T) string)
 	return errors.Join(errs...)
 }
 
-// clone copies every slice normalize or sort would modify in place.
+// clone copies every slice and map a story holds, so that neither
+// normalize and sort nor a caller changing the story can modify the input.
+// A nil list becomes empty, so that a story's lists marshal as [], never
+// null.
 func (r Records) clone() Records {
 	out := Records{
-		Events:       slices.Clone(r.Events),
-		Runs:         slices.Clone(r.Runs),
-		PullRequests: slices.Clone(r.PullRequests),
-		Correlations: slices.Clone(r.Correlations),
-		Coverage:     slices.Clone(r.Coverage),
+		Events:       cloneList(r.Events),
+		Runs:         cloneList(r.Runs),
+		PullRequests: cloneList(r.PullRequests),
+		Correlations: cloneList(r.Correlations),
+		Coverage:     cloneList(r.Coverage),
+	}
+	for i := range out.Events {
+		out.Events[i].Details = maps.Clone(out.Events[i].Details)
 	}
 	for i := range out.Runs {
-		out.Runs[i].Evidence = slices.Clone(out.Runs[i].Evidence)
+		out.Runs[i].Evidence = cloneList(out.Runs[i].Evidence)
 	}
 	for i := range out.PullRequests {
-		out.PullRequests[i].Checks = slices.Clone(out.PullRequests[i].Checks)
+		out.PullRequests[i].Checks = cloneList(out.PullRequests[i].Checks)
 	}
 	for i := range out.Correlations {
-		out.Correlations[i].Evidence = slices.Clone(out.Correlations[i].Evidence)
+		out.Correlations[i].Evidence = cloneList(out.Correlations[i].Evidence)
 	}
 	for i := range out.Coverage {
 		out.Coverage[i].Gaps = slices.Clone(out.Coverage[i].Gaps)
 	}
 	return out
+}
+
+// cloneList copies s; a nil s becomes an empty slice.
+func cloneList[S ~[]E, E any](s S) S {
+	if s == nil {
+		return S{}
+	}
+	return slices.Clone(s)
 }
 
 func (r *Records) normalize() {

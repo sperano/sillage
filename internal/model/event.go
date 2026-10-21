@@ -186,6 +186,9 @@ func (e Event) validate() error {
 	if err := e.validateID(); err != nil {
 		return err
 	}
+	if _, ok := kindSources[e.Kind]; !ok {
+		return fmt.Errorf("unknown kind %q", e.Kind)
+	}
 	if !kindFrom(e.Kind, e.Source) {
 		return fmt.Errorf("kind %q cannot come from %s", e.Kind, e.Source)
 	}

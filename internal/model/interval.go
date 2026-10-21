@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 	"time"
 )
@@ -30,11 +31,11 @@ type Bound struct {
 // KnownAt returns a known bound at t.
 func KnownAt(t time.Time) Bound { return Bound{State: BoundKnown, At: &t} }
 
-// Unknown returns an unknown bound.
-func Unknown() Bound { return Bound{State: BoundUnknown} }
+// UnknownBound returns an unknown bound.
+func UnknownBound() Bound { return Bound{State: BoundUnknown} }
 
-// Open returns an open end.
-func Open() Bound { return Bound{State: BoundOpen} }
+// OpenEnd returns an open end.
+func OpenEnd() Bound { return Bound{State: BoundOpen} }
 
 // Time returns the bound's time and whether it is known.
 func (b Bound) Time() (time.Time, bool) {
@@ -48,13 +49,13 @@ func (b Bound) validate(end bool) error {
 	switch b.State {
 	case BoundKnown:
 		if b.At == nil {
-			return fmt.Errorf("a known bound needs a time")
+			return errors.New("a known bound needs a time")
 		}
 		return nil
 	case BoundUnknown:
 	case BoundOpen:
 		if !end {
-			return fmt.Errorf("only an end can be open")
+			return errors.New("only an end can be open")
 		}
 	default:
 		return fmt.Errorf("unknown bound state %q", b.State)
@@ -104,9 +105,17 @@ func (i Interval) Validate() error {
 		return fmt.Errorf("interval end: %w", err)
 	}
 	if d, ok := i.Duration(); ok && d < 0 {
-		return fmt.Errorf("interval ends before it starts")
+		return errors.New("interval ends before it starts")
 	}
 	return nil
+}
+
+// anchor is the interval's first known bound: its start, else its end.
+func (i Interval) anchor() (time.Time, bool) {
+	if t, ok := i.Start.Time(); ok {
+		return t, true
+	}
+	return i.End.Time()
 }
 
 func (i *Interval) normalize() {

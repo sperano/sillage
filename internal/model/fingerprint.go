@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"io"
 	"strings"
 	"time"
 )
@@ -32,11 +33,11 @@ const fingerprintHexLen = sha256.Size * 2
 // length-prefixed, so different splits of the same characters never
 // collide. The result is "sha256:" followed by 64 hex digits.
 func Fingerprint(at time.Time, object, action, content string) string {
-	h := sha256.New()
+	h := sha256.New() // a hash.Hash's Write never returns an error
 	for _, part := range []string{at.UTC().Format(time.RFC3339Nano), object, action, content} {
 		var n [binary.MaxVarintLen64]byte
 		h.Write(n[:binary.PutUvarint(n[:], uint64(len(part)))])
-		h.Write([]byte(part))
+		io.WriteString(h, part)
 	}
 	return fingerprintPrefix + hex.EncodeToString(h.Sum(nil))
 }

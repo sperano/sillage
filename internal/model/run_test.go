@@ -66,7 +66,7 @@ func TestRunValidateOutcomeAndInterval(t *testing.T) {
 			"running with an open end",
 			func(r *Run) {
 				r.Outcome = OutcomeRunning
-				r.Interval.End = Open()
+				r.Interval.End = OpenEnd()
 			},
 			"",
 		},
@@ -79,20 +79,20 @@ func TestRunValidateOutcomeAndInterval(t *testing.T) {
 			"running with an unknown end",
 			func(r *Run) {
 				r.Outcome = OutcomeRunning
-				r.Interval.End = Unknown()
+				r.Interval.End = UnknownBound()
 			},
 			"only a running run, has an open end",
 		},
 		{
 			"open end without running",
-			func(r *Run) { r.Interval.End = Open() },
+			func(r *Run) { r.Interval.End = OpenEnd() },
 			"only a running run, has an open end",
 		},
 		{
 			"unknown outcome with an open end",
 			func(r *Run) {
 				r.Outcome = OutcomeUnknown
-				r.Interval.End = Open()
+				r.Interval.End = OpenEnd()
 			},
 			"only a running run, has an open end",
 		},
@@ -100,7 +100,7 @@ func TestRunValidateOutcomeAndInterval(t *testing.T) {
 			"unknown interval",
 			func(r *Run) {
 				r.Outcome = OutcomeUnknown
-				r.Interval = Interval{Start: Unknown(), End: Unknown()}
+				r.Interval = Interval{Start: UnknownBound(), End: UnknownBound()}
 			},
 			"",
 		},

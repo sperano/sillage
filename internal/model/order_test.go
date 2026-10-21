@@ -44,10 +44,10 @@ func TestIntervalAnchor(t *testing.T) {
 		wantOK bool
 	}{
 		{"start when known", Interval{Start: KnownAt(at(1)), End: KnownAt(at(2))}, at(1), true},
-		{"start over an open end", Interval{Start: KnownAt(at(1)), End: Open()}, at(1), true},
-		{"end when the start is unknown", Interval{Start: Unknown(), End: KnownAt(at(2))}, at(2), true},
-		{"nothing known", Interval{Start: Unknown(), End: Unknown()}, time.Time{}, false},
-		{"unknown start, open end", Interval{Start: Unknown(), End: Open()}, time.Time{}, false},
+		{"start over an open end", Interval{Start: KnownAt(at(1)), End: OpenEnd()}, at(1), true},
+		{"end when the start is unknown", Interval{Start: UnknownBound(), End: KnownAt(at(2))}, at(2), true},
+		{"nothing known", Interval{Start: UnknownBound(), End: UnknownBound()}, time.Time{}, false},
+		{"unknown start, open end", Interval{Start: UnknownBound(), End: OpenEnd()}, time.Time{}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -62,17 +62,17 @@ func TestIntervalAnchor(t *testing.T) {
 func TestCompareRuns(t *testing.T) {
 	startAt := func(uid string, minutes int) Run {
 		r := testRun(uid)
-		r.Interval = Interval{Start: KnownAt(at(minutes)), End: Unknown()}
+		r.Interval = Interval{Start: KnownAt(at(minutes)), End: UnknownBound()}
 		return r
 	}
 	endOnly := func(uid string, minutes int) Run {
 		r := testRun(uid)
-		r.Interval = Interval{Start: Unknown(), End: KnownAt(at(minutes))}
+		r.Interval = Interval{Start: UnknownBound(), End: KnownAt(at(minutes))}
 		return r
 	}
 	neither := func(uid string) Run {
 		r := testRun(uid)
-		r.Interval = Interval{Start: Unknown(), End: Unknown()}
+		r.Interval = Interval{Start: UnknownBound(), End: UnknownBound()}
 		return r
 	}
 	tests := []struct {
@@ -101,11 +101,11 @@ func TestCompareRuns(t *testing.T) {
 
 func TestRecordsSortPutsUnknownRunsLast(t *testing.T) {
 	unknownFirstKey := testRun("a-unknown")
-	unknownFirstKey.Interval = Interval{Start: Unknown(), End: Unknown()}
+	unknownFirstKey.Interval = Interval{Start: UnknownBound(), End: UnknownBound()}
 	unknownFirstKey.Outcome = OutcomeUnknown
 	late, early := testRun("z-late"), testRun("m-early")
-	late.Interval = Interval{Start: KnownAt(at(50)), End: Unknown()}
-	early.Interval = Interval{Start: KnownAt(at(5)), End: Unknown()}
+	late.Interval = Interval{Start: KnownAt(at(50)), End: UnknownBound()}
+	early.Interval = Interval{Start: KnownAt(at(5)), End: UnknownBound()}
 	recs := Records{Runs: []Run{unknownFirstKey, late, early}}
 	recs.sort()
 
@@ -122,15 +122,15 @@ func TestSortChecks(t *testing.T) {
 	check := func(id int64, sha, name string, start Bound) CheckRun {
 		c := testCheck(id, sha)
 		c.Name = name
-		c.Interval = Interval{Start: start, End: Unknown()}
+		c.Interval = Interval{Start: start, End: UnknownBound()}
 		return c
 	}
 	checks := []CheckRun{
-		check(1, "aaa", "build", Unknown()),
+		check(1, "aaa", "build", UnknownBound()),
 		check(2, "aaa", "lint", KnownAt(at(5))),
 		check(4, "bbb", "build", KnownAt(at(5))),
 		check(3, "aaa", "build", KnownAt(at(5))),
-		check(6, "aaa", "build", Unknown()),
+		check(6, "aaa", "build", UnknownBound()),
 		check(5, "aaa", "build", KnownAt(at(1))),
 	}
 	sortChecks(checks)

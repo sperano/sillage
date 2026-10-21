@@ -66,7 +66,7 @@ func TestPullRequestValidateChecks(t *testing.T) {
 			"pending with an open end",
 			func(p *PullRequest) {
 				p.Checks[0].Conclusion = CheckPending
-				p.Checks[0].Interval.End = Open()
+				p.Checks[0].Interval.End = OpenEnd()
 			},
 			"",
 		},
@@ -79,19 +79,19 @@ func TestPullRequestValidateChecks(t *testing.T) {
 			"pending with an unknown end",
 			func(p *PullRequest) {
 				p.Checks[0].Conclusion = CheckPending
-				p.Checks[0].Interval.End = Unknown()
+				p.Checks[0].Interval.End = UnknownBound()
 			},
 			"only a pending check, has an open end",
 		},
 		{
 			"open end without pending",
-			func(p *PullRequest) { p.Checks[0].Interval.End = Open() },
+			func(p *PullRequest) { p.Checks[0].Interval.End = OpenEnd() },
 			"only a pending check, has an open end",
 		},
 		{
 			"completed with unknown bounds",
 			func(p *PullRequest) {
-				p.Checks[0].Interval = Interval{Start: Unknown(), End: Unknown()}
+				p.Checks[0].Interval = Interval{Start: UnknownBound(), End: UnknownBound()}
 			},
 			"",
 		},

@@ -21,6 +21,8 @@ const storiesDir = "../../testdata/fixtures/stories"
 const (
 	inputFile  = "input.json"
 	goldenFile = "story.golden.json"
+	// goldenPerm is the mode of a rewritten golden file.
+	goldenPerm = 0o644
 	// shuffleRounds is how many random input orders each story is built
 	// from in TestStoryDeterministic.
 	shuffleRounds = 20
@@ -94,7 +96,7 @@ func TestStoryGolden(t *testing.T) {
 			got := marshalStory(t, buildFixture(t, name))
 			path := filepath.Join(storiesDir, name, goldenFile)
 			if *update {
-				if err := os.WriteFile(path, got, 0o644); err != nil {
+				if err := os.WriteFile(path, got, goldenPerm); err != nil {
 					t.Fatal(err)
 				}
 				return

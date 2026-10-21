@@ -80,14 +80,6 @@ func sortGaps(gaps []Gap) {
 	})
 }
 
-// anchor is the interval's first known bound: its start, else its end.
-func (i Interval) anchor() (time.Time, bool) {
-	if t, ok := i.Start.Time(); ok {
-		return t, true
-	}
-	return i.End.Time()
-}
-
 // compareKnownFirst orders two possibly unknown times: known before
 // unknown, known ones by time.
 func compareKnownFirst(a, b func() (time.Time, bool)) int {

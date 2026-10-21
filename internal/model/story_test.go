@@ -1,6 +1,8 @@
 package model
 
 import (
+	"bytes"
+	"encoding/json"
 	"reflect"
 	"slices"
 	"testing"
@@ -34,6 +36,13 @@ func TestBuildStoryAcceptsEmptyRecords(t *testing.T) {
 	}
 	if story.Root.Task == nil || *story.Root.Task != testTaskKey() {
 		t.Errorf("Root = %+v, want task %v", story.Root, testTaskKey())
+	}
+	data, err := json.Marshal(story)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(data, []byte("null")) {
+		t.Errorf("story JSON = %s, want every list as [], never null", data)
 	}
 }
 

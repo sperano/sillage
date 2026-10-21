@@ -46,7 +46,7 @@ func TestEventValidate(t *testing.T) {
 			"",
 		},
 		{"pr.merged from vikunja", func(e *Event) { e.Kind = KindPRMerged }, "cannot come from vikunja"},
-		{"unknown kind", func(e *Event) { e.Kind = "task.exploded" }, "cannot come from"},
+		{"unknown kind", func(e *Event) { e.Kind = "task.exploded" }, "unknown kind"},
 		{"missing observedAt", func(e *Event) { e.ObservedAt = time.Time{} }, "observed time"},
 	}
 	runEventCases(t, tests)
