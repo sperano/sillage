@@ -3,6 +3,9 @@ package vikunja
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -22,20 +25,37 @@ const (
 	testToken = "fabricated-token-0123456789"
 	// testPerPage is the page size the fixtures are cut for.
 	testPerPage = 2
+	// testTaskID is the task the hand-built servers below serve.
+	testTaskID = 4210
 )
 
 // testObservedAt is the fake clock's time.
 var testObservedAt = time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
 
-// fakeVikunja serves one story's recorded responses and records the
-// comment pages asked for.
+// pageLog records the comment pages a server was asked for.
+type pageLog struct {
+	mu    sync.Mutex
+	pages []int
+}
+
+func (l *pageLog) add(page int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.pages = append(l.pages, page)
+}
+
+func (l *pageLog) seen() []int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return slices.Clone(l.pages)
+}
+
+// fakeVikunja serves one story's recorded responses.
 type fakeVikunja struct {
 	t      *testing.T
 	dir    string
 	taskID int64
-
-	mu    sync.Mutex
-	pages []int
+	log    pageLog
 }
 
 func (f *fakeVikunja) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -51,7 +71,7 @@ func (f *fakeVikunja) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if got := r.URL.Query().Get("expand"); got != expandBuckets {
 			f.t.Errorf("task read with expand=%q, want %q", got, expandBuckets)
 		}
-		f.serveFile(w, "task.json")
+		f.serveFile(w, r, "task.json")
 	case taskPath(f.taskID) + "/comments":
 		f.serveCommentPage(w, r)
 	default:
@@ -69,25 +89,27 @@ func (f *fakeVikunja) serveCommentPage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		f.t.Errorf("comments read without a page: %s", r.URL)
 	}
-	f.mu.Lock()
-	f.pages = append(f.pages, page)
-	f.mu.Unlock()
-	f.serveFile(w, "comments-"+strconv.Itoa(page)+".json")
+	f.log.add(page)
+	f.serveFile(w, r, "comments-"+strconv.Itoa(page)+".json")
 }
 
-func (f *fakeVikunja) serveFile(w http.ResponseWriter, name string) {
+func (f *fakeVikunja) serveFile(w http.ResponseWriter, r *http.Request, name string) {
 	body, err := os.ReadFile(filepath.Join(f.dir, name))
 	if err != nil {
 		f.t.Errorf("no recorded response %s: %v", name, err)
-		http.NotFound(w, nil)
+		http.NotFound(w, r)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(body)
 }
 
-// newTestClient returns a client of srv with the test page size and clock.
-func newTestClient(srv *httptest.Server) *Client {
+// newTestClient starts h and returns a client of it with the test token,
+// page size and clock.
+func newTestClient(t *testing.T, h http.Handler) *Client {
+	t.Helper()
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
 	c := NewClient(Config{BaseURL: srv.URL, Token: testToken}, srv.Client())
 	c.perPage = testPerPage
 	c.now = func() time.Time { return testObservedAt }
@@ -99,13 +121,25 @@ func newTestClient(srv *httptest.Server) *Client {
 func fetchStory(t *testing.T, story string, taskID int64) (Snapshot, []int) {
 	t.Helper()
 	fake := &fakeVikunja{t: t, dir: filepath.Join(fixtureDir, story), taskID: taskID}
-	srv := httptest.NewServer(fake)
-	t.Cleanup(srv.Close)
-	snap, err := newTestClient(srv).Fetch(context.Background(), taskID)
+	snap, err := newTestClient(t, fake).Fetch(t.Context(), taskID)
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
-	return snap, fake.pages
+	return snap, fake.log.seen()
+}
+
+// handcrafted serves task testTaskID and answers comment reads with
+// comments(page, w).
+func handcrafted(comments func(page int, w http.ResponseWriter)) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET "+taskPath(testTaskID), func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(Task{ID: testTaskID})
+	})
+	mux.HandleFunc("GET "+taskPath(testTaskID)+"/comments", func(w http.ResponseWriter, r *http.Request) {
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		comments(page, w)
+	})
+	return mux
 }
 
 func commentIDs(cs []Comment) []int64 {
@@ -149,59 +183,38 @@ func TestFetchPagination(t *testing.T) {
 // A server whose per-page cap is below the requested size returns short
 // pages; its total-pages header must keep the client reading.
 func TestFetchHonoursTotalPagesHeader(t *testing.T) {
-	const capped, totalPages, taskID = 1, 3, 4210
-	var pages []int
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET "+taskPath(taskID), func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(Task{ID: taskID})
-	})
-	mux.HandleFunc("GET "+taskPath(taskID)+"/comments", func(w http.ResponseWriter, r *http.Request) {
-		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-		pages = append(pages, page)
+	const totalPages = 3
+	var log pageLog
+	c := newTestClient(t, handcrafted(func(page int, w http.ResponseWriter) {
+		log.add(page)
 		w.Header().Set(headerTotalPages, strconv.Itoa(totalPages))
-		batch := make([]Comment, capped)
-		for i := range batch {
-			batch[i] = Comment{
-				ID:      int64(page),
-				Created: testObservedAt.Add(time.Duration(page) * time.Minute),
-			}
-		}
-		_ = json.NewEncoder(w).Encode(batch)
-	})
-	srv := httptest.NewServer(mux)
-	defer srv.Close()
-	snap, err := newTestClient(srv).Fetch(context.Background(), taskID)
+		created := testObservedAt.Add(time.Duration(page) * time.Minute)
+		_ = json.NewEncoder(w).Encode([]Comment{{ID: int64(page), Created: created}})
+	}))
+	snap, err := c.Fetch(t.Context(), testTaskID)
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
-	if want := []int{1, 2, 3}; !slices.Equal(pages, want) {
-		t.Errorf("pages read = %v, want %v", pages, want)
+	if got, want := log.seen(), []int{1, 2, 3}; !slices.Equal(got, want) {
+		t.Errorf("pages read = %v, want %v", got, want)
 	}
 	if got, want := commentIDs(snap.Comments), []int64{1, 2, 3}; !slices.Equal(got, want) {
 		t.Errorf("comment ids = %v, want %v", got, want)
 	}
 }
 
-// Comments come back oldest first even when the server sends them out of
-// order.
-func TestFetchSortsCommentsOldestFirst(t *testing.T) {
-	const taskID = 4211
+// Comments come back oldest first and once each, even when the server
+// sends them out of order or repeats one across pages.
+func TestFetchSortsAndDedupesComments(t *testing.T) {
 	t0 := testObservedAt.Add(-time.Hour)
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET "+taskPath(taskID), func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(Task{ID: taskID})
-	})
-	mux.HandleFunc("GET "+taskPath(taskID)+"/comments", func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode([]Comment{
-			{ID: 3, Created: t0.Add(time.Minute)},
-			{ID: 2, Created: t0},
-		})
-	})
-	srv := httptest.NewServer(mux)
-	defer srv.Close()
-	c := newTestClient(srv)
-	c.perPage = DefaultPerPage
-	snap, err := c.Fetch(context.Background(), taskID)
+	pages := map[int][]Comment{
+		1: {{ID: 3, Created: t0.Add(time.Minute)}, {ID: 2, Created: t0}},
+		2: {{ID: 3, Created: t0.Add(time.Minute)}},
+	}
+	c := newTestClient(t, handcrafted(func(page int, w http.ResponseWriter) {
+		_ = json.NewEncoder(w).Encode(pages[page])
+	}))
+	snap, err := c.Fetch(t.Context(), testTaskID)
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
@@ -210,34 +223,104 @@ func TestFetchSortsCommentsOldestFirst(t *testing.T) {
 	}
 }
 
-func TestFetchErrorNamesStatusNotToken(t *testing.T) {
-	fake := &fakeVikunja{t: t, dir: filepath.Join(fixtureDir, "no-comments"), taskID: 4203}
-	srv := httptest.NewServer(fake)
-	defer srv.Close()
-	c := NewClient(Config{BaseURL: srv.URL, Token: "wrong-" + testToken}, srv.Client())
-	_, err := c.Fetch(context.Background(), 4203)
-	if err == nil {
-		t.Fatal("Fetch with a rejected token succeeded")
+// A server that never returns a short page is cut off.
+func TestFetchStopsAtMaxPages(t *testing.T) {
+	const maxPages = 3
+	var log pageLog
+	c := newTestClient(t, handcrafted(func(page int, w http.ResponseWriter) {
+		log.add(page)
+		_ = json.NewEncoder(w).Encode(make([]Comment, testPerPage))
+	}))
+	c.maxPages = maxPages
+	_, err := c.Fetch(t.Context(), testTaskID)
+	if err == nil || !strings.Contains(err.Error(), "more than 3 comment pages") {
+		t.Errorf("Fetch error = %v, want the page limit", err)
 	}
-	msg := err.Error()
-	if !strings.Contains(msg, "401") || !strings.Contains(msg, taskPath(4203)) {
-		t.Errorf("error %q does not name the status and path", msg)
-	}
-	if strings.Contains(msg, testToken) {
-		t.Errorf("error %q leaks the token", msg)
+	if got := len(log.seen()); got != maxPages {
+		t.Errorf("read %d pages, want %d", got, maxPages)
 	}
 }
 
-func TestFetchTransportErrorOmitsURL(t *testing.T) {
+func TestFetchStatusError(t *testing.T) {
+	fake := &fakeVikunja{t: t, dir: filepath.Join(fixtureDir, "no-comments"), taskID: 4203}
+	c := newTestClient(t, fake)
+	c.authorize = NewClient(Config{Token: "wrong-" + testToken}, nil).authorize
+	_, err := c.Fetch(t.Context(), 4203)
+	se, ok := errors.AsType[*StatusError](err)
+	if !ok || se.Code != http.StatusUnauthorized || se.Path != taskPath(4203) {
+		t.Fatalf("Fetch error = %v, want a 401 StatusError for %s", err, taskPath(4203))
+	}
+	if strings.Contains(err.Error(), testToken) {
+		t.Errorf("error %q leaks the token", err)
+	}
+}
+
+func TestFetchRejectsBadResponses(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{"malformed JSON", `[{"id": `, "decoding"},
+		{"oversize", `[` + strings.Repeat(" ", 2*testPerPage<<10) + `]`, "response larger than"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newTestClient(t, handcrafted(func(_ int, w http.ResponseWriter) {
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			c.maxBody = testPerPage << 10
+			_, err := c.Fetch(t.Context(), testTaskID)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("Fetch error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestFetchRejectsOtherTask(t *testing.T) {
+	c := newTestClient(t, handcrafted(nil))
+	_, err := c.Fetch(t.Context(), testTaskID+1)
+	if err == nil {
+		t.Fatal("Fetch accepted a 404")
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET "+taskPath(testTaskID), func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(Task{ID: testTaskID + 1})
+	})
+	_, err = newTestClient(t, mux).Fetch(t.Context(), testTaskID)
+	if err == nil || !strings.Contains(err.Error(), "answered with task") {
+		t.Errorf("Fetch error = %v, want a task mismatch", err)
+	}
+}
+
+func TestFetchTransportErrors(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	base := srv.URL
 	srv.Close()
-	c := NewClient(Config{BaseURL: base, Token: testToken}, nil)
-	_, err := c.Fetch(context.Background(), 4203)
-	if err == nil {
-		t.Fatal("Fetch from a closed server succeeded")
+	_, err := NewClient(Config{BaseURL: base, Token: testToken}, nil).Fetch(t.Context(), testTaskID)
+	if err == nil || !strings.Contains(err.Error(), taskPath(testTaskID)) || strings.Contains(err.Error(), "?expand") {
+		t.Errorf("Fetch error = %v, want the path and not the full URL", err)
 	}
-	if strings.Contains(err.Error(), "?expand") {
-		t.Errorf("error %q repeats the request URL", err)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	_, err = newTestClient(t, handcrafted(nil)).Fetch(ctx, testTaskID)
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("Fetch error = %v, want context.Canceled", err)
+	}
+}
+
+func TestClientNeverPrintsToken(t *testing.T) {
+	c := NewClient(Config{BaseURL: "https://vikunja.example.com", Token: testToken}, nil)
+	var logged strings.Builder
+	slog.New(slog.NewJSONHandler(&logged, nil)).Info("client", "c", c, "v", *c)
+	for _, out := range []string{
+		fmt.Sprintf("%v %+v %#v", c, *c, *c),
+		logged.String(),
+	} {
+		if strings.Contains(out, testToken) {
+			t.Errorf("token printed: %s", out)
+		}
 	}
 }

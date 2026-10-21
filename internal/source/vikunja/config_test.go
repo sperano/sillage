@@ -52,6 +52,8 @@ func TestConfigFromEnvRejects(t *testing.T) {
 		{"not http", "ftp://vikunja.example.com", testToken},
 		{"no host", "https://", testToken},
 		{"credentials in URL", "https://user:" + testToken + "@vikunja.example.com", testToken},
+		{"query", "https://vikunja.example.com/?x=1", testToken},
+		{"fragment", "https://vikunja.example.com/#top", testToken},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

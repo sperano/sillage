@@ -1,7 +1,6 @@
 package vikunja
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -81,8 +80,11 @@ func (c Config) validate() error {
 	if u.User != nil {
 		return fmt.Errorf("vikunja: %s must not carry credentials; use %s", EnvURL, EnvToken)
 	}
+	if u.RawQuery != "" || u.Fragment != "" {
+		return fmt.Errorf("vikunja: %s must not have a query or fragment", EnvURL)
+	}
 	if c.Token == "" {
-		return errors.New("vikunja: " + EnvToken + " is not set")
+		return fmt.Errorf("vikunja: %s is not set", EnvToken)
 	}
 	return nil
 }

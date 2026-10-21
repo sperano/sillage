@@ -69,7 +69,7 @@ func commentEvent(s Snapshot, c Comment, serviceAccount string) Event {
 	e.Actor = &author
 	e.CommentID = c.ID
 	e.Evidence = Evidence{Path: taskPath(s.Task.ID) + "/comments", Field: "created, author"}
-	if c.Updated.After(c.Created) {
+	if !c.Created.IsZero() && c.Updated.After(c.Created) {
 		e.Flags = append(e.Flags, FlagEdited)
 	}
 	if serviceAccount == "" || c.Author.Username != serviceAccount {
