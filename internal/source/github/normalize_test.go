@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sperano/sillage/internal/model"
 )
@@ -138,8 +139,8 @@ func TestTwoPRsStory(t *testing.T) {
 	}
 	// The merge's own close is dropped; the pending review is not shown.
 	want22 := []model.EventKind{model.KindPROpened, model.KindReviewRequested, model.KindReviewRequestRemoved,
-		model.KindComment, model.KindRequest, model.KindRequest, model.KindComment, model.KindReviewSubmitted,
-		model.KindPRMerged}
+		model.KindComment, model.KindReviewSubmitted, model.KindRequest, model.KindReviewSubmitted,
+		model.KindRequest, model.KindComment, model.KindReviewSubmitted, model.KindPRMerged}
 	if got := eventsOf(recs, 22); !slices.Equal(got, want22) {
 		t.Errorf("pull request 22 = %v, want %v", got, want22)
 	}
@@ -159,6 +160,10 @@ func TestTwoPRsStory(t *testing.T) {
 	inline := eventByID(t, recs, "pulls/comments/6202")
 	if inline.Kind != model.KindRequest || inline.Evidence.Ref != "GET "+testRepoPath+"/pulls/22/comments" {
 		t.Errorf("inline /kelos comment = %s from %s, want a request from the review comments", inline.Kind, inline.Evidence.Ref)
+	}
+	drafted := eventByID(t, recs, "pulls/comments/6201")
+	if got := drafted.Time().Format(time.RFC3339); got != "2026-04-01T12:22:00Z" {
+		t.Errorf("inline comment drafted at 12:20 shown at %s, want its review's submission at 12:22", got)
 	}
 	if got := eventByID(t, recs, "issues/events/8203").Details["team"]; got != "maintainers" {
 		t.Errorf("team review request names %q, want maintainers", got)
@@ -308,5 +313,39 @@ func TestNormalizeDedupesRecords(t *testing.T) {
 	}
 	if got := len(recs.Events); got != 2 {
 		t.Errorf("%d events, want the opening and one comment", got)
+	}
+}
+
+// An inline comment drafted in a review takes the review's submission
+// time; one in a pending review is not shown; one whose review was not
+// read keeps its own time.
+func TestReviewCommentTimes(t *testing.T) {
+	drafted, submittedAt := testCreated.Add(time.Minute), testCreated.Add(time.Hour)
+	s := testSnapshot()
+	s.Reviews = []Review{
+		{ID: 1, User: testOther, State: "COMMENTED", SubmittedAt: &submittedAt},
+		{ID: 2, User: testOther, State: reviewPending},
+	}
+	s.ReviewComments = []Comment{
+		{ID: 11, User: testOther, CreatedAt: drafted, ReviewID: 1},
+		{ID: 12, User: testOther, CreatedAt: drafted, ReviewID: 2},
+		{ID: 13, User: testOther, CreatedAt: drafted, ReviewID: 3},
+	}
+	recs, err := Normalize(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	times := make(map[string]time.Time)
+	for _, e := range recs.Events {
+		times[e.ID] = e.Time()
+	}
+	if got := times["pulls/comments/11"]; !got.Equal(submittedAt) {
+		t.Errorf("comment in a submitted review at %v, want the submission %v", got, submittedAt)
+	}
+	if _, ok := times["pulls/comments/12"]; ok {
+		t.Error("comment in a pending review shown")
+	}
+	if got := times["pulls/comments/13"]; !got.Equal(drafted) {
+		t.Errorf("comment of an unread review at %v, want its own time %v", got, drafted)
 	}
 }

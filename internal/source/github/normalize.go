@@ -40,11 +40,9 @@ func Normalize(s Snapshot) (model.Records, error) {
 	for _, c := range s.Comments {
 		n.add(n.comment(c, "issues/comments/", commentsPath(s.Repository, s.PullRequest.Number), "comment "))
 	}
-	for _, c := range s.ReviewComments {
-		n.add(n.comment(c, "pulls/comments/", reviewCommentsPath(s.Repository, s.PullRequest.Number), "review comment "))
-	}
+	n.reviewComments()
 	for _, r := range s.Reviews {
-		if r.SubmittedAt != nil && r.State != reviewPending {
+		if submitted(r) {
 			n.add(n.review(r))
 		}
 	}
@@ -145,6 +143,38 @@ func (n *normalizer) comment(c Comment, idPrefix, path, notePrefix string) model
 		kind = model.KindRequest
 	}
 	return n.event(kind, idPrefix+id, c.CreatedAt, c.User, path, notePrefix+id)
+}
+
+// reviewComments adds the inline review comments others can see. One
+// drafted in a review still pending is skipped. One posted with a review
+// is dated no earlier than the review's submission: its own created_at is
+// when it was drafted, and nobody saw it before the review was submitted.
+func (n *normalizer) reviewComments() {
+	reviews := make(map[int64]Review, len(n.s.Reviews))
+	for _, r := range n.s.Reviews {
+		reviews[r.ID] = r
+	}
+	path := reviewCommentsPath(n.s.Repository, n.s.PullRequest.Number)
+	for _, c := range n.s.ReviewComments {
+		r, inReview := reviews[c.ReviewID]
+		if inReview && !submitted(r) {
+			continue
+		}
+		later := inReview && r.SubmittedAt.After(c.CreatedAt)
+		if later {
+			c.CreatedAt = *r.SubmittedAt
+		}
+		e := n.comment(c, "pulls/comments/", path, "review comment ")
+		if later {
+			e.Evidence.Note += "; time of review " + strconv.FormatInt(r.ID, 10) + "'s submission, not of its draft"
+		}
+		n.add(e)
+	}
+}
+
+// submitted reports whether a review was submitted, so others can see it.
+func submitted(r Review) bool {
+	return r.SubmittedAt != nil && r.State != reviewPending
 }
 
 // isRequest reports whether a comment body starts with requestPrefix as a

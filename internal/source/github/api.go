@@ -82,10 +82,15 @@ const (
 // comment on the diff, from GET /repos/{owner}/{repo}/pulls/{number}/
 // comments.
 type Comment struct {
-	ID        int64     `json:"id"`
-	User      *User     `json:"user"`
-	Body      string    `json:"body"`
+	ID   int64  `json:"id"`
+	User *User  `json:"user"`
+	Body string `json:"body"`
+	// CreatedAt is, for a comment written in a review, when it was
+	// drafted, not when the review made it visible.
 	CreatedAt time.Time `json:"created_at"`
+	// ReviewID is the review an inline comment belongs to; 0 for a
+	// conversation comment.
+	ReviewID int64 `json:"pull_request_review_id"`
 }
 
 // Review is a pull request review, from GET /repos/{owner}/{repo}/pulls/

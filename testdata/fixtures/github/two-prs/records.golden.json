@@ -259,7 +259,7 @@
       "id": "pulls/comments/6201",
       "idKind": "source",
       "kind": "comment.created",
-      "sourceTime": "2026-04-01T12:20:00Z",
+      "sourceTime": "2026-04-01T12:22:00Z",
       "observedAt": "2026-04-05T12:00:00Z",
       "actor": {
         "login": "reviewer-gh",
@@ -276,7 +276,36 @@
         "source": "github",
         "instance": "github.example.com",
         "ref": "GET /repos/example-org/widgets/pulls/22/comments",
-        "note": "review comment 6201"
+        "note": "review comment 6201; time of review 3203's submission, not of its draft"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "reviews/3203",
+      "idKind": "source",
+      "kind": "pr.review_submitted",
+      "sourceTime": "2026-04-01T12:22:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "reviewer-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 22
+        }
+      },
+      "details": {
+        "state": "commented"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/22/reviews",
+        "note": "review 3203"
       }
     },
     {
@@ -303,6 +332,35 @@
         "instance": "github.example.com",
         "ref": "GET /repos/example-org/widgets/pulls/22/comments",
         "note": "review comment 6202"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "reviews/3204",
+      "idKind": "source",
+      "kind": "pr.review_submitted",
+      "sourceTime": "2026-04-01T12:25:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 22
+        }
+      },
+      "details": {
+        "state": "commented"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/22/reviews",
+        "note": "review 3204"
       }
     },
     {

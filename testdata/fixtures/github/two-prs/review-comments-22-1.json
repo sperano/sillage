@@ -1,6 +1,7 @@
 [
   {
     "id": 6201,
+    "pull_request_review_id": 3203,
     "user": {
       "login": "reviewer-gh",
       "type": "User"
@@ -12,6 +13,7 @@
   },
   {
     "id": 6202,
+    "pull_request_review_id": 3204,
     "user": {
       "login": "owner-gh",
       "type": "User"
