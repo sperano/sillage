@@ -36,7 +36,7 @@ var timelineKinds = map[string]model.EventKind{
 // GitHub reports on the pull request but not on its timeline still gets
 // its event.
 func (n *normalizer) timeline() error {
-	mergedAt, hasMergeEvent := n.mergeTime()
+	mergedAt, merged, inTimeline := n.mergeTime()
 	for _, ev := range n.s.Timeline {
 		kind, ok := timelineKinds[ev.Event]
 		if !ok {
@@ -45,34 +45,34 @@ func (n *normalizer) timeline() error {
 		if ev.ID <= 0 {
 			return fmt.Errorf("github: pull request %s: %s timeline event without an id", n.key, ev.Event)
 		}
-		if kind == model.KindPRClosed && mergedAt != nil && !ev.CreatedAt.Before(*mergedAt) {
+		if kind == model.KindPRClosed && merged && !ev.CreatedAt.Before(mergedAt) {
 			continue
 		}
 		n.add(n.timelineEvent(kind, ev))
 	}
-	if mergedAt != nil && !hasMergeEvent {
-		n.add(n.mergedFromPR())
+	if merged && !inTimeline {
+		n.add(n.mergedFromPR(mergedAt))
 	}
 	return nil
 }
 
 // mergeTime returns when the pull request was merged, the earlier of the
-// timeline's merged event and the pull request's merged_at, or nil; and
-// whether the timeline has a merged event.
-func (n *normalizer) mergeTime() (*time.Time, bool) {
-	at := n.s.PullRequest.MergedAt
-	found := false
+// timeline's merged event and the pull request's merged_at; whether it
+// was merged; and whether the timeline has a merged event.
+func (n *normalizer) mergeTime() (at time.Time, merged, inTimeline bool) {
+	if m := n.s.PullRequest.MergedAt; m != nil {
+		at, merged = *m, true
+	}
 	for _, ev := range n.s.Timeline {
 		if ev.Event != timelineMerged {
 			continue
 		}
-		found = true
-		if at == nil || ev.CreatedAt.Before(*at) {
-			t := ev.CreatedAt
-			at = &t
+		if !merged || ev.CreatedAt.Before(at) {
+			at = ev.CreatedAt
 		}
+		merged, inTimeline = true, true
 	}
-	return at, found
+	return at, merged, inTimeline
 }
 
 func (n *normalizer) timelineEvent(kind model.EventKind, ev TimelineEvent) model.Event {
@@ -90,11 +90,11 @@ func (n *normalizer) timelineEvent(kind model.EventKind, ev TimelineEvent) model
 
 // mergedFromPR is the merge as the pull request alone reports it: GitHub
 // gives it no event id and the list endpoint no merging account.
-func (n *normalizer) mergedFromPR() model.Event {
+func (n *normalizer) mergedFromPR(at time.Time) model.Event {
 	pr := n.s.PullRequest
 	object := "pulls/" + strconv.FormatInt(pr.ID, 10)
-	e := n.event(model.KindPRMerged, model.Fingerprint(*pr.MergedAt, object, timelineMerged, ""),
-		*pr.MergedAt, nil, pullPath(n.s.Repository, pr.Number), "merged_at; the timeline has no merged event")
+	e := n.event(model.KindPRMerged, model.Fingerprint(at, object, timelineMerged, ""),
+		at, nil, pullPath(n.s.Repository, pr.Number), "merged_at; the timeline has no merged event")
 	e.IDKind = model.IDFingerprint
 	return e
 }
@@ -113,7 +113,8 @@ func executorOf(pr PullRequest, timeline []TimelineEvent) (agentLabel, bool) {
 	if pr.User == nil {
 		return agentLabel{}, false
 	}
-	found := make(map[string]agentLabel)
+	var found []agentLabel
+	seen := make(map[string]bool)
 	for _, ev := range timeline {
 		if ev.Event != timelineLabeled || ev.Label == nil || ev.Actor == nil ||
 			!strings.EqualFold(ev.Actor.Login, pr.User.Login) {
@@ -126,15 +127,13 @@ func executorOf(pr PullRequest, timeline []TimelineEvent) (agentLabel, bool) {
 		if d := ev.CreatedAt.Sub(pr.CreatedAt); d < 0 || d > executorLabelWindow {
 			continue
 		}
-		if _, dup := found[agent]; !dup {
-			found[agent] = agentLabel{agent: agent, label: ev.Label.Name, eventID: ev.ID}
+		if !seen[agent] {
+			seen[agent] = true
+			found = append(found, agentLabel{agent: agent, label: ev.Label.Name, eventID: ev.ID})
 		}
 	}
 	if len(found) != 1 {
 		return agentLabel{}, false
 	}
-	for _, l := range found {
-		return l, true
-	}
-	return agentLabel{}, false
+	return found[0], true
 }

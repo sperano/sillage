@@ -119,6 +119,24 @@ func TestCommitSHAs(t *testing.T) {
 	}
 }
 
+func TestSplitLatest(t *testing.T) {
+	shas := []string{"a", "b", "c"}
+	tests := []struct {
+		limit               int
+		wantOlder, wantLast []string
+	}{
+		{3, []string{}, []string{"a", "b", "c"}},
+		{5, []string{}, []string{"a", "b", "c"}},
+		{2, []string{"a"}, []string{"b", "c"}},
+	}
+	for _, tt := range tests {
+		older, latest := splitLatest(shas, tt.limit)
+		if !slices.Equal(older, tt.wantOlder) || !slices.Equal(latest, tt.wantLast) {
+			t.Errorf("splitLatest(%d) = %v, %v; want %v, %v", tt.limit, older, latest, tt.wantOlder, tt.wantLast)
+		}
+	}
+}
+
 func TestFetchPRRejectsOtherNumber(t *testing.T) {
 	f := newFakeGitHub(t, "closed-unmerged")
 	f.mux.HandleFunc("GET "+testRepoPath+"/pulls/32", func(w http.ResponseWriter, r *http.Request) {

@@ -67,6 +67,7 @@ type fakeGitHub struct {
 }
 
 func newFakeGitHub(t *testing.T, story string) *fakeGitHub {
+	t.Helper()
 	f := &fakeGitHub{t: t, dir: filepath.Join(fixtureDir, story), mux: http.NewServeMux()}
 	f.mux.HandleFunc("GET "+testRepoPath+"/pulls", func(w http.ResponseWriter, r *http.Request) {
 		f.serveList(w, r, "pulls")

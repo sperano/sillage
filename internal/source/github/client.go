@@ -34,7 +34,8 @@ const (
 	// defaultMaxPages stops a list whose Link header never ends.
 	defaultMaxPages = 1000
 	// drainBytes is how much of an error response is read, to tell a rate
-	// limit from another refusal, and so the connection can be reused.
+	// limit from another refusal, and how much of any response's tail is
+	// discarded, so the connection can be reused.
 	drainBytes = 4 << 10
 )
 
@@ -234,6 +235,8 @@ func (c *Client) refusal(resp *http.Response, attempt int) (wait time.Duration, 
 
 func (c *Client) decode(resp *http.Response, path string, out any) (http.Header, error) {
 	defer resp.Body.Close()
+	// Reading to EOF after the value lets the connection be reused.
+	defer func() { _, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, drainBytes)) }()
 	c.noteBudget(resp.Header)
 	body := http.MaxBytesReader(nil, resp.Body, c.maxBody)
 	if err := json.NewDecoder(body).Decode(out); err != nil {

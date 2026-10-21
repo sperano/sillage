@@ -92,6 +92,8 @@ func TestRetryWait(t *testing.T) {
 		{"no hint", nil, 0, secondaryLimitWait},
 		{"no hint, third try", nil, 2, 4 * secondaryLimitWait},
 		{"malformed retry-after", map[string]string{headerRetryAfter: "soon"}, 1, 2 * secondaryLimitWait},
+		{"huge retry-after", map[string]string{headerRetryAfter: "99999999999999"}, 0, maxRetryAfter},
+		{"many tries", nil, 100, secondaryLimitWait << maxBackoffDoublings},
 	}
 	for _, tt := range tests {
 		h := http.Header{}

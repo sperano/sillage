@@ -21,8 +21,8 @@ const (
 	// included, not only the latest run of each name.
 	filterAll = "all"
 	// maxCheckedCommits bounds the commits whose check runs are read for
-	// one pull request (one request each): GitHub's own limit on a pull
-	// request's commit list.
+	// one pull request, one request each: the latest ones, the head
+	// included. Older ones are listed in Snapshot.UncheckedSHAs.
 	maxCheckedCommits = 250
 )
 
@@ -104,11 +104,7 @@ func (c *Client) fetchDetails(ctx context.Context, repo Repository, pr PullReque
 	if snap.Reviews, err = listAll[Review](ctx, c, pullPath(repo, pr.Number)+"/reviews", nil); err != nil {
 		return Snapshot{}, err
 	}
-	snap.SHAs = commitSHAs(snap.Timeline, pr.Head.SHA)
-	if len(snap.SHAs) > maxCheckedCommits {
-		return Snapshot{}, fmt.Errorf("github: pull request %s#%d: %d commits, more than the %d whose checks are read",
-			repo, pr.Number, len(snap.SHAs), maxCheckedCommits)
-	}
+	snap.UncheckedSHAs, snap.SHAs = splitLatest(commitSHAs(snap.Timeline, pr.Head.SHA), maxCheckedCommits)
 	for _, sha := range snap.SHAs {
 		runs, err := c.fetchCheckRuns(ctx, repo, sha)
 		if err != nil {
@@ -121,11 +117,10 @@ func (c *Client) fetchDetails(ctx context.Context, repo Repository, pr PullReque
 }
 
 // commitSHAs returns the commits the timeline names (committed, and the
-// new head of each force push), in its order, then head unless already
-// named; each once.
+// new head of each force push), in its order, then head; each once.
 func commitSHAs(timeline []TimelineEvent, head string) []string {
 	var shas []string
-	seen := make(map[string]bool)
+	seen := map[string]bool{head: true}
 	add := func(sha string) {
 		if sha != "" && !seen[sha] {
 			seen[sha] = true
@@ -140,8 +135,16 @@ func commitSHAs(timeline []TimelineEvent, head string) []string {
 			add(ev.CommitID)
 		}
 	}
-	add(head)
+	if head != "" {
+		shas = append(shas, head)
+	}
 	return shas
+}
+
+// splitLatest splits shas into the older ones and the last limit.
+func splitLatest(shas []string, limit int) (older, latest []string) {
+	cut := max(len(shas)-limit, 0)
+	return shas[:cut], shas[cut:]
 }
 
 // fetchCheckRuns reads every check run on sha, re-run attempts included.

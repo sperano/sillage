@@ -105,6 +105,7 @@ type Repository struct {
 	Name  string
 }
 
+// String returns owner/name.
 func (r Repository) String() string { return r.Owner + "/" + r.Name }
 
 // ParseRepository parses "owner/name".

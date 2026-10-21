@@ -129,8 +129,11 @@ type Snapshot struct {
 	Comments []IssueComment
 	Reviews  []Review
 	// SHAs are the commits whose check runs were read: those the timeline
-	// names, in its order, then the head if the timeline does not name it.
+	// names, in its order, then the head.
 	SHAs []string
+	// UncheckedSHAs are older commits whose check runs were not read, past
+	// maxCheckedCommits: their results are unknown, not absent.
+	UncheckedSHAs []string
 	// Checks holds every check run of every commit in SHAs, attempts
 	// included: a later commit's results never replace an earlier one's.
 	Checks []CheckRun

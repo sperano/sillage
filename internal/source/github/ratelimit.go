@@ -38,6 +38,11 @@ const (
 	// defaultMaxRateLimitRetries is how many times one request is retried
 	// after rate-limited responses before giving up.
 	defaultMaxRateLimitRetries = 3
+	// maxRetryAfter caps a Retry-After value, so a huge one cannot
+	// overflow a time.Duration; any wait this long exceeds maxWait anyway.
+	maxRetryAfter = 24 * time.Hour
+	// maxBackoffDoublings caps the doublings of secondaryLimitWait.
+	maxBackoffDoublings = 10
 )
 
 // RateLimitError is a request GitHub refused for a rate limit and the
@@ -75,12 +80,12 @@ func rateLimited(code int, h http.Header, body []byte) bool {
 // attempt.
 func retryWait(h http.Header, now time.Time, attempt int) time.Duration {
 	if s, err := strconv.Atoi(h.Get(headerRetryAfter)); err == nil && s >= 0 {
-		return time.Duration(s) * time.Second
+		return time.Duration(min(s, int(maxRetryAfter/time.Second))) * time.Second
 	}
 	if until, ok := exhaustedUntil(h); ok {
 		return max(until.Sub(now), 0)
 	}
-	return secondaryLimitWait << attempt
+	return secondaryLimitWait << min(attempt, maxBackoffDoublings)
 }
 
 // exhaustedUntil returns when requests may resume, and true, when the
