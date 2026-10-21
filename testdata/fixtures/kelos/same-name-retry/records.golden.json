@@ -32,7 +32,7 @@
           "source": "kelos",
           "instance": "cluster-a",
           "ref": "taskrecords/agents/00000000-0000-4000-8000-00000000204a",
-          "note": "uid 00000000-0000-4000-8000-00000000204a supplies taskName (spec.taskRef.name), agent (metadata.labels[vikunja.example.com/variant]), project (metadata.labels[vikunja.example.com/project]), role (metadata.labels[vikunja.example.com/task] without vikunja.example.com/role), outcome (spec.phase Failed), start (spec.startTime), end (spec.completionTime), model (spec.model), usage (spec.usage); times are lifecycle times (the API server's creation, the controller's start and completion), not CPU or phase timings; Task not found (deleted after its TTL): created, pod, job and message unknown"
+          "note": "uid 00000000-0000-4000-8000-00000000204a supplies taskName (spec.taskRef.name), agent (metadata.labels[vikunja.example.com/variant]), project (metadata.labels[vikunja.example.com/project]), role (metadata.labels[vikunja.example.com/task] without vikunja.example.com/role), outcome (spec.phase Failed), start (spec.startTime), end (spec.completionTime), model (spec.model), usage (spec.usage); times are the controller's lifecycle times (start and completion), not CPU or phase timings; Task not found (deleted after its TTL): created, pod, job and message unknown"
         }
       ]
     },
@@ -77,7 +77,7 @@
           "source": "kelos",
           "instance": "cluster-a",
           "ref": "taskrecords/agents/00000000-0000-4000-8000-00000000204b",
-          "note": "uid 00000000-0000-4000-8000-00000000204b supplies outcome (spec.phase Succeeded), start (spec.startTime), end (spec.completionTime), model (spec.model), usage (spec.usage); times are lifecycle times (the API server's creation, the controller's start and completion), not CPU or phase timings"
+          "note": "uid 00000000-0000-4000-8000-00000000204b supplies outcome (spec.phase Succeeded), start (spec.startTime), end (spec.completionTime), model (spec.model), usage (spec.usage); times are the controller's lifecycle times (start and completion), not CPU or phase timings"
         }
       ]
     }

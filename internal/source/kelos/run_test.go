@@ -39,9 +39,9 @@ func TestTaskWithRecord(t *testing.T) {
 	}
 	checkNote(t, noteOf(t, run, "tasks/agents/"), "created (metadata.creationTimestamp)", "pod (status.podName)",
 		"job (status.jobName)", "message (status.message)", "agent (metadata.labels[vikunja.example.com/variant])",
-		lifecycleNote)
+		taskTimesNote)
 	checkNote(t, noteOf(t, run, "taskrecords/agents/"), "outcome (spec.phase Succeeded)", "start (spec.startTime)",
-		"end (spec.completionTime)", "model (spec.model)", "usage (spec.usage)", lifecycleNote)
+		"end (spec.completionTime)", "model (spec.model)", "usage (spec.usage)", recordTimesNote)
 	if len(recs.Correlations) != 1 || recs.Correlations[0].To.ID != "vikunja.example.com/tasks/201" {
 		t.Errorf("correlations = %+v, want one to task 201", recs.Correlations)
 	}
@@ -66,7 +66,7 @@ func TestRecordOnly(t *testing.T) {
 		t.Errorf("evidence = %v, want the record only", refs)
 	}
 	checkNote(t, noteOf(t, run, "taskrecords/agents/"), "taskName (spec.taskRef.name)",
-		"role (metadata.labels[vikunja.example.com/role] task-followup)", noTaskNote, lifecycleNote)
+		"role (metadata.labels[vikunja.example.com/role] task-followup)", noTaskNote, recordTimesNote)
 	if len(recs.Correlations) != 1 || recs.Correlations[0].Evidence[0].Ref != run.Evidence[0].Ref {
 		t.Errorf("correlations = %+v, want one from the record's label", recs.Correlations)
 	}
@@ -86,7 +86,7 @@ func TestTaskOnly(t *testing.T) {
 		t.Errorf("usage %+v, model %q", run.Usage, run.Model)
 	}
 	checkNote(t, noteOf(t, run, "tasks/agents/"), "outcome (status.phase Succeeded)", "start (status.startTime)",
-		"model (spec.model)", noRecordNote, lifecycleNote)
+		"model (spec.model)", noRecordNote, taskTimesNote)
 }
 
 // Unfinished Tasks have an open end. A waiting Task has no start yet; its
@@ -106,7 +106,7 @@ func TestTasksUnfinished(t *testing.T) {
 		t.Errorf("waiting: role %q, outcome %q, interval %+v, model %q", waiting.Role, waiting.Outcome, waiting.Interval, waiting.Model)
 	}
 	// Its creation is its only time, and is labelled as a lifecycle time.
-	checkNote(t, noteOf(t, waiting, "tasks/agents/"), "outcome (status.phase Waiting)", lifecycleNote)
+	checkNote(t, noteOf(t, waiting, "tasks/agents/"), "outcome (status.phase Waiting)", taskTimesNote)
 }
 
 // Two attempts with the same Task name stay two runs, each with its own

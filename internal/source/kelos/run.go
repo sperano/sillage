@@ -9,9 +9,11 @@ import (
 )
 
 const (
-	// lifecycleNote labels the times a run takes from an object.
-	lifecycleNote = "times are lifecycle times (the API server's creation, the controller's start and " +
+	// taskTimesNote and recordTimesNote label the times a run takes from a
+	// Task and from a TaskRecord.
+	taskTimesNote = "times are lifecycle times (the API server's creation, the controller's start and " +
 		"completion), not CPU or phase timings"
+	recordTimesNote = "times are the controller's lifecycle times (start and completion), not CPU or phase timings"
 	// noTaskNote explains a run read from its TaskRecord alone.
 	noTaskNote = "Task not found (deleted after its TTL): created, pod, job and message unknown"
 	// noRecordNote explains a run read from its Task alone.
@@ -247,12 +249,14 @@ func (b *runBuilder) evidence() []model.Evidence {
 	var out []model.Evidence
 	if t := b.a.task; t != nil {
 		out = append(out, b.evidenceOf(b.cfg.taskRef(t.Name), objectNote{
-			fields: b.taskFields, times: b.timesFromTask, alone: b.a.record == nil, aloneNote: noRecordNote,
+			fields: b.taskFields, times: b.timesFromTask, timesNote: taskTimesNote,
+			alone: b.a.record == nil, aloneNote: noRecordNote,
 		}))
 	}
 	if r := b.a.record; r != nil {
 		out = append(out, b.evidenceOf(b.cfg.recordRef(r.Name), objectNote{
-			fields: b.recordFields, times: b.timesFromRecord, alone: b.a.task == nil, aloneNote: noTaskNote,
+			fields: b.recordFields, times: b.timesFromRecord, timesNote: recordTimesNote,
+			alone: b.a.task == nil, aloneNote: noTaskNote,
 		}))
 	}
 	return out
@@ -262,8 +266,9 @@ func (b *runBuilder) evidence() []model.Evidence {
 type objectNote struct {
 	// fields are the fields it supplied.
 	fields []string
-	// times is set when it supplied a time.
-	times bool
+	// times is set when it supplied a time, which timesNote labels.
+	times     bool
+	timesNote string
 	// alone is set when it is the attempt's only object, which aloneNote
 	// explains.
 	alone     bool
@@ -273,7 +278,7 @@ type objectNote struct {
 func (b *runBuilder) evidenceOf(ref string, n objectNote) model.Evidence {
 	parts := []string{"uid " + string(b.a.uid) + " supplies " + strings.Join(n.fields, ", ")}
 	if n.times {
-		parts = append(parts, lifecycleNote)
+		parts = append(parts, n.timesNote)
 	}
 	if n.alone {
 		parts = append(parts, n.aloneNote)

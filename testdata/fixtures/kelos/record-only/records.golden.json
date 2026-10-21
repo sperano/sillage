@@ -31,7 +31,7 @@
           "source": "kelos",
           "instance": "cluster-a",
           "ref": "taskrecords/agents/00000000-0000-4000-8000-000000000202",
-          "note": "uid 00000000-0000-4000-8000-000000000202 supplies taskName (spec.taskRef.name), agent (metadata.labels[vikunja.example.com/variant]), project (metadata.labels[vikunja.example.com/project]), role (metadata.labels[vikunja.example.com/role] task-followup), outcome (spec.phase Failed), start (spec.startTime), end (spec.completionTime), model (spec.model), usage (spec.usage); times are lifecycle times (the API server's creation, the controller's start and completion), not CPU or phase timings; Task not found (deleted after its TTL): created, pod, job and message unknown"
+          "note": "uid 00000000-0000-4000-8000-000000000202 supplies taskName (spec.taskRef.name), agent (metadata.labels[vikunja.example.com/variant]), project (metadata.labels[vikunja.example.com/project]), role (metadata.labels[vikunja.example.com/role] task-followup), outcome (spec.phase Failed), start (spec.startTime), end (spec.completionTime), model (spec.model), usage (spec.usage); times are the controller's lifecycle times (start and completion), not CPU or phase timings; Task not found (deleted after its TTL): created, pod, job and message unknown"
         }
       ]
     }

@@ -42,7 +42,7 @@
           "source": "kelos",
           "instance": "cluster-a",
           "ref": "taskrecords/agents/00000000-0000-4000-8000-000000000201",
-          "note": "uid 00000000-0000-4000-8000-000000000201 supplies outcome (spec.phase Succeeded), start (spec.startTime), end (spec.completionTime), model (spec.model), usage (spec.usage); times are lifecycle times (the API server's creation, the controller's start and completion), not CPU or phase timings"
+          "note": "uid 00000000-0000-4000-8000-000000000201 supplies outcome (spec.phase Succeeded), start (spec.startTime), end (spec.completionTime), model (spec.model), usage (spec.usage); times are the controller's lifecycle times (start and completion), not CPU or phase timings"
         }
       ]
     }
