@@ -1,0 +1,27 @@
+{
+  "id": 7031,
+  "number": 31,
+  "state": "closed",
+  "title": "Fabricated change 31",
+  "user": {
+    "login": "reviewer-gh",
+    "type": "User"
+  },
+  "created_at": "2026-04-02T09:00:00Z",
+  "closed_at": "2026-04-02T10:00:00Z",
+  "merged_at": null,
+  "head": {
+    "ref": "feature/abandoned",
+    "sha": "3333333333333333333333333333333333333333",
+    "repo": {
+      "full_name": "example-org/widgets"
+    }
+  },
+  "base": {
+    "ref": "main",
+    "sha": "0000000000000000000000000000000000000000",
+    "repo": {
+      "full_name": "example-org/widgets"
+    }
+  }
+}

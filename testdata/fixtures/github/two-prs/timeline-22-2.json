@@ -1,0 +1,26 @@
+[
+  {
+    "event": "committed",
+    "sha": "2222222222222222222222222222222222222222",
+    "author": {
+      "name": "Owner",
+      "date": "2026-04-01T09:59:00Z"
+    }
+  },
+  {
+    "id": 8203,
+    "event": "review_requested",
+    "actor": {
+      "login": "owner-gh",
+      "type": "User"
+    },
+    "created_at": "2026-04-01T12:06:00Z",
+    "requested_team": {
+      "slug": "maintainers"
+    },
+    "review_requester": {
+      "login": "owner-gh",
+      "type": "User"
+    }
+  }
+]

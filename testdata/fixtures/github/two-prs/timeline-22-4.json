@@ -1,0 +1,12 @@
+[
+  {
+    "id": 8206,
+    "event": "closed",
+    "actor": {
+      "login": "owner-gh",
+      "type": "User"
+    },
+    "created_at": "2026-04-01T13:00:00Z",
+    "commit_id": null
+  }
+]

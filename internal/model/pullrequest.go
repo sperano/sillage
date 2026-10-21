@@ -19,12 +19,15 @@ const (
 	CheckNeutral        CheckConclusion = "neutral"
 	CheckSkipped        CheckConclusion = "skipped"
 	CheckActionRequired CheckConclusion = "action_required"
+	// CheckStale: GitHub marked the check stale after it stayed incomplete
+	// too long.
+	CheckStale CheckConclusion = "stale"
 )
 
 func (c CheckConclusion) valid() bool {
 	switch c {
 	case CheckPending, CheckSuccess, CheckFailure, CheckCancelled, CheckTimedOut,
-		CheckNeutral, CheckSkipped, CheckActionRequired:
+		CheckNeutral, CheckSkipped, CheckActionRequired, CheckStale:
 		return true
 	}
 	return false

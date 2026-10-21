@@ -1,0 +1,116 @@
+{
+  "events": [
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "pulls/7031",
+      "idKind": "source",
+      "kind": "pr.opened",
+      "sourceTime": "2026-04-02T09:00:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "reviewer-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 31
+        }
+      },
+      "details": {
+        "branch": "feature/abandoned"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/31",
+        "note": "user reviewer-gh"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "reviews/3301",
+      "idKind": "source",
+      "kind": "pr.review_submitted",
+      "sourceTime": "2026-04-02T09:30:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 31
+        }
+      },
+      "details": {
+        "state": "changes_requested"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/31/reviews",
+        "note": "review 3301"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/events/8301",
+      "idKind": "source",
+      "kind": "pr.closed",
+      "sourceTime": "2026-04-02T10:00:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "reviewer-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 31
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/31/timeline",
+        "note": "event 8301, closed"
+      }
+    }
+  ],
+  "pullRequests": [
+    {
+      "key": {
+        "instance": "github.example.com",
+        "repository": "example-org/widgets",
+        "number": 31
+      },
+      "branch": "feature/abandoned",
+      "checks": [
+        {
+          "id": 9301,
+          "sha": "3333333333333333333333333333333333333333",
+          "name": "lint",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-04-02T09:00:20Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-04-02T09:01:00Z"
+            }
+          },
+          "conclusion": "cancelled"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "total_count": 2,
+  "check_runs": [
+    {
+      "id": 9405,
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "name": "lint",
+      "status": "in_progress",
+      "conclusion": null,
+      "started_at": "2026-04-03T08:20:10Z",
+      "completed_at": null
+    },
+    {
+      "id": 9406,
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "name": "deploy-preview",
+      "status": "queued",
+      "conclusion": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  ]
+}

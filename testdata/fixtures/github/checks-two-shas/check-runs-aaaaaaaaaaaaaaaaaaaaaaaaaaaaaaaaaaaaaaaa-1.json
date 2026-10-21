@@ -1,0 +1,23 @@
+{
+  "total_count": 2,
+  "check_runs": [
+    {
+      "id": 9401,
+      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "test",
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-04-03T08:00:30Z",
+      "completed_at": "2026-04-03T08:03:00Z"
+    },
+    {
+      "id": 9402,
+      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "lint",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-04-03T08:00:30Z",
+      "completed_at": "2026-04-03T08:01:00Z"
+    }
+  ]
+}
