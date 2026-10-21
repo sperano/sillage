@@ -246,6 +246,8 @@ func estRuns() []Run {
 	newer, older := testRun("uid-2"), testRun("uid-1")
 	newer.Interval = Interval{Start: KnownAt(atEST(40)), End: KnownAt(atEST(60))}
 	older.Interval = Interval{Start: KnownAt(atEST(0)), End: KnownAt(atEST(30))}
+	newer.Created = timePtr(atEST(35))
+	newer.Usage = &Usage{CostUSD: "0.42", InputTokens: int64Ptr(1200)}
 	newer.Evidence = []Evidence{
 		{Source: SourceKelos, Instance: testCluster, Ref: "tasks/z"},
 		{Source: SourceKelos, Instance: testCluster, Ref: "tasks/a"},
@@ -316,6 +318,9 @@ func TestBuildStoryConvertsEveryTimeToUTC(t *testing.T) {
 		check("event "+e.ID+" ObservedAt", e.ObservedAt)
 	}
 	for _, r := range story.Runs {
+		if r.Created != nil {
+			check("run "+r.Key.UID+" Created", *r.Created)
+		}
 		checkBound("run "+r.Key.UID+" start", r.Interval.Start)
 		checkBound("run "+r.Key.UID+" end", r.Interval.End)
 	}
@@ -406,6 +411,9 @@ func TestBuildStoryDoesNotModifyInput(t *testing.T) {
 	if id := got.Events[0].ID; id != "c-late" {
 		t.Errorf("input first event = %q, want c-late (input order)", id)
 	}
+	if loc := got.Runs[0].Created.Location(); loc != testEST {
+		t.Errorf("input run creation location = %v, want %v", loc, testEST)
+	}
 	if ref := got.Runs[0].Evidence[0].Ref; ref != "tasks/z" {
 		t.Errorf("input run evidence first ref = %q, want tasks/z", ref)
 	}
@@ -418,7 +426,9 @@ func TestBuildStoryDoesNotModifyInput(t *testing.T) {
 
 	// The story must not share its lists with the input either.
 	story.Events[0].ID = "mutated"
-	story.Runs[0].Evidence[0].Ref = "mutated"
+	story.Runs[1].Evidence[0].Ref = "mutated"
+	*story.Runs[1].Usage.InputTokens = -1
+	story.Runs[1].Usage.CostUSD = "mutated"
 	story.PullRequests[0].Checks[0].ID = -1
 	story.Correlations[1].Evidence[0].Ref = "mutated"
 	story.Coverage[0].Gaps = append(story.Coverage[0].Gaps[:0], Gap{Reason: "mutated"})

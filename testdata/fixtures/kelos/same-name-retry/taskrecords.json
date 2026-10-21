@@ -1,0 +1,72 @@
+{
+  "apiVersion": "kelos.dev/v1alpha2",
+  "kind": "TaskRecordList",
+  "metadata": {},
+  "items": [
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "TaskRecord",
+      "metadata": {
+        "name": "00000000-0000-4000-8000-00000000204a",
+        "namespace": "agents",
+        "uid": "11111111-0000-4000-8000-00000000204a",
+        "creationTimestamp": "2026-03-14T10:31:51Z",
+        "labels": {
+          "vikunja.example.com/workspace": "widgets",
+          "vikunja.example.com/project": "widgets",
+          "vikunja.example.com/variant": "agent-opus",
+          "vikunja.example.com/task": "204"
+        }
+      },
+      "spec": {
+        "taskRef": {
+          "name": "vikunja-widgets-agent-opus-204",
+          "uid": "00000000-0000-4000-8000-00000000204a"
+        },
+        "type": "claude-code",
+        "phase": "Failed",
+        "completionTime": "2026-03-14T10:31:50Z",
+        "ttlSecondsAfterCompletion": 2592000,
+        "startTime": "2026-03-14T10:02:35Z",
+        "model": "model-a",
+        "usage": {
+          "costUSD": "0.15",
+          "inputTokens": 12000,
+          "outputTokens": 800
+        }
+      }
+    },
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "TaskRecord",
+      "metadata": {
+        "name": "00000000-0000-4000-8000-00000000204b",
+        "namespace": "agents",
+        "uid": "11111111-0000-4000-8000-00000000204b",
+        "creationTimestamp": "2026-03-14T11:20:03Z",
+        "labels": {
+          "vikunja.example.com/workspace": "widgets",
+          "vikunja.example.com/project": "widgets",
+          "vikunja.example.com/variant": "agent-opus",
+          "vikunja.example.com/task": "204"
+        }
+      },
+      "spec": {
+        "taskRef": {
+          "name": "vikunja-widgets-agent-opus-204",
+          "uid": "00000000-0000-4000-8000-00000000204b"
+        },
+        "type": "claude-code",
+        "phase": "Succeeded",
+        "completionTime": "2026-03-14T11:20:02Z",
+        "ttlSecondsAfterCompletion": 2592000,
+        "startTime": "2026-03-14T11:00:35Z",
+        "model": "model-a",
+        "usage": {
+          "inputTokens": 30000,
+          "outputTokens": 3000
+        }
+      }
+    }
+  ]
+}

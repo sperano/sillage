@@ -1,0 +1,71 @@
+{
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000000201"
+      },
+      "taskName": "vikunja-widgets-agent-opus-201",
+      "pod": "vikunja-widgets-agent-opus-201-x7k2p",
+      "job": "vikunja-widgets-agent-opus-201",
+      "agent": "agent-opus",
+      "project": "widgets",
+      "role": "implementation",
+      "created": "2026-03-10T14:00:00Z",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-10T14:00:40Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-03-10T14:25:10Z"
+        }
+      },
+      "outcome": "succeeded",
+      "message": "Task completed successfully",
+      "model": "model-effective",
+      "usage": {
+        "costUSD": "1.234",
+        "inputTokens": 48000,
+        "outputTokens": 5200
+      },
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-widgets-agent-opus-201",
+          "note": "uid 00000000-0000-4000-8000-000000000201 supplies taskName (metadata.name), created (metadata.creationTimestamp), pod (status.podName), job (status.jobName), message (status.message), agent (metadata.labels[vikunja.example.com/variant]), project (metadata.labels[vikunja.example.com/project]), role (metadata.labels[vikunja.example.com/task] without vikunja.example.com/role); times are lifecycle times (the API server's creation, the controller's start and completion), not CPU or phase timings"
+        },
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/00000000-0000-4000-8000-000000000201",
+          "note": "uid 00000000-0000-4000-8000-000000000201 supplies outcome (spec.phase Succeeded), start (spec.startTime), end (spec.completionTime), model (spec.model), usage (spec.usage); times are lifecycle times (the API server's creation, the controller's start and completion), not CPU or phase timings"
+        }
+      ]
+    }
+  ],
+  "correlations": [
+    {
+      "from": {
+        "kind": "run",
+        "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000000201"
+      },
+      "to": {
+        "kind": "task",
+        "id": "vikunja.example.com/tasks/201"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-widgets-agent-opus-201",
+          "note": "label vikunja.example.com/task=201"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "apiVersion": "kelos.dev/v1alpha2",
+  "kind": "TaskList",
+  "metadata": {},
+  "items": [
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "Task",
+      "metadata": {
+        "name": "github-fu-widgets-agent-opus-41-r9001",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000002051",
+        "creationTimestamp": "2026-03-13T10:00:00Z",
+        "labels": {
+          "vikunja.example.com/workspace": "widgets",
+          "vikunja.example.com/variant": "agent-opus",
+          "vikunja.example.com/role": "pr-followup"
+        },
+        "annotations": {
+          "example.com/note": "not read"
+        }
+      },
+      "spec": {
+        "type": "claude-code",
+        "prompt": "Fabricated prompt: never read into a run.",
+        "branch": "kelos/vikunja-0"
+      },
+      "status": {
+        "phase": "Running",
+        "jobName": "github-fu-widgets-agent-opus-41-r9001",
+        "podName": "github-fu-widgets-agent-opus-41-r9001-p2w6n",
+        "startTime": "2026-03-13T10:00:20Z"
+      }
+    },
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "Task",
+      "metadata": {
+        "name": "merge-close-widgets-41",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000002052",
+        "creationTimestamp": "2026-03-13T10:05:00Z",
+        "labels": {
+          "vikunja.example.com/workspace": "widgets",
+          "vikunja.example.com/role": "merge-close"
+        },
+        "annotations": {
+          "example.com/note": "not read"
+        }
+      },
+      "spec": {
+        "type": "claude-code",
+        "prompt": "Fabricated prompt: never read into a run.",
+        "branch": "kelos/vikunja-0",
+        "workerPoolRef": {
+          "name": "bookkeeping"
+        }
+      },
+      "status": {
+        "phase": "Waiting",
+        "message": "Waiting for branch lock"
+      }
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000000202"
+      },
+      "taskName": "vikunja-fu-widgets-agent-sonnet-202",
+      "agent": "agent-sonnet",
+      "project": "widgets",
+      "role": "task-follow-up",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-11T09:01:05Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-03-11T09:12:30Z"
+        }
+      },
+      "outcome": "failed",
+      "model": "model-b",
+      "usage": {
+        "inputTokens": 900,
+        "outputTokens": 40
+      },
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/00000000-0000-4000-8000-000000000202",
+          "note": "uid 00000000-0000-4000-8000-000000000202 supplies taskName (spec.taskRef.name), agent (metadata.labels[vikunja.example.com/variant]), project (metadata.labels[vikunja.example.com/project]), role (metadata.labels[vikunja.example.com/role] task-followup), outcome (spec.phase Failed), start (spec.startTime), end (spec.completionTime), model (spec.model), usage (spec.usage); times are lifecycle times (the API server's creation, the controller's start and completion), not CPU or phase timings; Task not found (deleted after its TTL): created, pod, job and message unknown"
+        }
+      ]
+    }
+  ],
+  "correlations": [
+    {
+      "from": {
+        "kind": "run",
+        "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000000202"
+      },
+      "to": {
+        "kind": "task",
+        "id": "vikunja.example.com/tasks/202"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/00000000-0000-4000-8000-000000000202",
+          "note": "label vikunja.example.com/task=202"
+        }
+      ]
+    }
+  ]
+}
