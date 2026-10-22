@@ -99,6 +99,12 @@ func TestNewReaderRejectsInvalidConfig(t *testing.T) {
 	}
 }
 
+func TestNewReaderRejectsNilClient(t *testing.T) {
+	if _, err := NewReader(nil, testConfig()); err == nil {
+		t.Error("NewReader accepted a nil client")
+	}
+}
+
 func TestListAllFollowsContinue(t *testing.T) {
 	f := &fakePages{pages: [][]string{{"a", "b"}, {"c"}, {"d"}}}
 	tasks, err := listAll[Task](t.Context(), f.list)

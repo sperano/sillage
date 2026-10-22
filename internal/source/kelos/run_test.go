@@ -2,6 +2,7 @@ package kelos
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -172,8 +173,9 @@ func TestLifecyclePhases(t *testing.T) {
 func TestNoTimeNoLifecycleNote(t *testing.T) {
 	b := &runBuilder{cfg: testConfig(), a: &attempt{uid: "u", record: &TaskRecord{Spec: TaskRecordSpec{Phase: PhaseFailed}}}}
 	b.lifecycle()
-	if b.timesFromRecord {
-		t.Error("a record without times marked as having supplied one")
+	ev := b.evidence()
+	if len(ev) != 1 || strings.Contains(ev[0].Note, recordTimesNote) {
+		t.Errorf("evidence = %+v, want one note without %q", ev, recordTimesNote)
 	}
 }
 

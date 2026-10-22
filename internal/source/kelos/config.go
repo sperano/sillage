@@ -54,10 +54,15 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 
 // Validate reports whether every setting is present and well formed. An
 // empty namespace would list every namespace, and an empty label domain
-// would match no label, so neither is allowed.
+// would match no label, so neither is allowed. A cluster name padded with
+// spaces would put them on every run key and evidence, so it is refused
+// rather than trimmed.
 func (c Config) Validate() error {
 	if c.Cluster == "" {
 		return fmt.Errorf("kelos: %s is not set", EnvCluster)
+	}
+	if strings.TrimSpace(c.Cluster) != c.Cluster {
+		return fmt.Errorf("kelos: %s %q has leading or trailing spaces", EnvCluster, c.Cluster)
 	}
 	if errs := validation.IsDNS1123Label(c.Namespace); len(errs) > 0 {
 		return fmt.Errorf("kelos: %s must be a namespace name: %s", EnvNamespace, strings.Join(errs, "; "))

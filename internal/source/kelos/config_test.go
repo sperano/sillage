@@ -51,3 +51,13 @@ func TestConfigFromEnvRejects(t *testing.T) {
 		})
 	}
 }
+
+// Validate refuses what ConfigFromEnv would have normalized, for a Config
+// built directly.
+func TestValidateRejectsPaddedCluster(t *testing.T) {
+	cfg := testConfig()
+	cfg.Cluster = " " + cfg.Cluster
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), EnvCluster) {
+		t.Errorf("error = %v, want one naming %s", err, EnvCluster)
+	}
+}

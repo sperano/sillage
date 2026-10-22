@@ -78,6 +78,9 @@ type Reader struct {
 
 // NewReader returns a reader of cfg's namespace through client.
 func NewReader(client dynamic.Interface, cfg Config) (*Reader, error) {
+	if client == nil {
+		return nil, errors.New("kelos: reader without a client")
+	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
