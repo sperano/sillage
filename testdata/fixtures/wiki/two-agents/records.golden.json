@@ -1,0 +1,414 @@
+[
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "pages/58",
+    "idKind": "source",
+    "kind": "page.created",
+    "sourceTime": "2026-03-05T10:00:00.05Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Robin Owner",
+      "kind": "person"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 58,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "7"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "pages.single(id: 58)",
+      "note": "createdAt, creatorId, creatorName"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "comments/900",
+    "idKind": "source",
+    "kind": "request.created",
+    "sourceTime": "2026-03-05T11:00:00Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Robin Owner",
+      "kind": "person"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 58,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "agent": "agent-sol",
+      "authorId": "7",
+      "command": "/kelos"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "comments.list(locale: en, path: widgets/runbooks/release)",
+      "note": "comment 900: createdAt, authorId, authorName"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "comments/901",
+    "idKind": "source",
+    "kind": "run.announced",
+    "sourceTime": "2026-03-05T11:00:25Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Agent Sol",
+      "kind": "agent"
+    },
+    "executor": {
+      "name": "agent-sol",
+      "kind": "agent"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 58,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "22",
+      "model": "example-model-3",
+      "namespace": "agents",
+      "pod": "wiki-fu-widgets-58-c900-abcde",
+      "requestComment": "900",
+      "taskName": "wiki-fu-widgets-58-c900",
+      "workspace": "widgets"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "comments.list(locale: en, path: widgets/runbooks/release)",
+      "note": "comment 901: createdAt, authorId, authorName, and the Kelos Task, pod and namespace it names"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "comments/902",
+    "idKind": "source",
+    "kind": "request.created",
+    "sourceTime": "2026-03-05T11:02:00Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Robin Owner",
+      "kind": "person"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 58,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "agent": "agent-opus",
+      "authorId": "7",
+      "command": "/kelos"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "comments.list(locale: en, path: widgets/runbooks/release)",
+      "note": "comment 902: createdAt, authorId, authorName"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "comments/903",
+    "idKind": "source",
+    "kind": "run.announced",
+    "sourceTime": "2026-03-05T11:02:30Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Agent Opus",
+      "kind": "agent"
+    },
+    "executor": {
+      "name": "agent-opus",
+      "kind": "agent"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 58,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "21",
+      "model": "example-model-2[1m]",
+      "namespace": "agents",
+      "pod": "wiki-fu-widgets-58-c902-vwxyz",
+      "requestComment": "902",
+      "taskName": "wiki-fu-widgets-58-c902",
+      "workspace": "widgets"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "comments.list(locale: en, path: widgets/runbooks/release)",
+      "note": "comment 903: createdAt, authorId, authorName, and the Kelos Task, pod and namespace it names"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "pages/58/versions/201",
+    "idKind": "source",
+    "kind": "page.edited",
+    "sourceTime": "2026-03-05T11:05:00.2Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Agent Sol",
+      "kind": "agent"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 58,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "22",
+      "supersedes": "sha256:5f13eebe682a701bb3ccb1ec57535ae32c3d31136f6c03d580132d4a4caa6bff",
+      "version": "201"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "pages.history(id: 58)",
+      "note": "version 201: versionDate, authorId, authorName, actionType"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "pages/58/versions/202",
+    "idKind": "source",
+    "kind": "page.edited",
+    "sourceTime": "2026-03-05T11:07:00.6Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Agent Opus",
+      "kind": "agent"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 58,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "21",
+      "supersedes": "sha256:ddc0e7d442a81c0abfcf650060cfd17a29002630fa9524fa9ecbc96a248f0dd1",
+      "version": "202"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "pages.history(id: 58)",
+      "note": "version 202: versionDate, authorId, authorName, actionType"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "pages/58/versions/203",
+    "idKind": "source",
+    "kind": "page.edited",
+    "sourceTime": "2026-03-05T11:12:00.4Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Agent Sol",
+      "kind": "agent"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 58,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "22",
+      "supersedes": "sha256:f20f00117e2a7bcfabda1ab65afe80267805cc9cfeaf6374ea03c098f8863ec6",
+      "version": "203"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "pages.history(id: 58)",
+      "note": "version 203: versionDate, authorId, authorName, actionType"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "comments/904",
+    "idKind": "source",
+    "kind": "comment.created",
+    "sourceTime": "2026-03-05T11:14:00Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Agent Sol",
+      "kind": "agent"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 58,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "22"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "comments.list(locale: en, path: widgets/runbooks/release)",
+      "note": "comment 904: createdAt, authorId, authorName"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "pages/58/versions/204",
+    "idKind": "source",
+    "kind": "page.moved",
+    "sourceTime": "2026-03-05T11:30:00.9Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "kind": "unknown"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 58,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "from": "widgets/runbooks/deploy",
+      "supersedes": "sha256:a11b773c8d0ad6504e98850a7931542aa1b1ccee07bbe769460ab39bdf92373e",
+      "to": "widgets/runbooks/release",
+      "version": "204"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "pages.history(id: 58)",
+      "note": "version 204: versionDate, actionType, valueBefore, valueAfter; Wiki.js does not record who moved a page"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "pages/58/versions/205",
+    "idKind": "source",
+    "kind": "page.edited",
+    "sourceTime": "2026-03-05T11:41:00.3Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Agent Opus",
+      "kind": "agent"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 58,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "21",
+      "supersedes": "sha256:d86daf6db2f1fb336b0bd177da5417fe0038141c640621826ee8011e4f60f8f9",
+      "version": "205"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "pages.history(id: 58)",
+      "note": "version 205: versionDate, authorId, authorName, actionType"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "sha256:d924e07184c5a1b495ba460cf7786a49ab175470d5a169071f58ba0ad56c8ecd",
+    "idKind": "fingerprint",
+    "kind": "page.edited",
+    "sourceTime": "2026-03-05T11:44:00.7Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Agent Opus",
+      "kind": "agent"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 58,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "21",
+      "version": "live"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "pages.single(id: 58)",
+      "note": "updatedAt, authorId, authorName of the live page; Wiki.js 2 archives a version only when the next save replaces it"
+    }
+  },
+  {
+    "source": "wiki",
+    "instance": "wiki.example.com",
+    "id": "comments/905",
+    "idKind": "source",
+    "kind": "comment.created",
+    "sourceTime": "2026-03-05T11:45:00Z",
+    "observedAt": "2026-03-07T12:00:00Z",
+    "actor": {
+      "login": "Agent Opus",
+      "kind": "agent"
+    },
+    "related": {
+      "page": {
+        "instance": "wiki.example.com",
+        "id": 58,
+        "locale": "en"
+      }
+    },
+    "details": {
+      "authorId": "21"
+    },
+    "evidence": {
+      "source": "wiki",
+      "instance": "wiki.example.com",
+      "ref": "comments.list(locale: en, path: widgets/runbooks/release)",
+      "note": "comment 905: createdAt, authorId, authorName"
+    }
+  }
+]

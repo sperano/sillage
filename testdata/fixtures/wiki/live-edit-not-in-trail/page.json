@@ -1,0 +1,17 @@
+{
+  "data": {
+    "pages": {
+      "single": {
+        "id": 57,
+        "path": "widgets/design/storage-layout",
+        "locale": "en",
+        "createdAt": "2026-03-04T10:00:00.120Z",
+        "updatedAt": "2026-03-04T15:16:45.900Z",
+        "authorId": 21,
+        "authorName": "Agent Opus",
+        "creatorId": 7,
+        "creatorName": "Robin Owner"
+      }
+    }
+  }
+}
