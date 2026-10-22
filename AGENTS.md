@@ -61,11 +61,12 @@ The `web` and `go` stages run on the build platform (Go cross-compiles with
 `build.license`, `web/dist/.vite/license.md`). It runs as `65532:65532`,
 needs no writable path, and listens on `:8080` (`SILLAGE_LISTEN_ADDR`).
 `VERSION` sets `main.version` through `-ldflags -X`; the binary logs it at
-startup and reports `dev` without it. When you rename that variable, change
-the Dockerfile with it; `TestVersionLoggedAtStartup` catches a mismatch with
-its own `-X`. Agent pods have no Docker daemon: there, run the stages' commands
-instead (`npm ci && npm run build`, then `CGO_ENABLED=0 GOOS=linux
-GOARCH=arm64 go build -tags webdist ./cmd/sillage`).
+startup and reports `dev` without it. `TestVersionLoggedAtStartup` checks
+that `-X` reaches the variable, and `TestDockerfileSetsVersion` that the
+Dockerfile passes the same flag. Agent pods have no Docker daemon: there,
+run the stages' commands instead (`npm ci && npm run build`, then
+`CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags webdist
+./cmd/sillage`).
 
 ## Gates
 

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
@@ -27,6 +28,8 @@ const (
 	buildTimeout = 2 * time.Minute
 	// versionSymbol is the -X target the Dockerfile sets VERSION into.
 	versionSymbol = "main.version"
+	// dockerfilePath is the image's Dockerfile, from this package.
+	dockerfilePath = "../../Dockerfile"
 	// startLogPrefix and listenLogPrefix begin the log lines that run writes
 	// before and once it serves, after slog's default timestamp.
 	startLogPrefix  = "INFO starting "
@@ -127,15 +130,21 @@ func TestRunListenError(t *testing.T) {
 	}
 }
 
-func TestVersionDefault(t *testing.T) {
-	if version != defaultVersion {
-		t.Errorf("version = %q, want %q", version, defaultVersion)
+// TestDockerfileSetsVersion pins the -X flag the Dockerfile passes to the
+// symbol TestVersionLoggedAtStartup proves the linker sets, so that renaming
+// version fails here instead of shipping images that all report the default.
+func TestDockerfileSetsVersion(t *testing.T) {
+	dockerfile, err := os.ReadFile(dockerfilePath)
+	if err != nil {
+		t.Fatalf("read the Dockerfile: %v", err)
+	}
+	if want := "-X " + versionSymbol + "="; !strings.Contains(string(dockerfile), want) {
+		t.Errorf("%s does not pass %q to the linker", dockerfilePath, want)
 	}
 }
 
-// TestVersionLoggedAtStartup builds the binary the way the Dockerfile does,
-// so that renaming version without updating its -X flag fails here instead
-// of shipping images that all report the default.
+// TestVersionLoggedAtStartup builds the binary with and without the -X flag
+// the Dockerfile passes, and checks that it logs its version once at startup.
 func TestVersionLoggedAtStartup(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds and runs the binary")
@@ -190,14 +199,21 @@ func startLines(ctx context.Context, t *testing.T, bin string) []string {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start: %v", err)
 	}
+	// Reaps the binary when a failure skips the Wait below; a second Wait
+	// only returns an error.
+	t.Cleanup(func() { _ = cmd.Wait() })
 	var starts []string
 	listening := false
-	for sc := bufio.NewScanner(stderr); !listening && sc.Scan(); {
+	sc := bufio.NewScanner(stderr)
+	for sc.Scan() {
 		line := sc.Text()
 		if _, msg, ok := strings.Cut(line, startLogPrefix); ok {
 			starts = append(starts, startLogPrefix+msg)
 		}
-		listening = strings.Contains(line, listenLogPrefix)
+		if strings.Contains(line, listenLogPrefix) {
+			listening = true
+			break
+		}
 	}
 	if !listening {
 		t.Fatal("the binary exited or timed out before it listened")
