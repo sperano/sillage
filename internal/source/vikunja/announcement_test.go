@@ -86,10 +86,3 @@ func TestParseAnnouncementRejects(t *testing.T) {
 		})
 	}
 }
-
-func TestPlainText(t *testing.T) {
-	got := plainText("<p>A &amp; <code>B</code></p>\n<p>  C\n  D <br/>E</p>")
-	if want := "A & B\nC D\nE"; got != want {
-		t.Errorf("plainText = %q, want %q", got, want)
-	}
-}

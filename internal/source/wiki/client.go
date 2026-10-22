@@ -112,7 +112,7 @@ func NewClient(cfg Config, hc *http.Client) (*Client, error) {
 	}
 	header := "Bearer " + string(cfg.Token)
 	return &Client{
-		endpoint:        cfg.BaseURL + graphQLPath,
+		endpoint:        strings.TrimRight(cfg.BaseURL, "/") + graphQLPath,
 		instance:        cfg.Instance,
 		authorize:       func(r *http.Request) { r.Header.Set("Authorization", header) },
 		http:            hc,

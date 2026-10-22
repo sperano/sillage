@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/source/htmltext"
 )
 
 // comment is a /kelos request, a start announcement when an agent user
@@ -16,7 +17,7 @@ func (n *normalizer) comment(c Comment) model.Event {
 	n.setAuthor(&e, user{c.AuthorID, c.AuthorName})
 	e.Evidence.Ref = "comments.list(locale: " + n.s.Page.Locale + ", path: " + n.s.Page.Path + ")"
 	e.Evidence.Note = "comment " + id + ": createdAt, authorId, authorName"
-	text := plainText(c.Render)
+	text := htmltext.Plain(c.Render)
 	if agent, ok := parseRequest(text); ok {
 		e.Kind = model.KindRequest
 		setDetail(&e, "command", requestPrefix)
@@ -42,7 +43,7 @@ func (n *normalizer) comment(c Comment) model.Event {
 // executor.
 func announced(e *model.Event, a Announcement) {
 	e.Kind = model.KindRunAnnounced
-	e.Evidence.Note += ", and the Kelos Task, pod and namespace it names"
+	e.Evidence.Note += ", and the Kelos Task" + namedAlong(a) + " it names"
 	if a.Agent != "" {
 		e.Executor = &model.Executor{Name: a.Agent, Kind: model.ActorAgent}
 	}
@@ -59,4 +60,18 @@ func announced(e *model.Event, a Announcement) {
 			setDetail(e, d[0], d[1])
 		}
 	}
+}
+
+// namedAlong lists what a names besides its Kelos Task, for an evidence
+// note: the pod and namespace, when stated.
+func namedAlong(a Announcement) string {
+	switch {
+	case a.Pod != "" && a.Namespace != "":
+		return ", pod and namespace"
+	case a.Pod != "":
+		return " and pod"
+	case a.Namespace != "":
+		return " and namespace"
+	}
+	return ""
 }

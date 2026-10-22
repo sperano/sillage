@@ -3,6 +3,8 @@ package wiki
 import (
 	"errors"
 	"testing"
+
+	"github.com/sperano/sillage/internal/source/htmltext"
 )
 
 func TestParseAnnouncement(t *testing.T) {
@@ -37,7 +39,7 @@ func TestParseAnnouncement(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseAnnouncement(plainText(tt.body), 57)
+			got, err := parseAnnouncement(htmltext.Plain(tt.body), 57)
 			if err != nil {
 				t.Fatalf("parseAnnouncement: %v", err)
 			}
@@ -75,7 +77,7 @@ func TestParseAnnouncementRejects(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseAnnouncement(plainText(tt.body), 57)
+			got, err := parseAnnouncement(htmltext.Plain(tt.body), 57)
 			if !errors.Is(err, tt.want) {
 				t.Errorf("parseAnnouncement = %+v, %v; want error %v", got, err, tt.want)
 			}
@@ -92,6 +94,10 @@ func TestParseRequest(t *testing.T) {
 		{"/kelos split the section", "", true},
 		{"/kelos", "", true},
 		{"/kelos @agent-sol tighten the steps", "agent-sol", true},
+		{"/kelos @agent-sol, tighten the steps", "agent-sol", true},
+		{"/kelos @agent-sol: tighten the steps", "agent-sol", true},
+		{"/kelos @sol.", "sol", true},
+		{"/kelos @, tighten the steps", "", true},
 		{"/kelos\tplease", "", true},
 		{"/kelosx do it", "", false},
 		{"please /kelos do it", "", false},
@@ -102,12 +108,5 @@ func TestParseRequest(t *testing.T) {
 		if agent != tt.wantAgent || ok != tt.wantOK {
 			t.Errorf("parseRequest(%q) = %q, %v; want %q, %v", tt.text, agent, ok, tt.wantAgent, tt.wantOK)
 		}
-	}
-}
-
-func TestPlainText(t *testing.T) {
-	got := plainText("<p>A &amp; <code>B</code></p>\n<p>  C\n  D <br/>E</p>")
-	if want := "A & B\nC D\nE"; got != want {
-		t.Errorf("plainText = %q, want %q", got, want)
 	}
 }

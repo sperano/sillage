@@ -2,9 +2,10 @@ package vikunja
 
 import (
 	"errors"
-	"html"
 	"regexp"
 	"strings"
+
+	"github.com/sperano/sillage/internal/source/htmltext"
 )
 
 // The start announcement Kelos posts on a Vikunja task is HTML of the form
@@ -34,9 +35,7 @@ var (
 	// first paragraph does not have the expected form.
 	errUnparsedAnnouncement = errors.New("start announcement not in the expected form")
 
-	paragraphBreak = regexp.MustCompile(`(?i)</p\s*>|<br\s*/?>`)
-	htmlTag        = regexp.MustCompile(`<[^>]*>`)
-	leadSentence   = regexp.MustCompile(`^(?:Agent (\S+)|The agent)(?: \(model (\S+)\))? (` +
+	leadSentence = regexp.MustCompile(`^(?:Agent (\S+)|The agent)(?: \(model (\S+)\))? (` +
 		regexp.QuoteMeta(phraseImplementation) + `|` + regexp.QuoteMeta(phraseFollowUp) +
 		`): Kelos Task (` + k8sName + `)(?:, pod (` + k8sName + `))?\.$`)
 	namespaceNote = regexp.MustCompile(`\(namespace (` + k8sLabel + `)\)`)
@@ -52,7 +51,7 @@ var rolesByPhrase = map[string]Role{
 // when the body has no start phrase and errUnparsedAnnouncement when it has
 // one but the rest does not match.
 func parseAnnouncement(body string) (Announcement, error) {
-	text := plainText(body)
+	text := htmltext.Plain(body)
 	if !strings.Contains(text, phraseImplementation) && !strings.Contains(text, phraseFollowUp) {
 		return Announcement{}, errNotAnnouncement
 	}
@@ -72,20 +71,4 @@ func parseAnnouncement(body string) (Announcement, error) {
 		a.Namespace = ns[1]
 	}
 	return a, nil
-}
-
-// plainText turns comment HTML into text: one line per paragraph, tags
-// dropped, entities decoded, runs of spaces collapsed.
-func plainText(body string) string {
-	// Newlines in HTML are spaces; only paragraph breaks end a line.
-	body = strings.NewReplacer("\r", " ", "\n", " ").Replace(body)
-	lines := strings.Split(paragraphBreak.ReplaceAllString(body, "\n"), "\n")
-	out := make([]string, 0, len(lines))
-	for _, line := range lines {
-		line = html.UnescapeString(htmlTag.ReplaceAllString(line, ""))
-		if line = strings.Join(strings.Fields(line), " "); line != "" {
-			out = append(out, line)
-		}
-	}
-	return strings.Join(out, "\n")
 }

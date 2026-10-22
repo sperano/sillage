@@ -7,20 +7,21 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestQueryStatusError(t *testing.T) {
-	fake := &fakeWiki{t: t, dir: filepath.Join(fixtureDir, "live-edit-not-in-trail")}
+	fake := storyFake(t, "live-edit-not-in-trail")
 	c := newTestClient(t, fake)
-	wrong, err := NewClient(Config{BaseURL: "https://wiki.example.com", Instance: testInstance, Token: "wrong-" + testToken}, nil)
+	cfg := testConfig("https://wiki.example.com")
+	cfg.Token = "wrong-" + testToken
+	wrong, err := NewClient(cfg, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	c.authorize = wrong.authorize
-	_, err = c.Fetch(t.Context(), 57)
+	_, err = c.Fetch(t.Context(), fake.pageID)
 	se, ok := errors.AsType[*StatusError](err)
 	if !ok || se.Code != http.StatusUnauthorized || se.Operation != opPage {
 		t.Fatalf("Fetch error = %v, want a 401 StatusError for %s", err, opPage)
@@ -84,7 +85,7 @@ func TestQueryTransportErrors(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	base := srv.URL
 	srv.Close()
-	c, err := NewClient(Config{BaseURL: base, Instance: testInstance, Token: testToken}, nil)
+	c, err := NewClient(testConfig(base), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,9 +104,10 @@ func TestQueryTransportErrors(t *testing.T) {
 
 func TestNewClientRejects(t *testing.T) {
 	for name, cfg := range map[string]Config{
-		"no instance": {BaseURL: "https://wiki.example.com", Token: testToken},
-		"no token":    {BaseURL: "https://wiki.example.com", Instance: testInstance},
-		"bad URL":     {BaseURL: "wiki.example.com", Instance: testInstance, Token: testToken},
+		"no instance":    {BaseURL: "https://wiki.example.com", Token: testToken, AgentUsers: testAgents},
+		"no token":       {BaseURL: "https://wiki.example.com", Instance: testInstance, AgentUsers: testAgents},
+		"bad URL":        {BaseURL: "wiki.example.com", Instance: testInstance, Token: testToken, AgentUsers: testAgents},
+		"no agent users": {BaseURL: "https://wiki.example.com", Instance: testInstance, Token: testToken},
 	} {
 		if _, err := NewClient(cfg, nil); err == nil {
 			t.Errorf("%s: NewClient succeeded", name)
@@ -114,7 +116,7 @@ func TestNewClientRejects(t *testing.T) {
 }
 
 func TestClientNeverPrintsToken(t *testing.T) {
-	c, err := NewClient(Config{BaseURL: "https://wiki.example.com", Instance: testInstance, Token: testToken}, nil)
+	c, err := NewClient(testConfig("https://wiki.example.com"), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,5 +126,21 @@ func TestClientNeverPrintsToken(t *testing.T) {
 		if strings.Contains(out, testToken) {
 			t.Errorf("token printed: %s", out)
 		}
+	}
+}
+
+// A base URL with a trailing slash still reaches GraphQL at /graphql: the
+// fake server fails any other path.
+func TestNewClientTrailingSlash(t *testing.T) {
+	fake := storyFake(t, "live-edit-not-in-trail")
+	srv := httptest.NewServer(fake)
+	t.Cleanup(srv.Close)
+	c, err := NewClient(testConfig(srv.URL+"/"), srv.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.historyPageSize = testHistoryPageSize
+	if _, err := c.Fetch(t.Context(), fake.pageID); err != nil {
+		t.Errorf("Fetch: %v", err)
 	}
 }

@@ -27,11 +27,7 @@ const (
 // storyEvents reads a story as the collector would and normalizes it.
 func storyEvents(t *testing.T, story string) []model.Event {
 	t.Helper()
-	pageID, ok := storyPages[story]
-	if !ok {
-		t.Fatalf("story %s: add the page it is read by to storyPages", story)
-	}
-	snap, _ := fetchStory(t, story, pageID)
+	snap, _ := fetchStory(t, story)
 	recs, err := Normalize(snap, testAgents)
 	if err != nil {
 		t.Fatalf("Normalize: %v", err)
@@ -293,6 +289,31 @@ func TestNormalizePurgedTrail(t *testing.T) {
 	}
 	if got := summarize(events); !slices.Equal(got, want) {
 		t.Fatalf("events =\n%v\nwant\n%v", got, want)
+	}
+}
+
+// When the creator cannot be read, the oldest version's author is the
+// creator only if that version is dated as the creation's render; a later
+// one may follow a purge, so neither its author nor an edit is claimed.
+func TestNormalizeRestrictedCreator(t *testing.T) {
+	live := t0.Add(2 * time.Hour)
+	liveEdit := summary{model.KindPageEdited, liveFingerprint(t, live.Format(time.RFC3339Nano), actionEdited, "60"),
+		"/unknown"}
+	tests := []struct {
+		name    string
+		oldest  Version
+		creator string
+	}{
+		{"creation's render", handVersion(1, t0.Add(renderDelay), testOwner), "Robin Owner/person"},
+		{"window's end", handVersion(1, t0.Add(creationRenderWindow), testOwner), "Robin Owner/person"},
+		{"after the window", handVersion(9, t0.Add(creationRenderWindow+time.Millisecond), testOpus), "/unknown"},
+	}
+	for _, tt := range tests {
+		events := normalizeHand(t, Snapshot{Page: handPage(live, testOpus), Restricted: true, Trail: []Version{tt.oldest}})
+		want := []summary{{model.KindPageCreated, "pages/60", tt.creator}, liveEdit}
+		if got := summarize(events); !slices.Equal(got, want) {
+			t.Errorf("%s: events =\n%v\nwant\n%v", tt.name, got, want)
+		}
 	}
 }
 

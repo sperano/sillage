@@ -25,6 +25,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/source/github/` | Read-only GitHub client and its normalization into `model`. |
 | `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and its normalization into `model`. |
 | `internal/source/wiki/` | Read-only Wiki.js client and its normalization into `model`. |
+| `internal/source/htmltext/` | Rendered comment HTML to plain text, shared by the sources that parse comments. |
 | `internal/store/` | Persistence of `model` records, checkpoints and coverage. |
 | `internal/api/` | The read-only HTTP API over `store`. |
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |

@@ -2,7 +2,6 @@ package wiki
 
 import (
 	"errors"
-	"html"
 	"regexp"
 	"strconv"
 	"strings"
@@ -44,9 +43,7 @@ var (
 	// does not name a Kelos Task of the page in the expected form.
 	errUnparsedAnnouncement = errors.New("start announcement not in the expected form")
 
-	paragraphBreak = regexp.MustCompile(`(?i)</p\s*>|<br\s*/?>`)
-	htmlTag        = regexp.MustCompile(`<[^>]*>`)
-	leadSentence   = regexp.MustCompile(`^(?:Agent (\S+)|The agent)(?: \(model (\S+)\))? ` +
+	leadSentence = regexp.MustCompile(`^(?:Agent (\S+)|The agent)(?: \(model (\S+)\))? ` +
 		regexp.QuoteMeta(phraseFollowUp) + `: Kelos Task (` + k8sName + `)(?:, pod (` + k8sName + `))?\.$`)
 	namespaceNote = regexp.MustCompile(`\(namespace (` + k8sLabel + `)\)`)
 	// taskName is a wiki follow-up's Kelos Task name. The workspace is
@@ -112,7 +109,7 @@ func parseAnnouncement(text string, pageID int64) (Announcement, error) {
 
 // parseRequest reports whether a comment's plain text starts with
 // requestPrefix as a word, and returns the agent it names with
-// /kelos @<name>, if any.
+// /kelos @<name>, if any, without trailing punctuation.
 func parseRequest(text string) (agent string, ok bool) {
 	rest, ok := strings.CutPrefix(text, requestPrefix)
 	if !ok {
@@ -123,24 +120,9 @@ func parseRequest(text string) (agent string, ok bool) {
 	}
 	if fields := strings.Fields(rest); len(fields) > 0 {
 		if name, mentioned := strings.CutPrefix(fields[0], mentionPrefix); mentioned {
-			agent = name
+			// "/kelos @sol, please ..." names sol: punctuation ends the name.
+			agent = strings.TrimRightFunc(name, unicode.IsPunct)
 		}
 	}
 	return agent, true
-}
-
-// plainText turns rendered comment HTML into text: one line per
-// paragraph, tags dropped, entities decoded, runs of spaces collapsed.
-func plainText(body string) string {
-	// Newlines in HTML are spaces; only paragraph breaks end a line.
-	body = strings.NewReplacer("\r", " ", "\n", " ").Replace(body)
-	lines := strings.Split(paragraphBreak.ReplaceAllString(body, "\n"), "\n")
-	out := make([]string, 0, len(lines))
-	for _, line := range lines {
-		line = html.UnescapeString(htmlTag.ReplaceAllString(line, ""))
-		if line = strings.Join(strings.Fields(line), " "); line != "" {
-			out = append(out, line)
-		}
-	}
-	return strings.Join(out, "\n")
 }

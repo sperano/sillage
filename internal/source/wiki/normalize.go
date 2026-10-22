@@ -23,6 +23,11 @@ const (
 	versionLive = "live"
 	// noteArchived explains why the live version is read from the page.
 	noteArchived = "Wiki.js 2 archives a version only when the next save replaces it"
+	// creationRenderWindow bounds how long after createdAt the oldest
+	// version may be dated to be read as the creation's own when the
+	// creator cannot be read: its date is the render after the save,
+	// seconds later. Later, it may follow a purge, or a re-render.
+	creationRenderWindow = time.Minute
 )
 
 // Branch returns the branch Kelos works on for follow-ups requested on
@@ -41,12 +46,13 @@ func Branch(pageID int64) string {
 // records is claimed: no comment edits, no reading.
 //
 // A trail version's id is its history version id. The live version has
-// none yet: its id is a fingerprint of its time and action. A page has at
-// most one live record: whatever a newer read of the page returns
-// replaces it, since its updatedAt can also move without a new version
-// (the render a few seconds after a save, a re-render). Once a later save
-// archives the live version, the version's event also names that
-// fingerprint in its "supersedes" detail. Every event is validated.
+// none yet: its id is a fingerprint of its time and action. Each read
+// gives one live record, but updatedAt can also move without a new
+// version (the render a few seconds after a save, a re-render), so reads
+// of one page can give several live records under different ids: the
+// store decides which is current. Once a later save archives the live
+// version, the version's event also names that fingerprint in its
+// "supersedes" detail. Every event is validated.
 func Normalize(s Snapshot, agentUsers []int64) (model.Records, error) {
 	n := normalizer{
 		s:      s,
@@ -132,14 +138,17 @@ func (n *normalizer) states() []state {
 // pageEvents adds the creation and an event per later state. The oldest
 // state is the creation's own (its time is the render after the save,
 // seconds after createdAt), not an edit, unless it is a move or another
-// author's: then the history before it was purged.
+// author's: then the history before it was purged. When the creator
+// cannot be read, the oldest state's author is taken as the creator only
+// within creationRenderWindow of createdAt; a later one is still not
+// counted as an edit, but its author is not claimed either.
 func (n *normalizer) pageEvents() {
 	states := n.states()
 	first := states[0]
 	creator := user{n.s.Page.CreatorID, n.s.Page.CreatorName}
 	isCreation := first.from == ""
 	switch {
-	case n.s.Restricted && isCreation:
+	case n.s.Restricted && isCreation && n.nearCreation(first):
 		creator = first.author
 	case n.s.Restricted:
 		creator = user{}
@@ -153,6 +162,12 @@ func (n *normalizer) pageEvents() {
 	for _, st := range states {
 		n.add(n.stateEvent(st))
 	}
+}
+
+// nearCreation reports whether st is dated within creationRenderWindow of
+// the page's creation.
+func (n *normalizer) nearCreation(st state) bool {
+	return st.at.Sub(n.s.Page.CreatedAt) <= creationRenderWindow
 }
 
 // event fills the fields every event of the snapshot shares.
@@ -192,8 +207,12 @@ func (n *normalizer) created(creator user, first state, isCreation bool) model.E
 	switch {
 	case !n.s.Restricted:
 		e.Evidence.Note = "createdAt, creatorId, creatorName"
-	case isCreation && first.versionID != 0:
+	case isCreation && first.versionID != 0 && n.nearCreation(first):
 		e.Evidence.Note = "createdAt; creator: author of history version " + strconv.FormatInt(first.versionID, 10)
+	case isCreation && first.versionID != 0:
+		e.Evidence.Note = "createdAt; the token may not read the creator, and history version " +
+			strconv.FormatInt(first.versionID, 10) + ", the oldest, is dated too long after the creation " +
+			"to tell it from an edit after a purge: it is not counted as an edit, and its author not as the creator"
 	default:
 		e.Evidence.Note = "createdAt; the token may not read the creator"
 	}

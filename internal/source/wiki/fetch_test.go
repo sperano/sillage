@@ -27,7 +27,7 @@ func TestFetchOperations(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.story, func(t *testing.T) {
-			snap, ops := fetchStory(t, tt.story, storyPages[tt.story])
+			snap, ops := fetchStory(t, tt.story)
 			if !slices.Equal(ops, tt.want) {
 				t.Errorf("operations = %v, want %v", ops, tt.want)
 			}
@@ -39,7 +39,7 @@ func TestFetchOperations(t *testing.T) {
 }
 
 func TestFetchTwoAgents(t *testing.T) {
-	snap, _ := fetchStory(t, "two-agents", 58)
+	snap, _ := fetchStory(t, "two-agents")
 	var ids []int64
 	for _, v := range snap.Trail {
 		ids = append(ids, v.VersionID)
@@ -56,7 +56,7 @@ func TestFetchTwoAgents(t *testing.T) {
 }
 
 func TestFetchRestricted(t *testing.T) {
-	snap, _ := fetchStory(t, "announcement-no-reply", 59)
+	snap, _ := fetchStory(t, "announcement-no-reply")
 	if !snap.Restricted || snap.Page.ID != 59 || snap.Page.AuthorID != 0 || snap.Page.Path != "widgets/notes/capacity" {
 		t.Errorf("page = %+v, restricted %v", snap.Page, snap.Restricted)
 	}
@@ -123,9 +123,11 @@ func TestFetchFailures(t *testing.T) {
 	}{
 		{"another page", 61, nil, false, "no page 61"},
 		{"no history", 60, func(int) any { return nil }, false, "no history"},
+		// A server that ignores offsetPage, or a page shifted by as many
+		// saves: the trail would be cut short.
 		{"repeating trail", 60, func(int) any {
 			return trailPage(9, handVersion(1, t0, testOwner), handVersion(2, t0, testOwner))
-		}, false, ""},
+		}, false, "history page 1 brings no new version (2 of 9 read)"},
 		{"endless trail", 60, func(p int) any {
 			return trailPage(9, handVersion(int64(2*p+1), t0, testOwner), handVersion(int64(2*p+2), t0, testOwner))
 		}, false, "more than 3 history pages"},
@@ -141,12 +143,6 @@ func TestFetchFailures(t *testing.T) {
 			c := newTestClient(t, handServer(page, tt.history, path))
 			c.maxHistoryPages = 3
 			_, err := c.Fetch(t.Context(), tt.pageID)
-			if tt.want == "" {
-				if err != nil {
-					t.Errorf("Fetch: %v", err)
-				}
-				return
-			}
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Errorf("Fetch error = %v, want %q", err, tt.want)
 			}

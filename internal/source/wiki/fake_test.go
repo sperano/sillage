@@ -68,10 +68,12 @@ func (l *opLog) seen() []string {
 
 // fakeWiki serves one story's recorded replies: page.json, pages.json,
 // history-<offsetPage>.json, version-<versionId>.json and comments.json.
+// It fails a request for another page than pageID.
 type fakeWiki struct {
-	t   *testing.T
-	dir string
-	log opLog
+	t      *testing.T
+	dir    string
+	pageID int64
+	log    opLog
 }
 
 func (f *fakeWiki) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -79,6 +81,7 @@ func (f *fakeWiki) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	f.checkPageID(req)
 	switch req.OperationName {
 	case opPage:
 		f.log.add(opPage)
@@ -131,6 +134,22 @@ func (f *fakeWiki) check(w http.ResponseWriter, r *http.Request) (gqlRequest, bo
 	return req, true
 }
 
+// checkPageID fails a request naming another page than the story's.
+func (f *fakeWiki) checkPageID(req gqlRequest) {
+	var got int64
+	switch req.OperationName {
+	case opPage, opHistory:
+		got = req.Variables.ID
+	case opVersion:
+		got = req.Variables.PageID
+	default:
+		return
+	}
+	if got != f.pageID {
+		f.t.Errorf("%s asks for page %d, want %d", req.OperationName, got, f.pageID)
+	}
+}
+
 func (f *fakeWiki) serveFile(w http.ResponseWriter, r *http.Request, name string) {
 	body, err := os.ReadFile(filepath.Join(f.dir, name))
 	if err != nil {
@@ -142,13 +161,18 @@ func (f *fakeWiki) serveFile(w http.ResponseWriter, r *http.Request, name string
 	_, _ = w.Write(body)
 }
 
+// testConfig is a valid Config of the instance at baseURL.
+func testConfig(baseURL string) Config {
+	return Config{BaseURL: baseURL, Instance: testInstance, Token: testToken, AgentUsers: testAgents}
+}
+
 // newTestClient starts h and returns a client of it with the test token,
 // instance, history page size and clock.
 func newTestClient(t *testing.T, h http.Handler) *Client {
 	t.Helper()
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
-	c, err := NewClient(Config{BaseURL: srv.URL, Instance: testInstance, Token: testToken}, srv.Client())
+	c, err := NewClient(testConfig(srv.URL), srv.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,12 +181,22 @@ func newTestClient(t *testing.T, h http.Handler) *Client {
 	return c
 }
 
-// fetchStory reads page pageID of a recorded story and returns the
-// snapshot and the operations the client sent.
-func fetchStory(t *testing.T, story string, pageID int64) (Snapshot, []string) {
+// storyFake serves a recorded story, read by the page storyPages names.
+func storyFake(t *testing.T, story string) *fakeWiki {
 	t.Helper()
-	fake := &fakeWiki{t: t, dir: filepath.Join(fixtureDir, story)}
-	snap, err := newTestClient(t, fake).Fetch(t.Context(), pageID)
+	pageID, ok := storyPages[story]
+	if !ok {
+		t.Fatalf("story %s: add the page it is read by to storyPages", story)
+	}
+	return &fakeWiki{t: t, dir: filepath.Join(fixtureDir, story), pageID: pageID}
+}
+
+// fetchStory reads the page of a recorded story and returns the snapshot
+// and the operations the client sent.
+func fetchStory(t *testing.T, story string) (Snapshot, []string) {
+	t.Helper()
+	fake := storyFake(t, story)
+	snap, err := newTestClient(t, fake).Fetch(t.Context(), fake.pageID)
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}

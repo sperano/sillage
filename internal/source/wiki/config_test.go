@@ -73,6 +73,12 @@ func TestTokenNeverPrinted(t *testing.T) {
 		"slog": logged.String(),
 		"json": string(encoded),
 	}
+	// Verbs that are not string verbs too: fmt reports them with the value.
+	// The verbs are variables so vet lets the test use them on a string.
+	for _, verb := range []string{"%q", "%x", "%d", "%t", "%10.3f"} {
+		outputs[verb] = fmt.Sprintf(verb, cfg.Token)
+		outputs[verb+" of the Config"] = fmt.Sprintf(verb, cfg)
+	}
 	for how, out := range outputs {
 		if strings.Contains(out, testToken) {
 			t.Errorf("%s prints the token: %s", how, out)

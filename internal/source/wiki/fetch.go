@@ -126,10 +126,13 @@ func (c *Client) listPage(ctx context.Context, pageID int64) (Page, error) {
 }
 
 // fetchTrail reads the trail page by page until it holds the reported
-// total, or a page is empty or brings no version not seen, as from a
-// server that ignores offsetPage. The trail is newest first, so a save
-// during the read shifts older versions to later pages: one can repeat,
-// none is skipped. The result is oldest first, each version once.
+// total or a page is empty. The trail is newest first, so a save during
+// the read shifts older versions to later pages: one can repeat, none is
+// skipped. A page that brings no version not seen before the total is
+// reached is an error, not the trail's end: enough saves between two
+// requests to fill a page, or a server that ignores offsetPage, would
+// otherwise cut the trail short unnoticed. The result is oldest first,
+// each version once.
 func (c *Client) fetchTrail(ctx context.Context, pageID int64) ([]Version, error) {
 	var all []Version
 	seen := make(map[int64]bool)
@@ -148,8 +151,12 @@ func (c *Client) fetchTrail(ctx context.Context, pageID int64) ([]Version, error
 				all = append(all, v)
 			}
 		}
-		if len(all) == before || len(all) >= total {
+		if len(batch) == 0 || len(all) >= total {
 			break
+		}
+		if len(all) == before {
+			return nil, fmt.Errorf("wiki: %s: page %d: history page %d brings no new version (%d of %d read)",
+				opHistory, pageID, page, len(all), total)
 		}
 	}
 	slices.SortStableFunc(all, func(a, b Version) int {

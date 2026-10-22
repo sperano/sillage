@@ -2,6 +2,7 @@ package wiki
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 	"strconv"
@@ -29,6 +30,11 @@ const (
 // log/slog, so a Config can be logged without leaking it.
 type Token string
 
+// Format implements fmt.Formatter, so every verb prints the placeholder:
+// fmt would otherwise report a verb that is not a string verb (%d) with
+// the value.
+func (Token) Format(f fmt.State, _ rune) { _, _ = io.WriteString(f, redacted) }
+
 // String implements fmt.Stringer.
 func (Token) String() string { return redacted }
 
@@ -51,25 +57,27 @@ type Config struct {
 	// Token is sent as a bearer token. It should only grant read access;
 	// see Client.Fetch for what a read-only token cannot see.
 	Token Token
-	// AgentUsers are the wiki user ids of the agents' accounts.
+	// AgentUsers are the wiki user ids of the agents' accounts; at least
+	// one is required: without them no comment is read as a start
+	// announcement, which would hide every wiki run.
 	AgentUsers []int64
 }
 
 // ConfigFromEnv reads a Config through getenv (os.Getenv in production)
 // and derives Instance from the URL.
 func ConfigFromEnv(getenv func(string) string) (Config, error) {
-	cfg := Config{
-		BaseURL: strings.TrimRight(strings.TrimSpace(getenv(EnvURL)), "/"),
-		Token:   Token(strings.TrimSpace(getenv(EnvToken))),
-	}
-	if err := cfg.validate(); err != nil {
-		return Config{}, err
-	}
 	agents, err := parseUserIDs(getenv(EnvAgentUsers))
 	if err != nil {
 		return Config{}, err
 	}
-	cfg.AgentUsers = agents
+	cfg := Config{
+		BaseURL:    strings.TrimRight(strings.TrimSpace(getenv(EnvURL)), "/"),
+		Token:      Token(strings.TrimSpace(getenv(EnvToken))),
+		AgentUsers: agents,
+	}
+	if err := cfg.validate(); err != nil {
+		return Config{}, err
+	}
 	cfg.Instance = instanceOf(cfg.BaseURL)
 	return cfg, nil
 }
@@ -99,12 +107,14 @@ func (c Config) validate() error {
 	if c.Token == "" {
 		return fmt.Errorf("wiki: %s is not set", EnvToken)
 	}
+	if len(c.AgentUsers) == 0 {
+		return fmt.Errorf("wiki: %s is not set", EnvAgentUsers)
+	}
 	return nil
 }
 
 // parseUserIDs parses a comma-separated list of positive user ids. An
-// empty list is an error: without it no comment is read as a start
-// announcement, which would hide every wiki run.
+// empty list is not an error here: Config.validate rejects it.
 func parseUserIDs(list string) ([]int64, error) {
 	var ids []int64
 	for item := range strings.SplitSeq(list, ",") {
@@ -117,9 +127,6 @@ func parseUserIDs(list string) ([]int64, error) {
 			return nil, fmt.Errorf("wiki: %s: %q is not a positive user id", EnvAgentUsers, item)
 		}
 		ids = append(ids, id)
-	}
-	if len(ids) == 0 {
-		return nil, fmt.Errorf("wiki: %s is not set", EnvAgentUsers)
 	}
 	return ids, nil
 }

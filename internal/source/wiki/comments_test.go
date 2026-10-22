@@ -19,7 +19,8 @@ func TestCommentKinds(t *testing.T) {
 	}{
 		{"request", testOwner, "<p>/kelos split it</p>", model.KindRequest, ""},
 		{"reply", testOpus, "<p>Done.</p>", model.KindComment, ""},
-		{"announcement by an agent", testOpus, announcement, model.KindRunAnnounced, "the Kelos Task"},
+		{"announcement by an agent", testOpus, announcement, model.KindRunAnnounced,
+			"and the Kelos Task, pod and namespace it names"},
 		{"announcement quoted by a person", testOwner, announcement, model.KindComment, ""},
 		{"announcement of another page", testOpus,
 			announcementHTML("agent-opus", "m", "wiki-fu-widgets-61-c1", "wiki-fu-widgets-61-c1-abcde"),
@@ -45,5 +46,24 @@ func TestCommentKinds(t *testing.T) {
 				t.Errorf("executor = %+v", e.Executor)
 			}
 		})
+	}
+}
+
+// The evidence note names only what the announcement states.
+func TestAnnouncedNote(t *testing.T) {
+	tests := []struct {
+		pod, namespace, want string
+	}{
+		{"pod-a", "agents", "comment 1, and the Kelos Task, pod and namespace it names"},
+		{"pod-a", "", "comment 1, and the Kelos Task and pod it names"},
+		{"", "agents", "comment 1, and the Kelos Task and namespace it names"},
+		{"", "", "comment 1, and the Kelos Task it names"},
+	}
+	for _, tt := range tests {
+		e := model.Event{Evidence: model.Evidence{Note: "comment 1"}}
+		announced(&e, Announcement{TaskName: "wiki-fu-widgets-60-c1", Pod: tt.pod, Namespace: tt.namespace, RequestComment: 1})
+		if got := e.Evidence.Note; got != tt.want {
+			t.Errorf("pod %q, namespace %q: note %q, want %q", tt.pod, tt.namespace, got, tt.want)
+		}
 	}
 }
