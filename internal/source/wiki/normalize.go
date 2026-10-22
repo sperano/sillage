@@ -26,7 +26,7 @@ const (
 	// creationRenderWindow bounds how long after createdAt the oldest
 	// version may be dated to be read as the creation's own when the
 	// creator cannot be read: its date is the render after the save,
-	// seconds later. Later, it may follow a purge, or a re-render.
+	// seconds later. A later one may follow a purge, or a re-render.
 	creationRenderWindow = time.Minute
 )
 
@@ -135,28 +135,37 @@ func (n *normalizer) states() []state {
 	return append(out, live)
 }
 
+// creation is what the oldest state says about the page's creation.
+type creation struct {
+	creator user
+	// own reports that the oldest state is the creation's own, not an edit.
+	own bool
+	// fromTrail reports that creator is the oldest version's author, taken
+	// in place of a creator the token may not read.
+	fromTrail bool
+}
+
 // pageEvents adds the creation and an event per later state. The oldest
 // state is the creation's own (its time is the render after the save,
 // seconds after createdAt), not an edit, unless it is a move or another
 // author's: then the history before it was purged. When the creator
-// cannot be read, the oldest state's author is taken as the creator only
-// within creationRenderWindow of createdAt; a later one is still not
-// counted as an edit, but its author is not claimed either.
+// cannot be read, the oldest version's author is taken as the creator only
+// when nearCreation; a later version is still not counted as an edit, but
+// its author is not claimed either.
 func (n *normalizer) pageEvents() {
 	states := n.states()
 	first := states[0]
-	creator := user{n.s.Page.CreatorID, n.s.Page.CreatorName}
-	isCreation := first.from == ""
+	c := creation{creator: user{n.s.Page.CreatorID, n.s.Page.CreatorName}, own: first.from == ""}
 	switch {
-	case n.s.Restricted && isCreation && n.nearCreation(first):
-		creator = first.author
+	case n.s.Restricted && c.own && first.versionID != 0 && n.nearCreation(first):
+		c.creator, c.fromTrail = first.author, true
 	case n.s.Restricted:
-		creator = user{}
+		c.creator = user{}
 	default:
-		isCreation = isCreation && first.author.ID == creator.ID
+		c.own = c.own && first.author.ID == c.creator.ID
 	}
-	n.add(n.created(creator, first, isCreation))
-	if isCreation {
+	n.add(n.created(c, first))
+	if c.own {
 		states = states[1:]
 	}
 	for _, st := range states {
@@ -164,10 +173,13 @@ func (n *normalizer) pageEvents() {
 	}
 }
 
-// nearCreation reports whether st is dated within creationRenderWindow of
-// the page's creation.
+// nearCreation reports whether st is dated no earlier than the page's
+// creation and at most creationRenderWindow after it. Wiki.js dates a
+// version by an updatedAt it sets after createdAt, so an earlier one is
+// not the creation's render.
 func (n *normalizer) nearCreation(st state) bool {
-	return st.at.Sub(n.s.Page.CreatedAt) <= creationRenderWindow
+	d := st.at.Sub(n.s.Page.CreatedAt)
+	return d >= 0 && d <= creationRenderWindow
 }
 
 // event fills the fields every event of the snapshot shares.
@@ -200,23 +212,24 @@ func (n *normalizer) pageRef() string {
 	return "pages.single(id: " + strconv.FormatInt(n.s.Page.ID, 10) + ")"
 }
 
-func (n *normalizer) created(creator user, first state, isCreation bool) model.Event {
+func (n *normalizer) created(c creation, first state) model.Event {
 	e := n.event(model.KindPageCreated, n.object(), model.IDSource, n.s.Page.CreatedAt)
-	n.setAuthor(&e, creator)
+	n.setAuthor(&e, c.creator)
 	e.Evidence.Ref = n.pageRef()
+	version := strconv.FormatInt(first.versionID, 10)
 	switch {
 	case !n.s.Restricted:
 		e.Evidence.Note = "createdAt, creatorId, creatorName"
-	case isCreation && first.versionID != 0 && n.nearCreation(first):
-		e.Evidence.Note = "createdAt; creator: author of history version " + strconv.FormatInt(first.versionID, 10)
-	case isCreation && first.versionID != 0:
-		e.Evidence.Note = "createdAt; the token may not read the creator, and history version " +
-			strconv.FormatInt(first.versionID, 10) + ", the oldest, is dated too long after the creation " +
-			"to tell it from an edit after a purge: it is not counted as an edit, and its author not as the creator"
+	case c.fromTrail:
+		e.Evidence.Note = "createdAt; creator: author of history version " + version
+	case c.own && first.versionID != 0:
+		e.Evidence.Note = "createdAt; the token may not read the creator, and history version " + version +
+			", the oldest, is not dated as the creation's render, so it may follow a purge: it is not " +
+			"counted as an edit, and its author not as the creator"
 	default:
 		e.Evidence.Note = "createdAt; the token may not read the creator"
 	}
-	if !isCreation {
+	if !c.own {
 		e.Evidence.Note += "; the creation's own version is not in the history trail"
 	}
 	return e

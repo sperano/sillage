@@ -97,9 +97,9 @@ type Client struct {
 	maxBody         int64
 }
 
-// NewClient returns a client for cfg, which must be valid (ConfigFromEnv
-// returns only valid ones). A nil hc gets a client with
-// DefaultRequestTimeout.
+// NewClient returns a client for cfg, which must be valid, AgentUsers
+// included, though only Normalize uses them (ConfigFromEnv returns only
+// valid configs). A nil hc gets a client with DefaultRequestTimeout.
 func NewClient(cfg Config, hc *http.Client) (*Client, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
@@ -112,6 +112,7 @@ func NewClient(cfg Config, hc *http.Client) (*Client, error) {
 	}
 	header := "Bearer " + string(cfg.Token)
 	return &Client{
+		// A Config built by hand, not by ConfigFromEnv, can end in "/".
 		endpoint:        strings.TrimRight(cfg.BaseURL, "/") + graphQLPath,
 		instance:        cfg.Instance,
 		authorize:       func(r *http.Request) { r.Header.Set("Authorization", header) },

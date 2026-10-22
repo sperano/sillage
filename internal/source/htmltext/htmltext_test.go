@@ -11,8 +11,10 @@ func TestPlain(t *testing.T) {
 		{"empty", "", ""},
 	}
 	for _, tt := range tests {
-		if got := Plain(tt.body); got != tt.want {
-			t.Errorf("%s: Plain(%q) = %q, want %q", tt.name, tt.body, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Plain(tt.body); got != tt.want {
+				t.Errorf("Plain(%q) = %q, want %q", tt.body, got, tt.want)
+			}
+		})
 	}
 }

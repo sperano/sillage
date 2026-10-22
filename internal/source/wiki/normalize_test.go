@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -307,13 +308,19 @@ func TestNormalizeRestrictedCreator(t *testing.T) {
 		{"creation's render", handVersion(1, t0.Add(renderDelay), testOwner), "Robin Owner/person"},
 		{"window's end", handVersion(1, t0.Add(creationRenderWindow), testOwner), "Robin Owner/person"},
 		{"after the window", handVersion(9, t0.Add(creationRenderWindow+time.Millisecond), testOpus), "/unknown"},
+		{"before the creation", handVersion(9, t0.Add(-time.Millisecond), testOpus), "/unknown"},
 	}
 	for _, tt := range tests {
-		events := normalizeHand(t, Snapshot{Page: handPage(live, testOpus), Restricted: true, Trail: []Version{tt.oldest}})
-		want := []summary{{model.KindPageCreated, "pages/60", tt.creator}, liveEdit}
-		if got := summarize(events); !slices.Equal(got, want) {
-			t.Errorf("%s: events =\n%v\nwant\n%v", tt.name, got, want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			events := normalizeHand(t, Snapshot{Page: handPage(live, testOpus), Restricted: true, Trail: []Version{tt.oldest}})
+			want := []summary{{model.KindPageCreated, "pages/60", tt.creator}, liveEdit}
+			if got := summarize(events); !slices.Equal(got, want) {
+				t.Errorf("events =\n%v\nwant\n%v", got, want)
+			}
+			if tt.creator == "/unknown" && !strings.Contains(events[0].Evidence.Note, "may follow a purge") {
+				t.Errorf("creation note = %q, want why the creator is unknown", events[0].Evidence.Note)
+			}
+		})
 	}
 }
 

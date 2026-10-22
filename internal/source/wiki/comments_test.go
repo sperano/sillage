@@ -60,10 +60,12 @@ func TestAnnouncedNote(t *testing.T) {
 		{"", "", "comment 1, and the Kelos Task it names"},
 	}
 	for _, tt := range tests {
-		e := model.Event{Evidence: model.Evidence{Note: "comment 1"}}
-		announced(&e, Announcement{TaskName: "wiki-fu-widgets-60-c1", Pod: tt.pod, Namespace: tt.namespace, RequestComment: 1})
-		if got := e.Evidence.Note; got != tt.want {
-			t.Errorf("pod %q, namespace %q: note %q, want %q", tt.pod, tt.namespace, got, tt.want)
-		}
+		t.Run("pod="+tt.pod+",namespace="+tt.namespace, func(t *testing.T) {
+			e := model.Event{Evidence: model.Evidence{Note: "comment 1"}}
+			announced(&e, Announcement{TaskName: "wiki-fu-widgets-60-c1", Pod: tt.pod, Namespace: tt.namespace, RequestComment: 1})
+			if got := e.Evidence.Note; got != tt.want {
+				t.Errorf("note %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

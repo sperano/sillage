@@ -133,14 +133,7 @@ func TestClientNeverPrintsToken(t *testing.T) {
 // fake server fails any other path.
 func TestNewClientTrailingSlash(t *testing.T) {
 	fake := storyFake(t, "live-edit-not-in-trail")
-	srv := httptest.NewServer(fake)
-	t.Cleanup(srv.Close)
-	c, err := NewClient(testConfig(srv.URL+"/"), srv.Client())
-	if err != nil {
-		t.Fatal(err)
-	}
-	c.historyPageSize = testHistoryPageSize
-	if _, err := c.Fetch(t.Context(), fake.pageID); err != nil {
+	if _, err := newTestClientAt(t, fake, "/").Fetch(t.Context(), fake.pageID); err != nil {
 		t.Errorf("Fetch: %v", err)
 	}
 }

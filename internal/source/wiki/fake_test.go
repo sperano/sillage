@@ -170,9 +170,16 @@ func testConfig(baseURL string) Config {
 // instance, history page size and clock.
 func newTestClient(t *testing.T, h http.Handler) *Client {
 	t.Helper()
+	return newTestClientAt(t, h, "")
+}
+
+// newTestClientAt is newTestClient with suffix appended to the server's
+// URL in the client's Config.
+func newTestClientAt(t *testing.T, h http.Handler, suffix string) *Client {
+	t.Helper()
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
-	c, err := NewClient(testConfig(srv.URL), srv.Client())
+	c, err := NewClient(testConfig(srv.URL+suffix), srv.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
