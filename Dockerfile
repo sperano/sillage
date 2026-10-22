@@ -26,7 +26,8 @@ ARG TARGETARCH
 ARG VERSION
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH
 WORKDIR /src
-# go.sum* lets this line stand before the module has a go.sum.
+# go.sum* lets this line stand before the module has a go.sum: a wildcard
+# matching nothing is not an error while another source (go.mod) exists.
 COPY go.mod go.sum* ./
 RUN go mod download
 COPY . .

@@ -64,8 +64,8 @@ needs no writable path, and listens on `:8080` (`SILLAGE_LISTEN_ADDR`).
 startup and reports `dev` without it. `TestVersionLoggedAtStartup` checks
 that `-X` reaches the variable, and `TestDockerfileSetsVersion` that the
 Dockerfile passes the same flag. Agent pods have no Docker daemon: there,
-run the stages' commands instead (`npm ci && npm run build`, then
-`CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags webdist
+run the stages' commands instead (`npm ci --ignore-scripts && npm run build`,
+then `CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags webdist
 ./cmd/sillage`).
 
 ## Gates
