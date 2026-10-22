@@ -8,11 +8,14 @@ import (
 	"strings"
 )
 
+// blockTags are the elements whose opening and closing tags end a line, so
+// a heading, list item or quote never runs into the text next to it.
+const blockTags = `p|div|h[1-6]|li|ul|ol|dl|dt|dd|blockquote|pre|hr|` +
+	`table|caption|thead|tbody|tfoot|tr|td|th|` +
+	`main|section|article|aside|nav|header|footer|address|details|summary|figure|figcaption`
+
 var (
-	// lineBreak matches a <br> and the opening or closing tag of a block
-	// element, so a heading, list item or quote never runs into the text
-	// next to it.
-	lineBreak = regexp.MustCompile(`(?i)<br\s*/?>|</?(?:p|div|h[1-6]|li|ul|ol|dl|dt|dd|blockquote|pre|table|thead|tbody|tfoot|tr|td|th|hr|section|article|header|footer|figure|figcaption)\b[^>]*>`)
+	lineBreak = regexp.MustCompile(`(?i)<br\s*/?>|</?(?:` + blockTags + `)\b[^>]*>`)
 	htmlTag   = regexp.MustCompile(`<[^>]*>`)
 )
 
