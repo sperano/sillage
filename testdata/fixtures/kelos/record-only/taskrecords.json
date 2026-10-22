@@ -1,0 +1,40 @@
+{
+  "apiVersion": "kelos.dev/v1alpha2",
+  "kind": "TaskRecordList",
+  "metadata": {},
+  "items": [
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "TaskRecord",
+      "metadata": {
+        "name": "00000000-0000-4000-8000-000000000202",
+        "namespace": "agents",
+        "uid": "11111111-0000-4000-8000-000000000202",
+        "creationTimestamp": "2026-03-11T09:12:31Z",
+        "labels": {
+          "vikunja.example.com/workspace": "widgets",
+          "vikunja.example.com/project": "widgets",
+          "vikunja.example.com/variant": "agent-sonnet",
+          "vikunja.example.com/task": "202",
+          "vikunja.example.com/role": "task-followup"
+        }
+      },
+      "spec": {
+        "taskRef": {
+          "name": "vikunja-fu-widgets-agent-sonnet-202",
+          "uid": "00000000-0000-4000-8000-000000000202"
+        },
+        "type": "claude-code",
+        "phase": "Failed",
+        "completionTime": "2026-03-11T09:12:30Z",
+        "ttlSecondsAfterCompletion": 2592000,
+        "startTime": "2026-03-11T09:01:05Z",
+        "model": "model-b",
+        "usage": {
+          "inputTokens": 900,
+          "outputTokens": 40
+        }
+      }
+    }
+  ]
+}

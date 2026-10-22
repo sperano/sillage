@@ -1,0 +1,60 @@
+{
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000000203"
+      },
+      "taskName": "vikunja-discuss-widgets-agent-opus-203",
+      "pod": "vikunja-discuss-widgets-agent-opus-203-m4q8z",
+      "job": "vikunja-discuss-widgets-agent-opus-203",
+      "agent": "agent-opus",
+      "project": "widgets",
+      "role": "discussion",
+      "created": "2026-03-12T16:00:00Z",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-12T16:00:30Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-03-12T16:08:45Z"
+        }
+      },
+      "outcome": "succeeded",
+      "message": "Task completed successfully",
+      "model": "model-legacy",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-discuss-widgets-agent-opus-203",
+          "note": "uid 00000000-0000-4000-8000-000000000203 supplies taskName (metadata.name), created (metadata.creationTimestamp), pod (status.podName), job (status.jobName), message (status.message), agent (metadata.labels[vikunja.example.com/variant]), project (metadata.labels[vikunja.example.com/project]), role (metadata.labels[vikunja.example.com/task] without vikunja.example.com/role, name prefix vikunja-discuss-), outcome (status.phase Succeeded), start (status.startTime), end (status.completionTime), model (spec.model); times are lifecycle times (the API server's creation, the controller's start and completion), not CPU or phase timings; no TaskRecord found (Kelos writes one only for a completed Task that reported usage)"
+        }
+      ]
+    }
+  ],
+  "correlations": [
+    {
+      "from": {
+        "kind": "run",
+        "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000000203"
+      },
+      "to": {
+        "kind": "task",
+        "id": "vikunja.example.com/tasks/203"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-discuss-widgets-agent-opus-203",
+          "note": "label vikunja.example.com/task=203"
+        }
+      ]
+    }
+  ]
+}

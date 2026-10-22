@@ -1,0 +1,64 @@
+{
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000002051"
+      },
+      "taskName": "github-fu-widgets-agent-opus-41-r9001",
+      "pod": "github-fu-widgets-agent-opus-41-r9001-p2w6n",
+      "job": "github-fu-widgets-agent-opus-41-r9001",
+      "agent": "agent-opus",
+      "role": "pr-follow-up",
+      "created": "2026-03-13T10:00:00Z",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-13T10:00:20Z"
+        },
+        "end": {
+          "state": "open"
+        }
+      },
+      "outcome": "running",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/github-fu-widgets-agent-opus-41-r9001",
+          "note": "uid 00000000-0000-4000-8000-000000002051 supplies taskName (metadata.name), created (metadata.creationTimestamp), pod (status.podName), job (status.jobName), agent (metadata.labels[vikunja.example.com/variant]), role (metadata.labels[vikunja.example.com/role] pr-followup), outcome (status.phase Running), start (status.startTime); times are lifecycle times (the API server's creation, the controller's start and completion), not CPU or phase timings; no TaskRecord found (Kelos writes one only for a completed Task that reported usage)"
+        }
+      ]
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000002052"
+      },
+      "taskName": "merge-close-widgets-41",
+      "role": "automation",
+      "created": "2026-03-13T10:05:00Z",
+      "interval": {
+        "start": {
+          "state": "unknown"
+        },
+        "end": {
+          "state": "open"
+        }
+      },
+      "outcome": "running",
+      "message": "Waiting for branch lock",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/merge-close-widgets-41",
+          "note": "uid 00000000-0000-4000-8000-000000002052 supplies taskName (metadata.name), created (metadata.creationTimestamp), message (status.message), role (metadata.labels[vikunja.example.com/role] merge-close), outcome (status.phase Waiting); times are lifecycle times (the API server's creation, the controller's start and completion), not CPU or phase timings; no TaskRecord found (Kelos writes one only for a completed Task that reported usage)"
+        }
+      ]
+    }
+  ],
+  "correlations": []
+}

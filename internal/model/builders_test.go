@@ -41,6 +41,8 @@ func atEST(minutes int) time.Time { return at(minutes).In(testEST) }
 
 func timePtr(t time.Time) *time.Time { return &t }
 
+func int64Ptr(v int64) *int64 { return &v }
+
 // checkErr fails unless err is nil when want is empty, or an error whose
 // text contains want otherwise.
 func checkErr(t *testing.T, err error, want string) {
