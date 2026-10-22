@@ -104,10 +104,12 @@ func TestQueryTransportErrors(t *testing.T) {
 
 func TestNewClientRejects(t *testing.T) {
 	for name, cfg := range map[string]Config{
-		"no instance":    {BaseURL: "https://wiki.example.com", Token: testToken, AgentUsers: testAgents},
-		"no token":       {BaseURL: "https://wiki.example.com", Instance: testInstance, AgentUsers: testAgents},
-		"bad URL":        {BaseURL: "wiki.example.com", Instance: testInstance, Token: testToken, AgentUsers: testAgents},
-		"no agent users": {BaseURL: "https://wiki.example.com", Instance: testInstance, Token: testToken},
+		"no instance":         {BaseURL: "https://wiki.example.com", Token: testToken, AgentUsers: testAgents},
+		"no token":            {BaseURL: "https://wiki.example.com", Instance: testInstance, AgentUsers: testAgents},
+		"bad URL":             {BaseURL: "wiki.example.com", Instance: testInstance, Token: testToken, AgentUsers: testAgents},
+		"no agent users":      {BaseURL: "https://wiki.example.com", Instance: testInstance, Token: testToken},
+		"zero agent user":     {BaseURL: "https://wiki.example.com", Instance: testInstance, Token: testToken, AgentUsers: []int64{21, 0}},
+		"negative agent user": {BaseURL: "https://wiki.example.com", Instance: testInstance, Token: testToken, AgentUsers: []int64{-3}},
 	} {
 		if _, err := NewClient(cfg, nil); err == nil {
 			t.Errorf("%s: NewClient succeeded", name)

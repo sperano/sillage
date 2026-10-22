@@ -110,6 +110,11 @@ func (c Config) validate() error {
 	if len(c.AgentUsers) == 0 {
 		return fmt.Errorf("wiki: %s is not set", EnvAgentUsers)
 	}
+	for _, id := range c.AgentUsers {
+		if id <= 0 {
+			return fmt.Errorf("wiki: %s: %d is not a positive user id", EnvAgentUsers, id)
+		}
+	}
 	return nil
 }
 

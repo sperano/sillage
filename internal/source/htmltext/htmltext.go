@@ -9,16 +9,20 @@ import (
 )
 
 var (
-	paragraphBreak = regexp.MustCompile(`(?i)</p\s*>|<br\s*/?>`)
-	htmlTag        = regexp.MustCompile(`<[^>]*>`)
+	// lineBreak matches a <br> and the opening or closing tag of a block
+	// element, so a heading, list item or quote never runs into the text
+	// next to it.
+	lineBreak = regexp.MustCompile(`(?i)<br\s*/?>|</?(?:p|div|h[1-6]|li|ul|ol|dl|dt|dd|blockquote|pre|table|thead|tbody|tfoot|tr|td|th|hr|section|article|header|footer|figure|figcaption)\b[^>]*>`)
+	htmlTag   = regexp.MustCompile(`<[^>]*>`)
 )
 
-// Plain turns rendered HTML into text: one line per paragraph, tags
-// dropped, entities decoded, runs of spaces collapsed.
+// Plain turns rendered HTML into text: one line per block element or
+// <br>, tags dropped, entities decoded, runs of spaces collapsed.
 func Plain(body string) string {
-	// Newlines in HTML are spaces; only paragraph breaks end a line.
+	// Newlines in HTML are spaces; only block boundaries and <br> end a
+	// line.
 	body = strings.NewReplacer("\r", " ", "\n", " ").Replace(body)
-	lines := strings.Split(paragraphBreak.ReplaceAllString(body, "\n"), "\n")
+	lines := strings.Split(lineBreak.ReplaceAllString(body, "\n"), "\n")
 	out := make([]string, 0, len(lines))
 	for _, line := range lines {
 		line = html.UnescapeString(htmlTag.ReplaceAllString(line, ""))

@@ -28,6 +28,12 @@ func TestParseAnnouncement(t *testing.T) {
 			want: Announcement{TaskName: "wiki-fu-widgets-57-c881", Workspace: "widgets", RequestComment: 881},
 		},
 		{
+			name: "followed by a list",
+			body: "<div>The agent has started on this follow-up request: Kelos Task <code>wiki-fu-widgets-57-c882</code>.</div>" +
+				"<ul><li>Logs in the console.</li></ul>",
+			want: Announcement{TaskName: "wiki-fu-widgets-57-c882", Workspace: "widgets", RequestComment: 882},
+		},
+		{
 			name: "retry, workspace with hyphens and digits",
 			body: "<p>Agent <code>agent-sol</code> has started on this follow-up request: Kelos Task " +
 				"<code>wiki-fu-team-2-tools-57-c9-retry2</code>, pod <code>wiki-fu-team-2-tools-57-c9-retry2-zz9yy</code>.</p>",

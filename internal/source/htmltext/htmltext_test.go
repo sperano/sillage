@@ -7,6 +7,9 @@ func TestPlain(t *testing.T) {
 		{"paragraphs and breaks", "<p>A &amp; <code>B</code></p>\n<p>  C\n  D <br/>E</p>", "A & B\nC D\nE"},
 		{"upper-case tags", "<P>A</P ><BR>B", "A\nB"},
 		{"empty paragraphs", "<p></p><p> </p><p>A</p>", "A"},
+		{"headings and lists", "<h2>Title</h2>Lead<ul><li>A</li><li>B</li></ul>", "Title\nLead\nA\nB"},
+		{"divs and quotes", "<div class=\"x\">A</div><blockquote>B</blockquote>C<hr>D", "A\nB\nC\nD"},
+		{"tags that only start like a block", "<pre>A</pre><b>B</b><br>C<pa>D</pa>", "A\nB\nCD"},
 		{"carriage returns", "A\r\nB", "A B"},
 		{"empty", "", ""},
 	}
