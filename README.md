@@ -26,6 +26,7 @@ stored, nothing is deployed.
 | `testdata/fixtures/` | Fabricated test data, shared by Go and web tests. |
 | `web/` | Svelte 5 + Vite single-page frontend (TypeScript), embedded into the binary. |
 | `web/placeholder/` | Page embedded when the frontend is not built. |
+| `Dockerfile` | The image: the binary with the frontend embedded, `linux/amd64` and `linux/arm64`. |
 
 Deployment lives in [`sperano/hollingsworth`](https://github.com/sperano/hollingsworth).
 [`AGENTS.md`](AGENTS.md) has the conventions and rules for contributors.
@@ -42,6 +43,20 @@ curl localhost:8080/healthz                # ok
 (cd web && npm ci && npm run build)        # builds web/dist/
 go build -tags webdist ./cmd/sillage       # embeds web/dist/
 ```
+
+The image builds both (no local `web/dist/` needed) and embeds the
+frontend:
+
+```sh
+docker buildx build --platform linux/amd64,linux/arm64 --build-arg VERSION=<version> -t sillage:dev .
+docker buildx build --load --build-arg VERSION=<version> -t sillage:dev .   # this machine's platform only
+docker run --rm --read-only -p 8080:8080 sillage:dev
+curl localhost:8080/healthz                # ok
+```
+
+It runs as a non-root user on `scratch`, logs its version at startup (`dev`
+without `VERSION`), and carries the licenses of everything it ships under
+`/licenses`.
 
 ## Test
 

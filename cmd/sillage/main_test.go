@@ -1,20 +1,37 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"flag"
 	"io"
 	"net"
 	"net/http"
+	"os/exec"
+	"path/filepath"
+	"slices"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/sperano/sillage/web"
 )
 
-// testTimeout bounds every wait in these tests.
-const testTimeout = 5 * time.Second
+const (
+	// testTimeout bounds every wait in these tests.
+	testTimeout = 5 * time.Second
+	// buildTimeout bounds building and running the binary, which takes
+	// longer than testTimeout on a cold build cache.
+	buildTimeout = 2 * time.Minute
+	// versionSymbol is the -X target the Dockerfile sets VERSION into.
+	versionSymbol = "main.version"
+	// startLogPrefix and listenLogPrefix begin the log lines that run writes
+	// before and once it serves, after slog's default timestamp.
+	startLogPrefix  = "INFO starting "
+	listenLogPrefix = "INFO listening "
+)
 
 func TestParseConfig(t *testing.T) {
 	tests := []struct {
@@ -108,4 +125,88 @@ func TestRunListenError(t *testing.T) {
 	if errors.Is(err, errUsage) {
 		t.Errorf("err = %v, want a listen error, not a usage error", err)
 	}
+}
+
+func TestVersionDefault(t *testing.T) {
+	if version != defaultVersion {
+		t.Errorf("version = %q, want %q", version, defaultVersion)
+	}
+}
+
+// TestVersionLoggedAtStartup builds the binary the way the Dockerfile does,
+// so that renaming version without updating its -X flag fails here instead
+// of shipping images that all report the default.
+func TestVersionLoggedAtStartup(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds and runs the binary")
+	}
+	tests := []struct {
+		name    string
+		ldflags string
+		want    string
+	}{
+		{"unset", "", defaultVersion},
+		{"set by the linker", "-X " + versionSymbol + "=v1.2.3-test", "v1.2.3-test"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), buildTimeout)
+			defer cancel()
+			bin := buildSillage(ctx, t, tt.ldflags)
+			starts := startLines(ctx, t, bin)
+			want := []string{startLogPrefix + "version=" + tt.want}
+			if !slices.Equal(starts, want) {
+				t.Errorf("start log lines = %q, want %q", starts, want)
+			}
+		})
+	}
+}
+
+// buildSillage builds this package with ldflags and returns the binary.
+func buildSillage(ctx context.Context, t *testing.T, ldflags string) string {
+	t.Helper()
+	goTool, err := exec.LookPath("go")
+	if err != nil {
+		t.Skipf("no go command to build the binary: %v", err)
+	}
+	bin := filepath.Join(t.TempDir(), "sillage")
+	out, err := exec.CommandContext(ctx, goTool, "build", "-o", bin, "-ldflags", ldflags, ".").CombinedOutput()
+	if err != nil {
+		t.Fatalf("go build: %v\n%s", err, out)
+	}
+	return bin
+}
+
+// startLines runs bin until it listens, stops it with SIGTERM as a
+// container runtime would, and returns its start log lines without their
+// timestamps.
+func startLines(ctx context.Context, t *testing.T, bin string) []string {
+	t.Helper()
+	cmd := exec.CommandContext(ctx, bin, "-listen", "127.0.0.1:0")
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		t.Fatalf("stderr pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	var starts []string
+	listening := false
+	for sc := bufio.NewScanner(stderr); !listening && sc.Scan(); {
+		line := sc.Text()
+		if _, msg, ok := strings.Cut(line, startLogPrefix); ok {
+			starts = append(starts, startLogPrefix+msg)
+		}
+		listening = strings.Contains(line, listenLogPrefix)
+	}
+	if !listening {
+		t.Fatal("the binary exited or timed out before it listened")
+	}
+	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatalf("SIGTERM: %v", err)
+	}
+	if err := cmd.Wait(); err != nil {
+		t.Errorf("exit after SIGTERM: %v", err)
+	}
+	return starts
 }

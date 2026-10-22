@@ -1,0 +1,12 @@
+# The image builds the frontend and the binary itself: keep local builds,
+# dependencies and secrets out of the build context.
+.git
+web/node_modules
+web/dist
+web/test-results
+web/playwright-report
+web/**/__screenshots__
+/sillage
+*.test
+*.out
+.env*

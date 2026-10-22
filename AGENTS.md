@@ -31,11 +31,13 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
 | `web/placeholder/` | The committed page embedded by default, so Go builds without Node. |
+| `Dockerfile`, `.dockerignore` | The one image: the `webdist` binary on `scratch`, `linux/amd64` and `linux/arm64`. See "The image" below. |
+| `scripts/collect-licenses.sh` | Copies the licenses of what the binary links into the image's `/licenses`. |
 | `.github/workflows/ci.yml` | CI: the gates below, verbatim. |
 
 Deployment (Helm chart, values, ApplicationSet entry, database, network
-policy, Authentik) lives in `sperano/hollingsworth`, not here. There is no
-Dockerfile yet.
+policy, Authentik) lives in `sperano/hollingsworth`, not here; so do pushing
+and pinning the image.
 
 ### The frontend in the binary
 
@@ -44,6 +46,26 @@ embeds `web/dist/` (the output of `npm run build`) instead. A `webdist` build
 without `web/dist/` fails to compile; it never falls back to the placeholder
 silently. Release builds use `webdist`. `go.mod`'s `ignore ./web/node_modules`
 keeps `./...` out of npm's tree.
+
+### The image
+
+```sh
+docker buildx build --platform linux/amd64,linux/arm64 --build-arg VERSION=<version> -t sillage:dev .
+```
+
+The `web` and `go` stages run on the build platform (Go cross-compiles with
+`GOARCH=$TARGETARCH`), so nothing runs under emulation. The runtime is
+`scratch`: `/sillage` as `ENTRYPOINT`, CA certificates, and `/licenses`
+(sillage's `LICENSE`, Go's and every linked module's from
+`scripts/collect-licenses.sh`, and the bundled npm packages' from Vite's
+`build.license`, `web/dist/.vite/license.md`). It runs as `65532:65532`,
+needs no writable path, and listens on `:8080` (`SILLAGE_LISTEN_ADDR`).
+`VERSION` sets `main.version` through `-ldflags -X`; the binary logs it at
+startup and reports `dev` without it. When you rename that variable, change
+the Dockerfile with it; `TestVersionLoggedAtStartup` catches a mismatch with
+its own `-X`. Agent pods have no Docker daemon: there, run the stages' commands
+instead (`npm ci && npm run build`, then `CGO_ENABLED=0 GOOS=linux
+GOARCH=arm64 go build -tags webdist ./cmd/sillage`).
 
 ## Gates
 

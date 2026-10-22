@@ -35,7 +35,15 @@ const (
 	// exitUsage is the exit status for a command-line error, as with
 	// flag.ExitOnError.
 	exitUsage = 2
+	// defaultVersion is the version of a binary built without setting
+	// version, such as one from a plain go build.
+	defaultVersion = "dev"
 )
+
+// version is the sillage release this binary was built from. Release
+// builds set it with -ldflags "-X main.version=<version>"; the Dockerfile
+// passes its VERSION build argument.
+var version = defaultVersion
 
 // errUsage marks command-line errors, which parseConfig has already reported
 // along with the usage.
@@ -68,6 +76,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 	if err != nil {
 		return err
 	}
+	slog.Info("starting", "version", version)
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", cfg.listenAddr)
 	if err != nil {

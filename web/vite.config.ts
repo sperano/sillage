@@ -6,7 +6,13 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 // it next to its API, so there is no Node server at runtime.
 export default defineConfig({
 	plugins: [svelte()],
-	build: { outDir: 'dist' },
+	build: {
+		outDir: 'dist',
+		// dist/.vite/license.md: the licenses of the dependencies in the bundle,
+		// which the image ships under /licenses. go:embed skips dot directories,
+		// so the binary does not serve it.
+		license: true
+	},
 	test: {
 		expect: { requireAssertions: true },
 		projects: [
