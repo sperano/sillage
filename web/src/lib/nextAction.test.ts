@@ -185,20 +185,23 @@ describe('agent requests', () => {
 		expect(nextActions(s)).toEqual([]);
 	});
 
-	test.each(['announcement', 'request'])(
-		'an announcement whose order is unknown because the %s has no time may answer it',
-		(which) => {
-			const s = announcedAs('vikunja-widgets-agent-opus-104');
-			const r = request(which === 'request' ? 'not a time' : '2026-03-05T15:00:00Z');
-			s.events.push(r);
-			if (which === 'announcement') {
-				const a = s.events.find((e) => e.kind === 'run.announced');
-				if (!a) throw new Error('no announcement');
-				a.sourceTime = 'not a time';
-			}
-			expect(nextActions(s)).toEqual([]);
-		}
-	);
+	/** A time Date.parse cannot read: the order it is in is unknown. */
+	const UNREADABLE_TIME = 'not a time';
+
+	test('an announcement without a time may answer a request', () => {
+		const s = announcedAs('vikunja-widgets-agent-opus-104');
+		const announced = s.events.find((e) => e.kind === 'run.announced');
+		if (!announced) throw new Error('no announcement');
+		announced.sourceTime = UNREADABLE_TIME;
+		s.events.push(request('2026-03-05T15:00:00Z'));
+		expect(nextActions(s)).toEqual([]);
+	});
+
+	test('an announcement may answer a request without a time', () => {
+		const s = announcedAs('vikunja-widgets-agent-opus-104');
+		s.events.push(request(UNREADABLE_TIME));
+		expect(nextActions(s)).toEqual([]);
+	});
 
 	test('an announcement known to be before it leaves it waiting', () => {
 		const s = announcedAs('vikunja-widgets-agent-opus-104');
