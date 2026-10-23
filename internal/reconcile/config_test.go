@@ -26,9 +26,11 @@ func TestConfigFromEnv(t *testing.T) {
 			},
 		},
 		{
-			name:    "every problem",
-			env:     map[string]string{EnvInterval: "0s", EnvRefreshInterval: "soon", EnvVikunjaProjects: "3,x"},
-			wantErr: []string{EnvInterval, EnvRefreshInterval, EnvVikunjaProjects},
+			name: "every problem",
+			env: map[string]string{
+				EnvInterval: "0s", EnvRefreshInterval: "soon", EnvLockRetryInterval: "-1m", EnvVikunjaProjects: "3,x",
+			},
+			wantErr: []string{EnvInterval, EnvRefreshInterval, EnvLockRetryInterval, EnvVikunjaProjects},
 		},
 		{name: "negative project", env: map[string]string{EnvVikunjaProjects: "-3"}, wantErr: []string{EnvVikunjaProjects}},
 	}

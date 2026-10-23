@@ -4,20 +4,14 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"fmt"
 	"maps"
 	"slices"
 	"time"
 
 	"github.com/sperano/sillage/internal/collector"
 	"github.com/sperano/sillage/internal/model"
-	"github.com/sperano/sillage/internal/source/github"
-	"github.com/sperano/sillage/internal/source/kelos"
 )
-
-// rootTimeout bounds the reads of one root: longer than the GitHub
-// client's longest wait for a rate limit, so that a rate limit fails as
-// one rather than as a timeout.
-const rootTimeout = 2 * github.DefaultMaxRateLimitWait
 
 // due is a root a cycle reads, and what says it changed.
 type due struct {
@@ -89,9 +83,7 @@ func (l *Loop) meterFor(src model.Source, instance string) meter {
 // cycle's collector over that read and the roots it names.
 func (l *Loop) readKelos(ctx context.Context) (cycleRun, []collector.Discovered, error) {
 	at := l.now()
-	snap, err := timed(l.meterFor(model.SourceKelos, l.ccfg.Kelos.Cluster), func() (kelos.Snapshot, error) {
-		return l.src.Kelos.Read(ctx)
-	})
+	snap, err := timed(ctx, l.meterFor(model.SourceKelos, l.ccfg.Kelos.Cluster), l.src.Kelos.Read)
 	c, cerr := collector.New(l.ccfg, collector.Sources{
 		Vikunja: meteredVikunja{src: l.src.Vikunja, meter: l.meterFor(model.SourceVikunja, l.ccfg.VikunjaInstance)},
 		Kelos:   cycleKelos{snap: snap, err: err},
@@ -110,21 +102,25 @@ func (l *Loop) readKelos(ctx context.Context) (cycleRun, []collector.Discovered,
 	}
 	discovered, err := c.Discover(snap)
 	if err != nil {
-		l.log.Warn("the Kelos read names no root: its objects do not normalize", "error", err)
+		// A read that does not normalize serves no root, as one that
+		// failed.
+		l.kelosFailed(ctx, fmt.Errorf("its objects do not normalize: %w", err))
 		return cr, nil, nil
 	}
 	return cr, discovered, nil
 }
 
 // kelosDue returns the roots Kelos names that are due: never read, named
-// by other runs than at their last read, or not read for a refresh
-// interval.
+// by other runs than at their last read, with a Kelos gap open (a failed
+// Kelos read or a restart), which this read can close, or not read for a
+// refresh interval.
 func (l *Loop) kelosDue(discovered []collector.Discovered) map[model.Ref]*due {
 	dues := make(map[model.Ref]*due)
 	for _, d := range discovered {
 		runs := digest(model.Records{Runs: d.Runs})
 		st := l.roots[d.Root.Ref()]
-		if st == nil || st.KelosRuns != runs || l.now().Sub(st.Read) >= l.jitter(l.cfg.RefreshInterval) {
+		if st == nil || st.KelosRuns != runs || st.kelosGapOpen(l.ccfg.Kelos.Cluster) ||
+			l.now().Sub(st.Read) >= l.jitter(l.cfg.RefreshInterval) {
 			dues[d.Root.Ref()] = &due{root: d.Root, kelosRuns: runs}
 		}
 	}

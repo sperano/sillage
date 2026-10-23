@@ -30,6 +30,9 @@ type Loop struct {
 	// taken: each root's state, by ref, and each project's listing mark.
 	roots map[model.Ref]*rootState
 	marks map[int64]time.Time
+	// unsaved are the roots whose state in roots has gaps the store does
+	// not hold yet: their commit failed.
+	unsaved map[model.Ref]bool
 }
 
 // New returns a loop reading src as ccfg describes, into store.
@@ -122,7 +125,7 @@ func (l *Loop) load(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	l.roots, l.marks = make(map[model.Ref]*rootState), make(map[int64]time.Time)
+	l.roots, l.marks, l.unsaved = make(map[model.Ref]*rootState), make(map[int64]time.Time), make(map[model.Ref]bool)
 	var lastCycle time.Time
 	if data, ok := cps[heartbeatKey]; ok {
 		if err := json.Unmarshal(data, &lastCycle); err != nil {

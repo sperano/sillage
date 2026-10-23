@@ -107,14 +107,26 @@ func (s *rootState) source(cov model.Coverage) *sourceState {
 	return st
 }
 
-// kelosSince is when Kelos was first read for the root; zero if never.
-func (s *rootState) kelosSince() time.Time {
-	for _, st := range s.Sources {
-		if st.Source == model.SourceKelos && st.FirstSuccess != nil {
-			return *st.FirstSuccess
-		}
+// kelos returns the state of the root's Kelos coverage on cluster; nil
+// if it has none.
+func (s *rootState) kelos(cluster string) *sourceState {
+	return s.Sources[model.Coverage{Source: model.SourceKelos, Instance: cluster}.Key()]
+}
+
+// kelosSince is when Kelos cluster was first read for the root; zero if
+// never. Another cluster's reads say nothing of this one's Task TTL.
+func (s *rootState) kelosSince(cluster string) time.Time {
+	if st := s.kelos(cluster); st != nil && st.FirstSuccess != nil {
+		return *st.FirstSuccess
 	}
 	return time.Time{}
+}
+
+// kelosGapOpen reports whether the root's Kelos coverage on cluster has
+// a gap open, which only a read of the root closes.
+func (s *rootState) kelosGapOpen(cluster string) bool {
+	st := s.kelos(cluster)
+	return st != nil && st.Open != nil
 }
 
 // coverage returns the root's coverage, in key order.

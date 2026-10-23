@@ -104,15 +104,18 @@ PostgreSQL store is built, setting it fails the start.
 Each cycle reads the Kelos namespace once, and lists the tasks of the
 configured Vikunja projects changed since the last listing. It reads a
 root that is new, whose Kelos runs changed, whose task changed, or that
-Kelos still names and that was not read for the refresh interval. A story
-whose records did not change writes none; its coverage still advances. A
-failed read leaves a gap, from the source's last successful read to its
-next, with the reason (`timeout`, `rate_limited`, `server_error`,
-`failed`): a failed Kelos read, which serves every root, leaves one on
-every root's Kelos coverage. A restart leaves one for every source of
-every root. One process
-collects at a time, under a PostgreSQL advisory lock: another reads
-nothing, says so in its log, and tries again.
+Kelos still names and that has a Kelos gap open or was not read for the
+refresh interval. A story whose records did not change writes none; its
+coverage still advances. Once a source of a root has been read
+successfully, a failed read leaves a gap, from that source's last
+successful read to its next, with the reason (`timeout`, `rate_limited`,
+`server_error`, `failed`): a failed Kelos read, which serves every root,
+leaves one on every root's Kelos coverage. A restart leaves one on every
+source of every root that was read successfully before. A source never
+read successfully gets no gap: nothing is known of it, and its coverage
+has no last successful read. One process collects at a time, under a
+PostgreSQL advisory lock: another reads nothing, says so in its log, and
+tries again.
 
 | Variable | Meaning |
 | --- | --- |

@@ -9,6 +9,7 @@ import (
 	"maps"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -37,7 +38,8 @@ const (
 	testProject     = 3
 	testTaskID      = 42
 	testTaskName    = "vikunja-widgets-agent-opus-42"
-	testPod         = testTaskName + "-pod00"
+	podSuffix       = "-pod00"
+	testPod         = testTaskName + podSuffix
 	testUID         = "uid-42"
 )
 
@@ -67,11 +69,13 @@ func testRoot() model.Root {
 	return model.Root{Task: &model.TaskKey{Instance: testVikunjaHost, ID: testTaskID}}
 }
 
-// fakeVikunja serves task testTaskID, announced once, read now; or err.
+// fakeVikunja serves task testTaskID and those of also, each announced
+// once, read now; or err. Any other task is not found.
 type fakeVikunja struct {
 	mu    sync.Mutex
 	err   error
 	reads int
+	also  []int64
 	// during runs inside each read, before it answers.
 	during func(ctx context.Context)
 }
@@ -79,8 +83,13 @@ type fakeVikunja struct {
 func (f *fakeVikunja) Fetch(ctx context.Context, id int64) (vikunja.Snapshot, error) {
 	f.mu.Lock()
 	f.reads++
-	err, during := f.err, f.during
+	err, during, known := f.err, f.during, id == testTaskID || slices.Contains(f.also, id)
 	f.mu.Unlock()
+	if !known {
+		return vikunja.Snapshot{}, &vikunja.StatusError{
+			Path: "/api/v1/tasks/" + strconv.FormatInt(id, 10), Code: http.StatusNotFound, Status: "404 Not Found",
+		}
+	}
 	if during != nil {
 		during(ctx)
 		if ctx.Err() != nil {
@@ -105,10 +114,15 @@ func (f *fakeVikunja) count() int {
 	return f.reads
 }
 
+// taskNameOf is the Kelos Task name of task id's run; testTaskName for
+// testTaskID.
+func taskNameOf(id int64) string { return "vikunja-widgets-agent-opus-" + strconv.FormatInt(id, 10) }
+
 // testTask is task id as read at observed: in a bucket, with a label, and
-// a start announcement of testTaskName's pod.
+// a start announcement of its run's pod.
 func testTask(id int64, observed time.Time) vikunja.Snapshot {
 	announced := testStart.Add(time.Minute)
+	name := taskNameOf(id)
 	return vikunja.Snapshot{
 		Task: vikunja.Task{
 			ID: id, ProjectID: testProject, Created: testStart, CreatedBy: &vikunja.User{ID: 7, Username: "owner"},
@@ -119,7 +133,7 @@ func testTask(id int64, observed time.Time) vikunja.Snapshot {
 			ID: 900, Created: announced, Updated: announced,
 			Author: vikunja.User{ID: 23, Username: vikunja.DefaultServiceAccount},
 			Body: "<p>Agent <code>" + testAgent + "</code> has started working on this task: Kelos Task <code>" +
-				testTaskName + "</code>, pod <code>" + testPod + "</code>.</p>",
+				name + "</code>, pod <code>" + name + podSuffix + "</code>.</p>",
 		}},
 		ObservedAt:         observed,
 		CommentsObservedAt: observed,
@@ -146,17 +160,21 @@ func (f *fakeKelos) set(snap kelos.Snapshot, err error) {
 }
 
 // testKelosTask is task testTaskID's run, in phase.
-func testKelosTask(phase kelos.Phase) kelos.Task {
+func testKelosTask(phase kelos.Phase) kelos.Task { return kelosTaskOf(testTaskID, phase) }
+
+// kelosTaskOf is task id's run, in phase.
+func kelosTaskOf(id int64, phase kelos.Phase) kelos.Task {
 	start := metav1.NewTime(testStart.Add(time.Minute))
+	name := taskNameOf(id)
 	t := kelos.Task{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: testTaskName, UID: types.UID(testUID), CreationTimestamp: start,
+			Name: name, UID: types.UID("uid-" + strconv.FormatInt(id, 10)), CreationTimestamp: start,
 			Labels: map[string]string{
 				testVikunjaHost + "/project": "widgets", testVikunjaHost + "/variant": testAgent,
-				testVikunjaHost + "/task": "42",
+				testVikunjaHost + "/task": strconv.FormatInt(id, 10),
 			},
 		},
-		Status: kelos.TaskStatus{Phase: phase, PodName: testPod, StartTime: &start},
+		Status: kelos.TaskStatus{Phase: phase, PodName: name + podSuffix, StartTime: &start},
 	}
 	if phase == kelos.PhaseSucceeded {
 		end := metav1.NewTime(testStart.Add(time.Hour))

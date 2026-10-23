@@ -14,9 +14,12 @@ func failureReason(src model.Source, err error) string {
 }
 
 // openGaps applies open to a copy of each source state of every root,
-// and commits the root states it changed in one transaction before they
-// replace the loop's. A gap is so in the store as soon as it is open,
-// whether or not its root is read before the next restart.
+// and commits the root states it changed in one transaction; they replace
+// the loop's either way. A gap is so in the store as soon as it is open,
+// whether or not its root is read before the next restart. If the commit
+// fails, the roots it changed are unsaved: each is committed with its
+// next read, or with the cycle's end, whichever comes first, so that the
+// last cycle's end never passes a gap the store does not hold.
 func (l *Loop) openGaps(ctx context.Context, open func(*sourceState) bool) error {
 	changed := make(map[model.Ref]*rootState)
 	cps := make(map[string][]byte)
@@ -34,10 +37,13 @@ func (l *Loop) openGaps(ctx context.Context, open func(*sourceState) bool) error
 	if len(cps) == 0 {
 		return nil
 	}
+	maps.Copy(l.roots, changed)
 	if err := l.store.Commit(ctx, Commit{Checkpoints: cps}); err != nil {
+		for ref := range changed {
+			l.unsaved[ref] = true
+		}
 		return err
 	}
-	maps.Copy(l.roots, changed)
 	return nil
 }
 
@@ -55,6 +61,7 @@ func (l *Loop) kelosFailed(ctx context.Context, err error) {
 	})
 	if cerr != nil && ctx.Err() == nil {
 		l.metrics.storeErrors.WithLabelValues(operationCommit).Inc()
-		l.log.Error("store commit of the Kelos failure's gaps failed", "error", cerr)
+		l.log.Error("store commit of the Kelos failure's gaps failed; they are committed with the roots' "+
+			"next reads or the cycle's end", "error", cerr)
 	}
 }

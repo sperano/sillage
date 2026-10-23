@@ -30,8 +30,15 @@ type Commit struct {
 	// run keyed by pod once a run keyed by UID names the pod, which the
 	// store re-keys, its correlations with it. An observation (an event
 	// with a fingerprint id and no source time: a bucket, label or
-	// assignee seen) has a new key at every read that commits; the store
-	// keeps one per unchanged value, with when it was first and last seen.
+	// assignee seen) has a new key at every read that commits records; the
+	// store keeps one per value (the event but its id and ObservedAt),
+	// with when it was first seen, which Records returns as the event's
+	// id and ObservedAt, and when it was last seen, the latest ObservedAt
+	// committed for it, which the store keeps for the read API. A read
+	// whose story did not change commits no records, so last seen is the
+	// last read that did; that the value still held at the reads after it
+	// is what the root's coverage says, its LastSuccessfulRead advancing
+	// while the story is unchanged.
 	// Records' coverage replaces the root's coverage of the same source
 	// instance.
 	Records model.Records

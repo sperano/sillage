@@ -33,7 +33,9 @@ func (l *Loop) listProjects(ctx context.Context, dues map[model.Ref]*due) map[in
 		if !mark.IsZero() {
 			since = mark.Add(-listingOverlap)
 		}
-		changes, err := timed(m, func() ([]vikunja.TaskChange, error) { return l.src.Projects.ChangedTasks(ctx, p, since) })
+		changes, err := timed(ctx, m, func(ctx context.Context) ([]vikunja.TaskChange, error) {
+			return l.src.Projects.ChangedTasks(ctx, p, since)
+		})
 		if err != nil {
 			if ctx.Err() != nil {
 				return nil
@@ -75,10 +77,14 @@ func (l *Loop) addChanged(dues map[model.Ref]*due, project int64, ch vikunja.Tas
 	d.projects = append(d.projects, project)
 }
 
-// commitCycle commits when the cycle ended, and the marks of the projects
-// every listed task of which was read.
+// commitCycle commits when the cycle ended, the marks of the projects
+// every listed task of which was read, and the root states whose gaps
+// are not committed yet, in one transaction.
 func (l *Loop) commitCycle(ctx context.Context, marks map[int64]time.Time, incomplete map[int64]bool) {
 	cps := map[string][]byte{heartbeatKey: encode(l.now())}
+	for ref := range l.unsaved {
+		cps[rootKey(l.roots[ref].Root)] = encode(l.roots[ref])
+	}
 	advanced := make(map[int64]time.Time)
 	for p, mark := range marks {
 		if prev, ok := l.marks[p]; !incomplete[p] && (!ok || mark.After(prev)) {
@@ -96,4 +102,5 @@ func (l *Loop) commitCycle(ctx context.Context, marks map[int64]time.Time, incom
 	for p, mark := range advanced {
 		l.marks[p] = mark
 	}
+	clear(l.unsaved)
 }

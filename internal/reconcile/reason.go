@@ -38,6 +38,8 @@ func reasonOf(err error) string {
 		return reasonRateLimited
 	}
 	switch code := statusOf(err); {
+	case code == http.StatusRequestTimeout:
+		return reasonTimeout
 	case code == http.StatusTooManyRequests:
 		return reasonRateLimited
 	case code >= serverErrorStatus:

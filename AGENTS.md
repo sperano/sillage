@@ -19,7 +19,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 
 | Path | What goes there |
 | --- | --- |
-| `cmd/sillage/` | The one binary: a server of `GET /healthz`, `GET /metrics` and the embedded frontend, which runs the collection loop when a store is configured, and `sillage story`, which prints one story assembled from the live sources; later the read API too. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s. |
+| `cmd/sillage/` | The one binary: a server of `GET /healthz`, `GET /metrics` and the embedded frontend, which is to run the collection loop once the PostgreSQL store exists (until then, setting `SILLAGE_DATABASE_URL` fails the start), and `sillage story`, which prints one story assembled from the live sources; later the read API too. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s. |
 | `internal/model/` | Normalized events, runs, entities and links, and coverage. Source-independent. |
 | `internal/model/storytest/` | The invariant each fixture story exists for, asserted by the model's and the collector's tests. |
 | `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage; and names the roots a Kelos read points to. Read once, nothing kept: a caller passes what a store kept back in. |

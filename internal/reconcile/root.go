@@ -13,14 +13,12 @@ import (
 // transaction. It reports whether it committed, and whether the root's
 // Vikunja task, if any, was read: a project's mark waits for that.
 func (l *Loop) collectRoot(ctx context.Context, cr cycleRun, d *due) (committed, read bool) {
-	rctx, cancel := context.WithTimeout(ctx, rootTimeout)
-	defer cancel()
 	prev := l.roots[d.root.Ref()]
 	if prev == nil {
 		prev = newRootState(d.root)
 	}
 	at := l.now()
-	res, ok := l.recollect(rctx, cr, prev)
+	res, ok := l.recollect(ctx, cr, prev)
 	if !ok || ctx.Err() != nil {
 		return false, false
 	}
@@ -47,7 +45,7 @@ func (l *Loop) recollect(ctx context.Context, cr cycleRun, prev *rootState) (col
 		l.storeFailed(ctx, operationRead, ref, err)
 		return collector.Result{}, false
 	}
-	since := prev.kelosSince()
+	since := prev.kelosSince(l.ccfg.Kelos.Cluster)
 	if since.IsZero() {
 		// This is the first Kelos read of the root, if it succeeds.
 		since = cr.kelosAt
@@ -83,6 +81,7 @@ func (l *Loop) commitRoot(ctx context.Context, prev, next *rootState, recs model
 		return false
 	}
 	l.roots[next.Root.Ref()] = next
+	delete(l.unsaved, next.Root.Ref())
 	l.metrics.roots.Set(float64(len(l.roots)))
 	l.metrics.observeWritten(commit.Records)
 	return true

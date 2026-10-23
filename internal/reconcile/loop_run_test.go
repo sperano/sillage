@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -53,6 +54,10 @@ func TestStandbyReadsNothingAndSaysWhy(t *testing.T) {
 func TestRunCollectsWhileItHoldsTheLock(t *testing.T) {
 	h := newHarness(t, everyCycle)
 	lock := &fakeLocker{}
+	var heldWhileReading atomic.Bool
+	h.vikunja.during = func(context.Context) {
+		heldWhileReading.Store(testutil.ToFloat64(h.loop.metrics.lockHeld) == 1)
+	}
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan struct{})
 	go func() {
@@ -71,6 +76,9 @@ func TestRunCollectsWhileItHoldsTheLock(t *testing.T) {
 	<-done
 	if lock.count() != 1 {
 		t.Errorf("lock taken %d times, want once", lock.count())
+	}
+	if !heldWhileReading.Load() {
+		t.Error("lock held was not 1 while the loop collected")
 	}
 }
 

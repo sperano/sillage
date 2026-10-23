@@ -29,6 +29,7 @@ func TestReasonOf(t *testing.T) {
 		{"deadline", fmt.Errorf("vikunja: GET /x: %w", context.DeadlineExceeded), reasonTimeout},
 		{"network timeout", fmt.Errorf("wiki: %w", os.ErrDeadlineExceeded), reasonTimeout},
 		{"kubernetes timeout", apierrors.NewTimeoutError("slow", 1), reasonTimeout},
+		{"408", &wiki.StatusError{Code: http.StatusRequestTimeout}, reasonTimeout},
 		{"github rate limit", &github.RateLimitError{Path: "/x", Wait: time.Hour}, reasonRateLimited},
 		{"429", &vikunja.StatusError{Code: http.StatusTooManyRequests}, reasonRateLimited},
 		{"kubernetes 429", apierrors.NewTooManyRequests("busy", 1), reasonRateLimited},

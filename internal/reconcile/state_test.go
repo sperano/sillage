@@ -84,3 +84,16 @@ func TestRootStateCloneIsDeep(t *testing.T) {
 		t.Error("changing the clone changed the original")
 	}
 }
+
+func TestKelosSinceIsTheConfiguredClusters(t *testing.T) {
+	const otherCluster = "cluster-old"
+	st := newRootState(testRoot())
+	first := minute(1)
+	st.source(model.Coverage{Source: model.SourceKelos, Instance: otherCluster}).succeed(first, model.Coverage{})
+	if got := st.kelosSince(testCluster); !got.IsZero() {
+		t.Errorf("kelosSince(%s) = %v, want zero: only %s was read", testCluster, got, otherCluster)
+	}
+	if got := st.kelosSince(otherCluster); !got.Equal(first) {
+		t.Errorf("kelosSince(%s) = %v, want %v", otherCluster, got, first)
+	}
+}
