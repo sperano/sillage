@@ -77,6 +77,21 @@ test('the same URL again keeps the route, and counts no navigation', () => {
 	expect(router.navigations).toBe(1);
 });
 
+test('a fragment change keeps the route', () => {
+	const history = memoryHistory('/task/vikunja.example.com/1');
+	const router = new Router(history);
+	const route = router.route;
+	router.navigate('/task/vikunja.example.com/1#sources');
+	expect(router.route).toBe(route);
+	expect(router.navigations).toBe(0);
+});
+
+test('navigating to the current URL adds no entry', () => {
+	const history = memoryHistory('/?q=widgets');
+	new Router(history).navigate('/?q=widgets');
+	expect(history.entries()).toEqual(['/?q=widgets']);
+});
+
 test('navigate with replace drops the current entry', () => {
 	const history = memoryHistory('/open?url=x');
 	const router = new Router(history);

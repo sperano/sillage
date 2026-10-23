@@ -68,6 +68,18 @@ test('a failed search says why', async () => {
 		);
 });
 
+test('searching again for the same text retries, in place', async () => {
+	let failures = 1;
+	const { history, server } = await renderSearch('widgets', {
+		[SEARCH]: () => (failures-- > 0 ? problem(503, 'Service Unavailable') : json([]))
+	});
+	await expect.element(page.getByRole('alert')).toBeVisible();
+	await page.getByRole('button', { name: 'Search' }).click();
+	await expect.element(page.getByRole('status')).toHaveTextContent('No task or page matches');
+	expect(server.requests).toHaveLength(2);
+	expect(history.entries()).toEqual(['/']);
+});
+
 test('a new search aborts the one in flight', async () => {
 	const { server, view } = await renderSearch('first', {
 		[SEARCH]: (url) => (url.searchParams.get('q') === 'first' ? HANG : json([]))

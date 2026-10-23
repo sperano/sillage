@@ -19,8 +19,11 @@
 
 	function submit(event: SubmitEvent & { currentTarget: HTMLFormElement }) {
 		event.preventDefault();
-		const q = new FormData(event.currentTarget).get(QUERY_PARAM);
-		router.navigate(homeHref(typeof q === 'string' ? q.trim() : ''));
+		const field = new FormData(event.currentTarget).get(QUERY_PARAM);
+		const q = typeof field === 'string' ? field.trim() : '';
+		// The same search again is the reader retrying: the URL stays, the request runs again.
+		if (q === wanted) results.reload();
+		else router.navigate(homeHref(q));
 	}
 </script>
 

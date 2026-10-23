@@ -13,9 +13,10 @@ export class Router {
 	navigations = $state(0);
 
 	readonly #history: History;
-	// The URL route was parsed from: a sync to the same URL keeps the route,
-	// so that what depends on it (a story's request) does not start again.
-	#href = '';
+	// The path and query route was parsed from: a sync to the same ones (a
+	// fragment change included) keeps the route, so that what depends on it
+	// (a story's request) does not start again.
+	#at = '';
 
 	constructor(history: History) {
 		this.#history = history;
@@ -28,9 +29,14 @@ export class Router {
 		return this.#history.listen(() => this.#sync());
 	}
 
-	/** Shows href; with replace, in place of the current entry, so that back skips it. */
+	/**
+	 * Shows href; with replace, or when href is the current URL, in place of
+	 * the current entry, so that back skips it.
+	 */
 	navigate(href: string, { replace = false } = {}): void {
-		if (replace) this.#history.replace(href);
+		const here = this.#history.location();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- compared and dropped, not state
+		if (replace || new URL(href, here).href === here.href) this.#history.replace(href);
 		else this.#history.push(href);
 		this.#sync();
 	}
@@ -69,9 +75,10 @@ export class Router {
 
 	#sync(): void {
 		const url = this.#history.location();
-		if (url.href === this.#href) return;
-		if (this.#href !== '') this.navigations++;
-		this.#href = url.href;
+		const at = url.pathname + url.search;
+		if (at === this.#at) return;
+		if (this.#at !== '') this.navigations++;
+		this.#at = at;
 		this.route = parseRoute(url);
 	}
 }

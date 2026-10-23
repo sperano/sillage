@@ -1,11 +1,11 @@
 import { flushSync } from 'svelte';
 import { expect, test } from 'vitest';
-import { type Load, type Loader, load } from './load.svelte';
+import { type Loader, load } from './load.svelte';
 
 // track runs load in an effect root, as a component would, and returns
 // its state and the function that tears it down.
 function track<T>(loader: () => Loader<T>) {
-	let state!: { readonly current: Load<T> };
+	let state!: ReturnType<typeof load<T>>;
 	const destroy = $effect.root(() => {
 		state = load(loader);
 	});
@@ -72,4 +72,18 @@ test('what the request reads is not a dependency', async () => {
 	flushSync();
 	expect(calls).toBe(1);
 	destroy();
+});
+
+test('reload aborts the request in flight and loads again', async () => {
+	const signals: AbortSignal[] = [];
+	const loaded = track(() => async (signal) => {
+		signals.push(signal);
+		return signals.length;
+	});
+	await expect.poll(() => loaded.state.current).toEqual({ state: 'loaded', value: 1 });
+	loaded.state.reload();
+	flushSync();
+	await expect.poll(() => loaded.state.current).toEqual({ state: 'loaded', value: 2 });
+	expect(signals.map((s) => s.aborted)).toEqual([true, false]);
+	loaded.destroy();
 });

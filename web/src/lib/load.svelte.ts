@@ -20,9 +20,16 @@ export type Loader<T> = ((signal: AbortSignal) => Promise<T>) | undefined;
  * dependencies: when one changes, the request in flight is aborted and
  * loader runs again.
  */
-export function load<T>(loader: () => Loader<T>): { readonly current: Load<T> } {
+export function load<T>(loader: () => Loader<T>): {
+	readonly current: Load<T>;
+	/** Aborts the request in flight, if any, and loads again: the reader's own retry. */
+	reload(): void;
+} {
 	let current: Load<T> = $state.raw({ state: 'idle' });
+	let attempt = $state(0);
 	$effect(() => {
+		// Read as a dependency, so that reload runs the effect again.
+		void attempt;
 		const run = loader();
 		if (run === undefined) {
 			current = { state: 'idle' };
@@ -45,6 +52,9 @@ export function load<T>(loader: () => Loader<T>): { readonly current: Load<T> } 
 	return {
 		get current() {
 			return current;
+		},
+		reload: () => {
+			attempt++;
 		}
 	};
 }
