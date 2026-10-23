@@ -1,34 +1,41 @@
 import { flushSync } from 'svelte';
-import { expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vitest';
 import { type Loader, load } from './load.svelte';
 
+// The effect roots a test made, torn down after it even when it failed, so
+// that none of its requests runs on into the next test.
+let roots: (() => void)[] = [];
+
+afterEach(() => {
+	roots.forEach((destroy) => destroy());
+	roots = [];
+});
+
 // track runs load in an effect root, as a component would, and returns
-// its state and the function that tears it down.
+// its state and the function that tears it down early.
 function track<T>(loader: () => Loader<T>) {
 	let state!: ReturnType<typeof load<T>>;
 	const destroy = $effect.root(() => {
 		state = load(loader);
 	});
+	roots.push(destroy);
 	flushSync();
 	return { state, destroy };
 }
 
 test('nothing to load is idle', () => {
-	const { state, destroy } = track(() => undefined);
+	const { state } = track(() => undefined);
 	expect(state.current).toEqual({ state: 'idle' });
-	destroy();
 });
 
 test('loads, then holds the value or the error', async () => {
 	const ok = track(() => async () => 42);
 	expect(ok.state.current).toEqual({ state: 'loading' });
 	await expect.poll(() => ok.state.current).toEqual({ state: 'loaded', value: 42 });
-	ok.destroy();
 
 	const err = new Error('down');
 	const failed = track(() => async () => Promise.reject(err));
 	await expect.poll(() => failed.state.current).toEqual({ state: 'failed', error: err });
-	failed.destroy();
 });
 
 test('a change of what it reads aborts the request in flight, and its late answer is dropped', async () => {
@@ -54,24 +61,35 @@ test('a change of what it reads aborts the request in flight, and its late answe
 
 test('a loader that throws before its request fails instead of breaking the effect', async () => {
 	const err = new Error('bad input');
-	const { state, destroy } = track<number>(() => () => {
+	const { state } = track<number>(() => () => {
 		throw err;
 	});
 	await expect.poll(() => state.current).toEqual({ state: 'failed', error: err });
-	destroy();
+});
+
+test('a loader that throws while reading what it loads fails, and runs again on a change', async () => {
+	const err = new Error('bad route');
+	let broken = $state(true);
+	const { state } = track(() => {
+		if (broken) throw err;
+		return async () => 1;
+	});
+	expect(state.current).toEqual({ state: 'failed', error: err });
+	broken = false;
+	flushSync();
+	await expect.poll(() => state.current).toEqual({ state: 'loaded', value: 1 });
 });
 
 test('what the request reads is not a dependency', async () => {
 	let other = $state(1);
 	let calls = 0;
-	const { destroy } = track(() => async () => {
+	track(() => async () => {
 		calls++;
 		return other;
 	});
 	other = 2;
 	flushSync();
 	expect(calls).toBe(1);
-	destroy();
 });
 
 test('reload aborts the request in flight and loads again', async () => {
@@ -85,5 +103,4 @@ test('reload aborts the request in flight and loads again', async () => {
 	flushSync();
 	await expect.poll(() => loaded.state.current).toEqual({ state: 'loaded', value: 2 });
 	expect(signals.map((s) => s.aborted)).toEqual([true, false]);
-	loaded.destroy();
 });

@@ -46,6 +46,8 @@ export function fakeServer(handlers: Record<string, Handler>): FakeServer {
 		const url = new URL(String(input), MEMORY_ORIGIN);
 		const signal = init?.signal ?? new AbortController().signal;
 		requests.push({ path: url.pathname + url.search, signal });
+		// As fetch does, an already aborted request rejects without an answer.
+		if (signal.aborted) return Promise.reject(signal.reason as unknown);
 		const handler = handlers[url.pathname];
 		const answer = handler ? handler(url) : problem(HTTP_NOT_FOUND, 'Not Found');
 		if (answer !== HANG) return Promise.resolve(answer);

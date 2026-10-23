@@ -12,9 +12,11 @@
 
 	const uid = $props.id();
 	const wanted = $derived(query.trim());
+	// A link can carry a search longer than the box accepts: it is not sent.
+	const tooLong = $derived(wanted.length > MAX_SEARCH_LENGTH);
 	const results = load(() => {
 		const q = wanted;
-		return q === '' ? undefined : (signal) => api.search(q, signal);
+		return q === '' || tooLong ? undefined : (signal) => api.search(q, signal);
 	});
 
 	function submit(event: SubmitEvent & { currentTarget: HTMLFormElement }) {
@@ -37,7 +39,11 @@
 		<button type="submit">Search</button>
 	</form>
 
-	{#if results.current.state === 'loading'}
+	{#if tooLong}
+		<p role="alert">
+			A search is at most {MAX_SEARCH_LENGTH} characters long; this one has {wanted.length}.
+		</p>
+	{:else if results.current.state === 'loading'}
 		<p role="status">Searching…</p>
 	{:else if results.current.state === 'failed'}
 		<ErrorNotice error={results.current.error} notFound="The search is not available." />

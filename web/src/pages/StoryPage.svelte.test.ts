@@ -29,7 +29,7 @@ test.each([...goldenStories.keys()])('renders the golden story %s', async (name)
 	}
 });
 
-test('a root sillage has no story of says so', async () => {
+test('says so when Sillage has no story of the root', async () => {
 	const server = fakeServer({ [storyPath(TASK)]: () => problem(404, 'Not Found') });
 	await render(StoryPage, { api: server.api, root: TASK });
 	await expect

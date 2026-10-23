@@ -1,6 +1,8 @@
 // Decoders: functions that check an unknown JSON value against a shape and
 // return it typed, or throw a DecodeError naming where it went wrong.
 
+import { MS_PER_SECOND } from './format';
+
 /** A value did not have the expected shape. */
 export class DecodeError extends Error {
 	override readonly name = 'DecodeError';
@@ -84,42 +86,69 @@ export const nonNegativeInteger: Decoder<number> = (value, path) => {
 // What Go's time.Time marshals to: RFC 3339 with optional fractional
 // seconds, and Z or a numeric offset.
 const RFC3339 =
-	/^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})(?:\.\d+)?(?:Z|[+-](?<offsetHour>\d{2}):(?<offsetMinute>\d{2}))$/;
+	/^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})(?:\.(?<fraction>\d+))?(?:Z|(?<offsetSign>[+-])(?<offsetHour>\d{2}):(?<offsetMinute>\d{2}))$/;
 
 const MAX_MONTH = 12;
 const MAX_HOUR = 23;
 const MAX_MINUTE = 59;
 const MAX_SECOND = 59;
+const SECONDS_PER_MINUTE = 60;
+const SECONDS_PER_HOUR = 3600;
+
+// utcMs is the Unix time in milliseconds of a UTC date and time; unlike
+// Date.UTC, it keeps a year from 0 to 99 as it is, not as 1900 to 1999.
+function utcMs(year: number, month: number, day: number, hour = 0, minute = 0, second = 0) {
+	const d = new Date(0);
+	d.setUTCFullYear(year, month - 1, day);
+	d.setUTCHours(hour, minute, second);
+	return d.getTime();
+}
 
 // The number of days in month (1 to 12) of year: day 0 of the next month is
 // its last day.
 function daysIn(year: number, month: number): number {
-	return new Date(Date.UTC(year, month, 0)).getUTCDate();
+	return new Date(utcMs(year, month + 1, 0)).getUTCDate();
 }
 
-// validTime reports whether s is an RFC 3339 time whose every field is in
-// range, as Go's time.Parse checks it: no February 30, no hour 24, no leap
-// second, which Date.parse would accept or roll over.
-function validTime(s: string): boolean {
+// An instant at full precision: whole Unix seconds, and the digits of the
+// fraction of a second, without trailing zeros.
+interface Instant {
+	seconds: number;
+	fraction: string;
+}
+
+// parseTime returns the instant s names when s is an RFC 3339 time whose
+// every field is in range, as Go's time.Parse checks it: no February 30, no
+// hour 24, no leap second, which Date.parse would accept or roll over.
+function parseTime(s: string): Instant | undefined {
 	const g = RFC3339.exec(s)?.groups;
-	if (g === undefined) return false;
+	if (g === undefined) return undefined;
 	const year = Number(g.year);
 	const month = Number(g.month);
 	const day = Number(g.day);
+	const hour = Number(g.hour);
+	const minute = Number(g.minute);
+	const second = Number(g.second);
 	// Z has no offset: zero.
 	const offsetHour = Number(g.offsetHour ?? 0);
 	const offsetMinute = Number(g.offsetMinute ?? 0);
-	return (
+	const inRange =
 		month >= 1 &&
 		month <= MAX_MONTH &&
 		day >= 1 &&
 		day <= daysIn(year, month) &&
-		Number(g.hour) <= MAX_HOUR &&
-		Number(g.minute) <= MAX_MINUTE &&
-		Number(g.second) <= MAX_SECOND &&
+		hour <= MAX_HOUR &&
+		minute <= MAX_MINUTE &&
+		second <= MAX_SECOND &&
 		offsetHour <= MAX_HOUR &&
-		offsetMinute <= MAX_MINUTE
-	);
+		offsetMinute <= MAX_MINUTE;
+	if (!inRange) return undefined;
+	const offset = offsetHour * SECONDS_PER_HOUR + offsetMinute * SECONDS_PER_MINUTE;
+	const local = utcMs(year, month, day, hour, minute, second) / MS_PER_SECOND;
+	return {
+		seconds: g.offsetSign === '-' ? local + offset : local - offset,
+		fraction: (g.fraction ?? '').replace(/0+$/, '')
+	};
 }
 
 /**
@@ -128,9 +157,29 @@ function validTime(s: string): boolean {
  */
 export const timestamp: Decoder<string> = (value, path) => {
 	const s = anyString(value, path);
-	if (!validTime(s)) fail(path, `expected an RFC 3339 time, got ${JSON.stringify(s)}`);
+	if (parseTime(s) === undefined) fail(path, `expected an RFC 3339 time, got ${JSON.stringify(s)}`);
 	return s;
 };
+
+/**
+ * Compares two timestamps at full precision, below the millisecond
+ * Date.parse keeps: negative when a is before b, zero when they are the
+ * same instant, positive when a is after b.
+ */
+export function compareTimes(a: string, b: string): number {
+	const x = parseTime(a);
+	const y = parseTime(b);
+	if (x === undefined || y === undefined) {
+		throw new RangeError(`not an RFC 3339 time: ${JSON.stringify(x ? b : a)}`);
+	}
+	if (x.seconds !== y.seconds) return x.seconds - y.seconds;
+	// Fractions of one length compare as their digits do.
+	const width = Math.max(x.fraction.length, y.fraction.length);
+	const fx = x.fraction.padEnd(width, '0');
+	const fy = y.fraction.padEnd(width, '0');
+	if (fx === fy) return 0;
+	return fx < fy ? -1 : 1;
+}
 
 /** One of values. */
 export function oneOf<const T extends string>(values: readonly T[]): Decoder<T> {

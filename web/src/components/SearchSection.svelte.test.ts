@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
-import { API_BASE } from '../lib/api';
+import { API_BASE, MAX_SEARCH_LENGTH } from '../lib/api';
 import { memoryHistory } from '../lib/history';
 import { Router } from '../lib/router.svelte';
 import { HANG, fakeServer, json, problem } from '../testing/fakeServer';
@@ -48,6 +48,17 @@ test('lists the matching roots with links to their stories', async () => {
 		.toHaveAttribute('href', '/page/wiki.example.com/57/en');
 	expect(server.requests.map((r) => r.path)).toEqual([`${SEARCH}?q=widgets`]);
 	await expect.element(page.getByRole('searchbox')).toHaveValue('widgets');
+});
+
+test('a search from a link longer than the box takes is not sent', async () => {
+	const query = 'w'.repeat(MAX_SEARCH_LENGTH + 1);
+	const { server } = await renderSearch(query, { [SEARCH]: () => json([]) });
+	await expect
+		.element(page.getByRole('alert'))
+		.toHaveTextContent(
+			`A search is at most ${MAX_SEARCH_LENGTH} characters long; this one has ${query.length}.`
+		);
+	expect(server.requests).toEqual([]);
 });
 
 test('no match says so', async () => {

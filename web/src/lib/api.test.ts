@@ -70,7 +70,7 @@ describe('requests', () => {
 		const link = 'https://github.example.com/example-org/widgets/pull/7';
 		expect(await createApi({ fetch: resolveFetch }).resolve(link)).toEqual(TASK);
 		expect(requested(resolveFetch)).toEqual([
-			`${API_BASE}/resolve?url=${encodeURIComponent(link).replaceAll('%20', '+')}`
+			`${API_BASE}/resolve?${new URLSearchParams({ url: link })}`
 		]);
 	});
 
@@ -123,6 +123,13 @@ describe('errors', () => {
 		await expect(createApi({ fetch: wrong }).coverage()).rejects.toThrow(/unknown value "jira"/);
 	});
 
+	test('a connection dropped while reading the body is a NetworkError', async () => {
+		const response = json([]);
+		vi.spyOn(response, 'json').mockRejectedValue(new TypeError('network error'));
+		const fetchFn = answering(() => response);
+		await expect(createApi({ fetch: fetchFn }).coverage()).rejects.toThrow(NetworkError);
+	});
+
 	test('a fetch that fails is a NetworkError, tried once', async () => {
 		const fetchFn = vi.fn<typeof fetch>(async () => {
 			throw new TypeError('Failed to fetch');
@@ -136,6 +143,35 @@ describe('errors', () => {
 		const api = createApi({ fetch: fetchFn, timeoutMs: SHORT_TIMEOUT_MS });
 		await expect(api.coverage()).rejects.toThrow(TimeoutError);
 		expect(fetchFn).toHaveBeenCalledOnce();
+	});
+
+	test('an abort while reading an error body rejects with the abort, not the status', async () => {
+		const controller = new AbortController();
+		const response = problem(503, 'Service Unavailable');
+		vi.spyOn(response, 'json').mockImplementation(() => {
+			controller.abort();
+			return Promise.reject(controller.signal.reason as Error);
+		});
+		const err: unknown = await createApi({ fetch: answering(() => response) })
+			.coverage(controller.signal)
+			.catch((e: unknown) => e);
+		expect(isAbort(err)).toBe(true);
+	});
+
+	test('a timeout while reading an error body is a TimeoutError', async () => {
+		// An error status whose body never arrives until the request is aborted.
+		const fetchFn = vi.fn<typeof fetch>(async (_input, init) => {
+			const response = problem(503, 'Service Unavailable');
+			vi.spyOn(response, 'json').mockImplementation(
+				() =>
+					new Promise((_resolve, reject) => {
+						init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+					})
+			);
+			return response;
+		});
+		const api = createApi({ fetch: fetchFn, timeoutMs: SHORT_TIMEOUT_MS });
+		await expect(api.coverage()).rejects.toThrow(TimeoutError);
 	});
 
 	test("the caller's abort rejects with its reason, not an ApiError", async () => {

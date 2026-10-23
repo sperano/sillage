@@ -75,7 +75,9 @@ export const EVENT_KIND_SOURCES = {
 } as const satisfies Record<string, readonly Source[]>;
 export type EventKind = keyof typeof EVENT_KIND_SOURCES;
 // Object.keys types its result string[]; these keys are EventKind by definition.
-export const EVENT_KINDS = Object.keys(EVENT_KIND_SOURCES) as EventKind[];
+export const EVENT_KINDS: readonly EventKind[] = Object.freeze(
+	Object.keys(EVENT_KIND_SOURCES) as EventKind[]
+);
 
 /** Where an event id comes from: the source, or a fingerprint when it has none. */
 export const ID_KINDS = ['source', 'fingerprint'] as const;
@@ -140,12 +142,20 @@ export interface Event {
 export const BOUND_STATES = ['known', 'unknown', 'open'] as const;
 export type BoundState = (typeof BOUND_STATES)[number];
 
+interface KnownBound {
+	state: 'known';
+	at: string;
+}
+
 /** One end of an interval; at is set exactly when state is known. */
-export type Bound = { state: 'known'; at: string } | { state: 'unknown' | 'open' };
+export type Bound = KnownBound | { state: 'unknown' | 'open'; at?: never };
+
+/** An interval's start: known or unknown, never open. */
+export type StartBound = KnownBound | { state: 'unknown'; at?: never };
 
 /** A span whose ends are each known, unknown or (the end only) open. */
 export interface Interval {
-	start: Bound;
+	start: StartBound;
 	end: Bound;
 }
 

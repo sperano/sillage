@@ -7,6 +7,7 @@ import {
 	anyString,
 	array,
 	bool,
+	compareTimes,
 	decode,
 	fail,
 	nonNegativeInteger,
@@ -51,6 +52,7 @@ import {
 	type Root,
 	type Run,
 	type RunKey,
+	type StartBound,
 	type Story,
 	type TaskKey,
 	type Usage
@@ -140,24 +142,28 @@ export const event: Decoder<Event> = refine(
 
 const boundFields = object({ state: oneOf(BOUND_STATES) }, { at: timestamp });
 
-function bound(canBeOpen: boolean): Decoder<Bound> {
-	return (value, path) => {
-		const b = boundFields(value, path);
-		if (b.state === 'known') {
-			if (b.at === undefined) fail(path, 'a known bound needs a time');
-			return { state: 'known', at: b.at };
-		}
-		if (b.at !== undefined) fail(path, `a ${b.state} bound has no time`);
-		if (b.state === 'open' && !canBeOpen) fail(path, 'only an end can be open');
-		return { state: b.state };
-	};
-}
+const endBound: Decoder<Bound> = (value, path) => {
+	const b = boundFields(value, path);
+	if (b.state === 'known') {
+		if (b.at === undefined) fail(path, 'a known bound needs a time');
+		return { state: 'known', at: b.at };
+	}
+	if (b.at !== undefined) fail(path, `a ${b.state} bound has no time`);
+	return { state: b.state };
+};
+
+const startBound: Decoder<StartBound> = (value, path) => {
+	const b = endBound(value, path);
+	if (b.state === 'known') return b;
+	if (b.state === 'open') fail(path, 'only an end can be open');
+	return { state: 'unknown' };
+};
 
 export const interval: Decoder<Interval> = refine(
-	object({ start: bound(false), end: bound(true) }),
+	object({ start: startBound, end: endBound }),
 	(i, path) => {
 		if (i.start.state === 'known' && i.end.state === 'known') {
-			if (Date.parse(i.end.at) < Date.parse(i.start.at)) fail(path, 'ends before it starts');
+			if (compareTimes(i.end.at, i.start.at) < 0) fail(path, 'ends before it starts');
 		}
 	}
 );
@@ -245,7 +251,7 @@ export const correlation: Decoder<Correlation> = refine(
 const gap: Decoder<Gap> = refine(
 	object({ start: timestamp, end: timestamp, reason: text }),
 	(g, path) => {
-		if (Date.parse(g.end) <= Date.parse(g.start)) fail(path, 'a gap needs an end after its start');
+		if (compareTimes(g.end, g.start) <= 0) fail(path, 'a gap needs an end after its start');
 	}
 );
 
@@ -260,13 +266,36 @@ export const coverageList: Decoder<Coverage[]> = unique(
 	(c) => `${c.source}/${c.instance}`
 );
 
+// A run keyed by pod when a run keyed by UID names the same pod: one
+// attempt, which the collector re-keys by UID rather than keeping twice.
+function checkRunPods(runs: Run[], path: string): void {
+	const podsOfUIDRuns = new Set(
+		runs.flatMap((r) =>
+			r.key.uid !== undefined && r.pod !== undefined ? [podKey(r.key, r.pod)] : []
+		)
+	);
+	runs.forEach((r, i) => {
+		if (r.key.pod !== undefined && podsOfUIDRuns.has(podKey(r.key, r.key.pod))) {
+			fail(`${path}[${i}]`, 'a run keyed by UID names the same pod');
+		}
+	});
+}
+
+function podKey(key: RunKey, pod: string): string {
+	return JSON.stringify([key.cluster, key.namespace, pod]);
+}
+
 export const story: Decoder<Story> = object({
 	root,
 	events: unique(array(event), (e) => `${e.source}/${e.instance}/${e.id}`),
-	runs: unique(array(run), (r) => JSON.stringify(r.key)),
+	runs: refine(
+		unique(array(run), (r) => JSON.stringify(r.key)),
+		checkRunPods
+	),
 	pullRequests: unique(array(pullRequest), (p) => JSON.stringify(p.key)),
+	// The pair of ends, in either direction: Go's Correlation.Pair.
 	correlations: unique(array(correlation), (c) =>
-		[refString(c.from), refString(c.to)].sort().join(' <-> ')
+		JSON.stringify([refString(c.from), refString(c.to)].sort())
 	),
 	coverage: coverageList
 });
@@ -276,6 +305,8 @@ export function parseStory(value: unknown): Story {
 	return decode(story, value);
 }
 
+// A ref as one string: its kind, from a fixed list without a colon, then
+// its id.
 function refString(r: Ref): string {
 	return `${r.kind}:${r.id}`;
 }

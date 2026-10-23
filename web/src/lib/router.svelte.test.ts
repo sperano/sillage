@@ -9,14 +9,17 @@ afterEach(() => {
 	cleanup = [];
 });
 
-// click clicks a link with attrs, which router handles; the test page
+// click clicks a link with attrs, which router handles, and reports
+// whether router cancelled the browser's own handling of it; the test page
 // itself never navigates.
-function click(router: Router, attrs: Record<string, string>, init: MouseEventInit = {}): void {
+function click(router: Router, attrs: Record<string, string>, init: MouseEventInit = {}): boolean {
 	const anchor = document.createElement('a');
 	for (const [k, v] of Object.entries(attrs)) anchor.setAttribute(k, v);
 	document.body.append(anchor);
+	let prevented = false;
 	const onClick = (event: MouseEvent) => {
 		router.handleClick(event);
+		prevented = event.defaultPrevented;
 		event.preventDefault();
 	};
 	document.addEventListener('click', onClick);
@@ -25,13 +28,14 @@ function click(router: Router, attrs: Record<string, string>, init: MouseEventIn
 		anchor.remove();
 	});
 	anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init }));
+	return prevented;
 }
 
 describe('handleClick', () => {
 	test('follows a link to an app route in place', () => {
 		const history = memoryHistory('/');
 		const router = new Router(history);
-		click(router, { href: '/task/vikunja.example.com/7' });
+		expect(click(router, { href: '/task/vikunja.example.com/7' })).toBe(true);
 		expect(router.route).toEqual({
 			name: 'task',
 			key: { instance: 'vikunja.example.com', id: 7 }
@@ -50,7 +54,7 @@ describe('handleClick', () => {
 	])('leaves %s to the browser', (_, attrs, init) => {
 		const history = memoryHistory('/');
 		const router = new Router(history);
-		click(router, attrs, init);
+		expect(click(router, attrs, init)).toBe(false);
 		expect(history.entries()).toEqual(['/']);
 	});
 });

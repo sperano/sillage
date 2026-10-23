@@ -17,8 +17,9 @@ export const API_BASE = '/api/v1';
 export const REQUEST_TIMEOUT_MS = 15_000;
 
 /**
- * The longest search the entry page sends. The API bounds a search's
- * length too; this keeps the box from offering what it would refuse.
+ * The longest search the entry page sends: the box takes no more, and a
+ * longer one from a link is not sent. The API bounds a search's length too;
+ * this keeps the page from offering what it would refuse.
  */
 export const MAX_SEARCH_LENGTH = 200;
 
@@ -160,8 +161,11 @@ async function request<T>(
 		const response = await fetchFn(path, { signal, headers: { Accept: 'application/json' } });
 		if (!response.ok) throw await httpError(name, response);
 		const body: unknown = await response.json().catch((err: unknown) => {
-			if (signal.aborted) throw err;
-			throw new InvalidResponseError(name, 'the body is not JSON', { cause: err });
+			// Anything else (an abort, a connection dropped mid-body) is classified below.
+			if (err instanceof SyntaxError) {
+				throw new InvalidResponseError(name, 'the body is not JSON', { cause: err });
+			}
+			throw err;
 		});
 		return parse(body);
 	} catch (err) {
@@ -170,7 +174,9 @@ async function request<T>(
 }
 
 // classify turns what fetch, reading the body or parsing threw into an
-// ApiError, except a caller's abort, which stays as it is.
+// ApiError, except a caller's abort, which stays as it is. An abort or a
+// timeout wins over the error it caused, even one already classified: an
+// error response whose body read was cut short is the abort, not the status.
 function classify(
 	name: string,
 	err: unknown,
@@ -178,11 +184,11 @@ function classify(
 	timeout: AbortSignal,
 	callerSignal?: AbortSignal
 ): unknown {
-	if (err instanceof ApiError) return err;
 	if (callerSignal?.aborted) return callerSignal.reason;
 	if (timeout.aborted) {
 		return new TimeoutError(name, timeoutMs, { cause: err });
 	}
+	if (err instanceof ApiError) return err;
 	if (err instanceof DecodeError) {
 		return new InvalidResponseError(name, `unexpected body: ${err.message}`, { cause: err });
 	}

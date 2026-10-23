@@ -52,7 +52,7 @@ export function memoryHistory(href: string): History & { entries(): string[]; ba
 			listeners.add(onChange);
 			return () => listeners.delete(onChange);
 		},
-		entries: () => entries.map((u) => u.pathname + u.search),
+		entries: () => entries.map((u) => u.pathname + u.search + u.hash),
 		back: () => {
 			index = Math.max(0, index - 1);
 			listeners.forEach((l) => l());

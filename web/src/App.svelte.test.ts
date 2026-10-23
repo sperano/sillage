@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import App from './App.svelte';
 import { API_BASE } from './lib/api';
@@ -60,6 +60,18 @@ test('a search result opens its story in the page, and back returns to the resul
 
 	history.back();
 	await expect.element(page.getByRole('link', { name: 'Widgets' })).toBeVisible();
+});
+
+test('a new search keeps the focus in the search box', async () => {
+	const { history } = await renderAt('/?q=widgets', { [`${API_BASE}/search`]: () => json([]) });
+	const box = page.getByRole('searchbox', { name: 'Title or key' });
+	await userEvent.clear(box);
+	await userEvent.type(box, 'gears{Enter}');
+	expect(history.entries()).toEqual(['/?q=widgets', '/?q=gears']);
+	await expect
+		.element(page.getByRole('status'))
+		.toHaveTextContent('No task or page matches “gears”.');
+	await expect.element(box).toHaveFocus();
 });
 
 test('leaving a story while it loads aborts its request', async () => {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Api } from './lib/api';
 	import type { Router } from './lib/router.svelte';
+	import type { Route } from './lib/routes';
 	import EntryPage from './pages/EntryPage.svelte';
 	import NotFoundPage from './pages/NotFoundPage.svelte';
 	import OpenPage from './pages/OpenPage.svelte';
@@ -13,10 +14,17 @@
 
 	$effect(() => router.start());
 
+	// The page the route showed when the effect below last ran: plain, since
+	// only that effect reads and writes it.
+	let shown: Route['name'] | undefined;
+
 	// After a navigation, move focus to the new page's heading, so that a
-	// keyboard or screen reader user lands on what replaced the link.
+	// keyboard or screen reader user lands on what replaced the link. A new
+	// search keeps the entry page, and the focus where the reader is.
 	$effect(() => {
-		if (router.navigations > 0) main?.querySelector<HTMLElement>('h1')?.focus();
+		const samePage = shown === 'home' && route.name === 'home';
+		shown = route.name;
+		if (router.navigations > 0 && !samePage) main?.querySelector<HTMLElement>('h1')?.focus();
 	});
 </script>
 

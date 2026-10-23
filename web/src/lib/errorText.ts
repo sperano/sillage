@@ -18,7 +18,7 @@ export function errorText(err: unknown, notFound: string): string {
 	}
 	if (err instanceof NetworkError) return "Sillage's server could not be reached.";
 	if (err instanceof InvalidResponseError) {
-		return "Sillage's server sent an answer this page cannot read. If sillage was just updated, reloading the page may help.";
+		return "Sillage's server sent an answer this page cannot read. If Sillage was just updated, reloading the page may help.";
 	}
 	return 'Something went wrong in this page.';
 }

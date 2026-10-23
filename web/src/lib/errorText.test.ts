@@ -27,8 +27,12 @@ test.each<[string, unknown, string]>([
 		new NetworkError(REQUEST, 'down'),
 		"Sillage's server could not be reached."
 	],
-	['an invalid response', new InvalidResponseError(REQUEST, 'bad'), 'cannot read'],
-	['anything else', new Error('bug'), 'Something went wrong']
+	[
+		'an invalid response',
+		new InvalidResponseError(REQUEST, 'bad'),
+		"Sillage's server sent an answer this page cannot read. If Sillage was just updated, reloading the page may help."
+	],
+	['anything else', new Error('bug'), 'Something went wrong in this page.']
 ])('%s', (_, err, want) => {
-	expect(errorText(err, NOT_FOUND)).toContain(want);
+	expect(errorText(err, NOT_FOUND)).toBe(want);
 });

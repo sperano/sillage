@@ -30,7 +30,13 @@ export function load<T>(loader: () => Loader<T>): {
 	$effect(() => {
 		// Read as a dependency, so that reload runs the effect again.
 		void attempt;
-		const run = loader();
+		let run: Loader<T>;
+		try {
+			run = loader();
+		} catch (error) {
+			current = { state: 'failed', error };
+			return;
+		}
 		if (run === undefined) {
 			current = { state: 'idle' };
 			return;

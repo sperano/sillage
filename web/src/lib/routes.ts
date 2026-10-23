@@ -1,8 +1,9 @@
 // The frontend's routes and their URLs. Routing uses the history API, not
 // the hash: a link such as /open?url=... or /task/<instance>/<id> is a
 // plain URL that the Vikunja start announcement, the portal or a pasted
-// address can carry unchanged, and the Go server answers every non-API
-// path with index.html so that such a deep link loads the app.
+// address can carry unchanged. For such a deep link to load the app, the Go
+// server must answer every non-API path with index.html; cmd/sillage does
+// not yet, so only / loads it until the read API's wiring does.
 
 import type { PageKey, Root, TaskKey } from './model';
 import { rootSegments } from './roots';

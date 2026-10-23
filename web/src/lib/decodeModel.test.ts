@@ -86,6 +86,32 @@ describe('optional fields the golden stories lack', () => {
 		[
 			'a time with an offset',
 			(s) => set(s, ['events', 0, 'observedAt'], '2026-03-03T14:05:00-04:00')
+		],
+		[
+			'an interval a nanosecond long',
+			(s) =>
+				set(s, ['runs', 0, 'interval'], {
+					start: { state: 'known', at: '2026-03-03T18:05:37.000000001Z' },
+					end: { state: 'known', at: '2026-03-03T18:05:37.000000002Z' }
+				})
+		],
+		[
+			'a gap within one millisecond',
+			(s) =>
+				set(
+					s,
+					['coverage', 0, 'gaps'],
+					[{ start: '2026-03-03T19:00:00.0001Z', end: '2026-03-03T19:00:00.0002Z', reason: 'down' }]
+				)
+		],
+		[
+			'two correlations whose ids hold what a joined pair would',
+			(s) => {
+				set(s, ['correlations', 0, 'from'], { kind: 'event', id: 'a' });
+				set(s, ['correlations', 0, 'to'], { kind: 'event', id: 'b <-> event:c' });
+				set(s, ['correlations', 1, 'from'], { kind: 'event', id: 'a <-> event:b' });
+				set(s, ['correlations', 1, 'to'], { kind: 'event', id: 'c' });
+			}
 		]
 	])('%s decodes unchanged', (_, change) => {
 		const json = base(change);
@@ -147,6 +173,15 @@ describe('a story the Go model would reject', () => {
 			'ends before it starts'
 		],
 		[
+			'an interval ending a nanosecond before it starts',
+			(s) =>
+				set(s, ['runs', 0, 'interval'], {
+					start: { state: 'known', at: '2026-03-03T18:05:37.000000002Z' },
+					end: { state: 'known', at: '2026-03-03T18:05:37.000000001Z' }
+				}),
+			'ends before it starts'
+		],
+		[
 			'a finished run with an open end',
 			(s) => set(s, ['runs', 0, 'interval', 'end'], { state: 'open' }),
 			'only a waiting or running run, has an open end'
@@ -165,6 +200,11 @@ describe('a story the Go model would reject', () => {
 			'a run key with both a uid and a pod',
 			(s) => set(s, ['runs', 0, 'key', 'pod'], 'p'),
 			'exactly one of uid and pod'
+		],
+		[
+			'a run keyed by pod beside the run keyed by UID that names that pod',
+			(s) => set(s, ['runs', 1], { ...(get(s, ['runs', 0]) as object), key: runKeyedByPod(s) }),
+			'a run keyed by UID names the same pod'
 		],
 		['a run without evidence', (s) => set(s, ['runs', 0, 'evidence'], []), 'at least one'],
 		[
@@ -233,6 +273,16 @@ describe('a story the Go model would reject', () => {
 					s,
 					['coverage', 0, 'gaps'],
 					[{ start: '2026-03-03T19:00:00Z', end: '2026-03-03T18:00:00Z', reason: 'down' }]
+				),
+			'a gap needs an end after its start'
+		],
+		[
+			'a gap ending at its start, written another way',
+			(s) =>
+				set(
+					s,
+					['coverage', 0, 'gaps'],
+					[{ start: '2026-03-03T19:00:00.5Z', end: '2026-03-03T19:00:00.500Z', reason: 'down' }]
 				),
 			'a gap needs an end after its start'
 		],
