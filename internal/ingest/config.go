@@ -1,6 +1,10 @@
 package ingest
 
-import "log/slog"
+import (
+	"log/slog"
+
+	"github.com/sperano/sillage/internal/collector"
+)
 
 const (
 	// EnvGitHubSecret names the environment variable holding the secret
@@ -46,3 +50,10 @@ func SecretsFromEnv(getenv func(string) string) Secrets {
 
 // Any reports whether a source has a secret.
 func (s Secrets) Any() bool { return s.GitHub != "" || s.Vikunja != "" }
+
+// Config is what the handler needs besides its store and scheduler.
+type Config struct {
+	// Collector names the source instances, and the roots of branches.
+	Collector collector.Config
+	Secrets   Secrets
+}

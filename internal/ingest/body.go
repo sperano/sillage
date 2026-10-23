@@ -6,56 +6,100 @@ import (
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/sperano/sillage/internal/model"
 )
 
-var errTooLarge = fmt.Errorf("the body is larger than %d bytes", MaxBodyBytes)
+const (
+	// MaxGitHubBodyBytes bounds a GitHub delivery's body: GitHub caps its
+	// payloads at 25 MB, and so does the proxy in front of sillage.
+	MaxGitHubBodyBytes = 25 << 20
+	// MaxVikunjaBodyBytes bounds a Vikunja delivery's body: a task with
+	// its description, or a comment, and the accounts that made them.
+	MaxVikunjaBodyBytes = 5 << 20
+	// maxBodiesInFlight bounds how many bodies are read at once, so that
+	// requests nobody authenticated yet hold at most this many bodies in
+	// memory. A request past it is refused, as busy.
+	maxBodiesInFlight = 4
+	// bodyReadTimeout bounds reading a body, so that a client sending it
+	// slowly cannot hold a slot.
+	bodyReadTimeout = time.Minute
+)
 
-// readBody reads r's body, at most MaxBodyBytes within bodyReadTimeout,
-// or returns the status that refuses it.
-func readBody(w http.ResponseWriter, r *http.Request) ([]byte, int, error) {
-	if r.ContentLength > MaxBodyBytes {
-		return nil, http.StatusRequestEntityTooLarge, errTooLarge
+var (
+	errBusy       = errors.New("too many deliveries are being read: try again")
+	errNoSecret   = errors.New("this source's deliveries are not accepted")
+	errNotJSON    = errors.New("the body is not a JSON payload (the webhook must send application/json)")
+	errUnreadable = errors.New("the body could not be read")
+)
+
+// refusal is a request refused before it is known to be a delivery, with
+// the status that answers it.
+type refusal struct {
+	status int
+	err    error
+}
+
+func (r *refusal) Error() string { return r.err.Error() }
+
+func (r *refusal) Unwrap() error { return r.err }
+
+// asRefusal is err as a refusal; any error not one is a bad request.
+func asRefusal(err error) *refusal {
+	var rf *refusal
+	if errors.As(err, &rf) {
+		return rf
+	}
+	return &refusal{status: http.StatusBadRequest, err: err}
+}
+
+// storeError is a store operation that failed while settling a delivery.
+type storeError struct {
+	op  string
+	err error
+}
+
+func (e *storeError) Error() string { return e.op + ": " + e.err.Error() }
+
+func (e *storeError) Unwrap() error { return e.err }
+
+// authenticate reads the body of a request to ep and checks its signature.
+// Otherwise it returns a refusal.
+func (h *Handler) authenticate(w http.ResponseWriter, r *http.Request, ep endpoint) ([]byte, error) {
+	if ep.secret == "" {
+		return nil, &refusal{status: http.StatusForbidden, err: errNoSecret}
+	}
+	select {
+	case h.bodies <- struct{}{}:
+		defer func() { <-h.bodies }()
+	default:
+		return nil, &refusal{status: http.StatusServiceUnavailable, err: errBusy}
+	}
+	body, err := readBody(w, r, ep.maxBody)
+	if err != nil {
+		return nil, err
+	}
+	prefix, signature := ep.signature(r.Header)
+	if err := verify(ep.secret, prefix, signature, body); err != nil {
+		return nil, &refusal{status: http.StatusUnauthorized, err: err}
+	}
+	return body, nil
+}
+
+// readBody reads r's body, at most limit bytes within bodyReadTimeout.
+func readBody(w http.ResponseWriter, r *http.Request, limit int64) ([]byte, error) {
+	tooLarge := &refusal{status: http.StatusRequestEntityTooLarge, err: fmt.Errorf("the body is larger than %d bytes", limit)}
+	if r.ContentLength > limit {
+		return nil, tooLarge
 	}
 	// A writer that cannot set deadlines (a test recorder) has its
 	// server's timeouts only.
 	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(bodyReadTimeout))
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxBodyBytes))
-	if mbe := (*http.MaxBytesError)(nil); errors.As(err, &mbe) {
-		return nil, http.StatusRequestEntityTooLarge, errTooLarge
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, limit))
+	var mbe *http.MaxBytesError
+	switch {
+	case errors.As(err, &mbe):
+		return nil, tooLarge
+	case err != nil:
+		return nil, &refusal{status: http.StatusBadRequest, err: errUnreadable}
 	}
-	if err != nil {
-		return nil, http.StatusBadRequest, errors.New("the body could not be read")
-	}
-	return body, 0, nil
-}
-
-// rootSet collects roots, each once, in the order first added.
-type rootSet struct {
-	roots []model.Root
-	seen  map[model.Ref]bool
-}
-
-func (s *rootSet) add(root model.Root) {
-	ref, ok := refOf(root)
-	if !ok || s.seen[ref] {
-		return
-	}
-	if s.seen == nil {
-		s.seen = make(map[model.Ref]bool)
-	}
-	s.seen[ref] = true
-	s.roots = append(s.roots, root)
-}
-
-// refOf is the reference of a valid root's key.
-func refOf(root model.Root) (model.Ref, bool) {
-	if root.Validate() != nil {
-		return model.Ref{}, false
-	}
-	if root.Task != nil {
-		return root.Task.Ref(), true
-	}
-	return root.Page.Ref(), true
+	return body, nil
 }

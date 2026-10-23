@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/sperano/sillage/internal/collector"
 	"github.com/sperano/sillage/internal/model"
@@ -85,19 +86,17 @@ func (p githubPayload) branches() (branches []string, numbers []int) {
 	return branches, numbers
 }
 
-// githubDeliveries reads the deliveries of the GitHub instance.
-type githubDeliveries struct {
+// githubParser reads the deliveries of the GitHub instance.
+type githubParser struct {
 	cfg   collector.Config
 	store Store
 }
 
-func (githubDeliveries) source() model.Source { return model.SourceGitHub }
-
-func (githubDeliveries) signature(h http.Header) (prefix, value string) {
+func (githubParser) signature(h http.Header) (prefix, value string) {
 	return githubSignaturePrefix, h.Get(githubSignatureHeader)
 }
 
-func (githubDeliveries) identify(h http.Header, _ []byte) (id, event string, err error) {
+func (githubParser) identify(h http.Header, _ []byte) (id, event string, err error) {
 	id, event = h.Get(githubDeliveryHeader), h.Get(githubEventHeader)
 	if id == "" || event == "" || len(id) > maxDeliveryIDLength {
 		return "", "", errNoDeliveryID
@@ -108,7 +107,7 @@ func (githubDeliveries) identify(h http.Header, _ []byte) (id, event string, err
 // roots returns the roots of the branches the delivery names, by the
 // collector's branch conventions, and the stored roots whose stories
 // hold the pull requests it names.
-func (g githubDeliveries) roots(ctx context.Context, event string, body []byte) ([]model.Root, string, error) {
+func (g githubParser) roots(ctx context.Context, event string, body []byte) ([]model.Root, string, error) {
 	if event == githubPing {
 		return nil, "GitHub's ping, sent when a hook is created, names no root", nil
 	}
@@ -124,7 +123,8 @@ func (g githubDeliveries) roots(ctx context.Context, event string, body []byte) 
 		}
 	}
 	if p.Repository != nil && p.Repository.FullName != "" {
-		for _, n := range numbers {
+		slices.Sort(numbers)
+		for _, n := range slices.Compact(numbers) {
 			if err := g.storedRoots(ctx, &found, p.Repository.FullName, n); err != nil {
 				return nil, "", err
 			}
@@ -138,7 +138,7 @@ func (g githubDeliveries) roots(ctx context.Context, event string, body []byte) 
 
 // storedRoots adds the stored roots whose stories hold pull request n of
 // repository.
-func (g githubDeliveries) storedRoots(ctx context.Context, found *rootSet, repository string, n int) error {
+func (g githubParser) storedRoots(ctx context.Context, found *rootSet, repository string, n int) error {
 	if n <= 0 {
 		return nil
 	}

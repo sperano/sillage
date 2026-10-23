@@ -19,9 +19,10 @@ var ErrAlreadyAccepted = errors.New("store: an earlier attempt of this delivery 
 // delivery id was accepted.
 func (s *Store) DeliveryAccepted(ctx context.Context, source model.Source, instance, id string) (bool, error) {
 	var accepted bool
+	// The outcome is a literal, as in the partial index it matches.
 	err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM delivery_attempts
-		WHERE source = $1 AND instance = $2 AND delivery_id = $3 AND outcome = $4)`,
-		string(source), instance, id, string(model.DeliveryAccepted)).Scan(&accepted)
+		WHERE source = $1 AND instance = $2 AND delivery_id = $3 AND outcome = 'accepted')`,
+		string(source), instance, id).Scan(&accepted)
 	if err != nil {
 		return false, fmt.Errorf("store: delivery %s: %w", id, err)
 	}

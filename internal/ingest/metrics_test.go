@@ -20,4 +20,7 @@ func TestNewMetrics(t *testing.T) {
 	if _, err := NewMetrics(reg); err == nil {
 		t.Error("registering twice succeeded")
 	}
+	if _, err := NewMetrics(nil); err == nil {
+		t.Error("NewMetrics(nil) succeeded")
+	}
 }

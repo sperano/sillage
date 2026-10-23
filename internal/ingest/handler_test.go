@@ -154,7 +154,7 @@ func TestRefusedRequestsLeaveNoTrace(t *testing.T) {
 			if strings.Contains(tt.name, "vikunja body") {
 				source = "vikunja"
 			}
-			if got := testutil.ToFloat64(hs.metrics.deliveries.WithLabelValues(source, outcomeRefused)); got != 1 {
+			if got := testutil.ToFloat64(hs.metrics.deliveries.WithLabelValues(source, string(outcomeRefused))); got != 1 {
 				t.Errorf("refused deliveries = %v, want 1", got)
 			}
 			hs.checkLog(t, testGitHubSecret, testVikunjaSecret, "PAYLOAD-MARKER")
@@ -163,18 +163,25 @@ func TestRefusedRequestsLeaveNoTrace(t *testing.T) {
 }
 
 func TestBodyIsBounded(t *testing.T) {
-	big := []byte(`{"pad":"` + strings.Repeat("x", MaxBodyBytes) + `"}`)
+	tooLarge := func(limit int) []byte { return []byte(`{"pad":"` + strings.Repeat("x", limit) + `"}`) }
+	github, vikunja := tooLarge(MaxGitHubBodyBytes), tooLarge(MaxVikunjaBodyBytes)
 	tests := []struct {
 		name          string
+		request       func() *http.Request
 		contentLength int64
 	}{
-		{"declared", int64(len(big))},
-		{"undeclared", -1},
+		{"github declared", func() *http.Request {
+			return githubRequest("d-1", "pull_request", testGitHubSecret, github)
+		}, int64(len(github))},
+		{"github undeclared", func() *http.Request {
+			return githubRequest("d-1", "pull_request", testGitHubSecret, github)
+		}, -1},
+		{"vikunja undeclared", func() *http.Request { return vikunjaRequest(testVikunjaSecret, vikunja) }, -1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			hs := newHarness(t, testSecrets())
-			r := githubRequest("d-1", "pull_request", testGitHubSecret, big)
+			r := tt.request()
 			r.ContentLength = tt.contentLength
 			if w := hs.serve(r); w.Code != http.StatusRequestEntityTooLarge {
 				t.Errorf("status = %d, want 413", w.Code)
@@ -262,5 +269,34 @@ func TestRecordFailure(t *testing.T) {
 	}
 	if got := testutil.ToFloat64(hs.metrics.deliveries.WithLabelValues("vikunja", "failed")); got != 1 {
 		t.Errorf("failed deliveries = %v, want 1", got)
+	}
+}
+
+func TestBodiesInFlightAreBounded(t *testing.T) {
+	hs := newHarness(t, testSecrets())
+	for range maxBodiesInFlight {
+		hs.h.bodies <- struct{}{}
+	}
+	w := hs.serve(githubRequest("d-1", "pull_request", testGitHubSecret, []byte(githubPRBody)))
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("status = %d (%s), want 503 while every slot is taken", w.Code, w.Body)
+	}
+	if got := hs.store.recorded(); len(got) != 0 {
+		t.Errorf("recorded %+v, want nothing", got)
+	}
+	<-hs.h.bodies
+	if w := hs.serve(githubRequest("d-1", "pull_request", testGitHubSecret, []byte(githubPRBody))); w.Code != http.StatusAccepted {
+		t.Errorf("status = %d (%s) with a slot free, want 202", w.Code, w.Body)
+	}
+	if len(hs.h.bodies) != maxBodiesInFlight-1 {
+		t.Errorf("%d slots held after the request, want %d", len(hs.h.bodies), maxBodiesInFlight-1)
+	}
+}
+
+func TestNoSecretSaysNothingOfTheConfiguration(t *testing.T) {
+	hs := newHarness(t, Secrets{Vikunja: testVikunjaSecret})
+	w := hs.serve(githubRequest("d-1", "pull_request", "", []byte(githubPRBody)))
+	if w.Code != http.StatusForbidden || strings.Contains(strings.ToLower(w.Body.String()), "secret") {
+		t.Errorf("status = %d (%s), want a 403 that does not mention the secret", w.Code, w.Body)
 	}
 }

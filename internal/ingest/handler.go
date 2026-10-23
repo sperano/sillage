@@ -3,12 +3,10 @@ package ingest
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/sperano/sillage/internal/collector"
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/store"
 )
@@ -20,28 +18,15 @@ const (
 	PathVikunja = Prefix + "vikunja"
 	// PathGitHub receives the GitHub repository webhooks' deliveries.
 	PathGitHub = Prefix + "github"
-	// MaxBodyBytes bounds a delivery's body: GitHub caps its payloads at
-	// 25 MB (so does the proxy in front of sillage); a Vikunja task
-	// payload stays far below.
-	MaxBodyBytes = 25 << 20
-	// bodyReadTimeout bounds reading a body, so that a client sending it
-	// slowly cannot hold the request.
-	bodyReadTimeout = time.Minute
-	// storeTimeout bounds the store operations of one delivery.
+	// storeTimeout bounds deciding a delivery's outcome, and then again
+	// recording it.
 	storeTimeout = 10 * time.Second
 )
 
-var errNotJSON = errors.New("the body is not a JSON payload (the webhook must send application/json)")
-
-// storeError is a store operation that failed while settling a delivery.
-type storeError struct {
-	op  string
-	err error
-}
-
-func (e *storeError) Error() string { return e.op + ": " + e.err.Error() }
-
-func (e *storeError) Unwrap() error { return e.err }
+const (
+	duplicateDetail = "duplicate: an earlier attempt of this delivery was accepted"
+	queueFullDetail = "the collector's queue of reads is full: its next periodic read catches up"
+)
 
 // Store is what the handler needs from the store: *store.Store.
 type Store interface {
@@ -66,10 +51,9 @@ type Scheduler interface {
 	Schedule(root model.Root) bool
 }
 
-// deliveries is one source's way of naming its deliveries and the roots
-// they name.
-type deliveries interface {
-	source() model.Source
+// parser is one source's way of naming its deliveries and the roots they
+// name.
+type parser interface {
 	// signature returns the request's signature header, and the prefix
 	// before its hex digest.
 	signature(h http.Header) (prefix, value string)
@@ -82,11 +66,15 @@ type deliveries interface {
 	roots(ctx context.Context, event string, body []byte) ([]model.Root, string, error)
 }
 
-// Config is what the handler needs besides its store and scheduler.
-type Config struct {
-	// Collector names the source instances, and the roots of branches.
-	Collector collector.Config
-	Secrets   Secrets
+// endpoint is one ingest path: its source instance, the secret its
+// deliveries are signed with, and how to read them.
+type endpoint struct {
+	parser
+	source   model.Source
+	instance string
+	secret   Secret
+	// maxBody bounds a delivery's body.
+	maxBody int64
 }
 
 // Handler serves the ingest paths.
@@ -96,15 +84,11 @@ type Handler struct {
 	metrics *Metrics
 	log     *slog.Logger
 	now     func() time.Time
-	// sources serve the paths, by path.
-	sources map[string]source
-}
-
-// source is one ingest path's source.
-type source struct {
-	deliveries
-	instance string
-	secret   Secret
+	// endpoints serve the paths, by path.
+	endpoints map[string]endpoint
+	// bodies holds a slot for each body being read: at most
+	// maxBodiesInFlight, however many requests arrive.
+	bodies chan struct{}
 }
 
 // New returns the handler of the ingest paths, recording deliveries in st
@@ -119,19 +103,20 @@ func New(cfg Config, st Store, sched Scheduler, m *Metrics, log *slog.Logger) (*
 	}
 	return &Handler{
 		store: st, sched: sched, metrics: m, log: log, now: time.Now,
-		sources: map[string]source{
-			PathVikunja: {deliveries: vikunjaDeliveries{instance: c.VikunjaInstance}, instance: c.VikunjaInstance,
-				secret: cfg.Secrets.Vikunja},
-			PathGitHub: {deliveries: githubDeliveries{cfg: c, store: st}, instance: c.GitHubInstance,
-				secret: cfg.Secrets.GitHub},
+		endpoints: map[string]endpoint{
+			PathVikunja: {parser: vikunjaParser{instance: c.VikunjaInstance}, source: model.SourceVikunja,
+				instance: c.VikunjaInstance, secret: cfg.Secrets.Vikunja, maxBody: MaxVikunjaBodyBytes},
+			PathGitHub: {parser: githubParser{cfg: c, store: st}, source: model.SourceGitHub,
+				instance: c.GitHubInstance, secret: cfg.Secrets.GitHub, maxBody: MaxGitHubBodyBytes},
 		},
+		bodies: make(chan struct{}, maxBodiesInFlight),
 	}, nil
 }
 
 // ServeHTTP receives a delivery on PathVikunja or PathGitHub; any other
 // path under Prefix is not found, and any other method not allowed.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	src, ok := h.sources[r.URL.Path]
+	ep, ok := h.endpoints[r.URL.Path]
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -142,56 +127,59 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	received := h.now()
-	body, status, err := h.authenticate(w, r, src)
+	body, err := h.authenticate(w, r, ep)
 	if err != nil {
-		h.refuse(w, src, status, err)
+		h.refuse(r.Context(), w, ep, err)
 		return
 	}
-	id, event, err := src.identify(r.Header, body)
+	id, event, err := ep.identify(r.Header, body)
 	if err != nil {
-		h.refuse(w, src, http.StatusBadRequest, err)
+		h.refuse(r.Context(), w, ep, &refusal{status: http.StatusBadRequest, err: err})
 		return
 	}
-	d := model.Delivery{Source: src.source(), Instance: src.instance, ID: id, Event: event, ReceivedAt: received}
+	d := model.Delivery{Source: ep.source, Instance: ep.instance, ID: id, Event: event, ReceivedAt: received}
 	// An authenticated attempt is recorded even if its sender hangs up.
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), storeTimeout)
-	defer cancel()
-	roots := h.settle(ctx, src, &d, body)
+	ctx := context.WithoutCancel(r.Context())
+	roots := h.settle(ctx, ep, &d, body)
 	recorded := h.record(ctx, &d)
-	h.respond(w, d, roots, recorded)
+	h.respond(ctx, w, d, len(roots), recorded)
 }
 
 // refuse answers a request that is no authenticated delivery: nothing is
-// recorded of it.
-func (h *Handler) refuse(w http.ResponseWriter, src source, status int, err error) {
-	h.metrics.count(src.source(), outcomeRefused)
-	h.log.Warn("webhook request refused: nothing recorded", "source", src.source(), "instance", src.instance,
-		"status", status, "reason", err)
-	http.Error(w, err.Error(), status)
+// recorded of it. Anyone can send one, so it is logged at debug level
+// only; the metrics count it.
+func (h *Handler) refuse(ctx context.Context, w http.ResponseWriter, ep endpoint, err error) {
+	rf := asRefusal(err)
+	h.metrics.count(ep.source, outcomeRefused)
+	h.log.DebugContext(ctx, "webhook request refused: nothing recorded", "source", ep.source,
+		"instance", ep.instance, "status", rf.status, "reason", rf.err)
+	http.Error(w, rf.err.Error(), rf.status)
 }
 
 // settle decides d's outcome and, when it is accepted, schedules the reads
 // of the roots it names, which it returns.
-func (h *Handler) settle(ctx context.Context, src source, d *model.Delivery, body []byte) []model.Root {
+func (h *Handler) settle(ctx context.Context, ep endpoint, d *model.Delivery, body []byte) []model.Root {
+	ctx, cancel := context.WithTimeout(ctx, storeTimeout)
+	defer cancel()
 	accepted, err := h.store.DeliveryAccepted(ctx, d.Source, d.Instance, d.ID)
 	if err != nil {
-		h.fail(d, &storeError{op: "reading the earlier attempts", err: err})
+		h.fail(ctx, d, &storeError{op: "reading the earlier attempts", err: err})
 		return nil
 	}
 	if accepted {
 		d.Outcome, d.Detail = model.DeliveryIgnored, duplicateDetail
 		return nil
 	}
-	roots, why, err := src.roots(ctx, d.Event, body)
-	if se := (*storeError)(nil); errors.As(err, &se) {
-		h.fail(d, se)
+	roots, why, err := ep.roots(ctx, d.Event, body)
+	var se *storeError
+	switch {
+	case errors.As(err, &se):
+		h.fail(ctx, d, se)
 		return nil
-	}
-	if err != nil {
+	case err != nil:
 		d.Outcome, d.Detail = model.DeliveryRejected, err.Error()
 		return nil
-	}
-	if len(roots) == 0 {
+	case len(roots) == 0:
 		d.Outcome, d.Detail = model.DeliveryIgnored, why
 		return nil
 	}
@@ -206,21 +194,24 @@ func (h *Handler) settle(ctx context.Context, src source, d *model.Delivery, bod
 }
 
 // fail marks d failed on a store error, which is logged, not recorded.
-func (h *Handler) fail(d *model.Delivery, se *storeError) {
-	h.log.Error("webhook delivery: store failed", "source", d.Source, "delivery", d.ID, "error", se)
+func (h *Handler) fail(ctx context.Context, d *model.Delivery, se *storeError) {
+	h.log.ErrorContext(ctx, "webhook delivery: store failed", "source", d.Source, "delivery", d.ID, "error", se)
 	d.Outcome, d.Detail = model.DeliveryFailed, "the store failed while "+se.op
 }
 
 // record records d, as a duplicate if an earlier attempt was accepted
 // meanwhile, and reports whether it was recorded.
 func (h *Handler) record(ctx context.Context, d *model.Delivery) bool {
+	ctx, cancel := context.WithTimeout(ctx, storeTimeout)
+	defer cancel()
 	err := h.store.RecordDelivery(ctx, *d)
 	if errors.Is(err, store.ErrAlreadyAccepted) {
 		d.Outcome, d.Detail = model.DeliveryIgnored, duplicateDetail
 		err = h.store.RecordDelivery(ctx, *d)
 	}
 	if err != nil {
-		h.log.Error("webhook delivery: recording it failed", "source", d.Source, "delivery", d.ID, "error", err)
+		h.log.ErrorContext(ctx, "webhook delivery: recording it failed", "source", d.Source, "delivery", d.ID,
+			"error", err)
 		return false
 	}
 	return true
@@ -229,18 +220,18 @@ func (h *Handler) record(ctx context.Context, d *model.Delivery) bool {
 // respond answers the delivery with its outcome, counts and logs it. A
 // delivery that failed or could not be recorded is answered 503, which
 // Vikunja retries.
-func (h *Handler) respond(w http.ResponseWriter, d model.Delivery, roots []model.Root, recorded bool) {
+func (h *Handler) respond(ctx context.Context, w http.ResponseWriter, d model.Delivery, roots int, recorded bool) {
 	status, outcome := statusOf(d.Outcome), d.Outcome
 	if !recorded {
 		status, outcome = http.StatusServiceUnavailable, model.DeliveryFailed
 	}
-	h.metrics.count(d.Source, string(outcome))
+	h.metrics.count(d.Source, outcome)
 	level := slog.LevelInfo
 	if status >= http.StatusBadRequest {
 		level = slog.LevelWarn
 	}
-	h.log.Log(context.Background(), level, "webhook delivery received", "source", d.Source, "instance", d.Instance,
-		"delivery", d.ID, "event", d.Event, "outcome", outcome, "detail", d.Detail, "roots", len(roots),
+	h.log.Log(ctx, level, "webhook delivery received", "source", d.Source, "instance", d.Instance,
+		"delivery", d.ID, "event", d.Event, "outcome", outcome, "detail", d.Detail, "roots", roots,
 		"recorded", recorded)
 	text := string(outcome)
 	if d.Detail != "" {
@@ -264,28 +255,4 @@ func statusOf(o model.DeliveryOutcome) int {
 		return http.StatusBadRequest
 	}
 	return http.StatusServiceUnavailable
-}
-
-const (
-	duplicateDetail = "duplicate: an earlier attempt of this delivery was accepted"
-	queueFullDetail = "the collector's queue of reads is full: its next periodic read catches up"
-)
-
-// authenticate reads the body, at most MaxBodyBytes within
-// bodyReadTimeout, and checks its signature. It returns the status that
-// refuses the request otherwise.
-func (h *Handler) authenticate(w http.ResponseWriter, r *http.Request, src source) ([]byte, int, error) {
-	if src.secret == "" {
-		return nil, http.StatusForbidden, fmt.Errorf("no %s webhook secret is configured: every delivery is refused",
-			src.source())
-	}
-	body, status, err := readBody(w, r)
-	if err != nil {
-		return nil, status, err
-	}
-	prefix, signature := src.signature(r.Header)
-	if err := verify(src.secret, prefix, signature, body); err != nil {
-		return nil, http.StatusUnauthorized, err
-	}
-	return body, 0, nil
 }

@@ -11,7 +11,7 @@ import (
 )
 
 func TestVikunjaIdentify(t *testing.T) {
-	v := vikunjaDeliveries{instance: testVikunja}
+	v := vikunjaParser{instance: testVikunja}
 	body := []byte(vikunjaCommentBody)
 	id, event, err := v.identify(nil, body)
 	sum := sha256.Sum256(body)
@@ -28,7 +28,7 @@ func TestVikunjaIdentify(t *testing.T) {
 }
 
 func TestVikunjaRoots(t *testing.T) {
-	v := vikunjaDeliveries{instance: testVikunja}
+	v := vikunjaParser{instance: testVikunja}
 	tests := []struct {
 		name string
 		body string

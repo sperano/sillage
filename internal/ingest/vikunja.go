@@ -25,21 +25,19 @@ type vikunjaPayload struct {
 	} `json:"data"`
 }
 
-// vikunjaDeliveries reads the deliveries of the Vikunja instance.
-type vikunjaDeliveries struct {
+// vikunjaParser reads the deliveries of the Vikunja instance.
+type vikunjaParser struct {
 	instance string
 }
 
-func (vikunjaDeliveries) source() model.Source { return model.SourceVikunja }
-
-func (vikunjaDeliveries) signature(h http.Header) (prefix, value string) {
+func (vikunjaParser) signature(h http.Header) (prefix, value string) {
 	return "", h.Get(vikunjaSignatureHeader)
 }
 
 // identify names a delivery by the SHA-256 of its body: Vikunja sends no
 // delivery id, and its body holds the time it was sent, which a retry of
 // the same send keeps.
-func (vikunjaDeliveries) identify(_ http.Header, body []byte) (id, event string, err error) {
+func (vikunjaParser) identify(_ http.Header, body []byte) (id, event string, err error) {
 	sum := sha256.Sum256(body)
 	var p vikunjaPayload
 	if json.Unmarshal(body, &p) == nil {
@@ -49,7 +47,7 @@ func (vikunjaDeliveries) identify(_ http.Header, body []byte) (id, event string,
 }
 
 // roots returns the task the delivery names.
-func (v vikunjaDeliveries) roots(_ context.Context, _ string, body []byte) ([]model.Root, string, error) {
+func (v vikunjaParser) roots(_ context.Context, _ string, body []byte) ([]model.Root, string, error) {
 	var p vikunjaPayload
 	if err := json.Unmarshal(body, &p); err != nil {
 		return nil, "", errNotJSON

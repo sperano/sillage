@@ -86,7 +86,8 @@ bypass the forward-auth, so each delivery's signature is their only
 authentication: `X-Hub-Signature-256` under
 `SILLAGE_GITHUB_WEBHOOK_SECRET`, `X-Vikunja-Signature` under
 `SILLAGE_VIKUNJA_WEBHOOK_SECRET`. A source without a secret refuses every
-delivery. A request that is too large (25 MB), unsigned or badly signed is
+delivery. A request that is too large (25 MB from GitHub, 5 MB from
+Vikunja), unsigned or badly signed is
 refused before anything is read from it or recorded. Each authenticated
 attempt is recorded as evidence that sillage received it, not that Kelos
 received or acted on its own delivery. It then asks the collector to read

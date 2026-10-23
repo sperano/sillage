@@ -11,7 +11,7 @@ import (
 )
 
 func TestGitHubIdentify(t *testing.T) {
-	g := githubDeliveries{cfg: testCollectorConfig()}
+	g := githubParser{cfg: testCollectorConfig()}
 	h := http.Header{}
 	h.Set(githubDeliveryHeader, "d-1")
 	h.Set(githubEventHeader, "check_run")
@@ -67,7 +67,7 @@ func TestGitHubRoots(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := githubDeliveries{cfg: testCollectorConfig(), store: &fakeStore{prRoots: stored}}
+			g := githubParser{cfg: testCollectorConfig(), store: &fakeStore{prRoots: stored}}
 			got, why, err := g.roots(t.Context(), tt.event, []byte(tt.body))
 			if !errors.Is(err, tt.err) {
 				t.Fatalf("roots() error = %v, want %v", err, tt.err)
@@ -83,7 +83,7 @@ func TestGitHubRoots(t *testing.T) {
 }
 
 func TestGitHubRootsStoreError(t *testing.T) {
-	g := githubDeliveries{cfg: testCollectorConfig(), store: &fakeStore{readErr: errFakeStore}}
+	g := githubParser{cfg: testCollectorConfig(), store: &fakeStore{readErr: errFakeStore}}
 	_, _, err := g.roots(t.Context(), "pull_request", []byte(githubPRBody))
 	if se := (*storeError)(nil); !errors.As(err, &se) || !errors.Is(err, errFakeStore) {
 		t.Errorf("roots() error = %v, want a storeError", err)
