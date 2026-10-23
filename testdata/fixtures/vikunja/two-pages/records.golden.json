@@ -59,7 +59,7 @@
       "sourceTime": "2026-03-02T09:06:10-05:00",
       "observedAt": "2026-03-06T12:00:01Z",
       "actor": {
-        "login": "kelos",
+        "login": "gordon",
         "kind": "service"
       },
       "executor": {

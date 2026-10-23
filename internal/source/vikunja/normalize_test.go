@@ -18,16 +18,16 @@ import (
 var update = flag.Bool("update", false, "rewrite the Vikunja fixtures' golden files")
 
 const (
-	serviceAccount = "kelos"
+	serviceAccount = DefaultServiceAccount
 	goldenFile     = "records.golden.json"
 	goldenPerm     = 0o644
 )
 
 var (
-	fixtureOwner = User{ID: 7, Username: "owner", Name: "Robin Owner"}
-	fixtureAgent = User{ID: 21, Username: "agent-opus", Name: "Agent Opus"}
-	fixtureKelos = User{ID: 23, Username: "kelos", Name: "Kelos"}
-	fixtureZone  = time.FixedZone("", -5*60*60)
+	fixtureOwner  = User{ID: 7, Username: "owner", Name: "Robin Owner"}
+	fixtureAgent  = User{ID: 21, Username: "agent-opus", Name: "Agent Opus"}
+	fixtureGordon = User{ID: 23, Username: "gordon", Name: "Gordon Cole"}
+	fixtureZone   = time.FixedZone("", -5*60*60)
 )
 
 func at(month time.Month, day, hour, minute, second int) time.Time {
@@ -153,10 +153,12 @@ func TestNormalizeTwoPages(t *testing.T) {
 		t.Errorf("created = %+v", created)
 	}
 	announced := eventByKind(t, events, model.KindRunAnnounced)
-	if announced.ID != "comments/9002" || announced.Actor.Kind != model.ActorService ||
+	if announced.ID != "comments/9002" ||
+		announced.Actor != (model.Account{Login: fixtureGordon.Username, Kind: model.ActorService}) ||
 		announced.Details["taskName"] != "vikunja-demo-agent-opus-4201" ||
 		announced.Details["pod"] != "vikunja-demo-agent-opus-4201-x7k2p" ||
-		announced.Executor == nil || announced.Executor.Name != "agent-opus" {
+		announced.Executor == nil || announced.Executor.Name != "agent-opus" ||
+		announced.Evidence.Ref != "GET /api/v1/tasks/4201/comments" {
 		t.Errorf("announcement = %+v", announced)
 	}
 	edited := events[3]
@@ -211,7 +213,7 @@ func TestNormalizeAnnouncementNeedsServiceAccount(t *testing.T) {
 		Task:     Task{ID: 4205, Created: created},
 		Comments: []Comment{
 			announcementComment(9030, fixtureOwner, created.Add(time.Minute)),
-			announcementComment(9031, fixtureKelos, created.Add(2*time.Minute)),
+			announcementComment(9031, fixtureGordon, created.Add(2*time.Minute)),
 		},
 		ObservedAt: testObservedAt,
 	}

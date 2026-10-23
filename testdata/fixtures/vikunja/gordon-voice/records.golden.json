@@ -34,7 +34,7 @@
       "sourceTime": "2026-03-10T09:01:05-05:00",
       "observedAt": "2026-03-06T12:00:01Z",
       "actor": {
-        "login": "kelos",
+        "login": "gordon",
         "kind": "service"
       },
       "executor": {
@@ -99,7 +99,7 @@
       "sourceTime": "2026-03-10T10:30:20-05:00",
       "observedAt": "2026-03-06T12:00:01Z",
       "actor": {
-        "login": "kelos",
+        "login": "gordon",
         "kind": "service"
       },
       "executor": {
@@ -163,7 +163,7 @@
       "sourceTime": "2026-03-10T11:15:25-05:00",
       "observedAt": "2026-03-06T12:00:01Z",
       "actor": {
-        "login": "kelos",
+        "login": "gordon",
         "kind": "service"
       },
       "related": {

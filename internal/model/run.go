@@ -43,13 +43,17 @@ func (r RunRole) valid() bool {
 	return false
 }
 
-// Outcome is how a run ended, as far as the evidence says.
+// Outcome is a run's current state or how it ended, as far as the evidence
+// says.
 type Outcome string
 
 // The outcomes of a run.
 const (
 	OutcomeSucceeded Outcome = "succeeded"
 	OutcomeFailed    Outcome = "failed"
+	// OutcomeWaiting: queued instead of actively running at the last
+	// successful read. The run's end is open.
+	OutcomeWaiting Outcome = "waiting"
 	// OutcomeRunning: not finished at the last successful read. The run's
 	// end is open.
 	OutcomeRunning Outcome = "running"
@@ -59,7 +63,7 @@ const (
 
 func (o Outcome) valid() bool {
 	switch o {
-	case OutcomeSucceeded, OutcomeFailed, OutcomeRunning, OutcomeUnknown:
+	case OutcomeSucceeded, OutcomeFailed, OutcomeWaiting, OutcomeRunning, OutcomeUnknown:
 		return true
 	}
 	return false
@@ -171,8 +175,9 @@ func (r Run) validate() error {
 	if err := r.Interval.Validate(); err != nil {
 		return err
 	}
-	if (r.Outcome == OutcomeRunning) != (r.Interval.End.State == BoundOpen) {
-		return errors.New("a running run, and only a running run, has an open end")
+	unfinished := r.Outcome == OutcomeWaiting || r.Outcome == OutcomeRunning
+	if unfinished != (r.Interval.End.State == BoundOpen) {
+		return errors.New("a waiting or running run, and only a waiting or running run, has an open end")
 	}
 	if r.Usage != nil {
 		if err := r.Usage.validate(); err != nil {
