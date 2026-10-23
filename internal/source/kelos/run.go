@@ -18,8 +18,9 @@ const (
 	// noTaskNote explains a run read from its TaskRecord alone.
 	noTaskNote = "Task not found (deleted after its TTL): created, pod, job and message unknown"
 	// awaitingTaskNote explains a run a watch read from its TaskRecord
-	// before any state of its Task.
-	awaitingTaskNote = "Task not seen yet (the watch delivered its record first): created, pod, job and message unknown"
+	// while it held no state of its Task.
+	awaitingTaskNote = "Task not held by the watch when its record arrived (not seen yet, or released after " +
+		"the join retention): created, pod, job and message unknown"
 	// noRecordNote explains a run read from its Task alone.
 	noRecordNote = "no TaskRecord found (Kelos writes one only for a completed Task that reported usage)"
 	// deletedSeenNote and deletedRelistNote explain a run whose Task a

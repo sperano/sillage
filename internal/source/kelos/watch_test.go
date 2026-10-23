@@ -277,7 +277,7 @@ func TestWatcherJoinsARecordBeforeItsTask(t *testing.T) {
 	records.Add(recordObj(taskA, uidA, "12"))
 	b := h.commit(t)
 	if run := onlyRun(t, b.Records); !strings.Contains(run.Evidence[0].Note, awaitingTaskNote) {
-		t.Errorf("record-only run evidence = %q, want the Task not seen yet", run.Evidence[0].Note)
+		t.Errorf("record-only run evidence = %q, want the Task not held yet", run.Evidence[0].Note)
 	}
 	if cp := b.Checkpoint; len(cp.Records) != 1 || cp.Records[0].AwaitingTaskSince == nil {
 		t.Errorf("checkpoint = %+v, want the record held for its Task", cp)
