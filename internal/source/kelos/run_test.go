@@ -245,17 +245,22 @@ func TestBuildDeletedUnfinishedTask(t *testing.T) {
 // task-only's.
 func TestRunTimesAreUTC(t *testing.T) {
 	for _, story := range []string{"task-with-record", "task-only"} {
-		run := onlyRun(t, storyRecords(t, story))
-		if run.Created == nil || run.Created.Location() != time.UTC {
-			t.Errorf("%s: created = %v, want a time in UTC", story, run.Created)
-		}
-		for name, b := range map[string]model.Bound{"start": run.Interval.Start, "end": run.Interval.End} {
-			if at, ok := b.Time(); ok && at.Location() != time.UTC {
-				t.Errorf("%s: %s = %v, want a time in UTC", story, name, at)
+		t.Run(story, func(t *testing.T) {
+			run := onlyRun(t, storyRecords(t, story))
+			if _, ok := run.Interval.Start.Time(); !ok {
+				t.Fatal("start unknown, want one to check")
 			}
-		}
-		if _, ok := run.Interval.Start.Time(); !ok {
-			t.Errorf("%s: start unknown, want one to check", story)
-		}
+			if run.Created == nil || run.Created.Location() != time.UTC {
+				t.Errorf("created = %v, want a time in UTC", run.Created)
+			}
+			for _, b := range []struct {
+				name  string
+				bound model.Bound
+			}{{"start", run.Interval.Start}, {"end", run.Interval.End}} {
+				if at, ok := b.bound.Time(); ok && at.Location() != time.UTC {
+					t.Errorf("%s = %v, want a time in UTC", b.name, at)
+				}
+			}
+		})
 	}
 }

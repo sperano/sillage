@@ -4,7 +4,6 @@
 package testzone
 
 import (
-	"os"
 	"testing"
 	"time"
 )
@@ -16,13 +15,14 @@ const (
 	offsetHours = -7
 )
 
-// Zone is the zone Main sets as time.Local.
-var Zone = time.FixedZone(name, offsetHours*int(time.Hour/time.Second))
+// zone is the zone Main sets as time.Local.
+var zone = time.FixedZone(name, offsetHours*int(time.Hour/time.Second))
 
-// Main sets time.Local to Zone and runs the tests; call it from the
+// Main sets time.Local to the zone and runs the tests; call it from the
 // package's TestMain. The zone is set before any test starts, so no
-// goroutine reads time.Local while it changes.
+// goroutine reads time.Local while it changes. A time created before, by
+// a package-level variable, keeps the host's zone.
 func Main(m *testing.M) {
-	time.Local = Zone
-	os.Exit(m.Run())
+	time.Local = zone
+	m.Run()
 }
