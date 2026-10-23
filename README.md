@@ -14,8 +14,8 @@ serves a placeholder page and the read-only JSON API under `/api/v1/`; the
 normalized model (`internal/model`) with fabricated fixture stories
 (`testdata/fixtures/stories/`); a read-only client per source; `sillage
 story`, which assembles one story from the live sources and prints it; a
-PostgreSQL store (`internal/store`) that nothing writes to yet; and the
-collection loop that will keep it current. The frontend's single-task
+PostgreSQL store (`internal/store`); and the collection loop, which keeps
+it current. The frontend's single-task
 timeline graph (`web/src/lib/timeline/`) is rendered in tests from the
 fixture stories but not yet shown on the story page. Nothing is deployed.
 
@@ -23,7 +23,7 @@ fixture stories but not yet shown on the story page. Nothing is deployed.
 
 | Path | Contents |
 | --- | --- |
-| `cmd/sillage/` | The binary: health check, read API and embedded frontend (the collector, eventually). |
+| `cmd/sillage/` | The binary: health check, metrics, read API, embedded frontend and the collector. |
 | `internal/model/` | Normalized events, runs, entities and coverage. |
 | `internal/source/{vikunja,github,kelos,wiki}/` | One read-only source each. |
 | `internal/collector/` | Joins the sources' records into one story. |
@@ -127,8 +127,7 @@ credential:
 
 With `SILLAGE_DATABASE_URL` set, the server also runs the collector: it
 reads the sources with the settings above, assembles the story of every
-root they name, and commits what changed to the store. Until the
-PostgreSQL store is built, setting it fails the start.
+root they name, and commits what changed to the store the API reads.
 
 Each cycle reads the Kelos namespace once, and lists the tasks of the
 configured Vikunja projects changed since the last listing. It reads a
@@ -176,12 +175,13 @@ go test -race ./...
 go build ./...
 ```
 
-The store's tests need a PostgreSQL they may create schemas in, named by
+The store's, the collector lock's and the loop's store tests need a
+PostgreSQL they may create schemas in, named by
 `SILLAGE_TEST_DATABASE_URL`; without it they skip. CI has no PostgreSQL yet,
 so it skips them: this command is local only.
 
 ```sh
-SILLAGE_TEST_DATABASE_URL=postgres://sillage@localhost:5432/sillage_test?sslmode=disable go test -race ./internal/store
+SILLAGE_TEST_DATABASE_URL=postgres://sillage@localhost:5432/sillage_test?sslmode=disable go test -race ./internal/store ./internal/reconcile/... ./cmd/sillage
 ```
 
 Web, from `web/`:

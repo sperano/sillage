@@ -19,7 +19,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 
 | Path | What goes there |
 | --- | --- |
-| `cmd/sillage/` | The one binary: a server of `GET /healthz`, `GET /metrics`, the read API under `/api/` and the embedded frontend (its `index.html` for every other `GET` path without a file extension, so client-side routes deep-link), which is to run the collection loop once it can write to the store (until then, setting `SILLAGE_DATABASE_URL` fails the start), and `sillage story`, which prints one story assembled from the live sources. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s, what the API answers `internal/api`'s. |
+| `cmd/sillage/` | The one binary: a server of `GET /healthz`, `GET /metrics`, the read API under `/api/` and the embedded frontend (its `index.html` for every other `GET` path without a file extension, so client-side routes deep-link), and, with `SILLAGE_DATABASE_URL` set, the collection loop into the store the API reads (`loopStore` adapts `store.Store` to `reconcile.Store`); and `sillage story`, which prints one story assembled from the live sources. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s, what the API answers `internal/api`'s. |
 | `internal/model/` | Normalized events, runs, entities and links, and coverage. Source-independent. |
 | `internal/model/storytest/` | The invariant each fixture story exists for, asserted by the model's and the collector's tests. |
 | `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage; and names the roots a Kelos read points to. Read once, nothing kept: a caller passes what a store kept back in. |
@@ -31,6 +31,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/source/kelostext/` | Requests (`/gordon`, `/kelos`) and Kelos start announcements in every form posted, shared by the sources that parse comments. |
 | `internal/reconcile/` | The collection loop: which roots to read and when, one Kelos read per cycle, freshness and gaps per root and source, the Prometheus metrics. Talks to the store through its `Store` and `Locker` interfaces. |
 | `internal/reconcile/pglock/` | The `Locker` as a PostgreSQL session advisory lock: one process collects at a time. |
+| `internal/reconcile/storetest/` | The contract of `reconcile.Store`, asserted of the loop tests' fake and, against PostgreSQL, of `cmd/sillage`'s adapter: a store the loop's tests do not model fails it first. |
 | `internal/store/` | PostgreSQL persistence of `model` records, checkpoints and coverage; `migrations/` holds the numbered SQL files embedded and applied at startup (add one, never edit one that shipped). |
 | `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, search, link resolution, version. No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |
@@ -103,9 +104,9 @@ go test -race ./...
 go build ./...
 ```
 
-The store's tests run against a real PostgreSQL named by
-`SILLAGE_TEST_DATABASE_URL` (each test in its own schema) and skip without
-it. Agent pods have none: say in the PR that they were skipped, or start a
+The store's, the collector lock's and `cmd/sillage`'s loop-store tests run
+against a real PostgreSQL named by `SILLAGE_TEST_DATABASE_URL` (each test
+in its own schema) and skip without it. Agent pods have none: say in the PR that they were skipped, or start a
 local one (the zonky `embedded-postgres-binaries` jars on Maven Central
 hold a relocatable PostgreSQL that runs without root).
 
