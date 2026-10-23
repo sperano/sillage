@@ -81,6 +81,11 @@ func TestBoundedStoreBoundsEachOperation(t *testing.T) {
 		t.Fatal(err)
 	}
 	end := time.Now()
+	// Records, Checkpoints and Commit.
+	const operations = 3
+	if n := len(inner.deadlines); n != operations {
+		t.Fatalf("%d operations reached the store, want each of the three", n)
+	}
 	for i, d := range inner.deadlines {
 		if d.IsZero() || d.Before(start.Add(storeTimeout)) || d.After(end.Add(storeTimeout)) {
 			t.Errorf("operation %d deadline = %v, want storeTimeout after it started", i, d)
