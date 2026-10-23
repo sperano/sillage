@@ -21,8 +21,7 @@ func (w *saver) supersede(id int64, e model.Event) error {
 	if err != nil || !found {
 		return err
 	}
-	if err := w.exec(`INSERT INTO root_events (root_id, event_id)
-		SELECT root_id, $2 FROM root_events WHERE event_id = $1 ON CONFLICT DO NOTHING`, old, id); err != nil {
+	if err := w.moveEventStories(old, id); err != nil {
 		return err
 	}
 	if err := w.repointCorrelations(live, e.Ref()); err != nil {
@@ -31,37 +30,79 @@ func (w *saver) supersede(id int64, e model.Event) error {
 	return w.exec("DELETE FROM events WHERE id = $1", old)
 }
 
-// keepLive reports whether the live record e is stored: not when a stored
-// version supersedes it, nor when a newer live record of its page is
-// stored. Older live records of the page are deleted.
-func (w *saver) keepLive(e model.Event) (bool, error) {
-	var version string
-	err := w.tx.QueryRow(w.ctx, `SELECT event_id FROM events
+// saveLive stores the live record e and returns the row the root's story
+// holds for it: the stored version that supersedes it, else the page's
+// newer stored live record, else its own row, which then replaces the
+// page's older live records.
+func (w *saver) saveLive(e model.Event) (int64, error) {
+	var version int64
+	var versionID string
+	err := w.tx.QueryRow(w.ctx, `SELECT id, event_id FROM events
 		WHERE source = $1 AND instance = $2 AND supersedes = $3 ORDER BY id LIMIT 1`,
-		string(e.Source), e.Instance, e.ID).Scan(&version)
+		string(e.Source), e.Instance, e.ID).Scan(&version, &versionID)
 	switch {
 	case err == nil:
-		w.moved[e.Ref()] = eventRef(e.Source, e.Instance, version)
-		return false, nil
+		w.moved[e.Ref()] = eventRef(e.Source, e.Instance, versionID)
+		return version, nil
 	case !errors.Is(err, pgx.ErrNoRows):
-		return false, err
+		return 0, err
 	}
 	others, err := w.livesOf(e)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
 	for _, o := range others {
 		if o.event.Time().After(e.Time()) {
-			w.dropped[e.Ref()] = true
-			return false, nil
+			w.replacedBy(e, o.event)
+			return o.id, nil
 		}
+	}
+	id, err := w.upsertEvent(e, eventRow{lastObserved: e.ObservedAt})
+	if err != nil {
+		return 0, err
 	}
 	for _, o := range others {
-		if err := w.deleteEvent(o.id, o.event.Ref()); err != nil {
-			return false, err
+		if err := w.replaceLive(o, id, e); err != nil {
+			return 0, err
 		}
 	}
-	return true, nil
+	return id, nil
+}
+
+// sameEdit reports whether two live records of a page may be one edit,
+// re-rendered, or the same account's later save: then the newer keeps the
+// older's correlations. Otherwise they are dropped rather than given to
+// someone else's edit.
+func sameEdit(older, newer model.Event) bool { return older.Actor == newer.Actor }
+
+// replacedBy records that the batch's live record e is stored as newer.
+func (w *saver) replacedBy(e, newer model.Event) {
+	if sameEdit(e, newer) {
+		w.moved[e.Ref()] = newer.Ref()
+		return
+	}
+	w.dropped[e.Ref()] = true
+}
+
+// replaceLive deletes the older live record old, which e (row id)
+// replaces, after giving e its stories and, for the same edit, its
+// correlations.
+func (w *saver) replaceLive(old storedEvent, id int64, e model.Event) error {
+	if err := w.moveEventStories(old.id, id); err != nil {
+		return err
+	}
+	if sameEdit(old.event, e) {
+		if err := w.repointCorrelations(old.event.Ref(), e.Ref()); err != nil {
+			return err
+		}
+	}
+	return w.deleteEvent(old.id, old.event.Ref())
+}
+
+// moveEventStories adds event row to every story holding row from.
+func (w *saver) moveEventStories(from, to int64) error {
+	return w.exec(`INSERT INTO root_events (root_id, event_id)
+		SELECT root_id, $2 FROM root_events WHERE event_id = $1 ON CONFLICT DO NOTHING`, from, to)
 }
 
 // storedEvent is an event row.

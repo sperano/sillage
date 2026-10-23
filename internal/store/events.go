@@ -70,11 +70,7 @@ func (w *saver) saveEvent(e model.Event) error {
 				id, *e.LastObservedAt)
 		}
 	case isLive(e):
-		var keep bool
-		if keep, err = w.keepLive(e); err != nil || !keep {
-			return err
-		}
-		id, err = w.upsertEvent(e, eventRow{lastObserved: e.ObservedAt})
+		id, err = w.saveLive(e)
 	default:
 		id, err = w.upsertEvent(e, eventRow{lastObserved: e.ObservedAt})
 		if err == nil && e.Source == model.SourceWiki && e.Details[detailSupersedes] != "" {
