@@ -75,7 +75,7 @@ func (l *Loop) commitRoot(ctx context.Context, prev, next *rootState, recs model
 		}
 	}
 	commit.Records.Coverage = next.coverage()
-	commit.Checkpoints = map[string][]byte{rootKey(next.Root): encode(next)}
+	commit.Checkpoints = map[string]Checkpoint{rootKey(next.Root): next.checkpoint()}
 	if err := l.store.Commit(ctx, commit); err != nil {
 		l.storeFailed(ctx, operationCommit, next.Root.Ref(), err)
 		return false

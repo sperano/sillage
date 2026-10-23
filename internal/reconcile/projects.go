@@ -81,14 +81,20 @@ func (l *Loop) addChanged(dues map[model.Ref]*due, project int64, ch vikunja.Tas
 // every listed task of which was read, and the root states whose gaps
 // are not committed yet, in one transaction.
 func (l *Loop) commitCycle(ctx context.Context, marks map[int64]time.Time, incomplete map[int64]bool) {
-	cps := map[string][]byte{heartbeatKey: encode(l.now())}
+	cluster := l.ccfg.Kelos.Cluster
+	cps := map[string]Checkpoint{
+		heartbeatKey(cluster): {Source: model.SourceKelos, Instance: cluster, Value: encode(l.now())},
+	}
 	for ref := range l.unsaved {
-		cps[rootKey(l.roots[ref].Root)] = encode(l.roots[ref])
+		cps[rootKey(l.roots[ref].Root)] = l.roots[ref].checkpoint()
 	}
 	advanced := make(map[int64]time.Time)
 	for p, mark := range marks {
 		if prev, ok := l.marks[p]; !incomplete[p] && (!ok || mark.After(prev)) {
-			cps[markKey(l.ccfg.VikunjaInstance, p)] = encode(projectMark{Project: p, Updated: mark})
+			cps[markKey(l.ccfg.VikunjaInstance, p)] = Checkpoint{
+				Source: model.SourceVikunja, Instance: l.ccfg.VikunjaInstance,
+				Value: encode(projectMark{Project: p, Updated: mark}),
+			}
 			advanced[p] = mark
 		}
 	}

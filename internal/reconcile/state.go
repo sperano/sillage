@@ -9,7 +9,8 @@ import (
 )
 
 // The keys of the loop's checkpoints. Every one starts with
-// checkpointPrefix, so that the loop reads only its own.
+// checkpointPrefix, so that the loop reads only its own, and names its
+// source instance, so that no two are kept under one key.
 const (
 	checkpointPrefix = "collector/"
 	// rootPrefix keys a root's state, after its ref.
@@ -17,8 +18,9 @@ const (
 	// projectPrefix keys a Vikunja project's listing mark, after the
 	// instance and the project id.
 	projectPrefix = checkpointPrefix + "vikunja-projects/"
-	// heartbeatKey holds when the last cycle ended.
-	heartbeatKey = checkpointPrefix + "heartbeat"
+	// heartbeatPrefix keys when the last cycle ended, after the Kelos
+	// cluster: a cycle is one read of it.
+	heartbeatPrefix = checkpointPrefix + "heartbeat/"
 )
 
 // rootState is what the loop knows of one root between two reads.
@@ -70,6 +72,23 @@ func newRootState(root model.Root) *rootState {
 
 // rootKey is the checkpoint key of root's state.
 func rootKey(root model.Root) string { return rootPrefix + root.Ref().String() }
+
+// heartbeatKey is the checkpoint key of the last cycle's end on cluster.
+func heartbeatKey(cluster string) string { return heartbeatPrefix + cluster }
+
+// checkpoint is s as the store keeps it: under its root's own source
+// instance, and tied to the root, so that the store drops it with the
+// root.
+func (s *rootState) checkpoint() Checkpoint {
+	root := s.Root
+	cp := Checkpoint{Source: model.SourceVikunja, Root: &root, Value: encode(s)}
+	if root.Task != nil {
+		cp.Instance = root.Task.Instance
+	} else {
+		cp.Source, cp.Instance = model.SourceWiki, root.Page.Instance
+	}
+	return cp
+}
 
 // clone returns a deep copy of s, to change and commit while s stays what
 // the store holds.

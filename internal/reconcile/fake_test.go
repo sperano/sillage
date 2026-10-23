@@ -277,13 +277,29 @@ func (s *fakeStore) Checkpoints(_ context.Context, prefix string) (map[string][]
 func (s *fakeStore) Commit(ctx context.Context, c Commit) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := cmp.Or(ctx.Err(), s.commitErr); err != nil {
+	if err := cmp.Or(ctx.Err(), s.commitErr, s.unknownRoot(c)); err != nil {
 		return err
 	}
 	s.commits = append(s.commits, c)
-	maps.Copy(s.cps, c.Checkpoints)
+	for key, cp := range c.Checkpoints {
+		s.cps[key] = cp.Value
+	}
 	if c.Root != nil {
 		s.root(*c.Root).upsert(c.Records)
+	}
+	return nil
+}
+
+// unknownRoot fails a commit with a checkpoint tied to a root neither
+// stored nor its own, as the store does.
+func (s *fakeStore) unknownRoot(c Commit) error {
+	for key, cp := range c.Checkpoints {
+		if cp.Root == nil || (c.Root != nil && c.Root.Ref() == cp.Root.Ref()) {
+			continue
+		}
+		if _, ok := s.roots[cp.Root.Ref()]; !ok {
+			return errors.New("checkpoint " + key + ": its root is not stored")
+		}
 	}
 	return nil
 }

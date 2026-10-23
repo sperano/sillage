@@ -131,9 +131,9 @@ func (l *Loop) load(ctx context.Context) error {
 	}
 	l.roots, l.marks, l.unsaved = make(map[model.Ref]*rootState), make(map[int64]time.Time), make(map[model.Ref]bool)
 	var lastCycle time.Time
-	if data, ok := cps[heartbeatKey]; ok {
+	if data, ok := cps[heartbeatKey(l.ccfg.Kelos.Cluster)]; ok {
 		if err := json.Unmarshal(data, &lastCycle); err != nil {
-			return fmt.Errorf("%s: %w", heartbeatKey, err)
+			return fmt.Errorf("%s: %w", heartbeatKey(l.ccfg.Kelos.Cluster), err)
 		}
 	}
 	for key, data := range cps {

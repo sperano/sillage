@@ -22,7 +22,7 @@ func failureReason(src model.Source, err error) string {
 // last cycle's end never passes a gap the store does not hold.
 func (l *Loop) openGaps(ctx context.Context, open func(*sourceState) bool) error {
 	changed := make(map[model.Ref]*rootState)
-	cps := make(map[string][]byte)
+	cps := make(map[string]Checkpoint)
 	for ref, st := range l.roots {
 		next := st.clone()
 		opened := false
@@ -31,7 +31,7 @@ func (l *Loop) openGaps(ctx context.Context, open func(*sourceState) bool) error
 		}
 		if opened {
 			changed[ref] = next
-			cps[rootKey(next.Root)] = encode(next)
+			cps[rootKey(next.Root)] = next.checkpoint()
 		}
 	}
 	if len(cps) == 0 {
