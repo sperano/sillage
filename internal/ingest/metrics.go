@@ -17,7 +17,8 @@ const (
 	// badly signed) or with no delivery id.
 	outcomeRefused model.DeliveryOutcome = "refused"
 	// outcomeBusy: refused unread, while every slot for reading a body was
-	// held; nothing is known of its authenticity.
+	// held, or because its sender gave up waiting for one; nothing is known
+	// of its authenticity.
 	outcomeBusy model.DeliveryOutcome = "busy"
 )
 
@@ -35,8 +36,8 @@ func NewMetrics(reg prometheus.Registerer) (*Metrics, error) {
 		Namespace: "sillage",
 		Name:      "webhook_deliveries_total",
 		Help: "Webhook delivery attempts sillage received, by source and outcome: accepted (their roots' reads " +
-			"were asked for), ignored, rejected, failed; refused (not authenticated) or busy (not read, every " +
-			"body slot held), neither recorded. They count what sillage received, not what any other " +
+			"were asked for), ignored, rejected, failed; refused (not authenticated) or busy (not read: every " +
+			"body slot held, or the sender gave up waiting), neither recorded. They count what sillage received, not what any other " +
 			"subscriber received or did.",
 	}, []string{"source", "outcome"})}
 	if err := reg.Register(m.deliveries); err != nil {

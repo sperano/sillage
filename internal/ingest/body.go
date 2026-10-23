@@ -74,6 +74,9 @@ func (h *Handler) authenticate(w http.ResponseWriter, r *http.Request, ep endpoi
 	if ep.secret == "" {
 		return nil, &refusal{status: http.StatusForbidden, err: errNoSecret}
 	}
+	if r.ContentLength > ep.maxBody {
+		return nil, tooLarge(ep.maxBody)
+	}
 	wait := time.NewTimer(slotWait)
 	defer wait.Stop()
 	select {
@@ -95,12 +98,13 @@ func (h *Handler) authenticate(w http.ResponseWriter, r *http.Request, ep endpoi
 	return body, nil
 }
 
+// tooLarge refuses a body larger than limit.
+func tooLarge(limit int64) *refusal {
+	return &refusal{status: http.StatusRequestEntityTooLarge, err: fmt.Errorf("the body is larger than %d bytes", limit)}
+}
+
 // readBody reads r's body, at most limit bytes within bodyReadTimeout.
 func readBody(w http.ResponseWriter, r *http.Request, limit int64) ([]byte, error) {
-	tooLarge := &refusal{status: http.StatusRequestEntityTooLarge, err: fmt.Errorf("the body is larger than %d bytes", limit)}
-	if r.ContentLength > limit {
-		return nil, tooLarge
-	}
 	// A writer that cannot set deadlines (a test recorder) has its
 	// server's timeouts only.
 	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(bodyReadTimeout))
@@ -108,7 +112,7 @@ func readBody(w http.ResponseWriter, r *http.Request, limit int64) ([]byte, erro
 	var mbe *http.MaxBytesError
 	switch {
 	case errors.As(err, &mbe):
-		return nil, tooLarge
+		return nil, tooLarge(limit)
 	case err != nil:
 		return nil, &refusal{status: http.StatusBadRequest, err: errUnreadable}
 	}

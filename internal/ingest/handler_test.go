@@ -185,6 +185,12 @@ func TestBodyIsBounded(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			hs := newHarness(t, testSecrets())
+			if tt.contentLength > 0 {
+				// A declared size is refused without waiting for a slot.
+				for range maxBodiesInFlight {
+					hs.h.bodies <- struct{}{}
+				}
+			}
 			r := tt.request()
 			r.ContentLength = tt.contentLength
 			if w := hs.serve(r); w.Code != http.StatusRequestEntityTooLarge {
