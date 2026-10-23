@@ -56,6 +56,7 @@ func ConfigFromEnv(getenv func(string) string) (EnvConfig, error) {
 		VikunjaAgentUsers:     parseList(getenv(EnvVikunjaAgentUsers)),
 		Kelos:                 kcfg,
 		GitHubInstance:        gcfg.Instance,
+		GitHubAnnouncers:      gcfg.Announcers,
 		WikiInstance:          wcfg.Instance,
 		WikiAgentUsers:        wcfg.AgentUsers,
 		Workspaces:            workspaces,

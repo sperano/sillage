@@ -66,8 +66,13 @@ func (a *assembly) readTask(ctx context.Context, id int64) ([]pageLink, bool) {
 		a.fail(model.SourceVikunja, err)
 		return nil, false
 	}
+	events, err := a.vikunjaEvents(snap)
+	if err != nil {
+		a.fail(model.SourceVikunja, err)
+		return nil, false
+	}
 	a.read(model.SourceVikunja, at)
-	a.addEvents(a.vikunjaEvents(snap))
+	a.addEvents(events)
 	return wikiLinks(snap, a.c.wikiURL, a.delivering), true
 }
 

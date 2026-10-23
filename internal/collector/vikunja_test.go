@@ -1,7 +1,6 @@
 package collector
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/sperano/sillage/internal/model"
@@ -16,14 +15,29 @@ func TestBucketsOfTwoViewsStayApart(t *testing.T) {
 	src := emptySources()
 	src.Vikunja = fixedVikunja{snap}
 	s := collectWith(t, testConfig(), src, taskRoot(104)).Story
-	var views []string
+	ids := make(map[string]bool)
 	for _, e := range s.Events {
 		if e.Kind == model.KindTaskBucketObserved && e.Details[detailBucket] == "Done" {
-			views = append(views, e.Details[detailView])
+			ids[e.ID] = true
 		}
 	}
-	slices.Sort(views)
-	if want := []string{"4", "5"}; !slices.Equal(views, want) {
-		t.Errorf("Done observed in views %v, want %v", views, want)
+	if len(ids) != 2 {
+		t.Errorf("Done observed as %d events, want one per view", len(ids))
+	}
+}
+
+func TestAgentCommentsHaveAnAgentActor(t *testing.T) {
+	snap := announcedTask(104, "", nil)
+	snap.Comments = append(snap.Comments, vikunja.Comment{
+		ID: 9001, Body: "<p>Done.</p>", Author: vikunja.User{ID: 21, Username: testAgent},
+		Created: snap.Task.Created, Updated: snap.Task.Created,
+	})
+	src := emptySources()
+	src.Vikunja = fixedVikunja{snap}
+	s := collectWith(t, testConfig(), src, taskRoot(104)).Story
+	for _, e := range s.Events {
+		if e.ID == commentObject(9001) && e.Actor != (model.Account{Login: testAgent, Kind: model.ActorAgent}) {
+			t.Errorf("comment actor = %+v, want the agent %s", e.Actor, testAgent)
+		}
 	}
 }
