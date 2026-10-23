@@ -23,6 +23,7 @@ func TestConfigFromEnv(t *testing.T) {
 	}
 	want := Config{
 		BaseURL:        "https://vikunja.example.com",
+		Instance:       "vikunja.example.com",
 		Token:          testToken,
 		ServiceAccount: DefaultServiceAccount,
 	}

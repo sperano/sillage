@@ -1,0 +1,81 @@
+{
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "tasks/4204",
+      "idKind": "source",
+      "kind": "task.created",
+      "sourceTime": "2026-03-05T16:00:00-05:00",
+      "observedAt": "2026-03-06T12:00:00Z",
+      "actor": {
+        "login": "owner",
+        "kind": "person"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4204
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4204?expand=buckets",
+        "note": "created, created_by"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/9020",
+      "idKind": "source",
+      "kind": "comment.created",
+      "sourceTime": "2026-03-05T16:02:00-05:00",
+      "observedAt": "2026-03-06T12:00:01Z",
+      "actor": {
+        "login": "gordon",
+        "kind": "service"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4204
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4204/comments",
+        "note": "comment 9020: created, author; reads like a start announcement but its Kelos Task could not be parsed"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:2e50aa35c43ea13ab8aed4f8bb947d9f7c74a05cbaa0bd17d981686d0197141c",
+      "idKind": "fingerprint",
+      "kind": "task.assignee_observed",
+      "observedAt": "2026-03-06T12:00:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4204
+        }
+      },
+      "details": {
+        "assignee": "agent-opus",
+        "assigneeId": "21"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4204?expand=buckets",
+        "note": "assignees"
+      }
+    }
+  ]
+}

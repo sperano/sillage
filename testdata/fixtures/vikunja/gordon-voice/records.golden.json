@@ -1,0 +1,268 @@
+{
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "tasks/4220",
+      "idKind": "source",
+      "kind": "task.created",
+      "sourceTime": "2026-03-10T09:00:00-05:00",
+      "observedAt": "2026-03-06T12:00:00Z",
+      "actor": {
+        "login": "owner",
+        "kind": "person"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4220
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4220?expand=buckets",
+        "note": "created, created_by"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/9101",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-03-10T09:01:05-05:00",
+      "observedAt": "2026-03-06T12:00:01Z",
+      "actor": {
+        "login": "gordon",
+        "kind": "service"
+      },
+      "executor": {
+        "name": "agent-opus",
+        "kind": "agent"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4220
+        }
+      },
+      "details": {
+        "model": "example-model-2[1m]",
+        "namespace": "agents",
+        "pod": "vikunja-demo-agent-opus-4220-q8w4e",
+        "role": "implementation",
+        "taskName": "vikunja-demo-agent-opus-4220"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4220/comments",
+        "note": "comment 9101: created, author, and the Kelos Task, pod and namespace it names"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/9102",
+      "idKind": "source",
+      "kind": "request.created",
+      "sourceTime": "2026-03-10T10:30:00-05:00",
+      "observedAt": "2026-03-06T12:00:01Z",
+      "actor": {
+        "login": "owner",
+        "kind": "person"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4220
+        }
+      },
+      "details": {
+        "agent": "agent-sol",
+        "command": "/gordon"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4220/comments",
+        "note": "comment 9102: created, author"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/9103",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-03-10T10:30:20-05:00",
+      "observedAt": "2026-03-06T12:00:01Z",
+      "actor": {
+        "login": "gordon",
+        "kind": "service"
+      },
+      "executor": {
+        "name": "agent-sol",
+        "kind": "agent"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4220
+        }
+      },
+      "details": {
+        "model": "example-model-3",
+        "namespace": "agents",
+        "pod": "vikunja-fu-demo-4220-c9102-mn3bv",
+        "role": "task-follow-up",
+        "taskName": "vikunja-fu-demo-4220-c9102"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4220/comments",
+        "note": "comment 9103: created, author, and the Kelos Task, pod and namespace it names"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/9104",
+      "idKind": "source",
+      "kind": "request.created",
+      "sourceTime": "2026-03-10T11:15:00-05:00",
+      "observedAt": "2026-03-06T12:00:01Z",
+      "actor": {
+        "login": "owner",
+        "kind": "person"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4220
+        }
+      },
+      "details": {
+        "command": "/kelos"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4220/comments",
+        "note": "comment 9104: created, author"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/9105",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-03-10T11:15:25-05:00",
+      "observedAt": "2026-03-06T12:00:01Z",
+      "actor": {
+        "login": "gordon",
+        "kind": "service"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4220
+        }
+      },
+      "details": {
+        "namespace": "agents",
+        "pod": "vikunja-fu-demo-4220-c9104-t5r6y",
+        "role": "task-follow-up",
+        "taskName": "vikunja-fu-demo-4220-c9104"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4220/comments",
+        "note": "comment 9105: created, author, and the Kelos Task, pod and namespace it names"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:7e512b460bd14f47ade8a1c59955ca7394382830a2b38ce93c11f653e99f4033",
+      "idKind": "fingerprint",
+      "kind": "task.bucket_observed",
+      "observedAt": "2026-03-06T12:00:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4220
+        }
+      },
+      "details": {
+        "bucket": "Doing"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4220?expand=buckets",
+        "note": "buckets, bucket_id"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:14143342abceaf137f97376e7738ad6f67e4042b6fa9bab79b8a78c19e6d3e7f",
+      "idKind": "fingerprint",
+      "kind": "task.label_observed",
+      "observedAt": "2026-03-06T12:00:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4220
+        }
+      },
+      "details": {
+        "label": "in progress"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4220?expand=buckets",
+        "note": "labels"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:e0118e99a3ba790cf6dd52d25f30b7a2af8d287c18393fc0844da5a28d4c9af9",
+      "idKind": "fingerprint",
+      "kind": "task.assignee_observed",
+      "observedAt": "2026-03-06T12:00:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4220
+        }
+      },
+      "details": {
+        "assignee": "agent-opus",
+        "assigneeId": "21"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4220?expand=buckets",
+        "note": "assignees"
+      }
+    }
+  ]
+}

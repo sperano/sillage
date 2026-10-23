@@ -5,6 +5,9 @@ through an `httptest` server. One directory per story:
 
 - `task.json`: `GET /api/v1/tasks/{id}?expand=buckets`;
 - `comments-<n>.json`: `GET /api/v1/tasks/{id}/comments?page=<n>`.
+- `records.golden.json`: the normalized `model.Event` records from those
+  replies; regenerate them with `go test ./internal/source/vikunja -run
+  TestNormalizeGolden -update` and review the diff.
 
 The tests request two comments per page, so a page of two is full.
 

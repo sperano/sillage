@@ -4,6 +4,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/kelostext"
 )
 
@@ -26,33 +27,44 @@ import (
 
 // rolesByPhrase maps each start phrase posted on Vikunja to the run role
 // it announces.
-var rolesByPhrase = map[string]Role{
-	kelostext.PhraseTaskStartedLowercase: RoleImplementation,
-	kelostext.PhraseTaskStartedColon:     RoleImplementation,
-	kelostext.PhraseTaskStarted:          RoleImplementation,
-	kelostext.PhraseFollowUpLowercase:    RoleTaskFollowUp,
-	kelostext.PhraseFollowUpColon:        RoleTaskFollowUp,
-	kelostext.PhraseFollowUp:             RoleTaskFollowUp,
+var rolesByPhrase = map[string]model.RunRole{
+	kelostext.PhraseTaskStartedLowercase: model.RoleImplementation,
+	kelostext.PhraseTaskStartedColon:     model.RoleImplementation,
+	kelostext.PhraseTaskStarted:          model.RoleImplementation,
+	kelostext.PhraseFollowUpLowercase:    model.RoleTaskFollowUp,
+	kelostext.PhraseFollowUpColon:        model.RoleTaskFollowUp,
+	kelostext.PhraseFollowUp:             model.RoleTaskFollowUp,
 }
 
 // grammar parses the announcements of rolesByPhrase.
 var grammar = kelostext.NewGrammar(slices.Collect(maps.Keys(rolesByPhrase))...)
 
+// announcement is what a Kelos start notice says about its run. Its Task
+// name is a display and correlation hint, never the run's identity.
+type announcement struct {
+	role      model.RunRole
+	agent     string
+	model     string
+	namespace string
+	taskName  string
+	pod       string
+}
+
 // parseAnnouncement parses a comment's plain text. It returns
 // kelostext.ErrNotAnnouncement when the text has no start phrase and
 // kelostext.ErrUnparsedAnnouncement when it has one but the rest does not
 // match.
-func parseAnnouncement(text string) (Announcement, error) {
-	s, err := grammar.Parse(text)
+func parseAnnouncement(text string) (announcement, error) {
+	start, err := grammar.Parse(text)
 	if err != nil {
-		return Announcement{}, err
+		return announcement{}, err
 	}
-	return Announcement{
-		Role:      rolesByPhrase[s.Phrase],
-		Agent:     s.Agent,
-		Model:     s.Model,
-		Namespace: s.Namespace,
-		TaskName:  s.TaskName,
-		Pod:       s.Pod,
+	return announcement{
+		role:      rolesByPhrase[start.Phrase],
+		agent:     start.Agent,
+		model:     start.Model,
+		namespace: start.Namespace,
+		taskName:  start.TaskName,
+		pod:       start.Pod,
 	}, nil
 }

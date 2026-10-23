@@ -1,0 +1,29 @@
+{
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "tasks/4203",
+      "idKind": "source",
+      "kind": "task.created",
+      "sourceTime": "2026-03-04T08:00:00-05:00",
+      "observedAt": "2026-03-06T12:00:00Z",
+      "actor": {
+        "login": "owner",
+        "kind": "person"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4203
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4203?expand=buckets",
+        "note": "created, created_by"
+      }
+    }
+  ]
+}
