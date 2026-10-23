@@ -43,6 +43,9 @@ story, and assert the invariant the story exists for:
 | `wiki-rooted-request` | A story can be rooted in a page with no task; the live page version, absent from the history trail, is an edit with a fingerprint id; an edit two concurrent runs could have made keeps both candidates, flagged ambiguous. |
 | `failed-run-retry` | A retry with the same Task name and a new UID is a second run, never merged with the failed one. |
 | `announced-run-only` | A run known only from its start announcement is keyed by pod, its interval and outcome stay unknown despite a later agent comment, and Kelos coverage marks the period unknown. |
+| `checks-after-force-push` | Checks from three observed GitHub heads remain in the story across a force push; a later head never replaces an earlier SHA's results. |
+| `reopened-task` | After completion, reopening and a second completion, Vikunja exposes only the latest `done_at`; the story states that limitation and invents no earlier event. |
+| `second-pr-after-close` | A closed-unmerged pull request followed by a second pull request on the same branch does not complete the task. |
 
 Each source's raw, fabricated responses live in its own directory
 (`vikunja/`, `kelos/`, `github/`, `wiki/`), and the responses from which

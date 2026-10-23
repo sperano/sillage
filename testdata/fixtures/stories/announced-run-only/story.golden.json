@@ -167,7 +167,7 @@
         {
           "start": "2026-01-01T00:00:00Z",
           "end": "2026-02-27T00:00:00Z",
-          "reason": "before the collector's first read; Tasks and TaskRecords of this period had expired"
+          "reason": "Kelos deletes a finished Task after the configured TTL: a run before then is read only from its TaskRecord, which only a run that reported usage leaves"
         }
       ]
     },

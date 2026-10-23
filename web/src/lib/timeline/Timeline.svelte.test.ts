@@ -11,9 +11,12 @@ import Timeline from './Timeline.svelte';
 
 const STORIES = [
 	'announced-run-only',
+	'checks-after-force-push',
 	'discuss-no-pr',
 	'failed-run-retry',
 	'implementation-merged',
+	'reopened-task',
+	'second-pr-after-close',
 	'wiki-rooted-request'
 ];
 
@@ -51,6 +54,7 @@ describe.each(STORIES)('%s', (name) => {
 		const s = golden(name);
 		const { container } = await show(s);
 		await expandAll(container);
+		expect(container.querySelectorAll('[data-row]').length).toBeGreaterThan(0);
 		const drawn = new Set(all(container, '[data-event]').map((e) => e.getAttribute('data-event')));
 		for (const e of s.events) expect(drawn, eventKey(e)).toContain(eventKey(e));
 		for (const r of s.runs) {
@@ -96,7 +100,7 @@ describe('golden invariants', () => {
 		expect(row.querySelector('[data-stub]')).toBeNull();
 		expect(row.querySelector('[data-note]')?.textContent).toContain('start and end unknown');
 		const reasons = all(row, '[data-unknown] title').map((t) => t.textContent);
-		expect(reasons.some((r) => r?.includes('had expired'))).toBe(true);
+		expect(reasons.some((r) => r?.includes('only a run that reported usage leaves'))).toBe(true);
 	});
 
 	test('the live wiki edit is present', async () => {

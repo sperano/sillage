@@ -34,7 +34,7 @@ describe('golden stories', () => {
 		await expect
 			.element(kelos.getByRole('listitem'))
 			.toHaveTextContent(
-				"from 2026-01-01 00:00:00 UTC to 2026-02-27 00:00:00 UTC: before the collector's first read; Tasks and TaskRecords of this period had expired"
+				'from 2026-01-01 00:00:00 UTC to 2026-02-27 00:00:00 UTC: Kelos deletes a finished Task after the configured TTL: a run before then is read only from its TaskRecord, which only a run that reported usage leaves'
 			);
 	});
 });

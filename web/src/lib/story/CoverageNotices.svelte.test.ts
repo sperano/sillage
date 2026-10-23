@@ -15,7 +15,7 @@ test('each source: its last successful read, unknown after it, and its gaps with
 	await expect
 		.element(kelos.getByRole('listitem'))
 		.toHaveTextContent(
-			"Unknown from 2026-01-01 00:00:00 UTC to 2026-02-27 00:00:00 UTC: before the collector's first read; Tasks and TaskRecords of this period had expired"
+			'Unknown from 2026-01-01 00:00:00 UTC to 2026-02-27 00:00:00 UTC: Kelos deletes a finished Task after the configured TTL: a run before then is read only from its TaskRecord, which only a run that reported usage leaves'
 		);
 	await expect
 		.element(page.getByRole('listitem').filter({ hasText: 'Vikunja vikunja.example.com' }))

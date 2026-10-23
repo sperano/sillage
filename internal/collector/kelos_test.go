@@ -201,3 +201,33 @@ func TestAnnouncedRunTakesTheWordingsRole(t *testing.T) {
 		t.Errorf("runs = %+v, want one implementation: its Task name says nothing, its announcement does", s.Runs)
 	}
 }
+
+// Two overlapping runs of one agent profile on different tasks stay with
+// the task their source identifier names. Author and time-window matching
+// must not pull the other task's attempt into either story.
+func TestConcurrentAgentAttemptsOnDifferentTasksStaySeparate(t *testing.T) {
+	snapshot := kelos.Snapshot{Records: []kelos.TaskRecord{
+		record("vikunja-widgets-agent-opus-204", "uid-204", taskLabels("204"), 1, 20),
+		record("vikunja-widgets-agent-opus-205", "uid-205", taskLabels("205"), 2, 21),
+	}}
+	for _, tt := range []struct {
+		id      int64
+		wantUID string
+	}{
+		{204, "uid-204"},
+		{205, "uid-205"},
+	} {
+		src := emptySources()
+		src.Vikunja = fixedVikunja{announcedTask(tt.id, "", nil)}
+		src.Kelos = fixedKelos{snapshot}
+		story := collectWith(t, testConfig(), src, taskRoot(tt.id)).Story
+		if len(story.Runs) != 1 || story.Runs[0].Key.UID != tt.wantUID {
+			t.Errorf("task %d runs = %+v, want only %s", tt.id, story.Runs, tt.wantUID)
+		}
+		for _, correlation := range story.Correlations {
+			if correlation.From.Kind == model.RefRun && correlation.From != runRef(tt.wantUID) {
+				t.Errorf("task %d correlation %s crosses to another task's run", tt.id, correlation)
+			}
+		}
+	}
+}

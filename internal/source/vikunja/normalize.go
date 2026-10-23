@@ -169,7 +169,7 @@ func (n *normalizer) taskDone() model.Event {
 	e := n.event(model.KindTaskDone,
 		model.Fingerprint(at, n.object(), actionDone, ""), model.IDFingerprint, sourceTime)
 	e.Evidence.Ref = n.taskRef()
-	e.Evidence.Note = "done, done_at"
+	e.Evidence.Note = "done is true; done_at is the latest completion time; Vikunja does not retain earlier completion or reopen times"
 	if sourceTime == nil {
 		e.Evidence.Note = "done is true; done_at is unset, so the source time is unknown"
 	}

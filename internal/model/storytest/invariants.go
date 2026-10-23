@@ -18,11 +18,14 @@ import (
 // The collector's tests assert the same properties of the stories it
 // assembles from source responses.
 var invariants = map[string]func(*testing.T, model.Story){
-	"discuss-no-pr":         checkDiscussNoPR,
-	"implementation-merged": checkImplementationMerged,
-	"wiki-rooted-request":   checkWikiRootedRequest,
-	"failed-run-retry":      checkFailedRunRetry,
-	"announced-run-only":    checkAnnouncedRunOnly,
+	"discuss-no-pr":           checkDiscussNoPR,
+	"implementation-merged":   checkImplementationMerged,
+	"wiki-rooted-request":     checkWikiRootedRequest,
+	"failed-run-retry":        checkFailedRunRetry,
+	"announced-run-only":      checkAnnouncedRunOnly,
+	"checks-after-force-push": checkChecksAfterForcePush,
+	"reopened-task":           checkReopenedTask,
+	"second-pr-after-close":   checkSecondPRAfterClose,
 }
 
 // Names returns the fixture stories that have an invariant, sorted.
@@ -194,6 +197,9 @@ func checkAnnouncedRunOnly(t *testing.T, s model.Story) {
 	if run.Outcome != model.OutcomeUnknown {
 		t.Errorf("outcome %s, want unknown", run.Outcome)
 	}
+	if run.Usage != nil {
+		t.Errorf("usage = %+v, want none without a TaskRecord", run.Usage)
+	}
 	if len(eventsByActorKind(s, model.KindComment, model.ActorAgent)) == 0 {
 		t.Error("the fixture lost the agent's later comment it exists to resist")
 	}
@@ -202,6 +208,78 @@ func checkAnnouncedRunOnly(t *testing.T, s model.Story) {
 	if kelos == nil || kelos.Known(announced.Time()) {
 		t.Error("Kelos coverage does not mark the run's period unknown")
 	}
+	if kelos == nil || !slices.ContainsFunc(kelos.Gaps, func(g model.Gap) bool {
+		return strings.Contains(g.Reason, "TaskRecord") && strings.Contains(g.Reason, "reported usage")
+	}) {
+		t.Error("Kelos coverage does not explain that a run without reported usage leaves no TaskRecord after the TTL")
+	}
+}
+
+// checkChecksAfterForcePush: check results from every observed head stay in
+// the story after the branch moves to a new, non-descendant head.
+func checkChecksAfterForcePush(t *testing.T, s model.Story) {
+	if len(s.PullRequests) != 1 {
+		t.Fatalf("pull requests = %d, want 1", len(s.PullRequests))
+	}
+	pr := s.PullRequests[0]
+	if shas := pr.SHAs(); len(shas) != 3 {
+		t.Fatalf("checked SHAs = %v, want all three heads around the force push", shas)
+	}
+	want := map[model.CheckConclusion]bool{model.CheckFailure: true, model.CheckSuccess: true}
+	for _, check := range pr.Checks {
+		delete(want, check.Conclusion)
+	}
+	if len(want) != 0 {
+		t.Errorf("checks = %v, want failures and successes retained", pr.Checks)
+	}
+}
+
+// checkReopenedTask: a final Vikunja read exposes only the latest done_at;
+// the story states that source limitation instead of fabricating the first
+// completion or the reopen.
+func checkReopenedTask(t *testing.T, s model.Story) {
+	done := eventsOfKind(s, model.KindTaskDone)
+	if len(done) != 1 {
+		t.Fatalf("done events = %d, want only Vikunja's latest completion", len(done))
+	}
+	if !strings.Contains(done[0].Evidence.Note, "does not retain earlier completion or reopen times") {
+		t.Errorf("done evidence = %q, want the source limitation", done[0].Evidence.Note)
+	}
+}
+
+// checkSecondPRAfterClose: closing an unmerged pull request is not task
+// completion; a later pull request on the same branch remains part of the
+// open task's story.
+func checkSecondPRAfterClose(t *testing.T, s model.Story) {
+	if len(s.PullRequests) != 2 {
+		t.Fatalf("pull requests = %d, want 2", len(s.PullRequests))
+	}
+	first, second := s.PullRequests[0], s.PullRequests[1]
+	if first.Branch != second.Branch {
+		t.Errorf("branches = %q and %q, want the same branch", first.Branch, second.Branch)
+	}
+	closed := eventsForPR(s, model.KindPRClosed, first.Key)
+	merged := eventsForPR(s, model.KindPRMerged, first.Key)
+	opened := eventsForPR(s, model.KindPROpened, second.Key)
+	if len(closed) != 1 || len(merged) != 0 || len(opened) != 1 {
+		t.Errorf("first close=%d merge=%d, second open=%d; want 1, 0, 1", len(closed), len(merged), len(opened))
+	}
+	if len(closed) == 1 && len(opened) == 1 && !opened[0].Time().After(closed[0].Time()) {
+		t.Error("the second pull request did not open after the first closed")
+	}
+	if len(eventsOfKind(s, model.KindTaskDone)) != 0 {
+		t.Error("the unmerged close invented task completion")
+	}
+}
+
+func eventsForPR(s model.Story, kind model.EventKind, key model.PRKey) []model.Event {
+	var out []model.Event
+	for _, e := range eventsOfKind(s, kind) {
+		if e.Related.PR != nil && *e.Related.PR == key {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 func eventsOfKind(s model.Story, kind model.EventKind) []model.Event {
