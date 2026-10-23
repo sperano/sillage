@@ -41,7 +41,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `web/placeholder/` | The committed page embedded by default, so Go builds without Node. |
 | `Dockerfile`, `.dockerignore` | The one image: the `webdist` binary on `scratch`, `linux/amd64` and `linux/arm64`. See "The image" below. |
 | `scripts/collect-licenses.sh` | Copies the licenses of what the binary links into the image's `/licenses`. |
-| `.github/workflows/ci.yml` | CI: the gates below, verbatim. |
+| `.github/workflows/ci.yml` | CI: the gates below, verbatim (the Go job with a PostgreSQL service for the store's tests), and the image built for both platforms, never pushed. |
 
 Deployment (Helm chart, values, ApplicationSet entry, database, network
 policy, Authentik) lives in `sperano/hollingsworth`, not here; so do pushing
@@ -81,10 +81,12 @@ needs no writable path, and listens on `:8080` (`SILLAGE_LISTEN_ADDR`).
 `VERSION` sets `main.version` through `-ldflags -X`; the binary logs it at
 startup and reports `dev` without it. `TestVersionLoggedAtStartup` checks
 that `-X` reaches the variable, and `TestDockerfileSetsVersion` that the
-Dockerfile passes the same flag. Agent pods have no Docker daemon: there,
-run the stages' commands instead (`npm ci --ignore-scripts && npm run build`,
-then `CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags webdist
-./cmd/sillage`).
+Dockerfile passes the same flag. CI's `image` job builds both platforms
+without pushing, then runs the amd64 image read-only and checks `/healthz`,
+the built frontend, `/licenses`, a clean exit on SIGTERM and the logged
+version. Agent pods have no Docker daemon: there, run the stages' commands
+instead (`npm ci --ignore-scripts && npm run build`, then `CGO_ENABLED=0
+GOOS=linux GOARCH=arm64 go build -tags webdist ./cmd/sillage`).
 
 ## Gates
 
@@ -103,9 +105,10 @@ go build ./...
 
 The store's tests run against a real PostgreSQL named by
 `SILLAGE_TEST_DATABASE_URL` (each test in its own schema) and skip without
-it. Agent pods have none: say in the PR that they were skipped, or start a
-local one (the zonky `embedded-postgres-binaries` jars on Maven Central
-hold a relocatable PostgreSQL that runs without root).
+it. CI's Go job runs them against a PostgreSQL service. Agent pods have
+none: say in the PR that they were skipped, or start a local one (the zonky
+`embedded-postgres-binaries` jars on Maven Central hold a relocatable
+PostgreSQL that runs without root).
 
 `gofmt -l .` would walk `web/node_modules` (gofmt ignores `go.mod`'s
 `ignore`), hence the file list from git: tracked plus untracked, not ignored.
