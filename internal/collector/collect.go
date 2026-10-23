@@ -6,6 +6,7 @@ import (
 
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/github"
+	"github.com/sperano/sillage/internal/source/vikunja"
 )
 
 // collectTask assembles the story of Vikunja task id: the task and its
@@ -63,5 +64,13 @@ func (a *assembly) readTask(ctx context.Context, id int64) []pageLink {
 	}
 	a.read(model.SourceVikunja, at)
 	a.addEvents(a.vikunjaEvents(snap))
-	return wikiLinks(snap, a.c.wikiURL)
+	return wikiLinks(snap, a.c.wikiURL, a.delivering)
+}
+
+// delivering reports whether u's comments can name the task's
+// deliverable: an agent's or the service account's. A person's link is
+// context, not part of the story.
+func (a *assembly) delivering(u vikunja.User) bool {
+	kind := a.vikunjaAccount(&u).Kind
+	return kind == model.ActorAgent || kind == model.ActorService
 }

@@ -81,7 +81,7 @@ read-only credential:
 | --- | --- |
 | `SILLAGE_VIKUNJA_URL`, `SILLAGE_VIKUNJA_TOKEN` | Vikunja base URL and a read-only API token. |
 | `SILLAGE_VIKUNJA_SERVICE_ACCOUNT` | Username that posts Kelos start announcements (default `kelos`). |
-| `SILLAGE_VIKUNJA_AGENT_USERS` | Agents' Vikunja usernames, comma-separated (optional). |
+| `SILLAGE_VIKUNJA_AGENT_USERS` | Agents' Vikunja usernames, comma-separated: their comments are an agent's, and only theirs and the service account's are followed to the wiki pages they link (a discussion's deliverable). |
 | `SILLAGE_KELOS_CLUSTER`, `SILLAGE_KELOS_NAMESPACE` | Name given to the cluster, and the namespace read; the Kubernetes credentials are the in-cluster ones, else the kubeconfig's current context. |
 | `SILLAGE_KELOS_LABEL_DOMAIN`, `SILLAGE_KELOS_VIKUNJA_INSTANCE` | The spawners' label prefix, and the Vikunja host the task label names (must be `SILLAGE_VIKUNJA_URL`'s). |
 | `SILLAGE_KELOS_TASK_TTL` | How long Kelos keeps a finished Task (default `72h`); before it, runs may be missing. |

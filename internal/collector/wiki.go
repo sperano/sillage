@@ -47,7 +47,8 @@ func (a *assembly) readRootPage(ctx context.Context, key model.PageKey) error {
 func (a *assembly) readLinkedPages(ctx context.Context, links []pageLink) {
 	a.source(model.SourceWiki)
 	if len(links) == 0 {
-		a.note(model.SourceWiki, "no comment of the task links a page of "+a.cfg.WikiInstance+": the wiki was not read")
+		a.note(model.SourceWiki, "no comment of an agent ("+EnvVikunjaAgentUsers+") or of the service account links "+
+			"a page of "+a.cfg.WikiInstance+": the wiki was not read")
 		return
 	}
 	at := a.c.now()
@@ -80,28 +81,26 @@ func (a *assembly) readLinkedPages(ctx context.Context, links []pageLink) {
 	}
 }
 
-// resolveLinks maps each linked page's id to the comments that link it.
-// Links by path are resolved against one listing of the wiki: as written,
-// then, when the path's first part read as a locale, as a path of the
-// default locale. A path that names no page is noted, not an error.
+// resolveLinks maps each linked page's id to the comments that link it,
+// against one listing of the wiki. A link by path is looked up as
+// written, then, when its first part read as a locale, as a path of the
+// default locale. A link to no listed page (moved, deleted, mistyped) is
+// noted, not an error.
 func (a *assembly) resolveLinks(ctx context.Context, links []pageLink) (map[int64][]int64, error) {
-	var byPath map[pageLink]int64
+	listed, byPath, err := a.listPages(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out := make(map[int64][]int64)
 	for _, l := range links {
 		id := l.id
-		if id == 0 && byPath == nil {
-			var err error
-			if byPath, err = a.listPages(ctx); err != nil {
-				return nil, err
-			}
-		}
 		for _, try := range l.lookups() {
 			if id == 0 {
 				id = byPath[try]
 			}
 		}
-		if id == 0 {
-			a.note(model.SourceWiki, "comment "+strconv.FormatInt(l.comment, 10)+" links "+l.locale+"/"+l.path+
+		if !listed[id] {
+			a.note(model.SourceWiki, "comment "+strconv.FormatInt(l.comment, 10)+" links "+l.String()+
 				", which is no page of "+a.cfg.WikiInstance)
 			continue
 		}
@@ -112,17 +111,28 @@ func (a *assembly) resolveLinks(ctx context.Context, links []pageLink) (map[int6
 	return out, nil
 }
 
-// listPages indexes the wiki's pages by locale and path.
-func (a *assembly) listPages(ctx context.Context) (map[pageLink]int64, error) {
+// String names the page a link points to, as written.
+func (l pageLink) String() string {
+	if l.path == "" {
+		return wikiIDRoute + "/" + strconv.FormatInt(l.id, 10)
+	}
+	return l.locale + "/" + l.path
+}
+
+// listPages lists the wiki's page ids, and indexes them by locale and
+// path.
+func (a *assembly) listPages(ctx context.Context) (map[int64]bool, map[pageLink]int64, error) {
 	pages, err := a.c.src.Wiki.Pages(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	out := make(map[pageLink]int64, len(pages))
+	ids := make(map[int64]bool, len(pages))
+	byPath := make(map[pageLink]int64, len(pages))
 	for _, p := range pages {
-		out[pageLink{locale: p.Locale, path: p.Path}] = p.ID
+		ids[p.ID] = true
+		byPath[pageLink{locale: p.Locale, path: p.Path}] = p.ID
 	}
-	return out, nil
+	return ids, byPath, nil
 }
 
 // lookups are the locale and path pairs a link by path may mean.

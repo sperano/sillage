@@ -2,9 +2,11 @@ package collector
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
 	"github.com/sperano/sillage/internal/source/wiki"
 )
@@ -38,9 +40,13 @@ func TestLinkedPagesListTheWikiOnce(t *testing.T) {
 	src := emptySources()
 	src.Wiki = listedWiki{pages: []wiki.Page{page(41, "widgets/a"), page(42, "ai/notes"), page(43, "widgets/c")}, lists: &lists}
 	snap := announcedTask(104, "", nil)
+	agent := vikunja.User{ID: 21, Username: testAgent}
 	snap.Comments = []vikunja.Comment{
-		{ID: 1, Body: `https://wiki.example.com/en/widgets/a and https://wiki.example.com/ai/notes`, Created: at(2)},
-		{ID: 2, Body: `https://wiki.example.com/i/43 and https://wiki.example.com/en/widgets/missing`, Created: at(3)},
+		{ID: 1, Author: agent, Created: at(2),
+			Body: `https://wiki.example.com/en/widgets/a and https://wiki.example.com/ai/notes`},
+		{ID: 2, Author: agent, Created: at(3),
+			Body: `https://wiki.example.com/i/43, https://wiki.example.com/i/44 and https://wiki.example.com/en/widgets/missing`},
+		{ID: 3, Author: vikunja.User{ID: 7, Username: "owner"}, Created: at(4), Body: `https://wiki.example.com/i/42`},
 	}
 	src.Vikunja = fixedVikunja{snap}
 	s := collectWith(t, testConfig(), src, taskRoot(104)).Story
@@ -53,7 +59,40 @@ func TestLinkedPagesListTheWikiOnce(t *testing.T) {
 			t.Errorf("page %d is not joined to the task", id)
 		}
 	}
-	if cov := coverageOf(t, s, model.SourceWiki); cov.LastSuccessfulRead == nil || !hasNote(cov, "en/widgets/missing") {
-		t.Errorf("wiki coverage = %+v, want a read and the missing page noted", cov)
+	cov := coverageOf(t, s, model.SourceWiki)
+	if cov.LastSuccessfulRead == nil || !hasNote(cov, "links en/widgets/missing") || !hasNote(cov, "links i/44") {
+		t.Errorf("wiki coverage = %+v, want a read and both missing pages noted", cov)
+	}
+	c, _ := linkBetween(s, model.PageKey{Instance: testWikiHost, ID: 42, Locale: "en"}.Ref(), taskRoot(104).Task.Ref())
+	if len(c.Evidence) != 1 || !strings.Contains(c.Evidence[0].Note, "comment 1 ") {
+		t.Errorf("page 42 joined by %v, want only the agent's comment 1, not the person's", c.Evidence)
+	}
+}
+
+func TestLinkedPageEditsJoinOnlyTheStorysRuns(t *testing.T) {
+	lists := 0
+	src := emptySources()
+	src.Wiki = listedWiki{lists: &lists, pages: []wiki.Page{{
+		ID: 41, Path: "widgets/a", Locale: "en", CreatedAt: at(5), UpdatedAt: at(5),
+		AuthorID: testWikiUser, AuthorName: testAgent, CreatorID: testWikiUser, CreatorName: testAgent,
+	}}}
+	snap := announcedTask(104, "", nil)
+	snap.Comments = []vikunja.Comment{{ID: 1, Author: vikunja.User{ID: 21, Username: testAgent}, Created: at(11),
+		Body: `https://wiki.example.com/i/41`}}
+	src.Vikunja = fixedVikunja{snap}
+	src.Kelos = fixedKelos{kelos.Snapshot{Records: []kelos.TaskRecord{
+		record("vikunja-widgets-agent-opus-104", "uid-own", taskLabels("104"), 4, 7),
+		record("vikunja-widgets-agent-opus-999", "uid-other", taskLabels("999"), 0, 10),
+	}}}
+	s := collectWith(t, testConfig(), src, taskRoot(104)).Story
+	created := model.Event{Source: model.SourceWiki, Instance: testWikiHost, ID: "pages/41"}
+	got := linksFrom(s, created.Ref())
+	if len(got) != 1 || got[0].To != runRef("uid-own") || got[0].Ambiguous {
+		t.Errorf("the linked page's creation links %v, want only the task's own run", got)
+	}
+	for _, r := range s.Runs {
+		if r.Key.UID == "uid-other" {
+			t.Error("another task's run is in the story through a page the task links")
+		}
 	}
 }

@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -14,14 +15,18 @@ import (
 var actorKinds = []model.EventKind{model.KindPageCreated, model.KindPageEdited, model.KindPROpened, model.KindComment}
 
 // actorRuns joins each event an agent made to the runs of that agent
-// running at the time, from the whole namespace: a heuristic, ambiguous
-// when several were running. The agent is the event's executor, else its
-// agent account's login and the agents its own start announcements name.
+// running at the time: a heuristic, ambiguous when several were running.
+// An event on the root or its pull requests may come from any run of the
+// namespace; one on a page the task only links, from the story's runs
+// alone, so that a linked page's history pulls in no other task's runs.
+// The agent is the event's executor, else its agent account's login and
+// the agents its own start announcements name.
 func (a *assembly) actorRuns() {
 	if a.kelos == nil {
 		return
 	}
 	announced := a.announcingAccounts()
+	inStory := slices.Collect(maps.Values(a.runs))
 	for _, kind := range actorKinds {
 		for _, e := range a.eventsOf(kind) {
 			agents := agentsOf(e, announced)
@@ -29,7 +34,11 @@ func (a *assembly) actorRuns() {
 				continue
 			}
 			at := *e.SourceTime
-			candidates := a.runsWhere(func(r model.Run) bool { return slices.Contains(agents, r.Agent) && during(r, at) })
+			match := func(r model.Run) bool { return slices.Contains(agents, r.Agent) && during(r, at) }
+			candidates := a.runsWhere(match)
+			if !a.onRoot(e) {
+				candidates = slices.DeleteFunc(slices.Clone(inStory), func(r model.Run) bool { return !match(r) })
+			}
 			for _, r := range candidates {
 				a.addRun(r)
 				a.links.heuristic(e.Ref(), r.Key.Ref(), len(candidates) > 1, model.Evidence{
@@ -51,6 +60,21 @@ func actorNote(e model.Event, agent string, candidates int) string {
 		return note + strconv.Itoa(candidates) + " runs of " + agent + " were running"
 	}
 	return note + "no other run of " + agent + " with a known start was running"
+}
+
+// onRoot reports whether e is on the story's root or one of its pull
+// requests, rather than on a page the task links.
+func (a *assembly) onRoot(e model.Event) bool {
+	r := e.Related
+	switch {
+	case r.PR != nil:
+		return true
+	case r.Task != nil:
+		return r.Task.Ref() == a.rootRef
+	case r.Page != nil:
+		return r.Page.Ref() == a.rootRef
+	}
+	return false
 }
 
 // accountKey names an account of one source instance.

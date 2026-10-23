@@ -27,7 +27,8 @@ const (
 	EnvWorkspaces = "SILLAGE_WORKSPACES"
 	// EnvVikunjaAgentUsers names the environment variable listing the
 	// Vikunja usernames of the agents' accounts, comma-separated: their
-	// comments have an agent actor. Optional.
+	// comments have an agent actor, and only theirs and the service
+	// account's are followed to the wiki pages they link. Optional.
 	EnvVikunjaAgentUsers = "SILLAGE_VIKUNJA_AGENT_USERS"
 	// EnvKelosTaskTTL names the environment variable holding how long
 	// Kelos keeps a finished Task, as a Go duration. Unset means

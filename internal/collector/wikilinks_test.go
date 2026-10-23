@@ -36,18 +36,21 @@ func TestParseWikiURL(t *testing.T) {
 }
 
 func TestWikiLinks(t *testing.T) {
+	agent, person := vikunja.User{Username: testAgent}, vikunja.User{Username: "owner"}
 	s := vikunja.Snapshot{Comments: []vikunja.Comment{
-		{ID: 1, Body: `<p>See <a href="https://wiki.example.com/en/widgets/a?x=1&amp;y=2">a</a> and ` +
-			`https://WIKI.example.com/en/widgets/a.</p>`},
-		{ID: 2, Body: `<p>Also https://wiki.example.com:8443/i/41, not https://wiki.example.org/en/widgets/b ` +
-			`nor https://other.example.com/en/widgets/c.</p>`},
-		{ID: 3, Body: `<p>No link.</p>`},
+		{ID: 1, Author: agent, Body: `<p>See <a href="https://wiki.example.com/en/widgets/a?x=1&amp;y=2">a</a> ` +
+			`and https://WIKI.example.com/en/widgets/a.</p>`},
+		{ID: 2, Author: agent, Body: `<p>Also https://wiki.example.com:8443/i/41, not ` +
+			`https://wiki.example.org/en/widgets/b nor https://other.example.com/en/widgets/c.</p>`},
+		{ID: 3, Author: agent, Body: `<p>No link.</p>`},
+		{ID: 4, Author: person, Body: `<p>Context: https://wiki.example.com/en/widgets/runbook</p>`},
 	}}
 	want := []pageLink{
 		{comment: 1, locale: "en", path: "widgets/a"},
 		{comment: 2, id: 41},
 	}
-	if got := wikiLinks(s, wikiURLPattern("wiki.example.com")); !slices.Equal(got, want) {
+	byAgent := func(u vikunja.User) bool { return u == agent }
+	if got := wikiLinks(s, wikiURLPattern("wiki.example.com"), byAgent); !slices.Equal(got, want) {
 		t.Errorf("wikiLinks() = %+v, want %+v", got, want)
 	}
 }

@@ -46,11 +46,15 @@ func wikiURLPattern(host string) *regexp.Regexp {
 	return regexp.MustCompile(`(?i)https?://` + regexp.QuoteMeta(host) + `(?::[0-9]+)?(/[^\s"'<>]*)?`)
 }
 
-// wikiLinks lists the pages that s's comments link to, by the URLs
-// wikiURL matches, each comment's links once, in comment order.
-func wikiLinks(s vikunja.Snapshot, wikiURL *regexp.Regexp) []pageLink {
+// wikiLinks lists the pages that the comments of s by the accounts
+// linking selects link to, by the URLs wikiURL matches, each comment's
+// links once, in comment order.
+func wikiLinks(s vikunja.Snapshot, wikiURL *regexp.Regexp, linking func(vikunja.User) bool) []pageLink {
 	var out []pageLink
 	for _, c := range s.Comments {
+		if !linking(c.Author) {
+			continue
+		}
 		var seen []pageLink
 		for _, raw := range wikiURL.FindAllString(c.Body, -1) {
 			link, ok := parseWikiURL(strings.TrimRight(html.UnescapeString(raw), trailingPunctuation))
