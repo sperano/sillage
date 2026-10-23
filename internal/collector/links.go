@@ -1,7 +1,6 @@
 package collector
 
 import (
-	"cmp"
 	"slices"
 
 	"github.com/sperano/sillage/internal/model"
@@ -10,28 +9,16 @@ import (
 // links accumulates correlations, one per pair of records whatever the
 // direction: a second piece of evidence for a pair joins the first's.
 type links struct {
-	byPair map[pair]*model.Correlation
+	byPair map[model.RefPair]*model.Correlation
 }
 
-// pair is two records, in an order that does not depend on the
-// correlation's direction.
-type pair struct{ first, second model.Ref }
-
-func newLinks() links { return links{byPair: make(map[pair]*model.Correlation)} }
-
-// pairKey names the pair of records whatever the direction.
-func pairKey(a, b model.Ref) pair {
-	if cmp.Or(cmp.Compare(b.Kind, a.Kind), cmp.Compare(b.ID, a.ID)) < 0 {
-		a, b = b, a
-	}
-	return pair{first: a, second: b}
-}
+func newLinks() links { return links{byPair: make(map[model.RefPair]*model.Correlation)} }
 
 // add records c, or joins its evidence to the pair's correlation: an
 // identifier makes the pair an identifier, and the pair stays ambiguous
 // only while every piece of evidence is.
 func (l links) add(c model.Correlation) {
-	key := pairKey(c.From, c.To)
+	key := c.Pair()
 	have, ok := l.byPair[key]
 	if !ok {
 		c.Evidence = slices.Clone(c.Evidence)
@@ -65,7 +52,7 @@ func (l links) heuristic(from, to model.Ref, ambiguous bool, ev model.Evidence) 
 
 // has reports whether a correlation joins a and b.
 func (l links) has(a, b model.Ref) bool {
-	_, ok := l.byPair[pairKey(a, b)]
+	_, ok := l.byPair[model.PairOf(a, b)]
 	return ok
 }
 

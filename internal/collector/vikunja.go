@@ -53,6 +53,8 @@ func (a *assembly) vikunjaEvents(s vikunja.Snapshot) []model.Event {
 
 func taskObject(key model.TaskKey) string { return "tasks/" + strconv.FormatInt(key.ID, 10) }
 
+func viewObject(id string) string { return "views/" + id }
+
 func commentObject(id int64) string { return "comments/" + strconv.FormatInt(id, 10) }
 
 func (a *assembly) vikunjaEvent(key model.TaskKey, e vikunja.Event, kind model.EventKind, id string,
@@ -139,7 +141,8 @@ func (a *assembly) observed(key model.TaskKey, e vikunja.Event) []model.Event {
 		value, details := b.Title, map[string]string{detailBucket: b.Title}
 		if b.ProjectViewID != 0 {
 			view := strconv.FormatInt(b.ProjectViewID, 10)
-			value, details[detailView] = "views/"+view+"/"+b.Title, view
+			details[detailView] = view
+			value = viewObject(view) + "/" + b.Title
 		}
 		add(model.KindTaskBucketObserved, "bucket_observed", value, details)
 	}

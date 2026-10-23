@@ -63,3 +63,16 @@ func TestCorrelationValidateNamesCorrelation(t *testing.T) {
 	c.Confidence = ""
 	checkErr(t, c.Validate(), "correlation run:cluster-a/agents/uid/uid-1 -> task:")
 }
+
+func TestPairOf(t *testing.T) {
+	run, task := testRunKey("uid-1").Ref(), testTaskKey().Ref()
+	if PairOf(run, task) != PairOf(task, run) {
+		t.Error("PairOf depends on the order of its refs")
+	}
+	// Joined as text, both pairs read "run:x <-> task:y <-> task:z".
+	a := PairOf(Ref{Kind: RefRun, ID: "x <-> task:y"}, Ref{Kind: RefTask, ID: "z"})
+	b := PairOf(Ref{Kind: RefRun, ID: "x"}, Ref{Kind: RefTask, ID: "y <-> task:z"})
+	if a == b {
+		t.Errorf("PairOf merged %v and %v", a, b)
+	}
+}

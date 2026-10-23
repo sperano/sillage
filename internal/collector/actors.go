@@ -58,11 +58,11 @@ func actorNote(e model.Event, agents []string, candidates int) string {
 		who = e.Executor.Name
 	}
 	note := e.ID + " by " + who + " inside the run's interval; "
-	of := strings.Join(agents, " or ")
+	agentNames := strings.Join(agents, " or ")
 	if candidates > 1 {
-		return note + strconv.Itoa(candidates) + " runs of " + of + " were running"
+		return note + strconv.Itoa(candidates) + " runs of " + agentNames + " were running"
 	}
-	return note + "no other run of " + of + " with a known start was running"
+	return note + "no other run of " + agentNames + " with a known start was running"
 }
 
 // onRoot reports whether e is on the story's root or one of its pull

@@ -130,10 +130,16 @@ type fakeSources struct {
 	t    *testing.T
 	dirs storyDirs
 	mux  *http.ServeMux
+	// wikiPage is the page the story's wiki responses hold; 0 without.
+	wikiPage int64
 }
 
 func newFakeSources(t *testing.T, dirs storyDirs) *fakeSources {
+	t.Helper()
 	f := &fakeSources{t: t, dirs: dirs, mux: http.NewServeMux()}
+	if dirs.wiki != "" {
+		f.wikiPage = wikiPageID(t, dirs.wiki)
+	}
 	vk := func(name func(*http.Request) string) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) { f.serve(w, r, f.dirs.vikunja, name(r), emptyList) }
 	}
@@ -210,10 +216,8 @@ func (f *fakeSources) serveWiki(w http.ResponseWriter, r *http.Request) {
 	asked := map[string]int64{
 		"SillagePage": req.Variables.ID, "SillageHistory": req.Variables.ID, "SillageVersion": req.Variables.PageID,
 	}
-	if id, ok := asked[req.OperationName]; ok && f.dirs.wiki != "" {
-		if want := f.wikiPageID(); id != want {
-			f.t.Errorf("wiki %s of page %d, want page %d", req.OperationName, id, want)
-		}
+	if id, ok := asked[req.OperationName]; ok && id != f.wikiPage {
+		f.t.Errorf("wiki %s of page %d, want page %d", req.OperationName, id, f.wikiPage)
 	}
 	files := map[string]string{
 		"SillagePage":     "page.json",
@@ -225,13 +229,12 @@ func (f *fakeSources) serveWiki(w http.ResponseWriter, r *http.Request) {
 	f.serve(w, r, f.dirs.wiki, files[req.OperationName], "")
 }
 
-// wikiPageID is the id of the page the story's wiki responses hold. It
-// runs in the server's goroutine, so it reports with Errorf, not Fatal.
-func (f *fakeSources) wikiPageID() int64 {
-	data, err := os.ReadFile(filepath.Join(fixturesDir, f.dirs.wiki, "page.json"))
+// wikiPageID is the id of the page dir's wiki responses hold.
+func wikiPageID(t *testing.T, dir string) int64 {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(fixturesDir, dir, "page.json"))
 	if err != nil {
-		f.t.Errorf("wiki page: %v", err)
-		return 0
+		t.Fatal(err)
 	}
 	var page struct {
 		Data struct {
@@ -243,7 +246,7 @@ func (f *fakeSources) wikiPageID() int64 {
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(data, &page); err != nil {
-		f.t.Errorf("%s/page.json: %v", f.dirs.wiki, err)
+		t.Fatalf("%s/page.json: %v", dir, err)
 	}
 	return page.Data.Pages.Single.ID
 }

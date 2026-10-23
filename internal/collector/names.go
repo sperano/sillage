@@ -48,15 +48,24 @@ var (
 // taskOfName returns the Vikunja task id a Task name names by the task
 // and comment spawners' conventions, and the role it implies.
 func taskOfName(name string) (int64, model.RunRole, bool) {
-	id, role := "", model.RunRole("")
 	if m := taskFollowUpName.FindStringSubmatch(name); m != nil {
-		id, role = m[1], model.RoleTaskFollowUp
-	} else if m := taskRunName.FindStringSubmatch(name); m != nil && !otherVikunjaName.MatchString(name) {
-		id, role = m[2], model.RoleImplementation
-		if m[1] != "" {
-			role = model.RoleDiscussion
-		}
+		return taskOfID(m[1], model.RoleTaskFollowUp)
 	}
+	if otherVikunjaName.MatchString(name) {
+		return 0, "", false
+	}
+	if m := taskRunName.FindStringSubmatch(name); m != nil {
+		if m[1] != "" {
+			return taskOfID(m[2], model.RoleDiscussion)
+		}
+		return taskOfID(m[2], model.RoleImplementation)
+	}
+	return 0, "", false
+}
+
+// taskOfID is taskOfName's result for a name naming task id with role:
+// nothing when the id does not parse.
+func taskOfID(id string, role model.RunRole) (int64, model.RunRole, bool) {
 	n, ok := parseID(id)
 	if !ok {
 		return 0, "", false

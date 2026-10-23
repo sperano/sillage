@@ -156,18 +156,23 @@ func (a *assembly) announcedRuns() {
 			candidates := a.sameNameRuns(e.Ref(), name, func(model.Run) model.Evidence {
 				return a.announcementEvidence(e, "names Kelos Task "+name+" but no pod; a retry reuses the name")
 			})
-			for _, r := range candidates {
-				a.runOnRelated(r.Key.Ref(), e, model.ConfidenceHeuristic, len(candidates) > 1)
+			if on, ev, ok := a.relatedOf(e); ok {
+				for _, r := range candidates {
+					a.links.heuristic(r.Key.Ref(), on, len(candidates) > 1, ev)
+				}
 			}
 			continue
 		}
 		ns := cmp.Or(e.Details[detailNamespace], a.cfg.Kelos.Namespace)
 		ev := a.announcementEvidence(e, "names pod "+pod)
+		on, onEv, related := a.relatedOf(e)
 		matches := a.runsWhere(func(r model.Run) bool { return r.Pod == pod && r.Key.Namespace == ns })
 		for _, r := range matches {
 			a.addRun(r)
 			a.links.identifier(e.Ref(), r.Key.Ref(), ev)
-			a.runOnRelated(r.Key.Ref(), e, model.ConfidenceIdentifier, false)
+			if related {
+				a.links.identifier(r.Key.Ref(), on, onEv)
+			}
 		}
 		if len(matches) > 0 {
 			continue
@@ -178,24 +183,23 @@ func (a *assembly) announcedRuns() {
 			a.links.heuristic(e.Ref(), r.Key.Ref(), false, a.announcementEvidence(e, "names pod "+pod+
 				", which no Task read names; it was posted inside this attempt of "+name+" and no other, "+
 				"which, read without its Task, names no pod"))
-			a.runOnRelated(r.Key.Ref(), e, model.ConfidenceHeuristic, false)
+			if related {
+				a.links.heuristic(r.Key.Ref(), on, false, onEv)
+			}
 			continue
 		}
 		a.podRun(e, ns, name, pod)
 	}
 }
 
-// runOnRelated joins run to the task, page or pull request announcement e
-// is a comment on, as confidently as e is joined to run.
-func (a *assembly) runOnRelated(run model.Ref, e model.Event, confidence model.Confidence, ambiguous bool) {
+// relatedOf returns the task, page or pull request announcement e is a
+// comment on, and the evidence that joins e's run to it.
+func (a *assembly) relatedOf(e model.Event) (model.Ref, model.Evidence, bool) {
 	on, ok := relatedRef(e.Related)
 	if !ok {
-		return
+		return model.Ref{}, model.Evidence{}, false
 	}
-	a.links.add(model.Correlation{
-		From: run, To: on, Confidence: confidence, Ambiguous: ambiguous,
-		Evidence: []model.Evidence{a.announcementEvidence(e, "is a comment on "+on.ID)},
-	})
+	return on, a.announcementEvidence(e, "is a comment on "+on.ID), true
 }
 
 // announcedAttempt returns the attempt an announcement whose pod no Task
@@ -243,7 +247,9 @@ func (a *assembly) podRun(e model.Event, ns, name, pod string) {
 		}
 	}
 	a.links.identifier(e.Ref(), key.Ref(), a.announcementEvidence(e, "names pod "+pod))
-	a.runOnRelated(key.Ref(), e, model.ConfidenceIdentifier, false)
+	if on, ev, ok := a.relatedOf(e); ok {
+		a.links.identifier(key.Ref(), on, ev)
+	}
 	a.sameNameRuns(key.Ref(), name, func(r model.Run) model.Evidence {
 		return a.kelosEvidence(r, "same Task name "+name+"; read without its Task, it names no pod, so "+
 			"whether it is the announced attempt is unknown")
