@@ -164,11 +164,15 @@ describe('compareTimes', () => {
 		expect(Math.sign(compareTimes(b, a))).toBe(-want || 0);
 	});
 
+	const time = '2026-03-03T20:00:00Z';
+	const notATime = 'yesterday';
 	test.each<[string, string]>([
-		['2026-03-03T20:00:00Z', 'yesterday'],
-		['yesterday', '2026-03-03T20:00:00Z']
+		[time, notATime],
+		[notATime, time]
 	])('throws naming the string that is not a time: %s against %s', (a, b) => {
-		expect(() => compareTimes(a, b)).toThrow(new RangeError('not an RFC 3339 time: "yesterday"'));
+		expect(() => compareTimes(a, b)).toThrow(
+			new RangeError(`not an RFC 3339 time: ${JSON.stringify(notATime)}`)
+		);
 	});
 });
 
