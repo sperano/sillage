@@ -50,9 +50,8 @@ type Collector struct {
 	now func() time.Time
 	// wikiURL matches a URL of the wiki in a comment.
 	wikiURL *regexp.Regexp
-	// origins keeps and recalls the Tasks' origins; nil without an
-	// OriginMemory.
-	origins *originCache
+	// origins keeps and recalls the Tasks' origins; nil without one.
+	origins OriginMemory
 }
 
 // New returns a collector reading src as cfg describes.

@@ -17,7 +17,7 @@
 // the run to the wiki page and the pull request it names, as identifiers.
 // A TaskRecord does not copy annotations: a caller that needs them after
 // the Task's TTL keeps each Task's Origin when it first reads it (Origins)
-// and gives it back for the runs read from a TaskRecord alone (RecordOnly,
+// and gives it back for the runs read from a TaskRecord alone (RecordOnlyRuns,
 // Snapshot.Remembered). No other annotation is read.
 //
 // A Reader lists both resources on every read. A Watcher lists them once,

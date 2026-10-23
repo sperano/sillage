@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -32,34 +31,31 @@ type Option func(*Collector)
 // WithOriginMemory makes every Kelos read keep the Origin of each Task it
 // lists in m, and recall from m the Origin of each run it reads from a
 // TaskRecord alone, so that the run is still joined by its annotations
-// once its Task is gone. Without it, such a run is joined by its labels,
-// branch and name only.
+// once its Task is gone. Without it, or with a nil m, such a run is joined
+// by its labels, branch and name only.
+//
+// Every read keeps every listed Task's Origin again: m keeps the first,
+// so a repeat writes nothing, and an Origin m pruned while its Task was
+// still listed is kept again.
 func WithOriginMemory(m OriginMemory) Option {
-	return func(c *Collector) { c.origins = &originCache{memory: m, kept: make(map[model.RunKey]bool)} }
+	return func(c *Collector) { c.origins = m }
 }
 
-// originCache remembers which origins this process already kept, so that
-// a namespace read once per root does not write them again.
-type originCache struct {
-	memory OriginMemory
-	mu     sync.Mutex
-	kept   map[model.RunKey]bool
-}
-
-// remember keeps the origins of the Tasks snap lists, and returns snap
-// with the origins kept of the runs it reads from a TaskRecord alone.
-func (c *originCache) remember(ctx context.Context, cfg kelos.Config, snap kelos.Snapshot) (kelos.Snapshot, error) {
-	if c == nil {
+// remember keeps the origins of the Tasks snap lists in m, and returns
+// snap with the origins m kept of the runs it reads from a TaskRecord
+// alone. With no m, it returns snap.
+func remember(ctx context.Context, m OriginMemory, cfg kelos.Config, snap kelos.Snapshot) (kelos.Snapshot, error) {
+	if m == nil {
 		return snap, nil
 	}
-	if err := c.keep(ctx, kelos.Origins(cfg, snap)); err != nil {
+	if err := keepOrigins(ctx, m, kelos.Origins(cfg, snap)); err != nil {
 		return kelos.Snapshot{}, fmt.Errorf("keeping the Tasks' origins: %w", err)
 	}
-	gone := kelos.RecordOnly(cfg, snap)
+	gone := kelos.RecordOnlyRuns(cfg, snap)
 	if len(gone) == 0 {
 		return snap, nil
 	}
-	kept, err := c.memory.RecallOrigins(ctx, gone)
+	kept, err := m.RecallOrigins(ctx, gone)
 	if err != nil {
 		return kelos.Snapshot{}, fmt.Errorf("recalling the origins of deleted Tasks: %w", err)
 	}
@@ -74,32 +70,20 @@ func (c *originCache) remember(ctx context.Context, cfg kelos.Config, snap kelos
 	return snap, nil
 }
 
-// keep stores the origins not kept yet, then forgets the runs whose Task
-// the read no longer lists: no later read can keep theirs again.
-func (c *originCache) keep(ctx context.Context, origins map[model.RunKey]kelos.Origin) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	fresh := make(map[model.RunKey][]byte)
+// keepOrigins stores origins in m, as JSON.
+func keepOrigins(ctx context.Context, m OriginMemory, origins map[model.RunKey]kelos.Origin) error {
+	if len(origins) == 0 {
+		return nil
+	}
+	bodies := make(map[model.RunKey][]byte, len(origins))
 	for k, o := range origins {
-		if c.kept[k] {
-			continue
-		}
 		body, err := json.Marshal(o)
 		if err != nil {
 			return err
 		}
-		fresh[k] = body
+		bodies[k] = body
 	}
-	if len(fresh) > 0 {
-		if err := c.memory.KeepOrigins(ctx, fresh); err != nil {
-			return err
-		}
-	}
-	c.kept = make(map[model.RunKey]bool, len(origins))
-	for k := range origins {
-		c.kept[k] = true
-	}
-	return nil
+	return m.KeepOrigins(ctx, bodies)
 }
 
 // originOf returns the Origin of run r, nil when it has none.
@@ -141,20 +125,26 @@ func (a *assembly) requestLinks() {
 // started its Task, and the annotations that name it.
 func requestEvent(o kelos.Origin) (model.Event, []string, bool) {
 	host := strings.ToLower(o.Value(kelos.AnnotationSourceInstance))
-	comment, hasComment := o.ID(kelos.AnnotationComment)
-	names := []string{kelos.AnnotationSource, kelos.AnnotationSourceInstance, kelos.AnnotationComment}
 	if host == "" {
 		return model.Event{}, nil, false
 	}
 	switch o.Value(kelos.AnnotationSource) {
 	case kelos.OriginVikunja:
-		return model.Event{Source: model.SourceVikunja, Instance: host, ID: commentObject(comment)}, names, hasComment
+		return commentRequest(o, model.SourceVikunja, host)
 	case kelos.OriginWiki:
-		return model.Event{Source: model.SourceWiki, Instance: host, ID: commentObject(comment)}, names, hasComment
+		return commentRequest(o, model.SourceWiki, host)
 	case kelos.OriginGitHub:
 		return githubRequest(o, host)
 	}
 	return model.Event{}, nil, false
+}
+
+// commentRequest returns the Vikunja or wiki comment an Origin names: both
+// sources name a comment's event comments/<id>.
+func commentRequest(o kelos.Origin, source model.Source, host string) (model.Event, []string, bool) {
+	id, ok := o.ID(kelos.AnnotationComment)
+	names := []string{kelos.AnnotationSource, kelos.AnnotationSourceInstance, kelos.AnnotationComment}
+	return model.Event{Source: source, Instance: host, ID: commentObject(id)}, names, ok
 }
 
 // githubRequest returns the comment or review a GitHub event's Origin
@@ -178,7 +168,10 @@ func githubRequest(o kelos.Origin, host string) (model.Event, []string, bool) {
 	return model.Event{}, nil, false
 }
 
-// originRepository returns the repository r's Origin names, if any.
+// originRepository returns the repository r's Origin names, if any. It is
+// read whether or not a workspace maps to it: the spawners that create the
+// Tasks name it, and the GitHub token's read scopes bound what any name
+// can reach.
 func (a *assembly) originRepository(r model.Run) (github.Repository, bool) {
 	o := a.originOf(r)
 	if o == nil || o.Value(kelos.AnnotationRepository) == "" {

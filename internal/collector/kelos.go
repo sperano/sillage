@@ -32,14 +32,16 @@ type kelosView struct {
 }
 
 // readKelos reads the namespace, keeping and recalling the Tasks' origins
-// when the collector has an OriginMemory: a failure to do either fails the
-// read. A failed read leaves a.kelos nil.
+// when the collector has an OriginMemory. A failure to do either fails the
+// read: an origin not kept may be lost with its Task, and runs read
+// without their recalled origins would be joined by heuristics the next
+// read contradicts. A failed read leaves a.kelos nil.
 func (a *assembly) readKelos(ctx context.Context) {
 	a.source(model.SourceKelos)
 	at := a.c.now()
 	snap, err := a.c.src.Kelos.Read(ctx)
 	if err == nil {
-		snap, err = a.c.origins.remember(ctx, a.cfg.Kelos, snap)
+		snap, err = remember(ctx, a.c.origins, a.cfg.Kelos, snap)
 	}
 	if err != nil {
 		a.fail(model.SourceKelos, err)

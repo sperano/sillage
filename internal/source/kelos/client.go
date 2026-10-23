@@ -74,7 +74,7 @@ type Snapshot struct {
 	// lists, from which a watch of each resource starts.
 	TasksVersion, RecordsVersion string
 	// Remembered holds, by Task UID, the Origin a caller kept of a Task
-	// this read no longer lists (see Origins and RecordOnly): a TaskRecord
+	// this read no longer lists (see Origins and RecordOnlyRuns): a TaskRecord
 	// does not copy the Task's annotations. A Reader never sets it.
 	Remembered map[types.UID]Origin
 }

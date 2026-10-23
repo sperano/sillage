@@ -1,10 +1,15 @@
 package kelos
 
 import (
+	"math"
 	"strings"
 
 	"github.com/sperano/sillage/internal/model"
 )
+
+// maxPRNumber bounds a pull request number to what model.PRKey's int
+// holds on every platform.
+const maxPRNumber = math.MaxInt32
 
 // taskLink returns the correlation with the Vikunja task the task label
 // names, if any. The task is on the configured Vikunja instance, unless
@@ -80,10 +85,6 @@ func (o Origin) PullRequest() (model.PRKey, bool) {
 	}
 	return model.PRKey{Instance: host, Repository: repo, Number: int(number)}, true
 }
-
-// maxPRNumber bounds a pull request number to what model.PRKey's int
-// holds on every platform.
-const maxPRNumber = 1<<31 - 1
 
 // validRepository reports whether s is owner/name.
 func validRepository(s string) bool {

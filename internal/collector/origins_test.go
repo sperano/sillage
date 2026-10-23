@@ -168,9 +168,9 @@ func TestRecordOnlyRunJoinedByAKeptOrigin(t *testing.T) {
 	}
 }
 
-// Every listed Task's Origin is kept once per process; a Task read again
-// is not written again.
-func TestOriginsKeptOnFirstSight(t *testing.T) {
+// Every read keeps every listed Task's Origin; the memory keeps the
+// first.
+func TestEveryReadKeepsTheListedOrigins(t *testing.T) {
 	m := newFakeMemory()
 	annotated := annotate(task("pr-followup-widgets-7-c1", "uid-a", "", nil, 1, 2), prOrigin("7"))
 	plain := task("vikunja-widgets-agent-opus-104", "uid-plain", taskBranch(104), taskLabels("104"), 1, 2)
@@ -186,8 +186,8 @@ func TestOriginsKeptOnFirstSight(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if len(m.keeps) != 1 || len(m.keeps[0]) != 1 {
-		t.Fatalf("keeps = %v, want one write of the annotated Task's origin", m.keeps)
+	if len(m.keeps) != 2 || len(m.keeps[0]) != 1 || len(m.keeps[1]) != 1 {
+		t.Fatalf("keeps = %v, want each read to keep the annotated Task's origin only", m.keeps)
 	}
 	var o kelos.Origin
 	if err := json.Unmarshal(m.kept[runKeyOf("uid-a")], &o); err != nil {
@@ -198,6 +198,20 @@ func TestOriginsKeptOnFirstSight(t *testing.T) {
 	}
 	if len(m.recalled) != 0 {
 		t.Errorf("recalled %v, but every run was read with its Task", m.recalled)
+	}
+}
+
+// A nil memory keeps nothing and fails nothing.
+func TestNilOriginMemory(t *testing.T) {
+	src := emptySources()
+	src.Kelos = fixedKelos{kelos.Snapshot{Records: []kelos.TaskRecord{record("pr-followup-widgets-7-c2", "uid-gone", nil, 1, 2)}}}
+	c, err := New(testConfig(), src, WithOriginMemory(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := c.Collect(t.Context(), taskRoot(1))
+	if err != nil || len(res.Failures) != 0 {
+		t.Errorf("Collect = %v, %v; want no failure", res.Failures, err)
 	}
 }
 

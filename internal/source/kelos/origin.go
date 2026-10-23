@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -130,11 +131,15 @@ func (c Config) originOf(t *Task, at time.Time) (Origin, bool) {
 }
 
 // correlationAnnotations returns the correlation annotations among
-// annotations, by name after the domain; empty values are left out.
+// annotations, by name after the domain. Empty values are left out, and so
+// are values holding a control character: the spawners set ids and names
+// only, and a NUL would make every write of the Origin fail (PostgreSQL's
+// jsonb refuses it).
 func (c Config) correlationAnnotations(annotations map[string]string) map[string]string {
 	out := make(map[string]string)
 	for _, name := range correlationAnnotations {
-		if v := strings.TrimSpace(annotations[c.label(name)]); v != "" {
+		v := strings.TrimSpace(annotations[c.label(name)])
+		if v != "" && !strings.ContainsFunc(v, unicode.IsControl) {
 			out[name] = v
 		}
 	}
@@ -161,16 +166,20 @@ func Origins(cfg Config, s Snapshot) map[model.RunKey]Origin {
 	out := make(map[model.RunKey]Origin)
 	for i := range s.Tasks {
 		t := &s.Tasks[i]
-		if o, ok := cfg.originOf(t, s.ObservedAt); ok && t.UID != "" {
+		if t.UID == "" {
+			continue
+		}
+		if o, ok := cfg.originOf(t, s.ObservedAt); ok {
 			out[cfg.runKey(t.UID)] = o
 		}
 	}
 	return out
 }
 
-// RecordOnly returns the key of each run of s read from its TaskRecord
-// alone, in key order: those whose Origin a reader may have kept.
-func RecordOnly(cfg Config, s Snapshot) []model.RunKey {
+// RecordOnlyRuns returns the key of each run of s read from its
+// TaskRecord alone, in key order: those whose Origin a reader may have
+// kept.
+func RecordOnlyRuns(cfg Config, s Snapshot) []model.RunKey {
 	listed := make(map[types.UID]bool, len(s.Tasks))
 	for _, t := range s.Tasks {
 		listed[t.UID] = true
