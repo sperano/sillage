@@ -215,3 +215,26 @@ func TestModelSources(t *testing.T) {
 		})
 	}
 }
+
+// A Task deleted before it finished says nothing of how it ended: the
+// outcome and end are unknown, even with a completion time, and the
+// evidence says the fields are its last observed values.
+func TestBuildDeletedUnfinishedTask(t *testing.T) {
+	for _, phase := range []Phase{PhasePending, PhaseWaiting, PhaseRunning, ""} {
+		task, err := decode[Task](*taskObj(taskA, uidA, "5", phase, testStart, testEnd))
+		if err != nil {
+			t.Fatal(err)
+		}
+		a := &attempt{uid: uidA, task: &task, deleted: &Deletion{At: testEnd, Seen: true}}
+		run, _ := testConfig().build(a)
+		if run.Outcome != model.OutcomeUnknown || run.Interval.End.State != model.BoundUnknown {
+			t.Errorf("phase %q: outcome %s, end %s, want both unknown", phase, run.Outcome, run.Interval.End.State)
+		}
+		if note := run.Evidence[0].Note; !strings.Contains(note, deletedSeenNote+"2026-03-15T10:45:00Z"+lastValuesNote) {
+			t.Errorf("phase %q: note %q does not say when the Task was deleted", phase, note)
+		}
+		if err := run.Validate(); err != nil {
+			t.Errorf("phase %q: %v", phase, err)
+		}
+	}
+}
