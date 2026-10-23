@@ -1,6 +1,10 @@
 // The JSON of internal/model's Story, as the API serves it and the golden
 // stories under testdata/fixtures/stories hold it. Times are RFC 3339
 // strings in UTC. An optional field is absent, never null.
+//
+// The string unions are the values this build knows. The API can send a
+// value added to the Go model after this build, so code that names a value
+// in words falls back to the value itself rather than trusting the union.
 
 export type Source = 'vikunja' | 'kelos' | 'github' | 'wiki';
 
@@ -37,13 +41,10 @@ export interface PageKey {
 	locale: string;
 }
 
-/** Exactly one of uid and pod is set. */
-export interface RunKey {
-	cluster: string;
-	namespace: string;
-	uid?: string;
-	pod?: string;
-}
+/** A Task UID, or, when no Kelos object of the run was read, its pod. */
+export type RunKey = { cluster: string; namespace: string } & (
+	{ uid: string; pod?: undefined } | { pod: string; uid?: undefined }
+);
 
 export interface PRKey {
 	instance: string;
@@ -51,11 +52,7 @@ export interface PRKey {
 	number: number;
 }
 
-/** Exactly one of task and page is set. */
-export interface Root {
-	task?: TaskKey;
-	page?: PageKey;
-}
+export type Root = { task: TaskKey; page?: undefined } | { page: PageKey; task?: undefined };
 
 /** A polling observation has kind unknown and no login. */
 export interface Account {
@@ -98,13 +95,8 @@ export interface Event {
 	evidence: Evidence;
 }
 
-export type BoundState = 'known' | 'unknown' | 'open';
-
-/** at is set exactly when state is known. Only an end can be open. */
-export interface Bound {
-	state: BoundState;
-	at?: string;
-}
+/** Only an end can be open. */
+export type Bound = { state: 'known'; at: string } | { state: 'unknown' | 'open'; at?: undefined };
 
 export interface Interval {
 	start: Bound;

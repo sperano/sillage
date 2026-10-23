@@ -12,9 +12,9 @@ export function pageKeyString(k: PageKey): string {
 }
 
 export function runKeyString(k: RunKey): string {
-	return k.uid
+	return k.uid !== undefined
 		? `${k.cluster}/${k.namespace}/uid/${k.uid}`
-		: `${k.cluster}/${k.namespace}/pod/${k.pod ?? ''}`;
+		: `${k.cluster}/${k.namespace}/pod/${k.pod}`;
 }
 
 export function prKeyString(k: PRKey): string {

@@ -42,7 +42,7 @@
 	);
 </script>
 
-<h3>{runLabel(run)}</h3>
+<h3 tabindex="-1">{runLabel(run)}</h3>
 <dl>
 	<dt>Run</dt>
 	<dd>
@@ -84,7 +84,7 @@
 		{/if}
 	</dd>
 </dl>
-<p class="note">
+<p>
 	Times are the Kubernetes API server's and the Kelos controller's lifecycle times, not a measure of
 	the agent's work.
 </p>

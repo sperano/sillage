@@ -4,7 +4,7 @@
 	import Time from './Time.svelte';
 
 	// An interval's ends as the sources recorded them, and its duration only
-	// when both are known.
+	// when both are known: dt and dd pairs, for use inside a dl.
 
 	let { interval, timeZone }: { interval: Interval; timeZone: string } = $props();
 
@@ -23,7 +23,7 @@
 </script>
 
 {#snippet bound(b: Bound)}
-	{#if b.state === 'known' && b.at}
+	{#if b.state === 'known'}
 		<Time at={b.at} {timeZone} />
 	{:else if b.state === 'open'}
 		open: not ended at the last successful read

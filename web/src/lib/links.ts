@@ -5,10 +5,8 @@ import { pageKeyString, runKeyString } from './keys';
 // instances are web hosts; a Kelos instance is a cluster name, so its
 // console's URL comes from configuration.
 
-const SCHEME = 'https://';
-
 export interface LinkConfig {
-	/** The Kelos console's base URL per cluster name, without a trailing slash. */
+	/** The Kelos console's base URL per cluster name. */
 	kelosConsoles?: Readonly<Record<string, string>>;
 }
 
@@ -26,16 +24,58 @@ function idAfter(id: string, prefix: string): string | undefined {
 	return /^[0-9]+$/.test(rest) ? rest : undefined;
 }
 
-export function taskURL(k: TaskKey): string {
-	return `${SCHEME}${k.instance}/tasks/${k.id}`;
+/**
+ * The URL under base of the path segments, each encoded (a segment's own
+ * slashes, as in owner/name or a wiki path, separate segments), with an
+ * optional query and fragment; undefined when base is not a URL.
+ */
+function under(
+	base: string,
+	segments: readonly (string | number)[],
+	extra: { query?: Readonly<Record<string, string>>; hash?: string } = {}
+): string | undefined {
+	let url: URL;
+	try {
+		url = new URL(base);
+	} catch {
+		return undefined;
+	}
+	const parts = segments.flatMap((s) => String(s).split('/')).map(encodeURIComponent);
+	url.pathname = [url.pathname.replace(/\/+$/, ''), ...parts].join('/');
+	url.search = new URLSearchParams(extra.query).toString();
+	url.hash = extra.hash ?? '';
+	return url.href;
 }
 
-export function prURL(k: PRKey): string {
-	return `${SCHEME}${k.instance}/${k.repository}/pull/${k.number}`;
+/** The https origin of a source instance, which is its host; undefined if it is not one. */
+function origin(host: string): string | undefined {
+	try {
+		const url = new URL(`https://${host}`);
+		return url.host === host.toLowerCase() && url.pathname === '/' ? url.origin : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
-export function checkURL(pr: PullRequest, check: CheckRun): string {
-	return `${SCHEME}${pr.key.instance}/${pr.key.repository}/runs/${check.id}`;
+function onHost(
+	host: string,
+	segments: readonly (string | number)[],
+	extra?: { query?: Readonly<Record<string, string>>; hash?: string }
+): string | undefined {
+	const base = origin(host);
+	return base && under(base, segments, extra);
+}
+
+export function taskURL(k: TaskKey, hash?: string): string | undefined {
+	return onHost(k.instance, ['tasks', k.id], { hash });
+}
+
+export function prURL(k: PRKey, hash?: string): string | undefined {
+	return onHost(k.instance, [k.repository, 'pull', k.number], { hash });
+}
+
+export function checkURL(pr: PullRequest, check: CheckRun): string | undefined {
+	return onHost(pr.key.instance, [pr.key.repository, 'runs', check.id]);
 }
 
 /**
@@ -59,11 +99,14 @@ export function pagePath(story: Story, page: PageKey): string | undefined {
 }
 
 /** The page's URL: by path when known, else Wiki.js's redirect by id. */
-export function pageURL(story: Story, page: PageKey): string {
+export function pageURL(story: Story, page: PageKey, hash?: string): string | undefined {
 	const path = pagePath(story, page);
-	return path
-		? `${SCHEME}${page.instance}/${page.locale}/${path}`
-		: `${SCHEME}${page.instance}/i/${page.id}`;
+	return onHost(page.instance, path ? [page.locale, path] : ['i', page.id], { hash });
+}
+
+/** A link, or none when its URL could not be built. */
+function link(href: string | undefined, label: string): SourceLink | undefined {
+	return href === undefined ? undefined : { href, label };
 }
 
 function vikunjaLink(e: Event): SourceLink | undefined {
@@ -73,8 +116,8 @@ function vikunjaLink(e: Event): SourceLink | undefined {
 	}
 	const comment = idAfter(e.id, 'comments/');
 	return comment
-		? { href: `${taskURL(task)}#comment-${comment}`, label: `Vikunja comment ${comment}` }
-		: { href: taskURL(task), label: `Vikunja task ${task.id}` };
+		? link(taskURL(task, `comment-${comment}`), `Vikunja comment ${comment}`)
+		: link(taskURL(task), `Vikunja task ${task.id}`);
 }
 
 /** GitHub's anchor for each kind of record the GitHub source reads. */
@@ -93,10 +136,10 @@ function githubLink(e: Event): SourceLink | undefined {
 	for (const [prefix, anchor, label] of githubAnchors) {
 		const id = idAfter(e.id, prefix);
 		if (id) {
-			return { href: `${prURL(pr)}#${anchor}${id}`, label: `${label} ${id}` };
+			return link(prURL(pr, `${anchor}${id}`), `${label} ${id}`);
 		}
 	}
-	return { href: prURL(pr), label: `${pr.repository}#${pr.number}` };
+	return link(prURL(pr), `${pr.repository}#${pr.number}`);
 }
 
 function wikiLink(story: Story, e: Event): SourceLink | undefined {
@@ -106,21 +149,18 @@ function wikiLink(story: Story, e: Event): SourceLink | undefined {
 	}
 	const comment = idAfter(e.id, 'comments/');
 	if (comment) {
-		return {
-			href: `${pageURL(story, page)}#comment-post-id-${comment}`,
-			label: `wiki comment ${comment}`
-		};
+		return link(pageURL(story, page, `comment-post-id-${comment}`), `wiki comment ${comment}`);
 	}
 	const version = idAfter(e.id, `pages/${page.id}/versions/`);
 	const path = pagePath(story, page);
 	if (version && path) {
-		return {
-			href: `${SCHEME}${page.instance}/s/${page.locale}/${path}?v=${version}`,
-			label: `wiki page version ${version}`
-		};
+		return link(
+			onHost(page.instance, ['s', page.locale, path], { query: { v: version } }),
+			`wiki page version ${version}`
+		);
 	}
 	const live = e.kind === 'page.edited' && e.details?.version === 'live';
-	return { href: pageURL(story, page), label: live ? 'wiki page, live version' : 'wiki page' };
+	return link(pageURL(story, page), live ? 'wiki page, live version' : 'wiki page');
 }
 
 /**
@@ -132,10 +172,10 @@ export function runLink(run: Run, config: LinkConfig): SourceLink | undefined {
 	if (!base || !run.taskName) {
 		return undefined;
 	}
-	return {
-		href: `${base}/api/resources/tasks/${run.key.namespace}/${run.taskName}/logs`,
-		label: `Kelos console: Task ${run.taskName}`
-	};
+	return link(
+		under(base, ['api', 'resources', 'tasks', run.key.namespace, run.taskName, 'logs']),
+		`Kelos console: Task ${run.taskName}`
+	);
 }
 
 /** The source record behind the event, when its keys locate one. */

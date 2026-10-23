@@ -1,6 +1,6 @@
 import type { CheckRun, Event, PullRequest, Run, Story } from './model';
 import { eventKey, prKeyString, runKeyString } from './keys';
-import { intervalAnchor } from './time';
+import { intervalAnchor, parseTime } from './time';
 
 /**
  * What can be selected on the timeline: an event, a run or a check. Events
@@ -72,11 +72,14 @@ export function timelineItems(story: Story): TimelineItem[] {
 	return items.sort(byTime);
 }
 
+/** Unplaced items, and any whose time does not parse, sort last. */
 function byTime(a: TimelineItem, b: TimelineItem): number {
-	if (a.time === undefined || b.time === undefined) {
-		return Number(a.time === undefined) - Number(b.time === undefined);
+	const at = a.time === undefined ? undefined : parseTime(a.time);
+	const bt = b.time === undefined ? undefined : parseTime(b.time);
+	if (at === undefined || bt === undefined) {
+		return Number(at === undefined) - Number(bt === undefined);
 	}
-	return Date.parse(a.time) - Date.parse(b.time);
+	return at - bt;
 }
 
 export function findItem(items: readonly TimelineItem[], ref: ItemRef): TimelineItem | undefined {

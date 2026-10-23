@@ -6,8 +6,9 @@ import { Selection } from '../selection.svelte';
 import { goldenStory } from '../testing/stories';
 import { timelineItems } from '../timeline';
 import type { Story } from '../model';
+import type { LinkConfig } from '../links';
 
-function show(story: Story, links = {}) {
+function show(story: Story, links: LinkConfig = {}) {
 	render(EventList, {
 		story,
 		items: timelineItems(story),
@@ -53,12 +54,9 @@ test('each row links its source record; runs need a configured console', async (
 	await expect
 		.element(row('Run announced').first().getByRole('link'))
 		.toHaveAttribute('href', 'https://vikunja.example.com/tasks/104#comment-5401');
-	expect(
-		row(/^.*Run vikunja-widgets-agent-opus-104 \(/)
-			.first()
-			.getByRole('link')
-			.elements()
-	).toEqual([]);
+	await expect
+		.element(row('Run vikunja-widgets-agent-opus-104 (implementation): failed').getByRole('link'))
+		.not.toBeInTheDocument();
 
 	cleanup();
 	show(story, { kelosConsoles: { 'cluster-a': 'https://kelos.example.com' } });

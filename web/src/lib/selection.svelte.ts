@@ -6,10 +6,15 @@ import { sameItem, type ItemRef } from './timeline';
  * selects in all.
  */
 export class Selection {
-	current = $state<ItemRef | undefined>();
+	// A ref is replaced, never changed in place: no deep proxy.
+	#current = $state.raw<ItemRef | undefined>();
+
+	get current(): ItemRef | undefined {
+		return this.#current;
+	}
 
 	select(ref: ItemRef | undefined): void {
-		this.current = ref;
+		this.#current = ref;
 	}
 
 	isSelected(ref: ItemRef): boolean {

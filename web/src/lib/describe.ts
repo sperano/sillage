@@ -12,9 +12,13 @@ import type {
 } from './model';
 import { eventKey, pageKeyString, prKeyString, runKeyString, taskKeyString } from './keys';
 import { pagePath } from './links';
+import { named } from './named';
 import type { TimelineItem } from './timeline';
 
 // Plain words for records: what the event list and the detail panel say.
+
+/** How many characters of a commit's SHA identify it in a label. */
+const SHORT_SHA = 7;
 
 type Details = Readonly<Record<string, string>>;
 
@@ -34,7 +38,7 @@ const eventLabels: Record<EventKind, (d: Details) => string> = {
 	'page.moved': (d) => (d.to ? `Page moved to ${d.to}` : 'Page moved'),
 	'comment.created': () => 'Comment',
 	'request.created': (d) =>
-		`Request ${d.command ?? ''}${d.agent ? ` for ${d.agent}` : ''}`.replace(/\s+$/, ''),
+		`Request ${d.command ?? ''}${d.agent ? ` for ${d.agent}` : ''}`.trimEnd(),
 	'run.announced': (d) => (d.taskName ? `Run announced: ${d.taskName}` : 'Run announced'),
 	'pr.opened': () => 'Pull request opened',
 	'pr.review_requested': (d) => `Review requested from ${d.reviewer ?? d.team ?? '(unnamed)'}`,
@@ -47,9 +51,8 @@ const eventLabels: Record<EventKind, (d: Details) => string> = {
 };
 
 export function eventLabel(e: Event): string {
-	// A kind added to the model after this build is shown as it is named.
-	const label = Object.hasOwn(eventLabels, e.kind) ? eventLabels[e.kind] : undefined;
-	return label ? label(e.details ?? {}) : e.kind;
+	const label = named(eventLabels, e.kind);
+	return typeof label === 'function' ? label(e.details ?? {}) : label;
 }
 
 const roleLabels: Record<RunRole, string> = {
@@ -64,7 +67,7 @@ const roleLabels: Record<RunRole, string> = {
 };
 
 export function roleLabel(role: RunRole): string {
-	return roleLabels[role] ?? role;
+	return named(roleLabels, role);
 }
 
 const outcomeLabels: Record<Outcome, string> = {
@@ -76,7 +79,7 @@ const outcomeLabels: Record<Outcome, string> = {
 };
 
 export function outcomeLabel(outcome: Outcome): string {
-	return outcomeLabels[outcome] ?? outcome;
+	return named(outcomeLabels, outcome);
 }
 
 export function runName(run: Run): string {
@@ -86,9 +89,6 @@ export function runName(run: Run): string {
 export function runLabel(run: Run): string {
 	return `Run ${runName(run)} (${roleLabel(run.role)}): ${outcomeLabel(run.outcome)}`;
 }
-
-/** How many characters of a commit's SHA identify it in a label. */
-const SHORT_SHA = 7;
 
 export function checkLabel(pr: PullRequest, c: CheckRun): string {
 	return `Check ${c.name} on ${c.sha.slice(0, SHORT_SHA)} (${pr.key.repository}#${pr.key.number}): ${c.conclusion}`;

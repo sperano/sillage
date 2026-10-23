@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import type { Ref, Story } from '../model';
 	import type { Selection } from '../selection.svelte';
 	import { findItem, type TimelineItem } from '../timeline';
@@ -15,6 +16,21 @@
 
 	const links = $derived(linksOf(story, subject));
 
+	/**
+	 * Selects the record and moves the focus to the heading of its detail,
+	 * since the detail that held the button is replaced.
+	 */
+	async function choose(event: MouseEvent, item: TimelineItem) {
+		const panel = (event.currentTarget as HTMLElement).closest('section');
+		selection.select(item.ref);
+		await tick();
+		panel?.querySelector<HTMLElement>('h3')?.focus();
+	}
+
+	function refKey(r: Ref): string {
+		return `${r.kind}:${r.id}`;
+	}
+
 	function selectable(ref: Ref): TimelineItem | undefined {
 		return ref.kind === 'event' || ref.kind === 'run'
 			? findItem(items, { kind: ref.kind, id: ref.id })
@@ -25,7 +41,7 @@
 {#snippet other(ref: Ref)}
 	{@const item = selectable(ref)}
 	{#if item}
-		<button type="button" class="link" onclick={() => selection.select(item.ref)}
+		<button type="button" class="link" onclick={(e) => choose(e, item)}
 			>{refLabel(story, ref)}</button
 		>
 	{:else}
@@ -38,7 +54,7 @@
 	<p>None: no other record is linked to this one.</p>
 {:else}
 	<ul class="correlations">
-		{#each links as l, i (i)}
+		{#each links as l (`${refKey(l.correlation.from)} ${refKey(l.correlation.to)}`)}
 			<li>
 				{@render other(l.other)}
 				<span class="confidence" data-confidence={l.correlation.confidence}>
@@ -52,7 +68,7 @@
 					<div class="ambiguous">
 						Ambiguous: {l.candidates.length} candidates fit the evidence, none was chosen:
 						<ul>
-							{#each l.candidates as c (c.kind + c.id)}
+							{#each l.candidates as c (refKey(c))}
 								<li>{@render other(c)}</li>
 							{/each}
 						</ul>

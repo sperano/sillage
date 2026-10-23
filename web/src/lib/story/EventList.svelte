@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { Story } from '../model';
 	import type { Selection } from '../selection.svelte';
 	import type { TimelineItem } from '../timeline';
 	import { eventLink, runLink, checkURL, type LinkConfig, type SourceLink } from '../links';
 	import { accountLabel, itemLabel } from '../describe';
-	import { attributionUncertain } from '../attribution';
+	import { uncertainAttributions } from '../attribution';
+	import { eventKey } from '../keys';
 	import ItemTime from './ItemTime.svelte';
 
 	let {
@@ -21,50 +23,61 @@
 		timeZone: string;
 	} = $props();
 
-	let buttons: HTMLButtonElement[] = $state([]);
+	// bind:this sets an entry to null when its row goes.
+	const buttons: (HTMLButtonElement | null)[] = $state([]);
 
 	const selectedIndex = $derived(items.findIndex((i) => selection.isSelected(i.ref)));
 	// The one row Tab reaches: the selected one, else the first.
 	const tabIndex = $derived(Math.max(selectedIndex, 0));
+	const uncertain = $derived(uncertainAttributions(story));
 
-	// A selection made elsewhere (the graph) brings its row into view
-	// without taking the focus.
+	// A new selection, made here or elsewhere (the graph), brings its row
+	// into view without taking the focus; rows binding again do not.
 	$effect(() => {
-		buttons[selectedIndex]?.scrollIntoView({ block: 'nearest' });
+		const index = selectedIndex;
+		untrack(() => buttons[index]?.scrollIntoView({ block: 'nearest' }));
 	});
 
-	function link(item: TimelineItem): SourceLink | undefined {
+	function sourceOf(item: TimelineItem): SourceLink | undefined {
 		switch (item.kind) {
 			case 'event':
 				return eventLink(story, item.event, links);
 			case 'run':
 				return runLink(item.run, links);
-			case 'check':
-				return { href: checkURL(item.pr, item.check), label: `GitHub check ${item.check.id}` };
+			case 'check': {
+				const href = checkURL(item.pr, item.check);
+				return href === undefined ? undefined : { href, label: `GitHub check ${item.check.id}` };
+			}
 		}
 	}
 
-	function moveTo(index: number) {
-		const item = items[index];
-		if (!item) {
-			return;
+	/** The row a key moves the selection to, or undefined for a key the list leaves alone. */
+	function target(event: KeyboardEvent, index: number): number | undefined {
+		if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+			return undefined;
 		}
-		selection.select(item.ref);
-		buttons[index]?.focus();
+		switch (event.key) {
+			case 'ArrowDown':
+				return Math.min(index + 1, items.length - 1);
+			case 'ArrowUp':
+				return Math.max(index - 1, 0);
+			case 'Home':
+				return 0;
+			case 'End':
+				return items.length - 1;
+		}
+		return undefined;
 	}
 
 	function onkeydown(event: KeyboardEvent, index: number) {
-		const target = {
-			ArrowDown: index + 1,
-			ArrowUp: index - 1,
-			Home: 0,
-			End: items.length - 1
-		}[event.key];
-		if (target === undefined) {
+		const to = target(event, index);
+		const item = to === undefined ? undefined : items[to];
+		if (to === undefined || !item) {
 			return;
 		}
 		event.preventDefault();
-		moveTo(Math.min(Math.max(target, 0), items.length - 1));
+		selection.select(item.ref);
+		buttons[to]?.focus();
 	}
 </script>
 
@@ -76,7 +89,7 @@
 	</p>
 	<ol aria-describedby="event-list-hint">
 		{#each items as item, index (`${item.ref.kind}:${item.ref.id}`)}
-			{@const href = link(item)}
+			{@const source = sourceOf(item)}
 			{@const selected = index === selectedIndex}
 			<li class:selected>
 				<button
@@ -90,7 +103,7 @@
 					<span class="when"><ItemTime {item} {timeZone} /></span>
 					<span class="what">{itemLabel(item)}</span>
 					{#if item.kind === 'event'}
-						{@const uncertain = attributionUncertain(story, item.event)}
+						{@const why = uncertain.get(eventKey(item.event))}
 						<span class="who">
 							{accountLabel(item.event.actor)}
 							{#if item.event.executor}
@@ -98,16 +111,16 @@
 									>executor {item.event.executor.name} ({item.event.executor.kind})</span
 								>
 							{/if}
-							{#if uncertain}
-								<span class="uncertain" title={uncertain}>attribution uncertain</span>
+							{#if why}
+								<span class="uncertain" title={why}>attribution uncertain</span>
 							{/if}
 						</span>
 					{:else if item.kind === 'run' && item.run.agent}
 						<span class="who">agent {item.run.agent}</span>
 					{/if}
 				</button>
-				{#if href}
-					<a class="source" href={href.href} tabindex="-1" rel="noreferrer">{href.label}</a>
+				{#if source}
+					<a class="source" href={source.href} tabindex="-1" rel="noreferrer">{source.label}</a>
 				{/if}
 			</li>
 		{/each}

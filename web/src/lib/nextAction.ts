@@ -29,7 +29,7 @@ function thread(r: Related): string | undefined {
 /** The review requests of one pull request that nothing has answered or withdrawn. */
 function pendingReviews(story: Story, pr: PRKey): NextAction[] {
 	const key = prKeyString(pr);
-	const pending = new Map<string, NextAction & { kind: 'review' }>();
+	const pending = new Map<string, Extract<NextAction, { kind: 'review' }>>();
 	for (const e of story.events) {
 		if (e.source !== 'github' || !e.related.pr || prKeyString(e.related.pr) !== key) {
 			continue;

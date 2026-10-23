@@ -31,7 +31,7 @@
 	const details = $derived(Object.entries(event.details ?? {}));
 </script>
 
-<h3>{eventLabel(event)}</h3>
+<h3 tabindex="-1">{eventLabel(event)}</h3>
 <dl>
 	<dt>Kind</dt>
 	<dd><code>{event.kind}</code></dd>

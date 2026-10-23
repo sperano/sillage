@@ -1,7 +1,6 @@
 <script lang="ts">
-	import type { Interval } from '../model';
 	import type { TimelineItem } from '../timeline';
-	import { knownTime } from '../time';
+	import { knownTime, parseTime } from '../time';
 	import Time from './Time.svelte';
 
 	// When an item happened, as the event list shows it: an event's source
@@ -9,27 +8,9 @@
 	// known bound.
 
 	let { item, timeZone }: { item: TimelineItem; timeZone: string } = $props();
-
-	function interval(i: TimelineItem): Interval | undefined {
-		return i.kind === 'run' ? i.run.interval : i.kind === 'check' ? i.check.interval : undefined;
-	}
-
-	const span = $derived(interval(item));
 </script>
 
-{#if item.kind === 'event'}
-	{@const e = item.event}
-	{#if e.sourceTime}
-		<Time at={e.sourceTime} {timeZone} />
-		{#if Date.parse(e.sourceTime) !== Date.parse(e.observedAt)}
-			· observed <Time at={e.observedAt} {timeZone} />
-		{/if}
-	{:else}
-		seen <Time at={e.observedAt} {timeZone} /> (no source time)
-	{/if}
-{:else if span}
-	{@const start = knownTime(span.start)}
-	{@const end = knownTime(span.end)}
+{#snippet bounds(start: string | undefined, end: string | undefined)}
 	{#if start}
 		started <Time at={start} {timeZone} />
 	{:else if end}
@@ -37,4 +18,20 @@
 	{:else}
 		start and end unknown
 	{/if}
+{/snippet}
+
+{#if item.kind === 'event'}
+	{@const e = item.event}
+	{#if e.sourceTime}
+		<Time at={e.sourceTime} {timeZone} />
+		{#if parseTime(e.sourceTime) !== parseTime(e.observedAt)}
+			· observed <Time at={e.observedAt} {timeZone} />
+		{/if}
+	{:else}
+		seen <Time at={e.observedAt} {timeZone} /> (no source time)
+	{/if}
+{:else if item.kind === 'run'}
+	{@render bounds(knownTime(item.run.interval.start), knownTime(item.run.interval.end))}
+{:else}
+	{@render bounds(knownTime(item.check.interval.start), knownTime(item.check.interval.end))}
 {/if}

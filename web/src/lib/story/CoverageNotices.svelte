@@ -22,13 +22,13 @@
 				{/if}
 				{#if c.gaps?.length || c.notes?.length}
 					<ul>
-						{#each c.gaps ?? [] as g (g.start)}
+						{#each c.gaps ?? [] as g, i (i)}
 							<li class="gap">
 								Unknown from <Time at={g.start} {timeZone} /> to <Time at={g.end} {timeZone} />:
 								{g.reason}
 							</li>
 						{/each}
-						{#each c.notes ?? [] as note (note)}
+						{#each c.notes ?? [] as note, i (i)}
 							<li class="note">{note}</li>
 						{/each}
 					</ul>

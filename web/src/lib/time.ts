@@ -32,13 +32,30 @@ function formatter(timeZone: string): Intl.DateTimeFormat {
 	return f;
 }
 
-/** The time to the second, in timeZone, with the zone's name: "2026-03-04 15:01:10 UTC". */
+/** The time in milliseconds, or undefined for a string that is not one. */
+export function parseTime(iso: string): number | undefined {
+	const ms = Date.parse(iso);
+	return Number.isNaN(ms) ? undefined : ms;
+}
+
+/**
+ * The time to the second, in timeZone, with the zone's name: "2026-03-04
+ * 15:01:10 UTC". A string that is not a time is shown as it is, and an
+ * unknown zone falls back to the default, so that one bad value cannot
+ * blank the page.
+ */
 export function formatTime(iso: string, timeZone: string = DEFAULT_TIME_ZONE): string {
-	const parts = Object.fromEntries(
-		formatter(timeZone)
-			.formatToParts(new Date(iso))
-			.map((p) => [p.type, p.value])
-	);
+	const ms = parseTime(iso);
+	if (ms === undefined) {
+		return iso;
+	}
+	let f: Intl.DateTimeFormat;
+	try {
+		f = formatter(timeZone);
+	} catch {
+		f = formatter(DEFAULT_TIME_ZONE);
+	}
+	const parts = Object.fromEntries(f.formatToParts(ms).map((p) => [p.type, p.value]));
 	return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second} ${parts.timeZoneName}`;
 }
 
@@ -57,7 +74,9 @@ export function intervalDuration(i: Interval): number | undefined {
 	if (start === undefined || end === undefined) {
 		return undefined;
 	}
-	return Date.parse(end) - Date.parse(start);
+	const startMs = parseTime(start);
+	const endMs = parseTime(end);
+	return startMs === undefined || endMs === undefined ? undefined : endMs - startMs;
 }
 
 /** The interval's first known bound: its start, else its end. */

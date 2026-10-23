@@ -46,6 +46,20 @@ describe('wiki-rooted-request', () => {
 		);
 	});
 
+	test('path segments are encoded; a host that is not one links nothing', () => {
+		const odd = structuredClone(story);
+		const created = odd.events.find((e) => e.kind === 'page.created');
+		if (!created) throw new Error('no page.created');
+		created.details = { path: 'widgets/a page?#1' };
+		expect(linkOf(odd, 'pages/57/versions/121')?.href).toBe(
+			'https://wiki.example.com/s/en/widgets/a%20page%3F%231?v=121'
+		);
+		for (const e of odd.events) {
+			if (e.related.page) e.related.page = { ...e.related.page, instance: 'user@wiki.example.com' };
+		}
+		expect(linkOf(odd, 'comments/880')).toBeUndefined();
+	});
+
 	test('a page no event names the path of is linked by id', () => {
 		const pathless = structuredClone(story);
 		pathless.events = pathless.events.filter((e) => e.kind !== 'page.created');
@@ -94,6 +108,15 @@ describe('Kelos console', () => {
 			href: 'https://kelos.example.com/api/resources/tasks/agents/vikunja-widgets-agent-opus-104/logs',
 			label: 'Kelos console: Task vikunja-widgets-agent-opus-104'
 		});
+	});
+
+	test('a console under a path prefix keeps it', () => {
+		expect(
+			runLink(run, { kelosConsoles: { 'cluster-a': 'https://ops.example.com/kelos/' } })?.href
+		).toBe(
+			'https://ops.example.com/kelos/api/resources/tasks/agents/vikunja-widgets-agent-opus-104/logs'
+		);
+		expect(runLink(run, { kelosConsoles: { 'cluster-a': 'not a url' } })).toBeUndefined();
 	});
 
 	test('links nothing without a configured console', () => {

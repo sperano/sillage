@@ -1,3 +1,4 @@
+import { named } from './named';
 import type { Source, Story } from './model';
 
 export interface SourceInstance {
@@ -40,5 +41,5 @@ const sourceNames: Record<Source, string> = {
 };
 
 export function sourceName(s: Source): string {
-	return sourceNames[s] ?? s;
+	return named(sourceNames, s);
 }

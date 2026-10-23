@@ -6,6 +6,11 @@ test('formatTime shows the second and the zone', () => {
 	expect(formatTime('2026-03-04T15:01:10Z', 'America/Toronto')).toBe('2026-03-04 10:01:10 EST');
 });
 
+test('a value that is not a time, or an unknown zone, does not throw', () => {
+	expect(formatTime('yesterday')).toBe('yesterday');
+	expect(formatTime('2026-03-04T15:01:10Z', 'Not/A_Zone')).toBe('2026-03-04 15:01:10 UTC');
+});
+
 test('a duration only when both ends are known', () => {
 	const start = { state: 'known' as const, at: '2026-03-05T13:02:35Z' };
 	const end = { state: 'known' as const, at: '2026-03-05T13:09:12Z' };
