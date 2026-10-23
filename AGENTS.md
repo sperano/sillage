@@ -33,6 +33,8 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/api/` | The read-only HTTP API over `store`. |
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
+| `web/src/lib/` | The story types (`model.ts`) and their runtime decoder, the read API client, the routes and the router. |
+| `web/src/pages/`, `web/src/components/` | One component per route, and the parts they share. |
 | `web/placeholder/` | The committed page embedded by default, so Go builds without Node. |
 | `Dockerfile`, `.dockerignore` | The one image: the `webdist` binary on `scratch`, `linux/amd64` and `linux/arm64`. See "The image" below. |
 | `scripts/collect-licenses.sh` | Copies the licenses of what the binary links into the image's `/licenses`. |
@@ -49,6 +51,16 @@ embeds `web/dist/` (the output of `npm run build`) instead. A `webdist` build
 without `web/dist/` fails to compile; it never falls back to the placeholder
 silently. Release builds use `webdist`. `go.mod`'s `ignore ./web/node_modules`
 keeps `./...` out of npm's tree.
+
+### Routes
+
+The frontend routes with the history API, not the hash, so that a link to
+it is a plain URL: `/` (the entry page; `/?q=` a search), `/task/<instance>/<id>`,
+`/page/<instance>/<id>/<locale>`, and `/open?url=<link>`, which resolves a
+Vikunja, Kelos, GitHub or wiki link to its story. The server must answer
+every non-API `GET` path with `index.html` for those deep links to load.
+The API client (`web/src/lib/api.ts`) makes one request per call, never
+retries, and aborts what a navigation leaves behind.
 
 ### The image
 
@@ -121,7 +133,11 @@ and review the generated golden file. The collector must assemble the same
 story from fabricated source responses (`testdata/fixtures/collector/`) and
 keep its invariant; `TestEveryStoryIsAssembled` fails until it does. A
 model change that alters a golden file is a contract change: regenerate,
-read the diff, and say so in the PR.
+read the diff, and say so in the PR. The web tests decode every golden
+story (`web/src/lib/decodeModel.test.ts`, which rejects unknown fields and
+values) and render it (`web/src/pages/StoryPage.svelte.test.ts`), so a
+change to the story JSON also changes `web/src/lib/model.ts` and
+`web/src/lib/decodeModel.ts` in the same PR.
 
 ## Rules
 
