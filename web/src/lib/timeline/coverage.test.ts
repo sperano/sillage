@@ -87,6 +87,13 @@ describe('reasonText', () => {
 		});
 	});
 
+	test('cuts it inside the span when more of it fits there than before it', () => {
+		const long = { ...span(10, 150), reason: 'kelos/c: '.padEnd(60, 'x') };
+		const text = reasonText(long, scale);
+		expect(text).toMatchObject({ x: 110 + REASON_PAD_PX, anchor: 'start' });
+		expect(text!.text.length).toBeGreaterThan(10);
+	});
+
 	test('cuts it inside a narrow span that starts before the window', () => {
 		const text = reasonText(span(-50, width - 10), scale)?.text;
 		expect(text).toMatch(/…$/);

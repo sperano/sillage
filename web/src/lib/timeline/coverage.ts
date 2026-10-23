@@ -60,9 +60,10 @@ export interface ReasonText {
 
 /**
  * Where a span's reason goes: whole, inside the part of the span in the
- * window when it fits there; else cut, before the span when it starts in
- * the window and there is room, else inside its visible part. Undefined for
- * a span outside the window, or with no room for the reason at all.
+ * window when it fits there; else cut, before the span (when it starts in
+ * the window) or inside its visible part, wherever more of it fits, before
+ * it on a tie. Undefined for a span outside the window, or with no room for
+ * the reason at all.
  */
 export function reasonText(u: UnknownSpan, scale: Scale): ReasonText | undefined {
 	const x1 = scale.x(u.start);
@@ -73,8 +74,10 @@ export function reasonText(u: UnknownSpan, scale: Scale): ReasonText | undefined
 	if (fit(visible) === u.reason)
 		return { x: from + REASON_PAD_PX, anchor: 'start', text: u.reason };
 	const before = x1 > scale.left ? fit(x1 - scale.left) : '';
-	if (before) return { x: x1 - REASON_PAD_PX, anchor: 'end', text: before };
 	const inside = fit(visible);
+	if (before && before.length >= inside.length) {
+		return { x: x1 - REASON_PAD_PX, anchor: 'end', text: before };
+	}
 	return inside ? { x: from + REASON_PAD_PX, anchor: 'start', text: inside } : undefined;
 }
 
