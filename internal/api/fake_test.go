@@ -244,7 +244,11 @@ func (f *fakeStore) Activity(_ context.Context, q store.ActivityQuery) ([]store.
 	out := slices.DeleteFunc(all, func(a store.RootActivity) bool {
 		return q.Project != "" && !slices.ContainsFunc(a.Records.Runs, func(r model.Run) bool { return r.Project == q.Project })
 	})
-	if limit := cmp.Or(q.Limit, store.MaxActivityRoots); len(out) > limit {
+	limit := q.Limit
+	if limit <= 0 || limit > store.MaxActivityRoots {
+		limit = store.MaxActivityRoots
+	}
+	if len(out) > limit {
 		return nil, store.ErrTooManyRoots
 	}
 	return out, nil

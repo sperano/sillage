@@ -41,7 +41,8 @@ type Input struct {
 	Records model.Records
 }
 
-// Kinds are the event kinds an overview reads; others are ignored.
+// Kinds are the event kinds an overview reads; others are ignored. Read
+// only: callers pass it on, never change it.
 var Kinds = []model.EventKind{
 	model.KindTaskDone,
 	model.KindRunAnnounced,
@@ -141,11 +142,11 @@ type Mark struct {
 // particular order: Page filters, orders and pages them. An input whose
 // records do not make a valid story is an error.
 func Build(w Window, inputs []Input) ([]Row, error) {
-	var rows []Row
+	rows := []Row{}
 	for _, in := range inputs {
 		story, err := model.BuildStory(in.Root, onlyKinds(in.Records))
 		if err != nil {
-			return nil, fmt.Errorf("overview: %w", err)
+			return nil, fmt.Errorf("overview: %s: %w", rootKey(in.Root), err)
 		}
 		if row, ok := buildRow(w, in.Title, story); ok {
 			rows = append(rows, row)
@@ -154,16 +155,21 @@ func Build(w Window, inputs []Input) ([]Row, error) {
 	return rows, nil
 }
 
+// kindSet holds Kinds.
+var kindSet = func() map[model.EventKind]bool {
+	set := make(map[model.EventKind]bool, len(Kinds))
+	for _, k := range Kinds {
+		set[k] = true
+	}
+	return set
+}()
+
 // onlyKinds keeps the events of Kinds and drops correlations, which the
 // overview does not read.
 func onlyKinds(recs model.Records) model.Records {
-	kinds := make(map[model.EventKind]bool, len(Kinds))
-	for _, k := range Kinds {
-		kinds[k] = true
-	}
 	var events []model.Event
 	for _, e := range recs.Events {
-		if kinds[e.Kind] {
+		if kindSet[e.Kind] {
 			events = append(events, e)
 		}
 	}

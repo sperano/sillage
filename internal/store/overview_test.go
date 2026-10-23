@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -139,4 +140,16 @@ func pageOf(t *testing.T, w overview.Window, inputs []overview.Input) overview.P
 		t.Fatal(err)
 	}
 	return page
+}
+
+// The candidate query names pull request kinds as SQL literals: they must
+// stay the model's.
+func TestActivitySQLKindsAreTheModels(t *testing.T) {
+	for _, k := range []model.EventKind{
+		model.KindPROpened, model.KindPRReopened, model.KindReviewRequested, model.KindPRMerged, model.KindPRClosed,
+	} {
+		if !strings.Contains(activeRootsSQL, "'"+string(k)+"'") {
+			t.Errorf("the candidate query does not name %s", k)
+		}
+	}
 }

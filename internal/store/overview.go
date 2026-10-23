@@ -31,6 +31,7 @@ type ActivityQuery struct {
 	Kinds []model.EventKind
 	// Limit caps the roots read: MaxActivityRoots when zero or negative,
 	// at most MaxActivityRoots. More is ErrTooManyRoots, never a cut list.
+	// The API leaves it at the default; tests lower it.
 	Limit int
 }
 
@@ -114,13 +115,15 @@ func activeRoots(ctx context.Context, tx pgx.Tx, q ActivityQuery, kinds []string
 	var out []RootActivity
 	var id int64
 	var body []byte
-	var a RootActivity
-	_, err = pgx.ForEachRow(rows, []any{&id, &body, &a.Title, &a.LastActivity}, func() error {
-		r := RootActivity{RootSummary: RootSummary{Title: a.Title, LastActivity: utcPointer(a.LastActivity)}}
+	var title string
+	var last *time.Time
+	_, err = pgx.ForEachRow(rows, []any{&id, &body, &title, &last}, func() error {
+		r := RootActivity{RootSummary: RootSummary{Title: title, LastActivity: utcPointer(last)}}
 		if err := json.Unmarshal(body, &r.Root); err != nil {
 			return err
 		}
-		ids, out = append(ids, id), append(out, r)
+		ids = append(ids, id)
+		out = append(out, r)
 		return nil
 	})
 	if err != nil {

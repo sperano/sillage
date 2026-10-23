@@ -139,7 +139,9 @@ func lastActivity(w Window, row Row, announced map[string][]time.Time) time.Time
 	var last time.Time
 	see := func(t time.Time, ok bool) {
 		if ok {
-			last = later(last, t)
+			if t.After(last) {
+				last = t
+			}
 		}
 	}
 	for _, r := range row.Runs {

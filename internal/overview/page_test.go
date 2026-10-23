@@ -1,9 +1,12 @@
 package overview
 
 import (
+	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestFilters(t *testing.T) {
@@ -23,9 +26,11 @@ func TestFilters(t *testing.T) {
 		{"all must match", Filter{Executor: "agent-cedar", ReviewRequested: true}, []int64{taskA}},
 		{"no match", Filter{Project: "unknown-project"}, []int64{}},
 	} {
-		if got := taskIDs(buildAll(t, afternoon, c.filter)); !slices.Equal(got, c.want) {
-			t.Errorf("%s: rows = %v, want %v", c.name, got, c.want)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			if got := taskIDs(buildAll(t, afternoon, c.filter)); !slices.Equal(got, c.want) {
+				t.Errorf("rows = %v, want %v", got, c.want)
+			}
+		})
 	}
 }
 
@@ -63,5 +68,34 @@ func TestPaginateRejectsForeignCursor(t *testing.T) {
 		if _, err := Paginate(afternoon, rows, Filter{}, cursor, 1); !errors.Is(err, ErrCursor) {
 			t.Errorf("cursor %q: error %v, want ErrCursor", cursor, err)
 		}
+	}
+}
+
+func TestPaginateRejectsEmptyPage(t *testing.T) {
+	for _, limit := range []int{0, -1} {
+		if _, err := Paginate(afternoon, nil, Filter{}, "", limit); !errors.Is(err, ErrLimit) {
+			t.Errorf("limit %d: error %v, want ErrLimit", limit, err)
+		}
+	}
+}
+
+// A window with no row is an empty list, never null: the web decoder
+// requires a list.
+func TestEmptyWindowIsAnEmptyList(t *testing.T) {
+	night := Window{From: afternoon.From.Add(-12 * time.Hour), To: afternoon.From.Add(-11 * time.Hour)}
+	rows, err := Build(night, loadInputs(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := Paginate(night, rows, Filter{}, "", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(page)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"rows":[]`) {
+		t.Errorf("page = %s, want an empty rows list", data)
 	}
 }

@@ -33,7 +33,7 @@ func pullRequest(w Window, pr model.PullRequest, events []model.Event) (PullRequ
 // before it ends a period whose start is unknown; an opening with neither
 // after it is open at the last read.
 func periods(events []model.Event) []model.Interval {
-	var out []model.Interval
+	out := []model.Interval{}
 	var current *model.Interval
 	for _, e := range events {
 		switch e.Kind {
@@ -101,29 +101,29 @@ func reviewWaits(w Window, pr model.PRKey, events []model.Event) []ReviewWait {
 	return out
 }
 
-func waitInterval(request model.Event, later []model.Event) model.Interval {
+func waitInterval(request model.Event, after []model.Event) model.Interval {
 	start := model.KnownAt(request.Time())
-	for _, e := range later {
+	for _, e := range after {
 		if answers(request, e) {
 			return model.Interval{Start: start, End: model.KnownAt(e.Time())}
 		}
 	}
-	if closedAfter(later) {
+	if closedAfter(after) {
 		return model.Interval{Start: start, End: model.UnknownBound()}
 	}
 	return model.Interval{Start: start, End: model.OpenEnd()}
 }
 
-// answers reports whether later answers request: the requested reviewer's
-// own review, or the removal of the same request. A team's request ends
-// only at its removal.
-func answers(request, later model.Event) bool {
-	switch later.Kind {
+// answers reports whether e answers request: the requested reviewer's own
+// review, or the removal of the same request. A team's request ends only
+// at its removal.
+func answers(request, e model.Event) bool {
+	switch e.Kind {
 	case model.KindReviewRequestRemoved:
-		return requestee(later) == requestee(request)
+		return requestee(e) == requestee(request)
 	case model.KindReviewSubmitted:
 		reviewer := request.Details["reviewer"]
-		return reviewer != "" && later.Actor.Login == reviewer
+		return reviewer != "" && e.Actor.Login == reviewer
 	}
 	return false
 }

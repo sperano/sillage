@@ -62,11 +62,3 @@ func runAnchor(r model.Run) (time.Time, bool) {
 	}
 	return ext.End.Time()
 }
-
-// later returns the later of a and b.
-func later(a, b time.Time) time.Time {
-	if b.After(a) {
-		return b
-	}
-	return a
-}

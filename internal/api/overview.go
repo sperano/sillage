@@ -80,7 +80,10 @@ func (a *api) overviewPage(r *http.Request) (any, error) {
 	if errors.Is(err, overview.ErrCursor) {
 		return nil, badRequest("%s is not a cursor this API gave", paramAfter)
 	}
-	return page, err
+	if err != nil {
+		return nil, err
+	}
+	return page, nil
 }
 
 // parseOverview reads and bounds an overview request's parameters.
@@ -101,13 +104,19 @@ func (a *api) parseOverview(v url.Values) (overviewQuery, error) {
 		q.limit = n
 	}
 	f := &q.filter
-	for name, dst := range map[string]*string{paramProject: &f.Project, paramTask: &f.Task, paramExecutor: &f.Executor} {
-		if *dst, err = textParam(v, name); err != nil {
+	for _, p := range []struct {
+		name string
+		dst  *string
+	}{{paramProject, &f.Project}, {paramTask, &f.Task}, {paramExecutor, &f.Executor}} {
+		if *p.dst, err = textParam(v, p.name); err != nil {
 			return q, err
 		}
 	}
-	for name, dst := range map[string]*bool{paramReview: &f.ReviewRequested, paramFailed: &f.FailedRun, paramMissing: &f.MissingHistory} {
-		if *dst, err = flagParam(v, name); err != nil {
+	for _, p := range []struct {
+		name string
+		dst  *bool
+	}{{paramReview, &f.ReviewRequested}, {paramFailed, &f.FailedRun}, {paramMissing, &f.MissingHistory}} {
+		if *p.dst, err = flagParam(v, p.name); err != nil {
 			return q, err
 		}
 	}

@@ -48,11 +48,13 @@ func matchesText(row Row, text string) bool {
 }
 
 // rowKey is the row's root key: "vikunja.example.com/tasks/12".
-func rowKey(row Row) string {
-	if row.Root.Task != nil {
-		return row.Root.Task.String()
+func rowKey(row Row) string { return rootKey(row.Root) }
+
+func rootKey(root model.Root) string {
+	if root.Task != nil {
+		return root.Task.String()
 	}
-	return row.Root.Page.String()
+	return root.Page.String()
 }
 
 // Page is one page of an overview's rows.
@@ -61,12 +63,18 @@ type Page struct {
 	Rows   []Row  `json:"rows"`
 	// Total is how many rows match, on every page.
 	Total int `json:"total"`
-	// Next is the cursor of the next page, empty on the last one.
+	// Next is the cursor of the next page, empty on the last one. It
+	// names a place in the order, not the query: a client asks for the
+	// next page with the same filters and this page's Window, or the
+	// window's end, now by default, moves.
 	Next string `json:"next,omitempty"`
 }
 
 // ErrCursor is returned for a cursor Paginate did not make.
 var ErrCursor = errors.New("overview: not a cursor of this API")
+
+// ErrLimit is returned for a page size below one.
+var ErrLimit = errors.New("overview: a page holds at least one row")
 
 // cursor is where a page ends: its last row's order.
 type cursor struct {
@@ -78,7 +86,10 @@ type cursor struct {
 // root key: at most limit of them, after the row the cursor after names
 // (from the first when empty).
 func Paginate(w Window, rows []Row, f Filter, after string, limit int) (Page, error) {
-	matched := slices.DeleteFunc(slices.Clone(rows), func(r Row) bool { return !f.Match(r) })
+	if limit < 1 {
+		return Page{}, ErrLimit
+	}
+	matched := slices.DeleteFunc(append([]Row{}, rows...), func(r Row) bool { return !f.Match(r) })
 	slices.SortFunc(matched, compareRows)
 	start := 0
 	if after != "" {

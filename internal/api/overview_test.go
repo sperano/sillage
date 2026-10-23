@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -78,24 +79,22 @@ func TestOverviewFilters(t *testing.T) {
 	h := New(Config{Store: newFakeStore(t)})
 	for _, c := range []struct {
 		params map[string]string
-		want   string
+		want   []int64
 	}{
-		{map[string]string{"project": "gadgets"}, "[203]"},
-		{map[string]string{"task": " route "}, "[204]"},
-		{map[string]string{"executor": "agent-cedar"}, "[201 203]"},
-		{map[string]string{"review": "true"}, "[201 202]"},
-		{map[string]string{"failed": "true", "review": "false"}, "[203]"},
-		{map[string]string{"missing": "true"}, "[205]"},
+		{map[string]string{"project": "gadgets"}, []int64{203}},
+		{map[string]string{"task": " route "}, []int64{204}},
+		{map[string]string{"executor": "agent-cedar"}, []int64{201, 203}},
+		{map[string]string{"review": "true"}, []int64{201, 202}},
+		{map[string]string{"failed": "true", "review": "false"}, []int64{203}},
+		{map[string]string{"missing": "true"}, []int64{205}},
 	} {
-		if got := pageTasks(getPage(t, h, afternoonPath(c.params))); formatIDs(got) != c.want {
-			t.Errorf("%v: rows %v, want %s", c.params, got, c.want)
-		}
+		path := afternoonPath(c.params)
+		t.Run(path, func(t *testing.T) {
+			if got := pageTasks(getPage(t, h, path)); !slices.Equal(got, c.want) {
+				t.Errorf("rows %v, want %v", got, c.want)
+			}
+		})
 	}
-}
-
-func formatIDs(ids []int64) string {
-	b, _ := json.Marshal(ids)
-	return strings.ReplaceAll(string(b), ",", " ")
 }
 
 // A client following next sees every row once.
@@ -114,8 +113,8 @@ func TestOverviewPages(t *testing.T) {
 		}
 		params["after"] = page.Next
 	}
-	if got := formatIDs(seen); got != "[201 202 203 204 206 205]" {
-		t.Errorf("pages = %s", got)
+	if want := []int64{201, 202, 203, 204, 206, 205}; !slices.Equal(seen, want) {
+		t.Errorf("pages = %v, want %v", seen, want)
 	}
 }
 
