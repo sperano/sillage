@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'vitest';
 import { story } from '../testing/builders';
 import { golden } from '../testing/goldens';
-import { REASON_PAD_PX, reasonText, storySources, unknownSpans } from './coverage';
+import {
+	REASON_PAD_PX,
+	reasonTexts,
+	storySources,
+	unknownSpans,
+	type ReasonText,
+	type UnknownSpan
+} from './coverage';
 import { SMALL_CHAR_PX } from './layout';
 import { scaleOf } from './view';
 
@@ -58,7 +65,7 @@ test('lists covered sources and those rows read', () => {
 	]);
 });
 
-describe('reasonText', () => {
+describe('reasonTexts', () => {
 	const MINUTE = 60_000;
 	const T0 = DOMAIN.start;
 	// One pixel per minute, the plot from 100 to 300.
@@ -70,9 +77,11 @@ describe('reasonText', () => {
 		end: T0 + to * MINUTE,
 		reason
 	});
+	const one = (u: UnknownSpan) => reasonTexts([u], scale)[0];
+	const left = (t: ReasonText) => t.x - t.text.length * SMALL_CHAR_PX;
 
 	test('writes the reason inside the visible part of a span it fits in', () => {
-		expect(reasonText(span(-50, 150), scale)).toEqual({
+		expect(one(span(-50, 150))).toEqual({
 			x: 100 + REASON_PAD_PX,
 			anchor: 'start',
 			text: reason
@@ -80,7 +89,7 @@ describe('reasonText', () => {
 	});
 
 	test('writes it before a narrow span that starts in the window', () => {
-		expect(reasonText(span(150, 151), scale)).toEqual({
+		expect(one(span(150, 151))).toEqual({
 			x: 250 - REASON_PAD_PX,
 			anchor: 'end',
 			text: reason
@@ -89,18 +98,39 @@ describe('reasonText', () => {
 
 	test('cuts it inside the span when more of it fits there than before it', () => {
 		const long = { ...span(30, 150), reason: 'kelos/c: '.padEnd(60, 'x') };
-		const text = reasonText(long, scale);
-		expect(text).toMatchObject({ x: 130 + REASON_PAD_PX, anchor: 'start' });
-		expect(text!.text.length).toBeGreaterThan(10);
+		const chars = Math.floor((120 - 2 * REASON_PAD_PX) / SMALL_CHAR_PX);
+		expect(one(long)).toEqual({
+			x: 130 + REASON_PAD_PX,
+			anchor: 'start',
+			text: `${long.reason.slice(0, chars - 1)}…`
+		});
 	});
 
 	test('cuts it inside a narrow span that starts before the window', () => {
-		const text = reasonText(span(-50, width - 10), scale)?.text;
-		expect(text).toMatch(/…$/);
+		expect(one(span(-50, width - 10))?.text).toMatch(/…$/);
 	});
 
 	test('writes nothing for a span outside the window', () => {
-		expect(reasonText(span(250, 260), scale)).toBeUndefined();
-		expect(reasonText(span(-60, -50), scale)).toBeUndefined();
+		expect(one(span(250, 260))).toBeUndefined();
+		expect(one(span(-60, -50))).toBeUndefined();
+	});
+
+	test('cuts a reason before a narrow span short of the earlier span', () => {
+		const [first, second] = reasonTexts([span(0, 90), span(130, 131)], scale);
+		const chars = Math.floor((230 - 190 - 2 * REASON_PAD_PX) / SMALL_CHAR_PX);
+		expect(first).toMatchObject({ x: 100 + REASON_PAD_PX, text: reason });
+		expect(second).toEqual({
+			x: 230 - REASON_PAD_PX,
+			anchor: 'end',
+			text: `${reason.slice(0, chars - 1)}…`
+		});
+		expect(left(second!)).toBeGreaterThanOrEqual(190 + REASON_PAD_PX);
+	});
+
+	test('starts a reason after the one an overlapping span wrote, in the spans’ order', () => {
+		const [later, earlier] = reasonTexts([span(20, 200), span(0, 150)], scale);
+		expect(earlier).toMatchObject({ x: 100 + REASON_PAD_PX, text: reason });
+		expect(later).toMatchObject({ anchor: 'start', text: reason });
+		expect(later!.x).toBeCloseTo(100 + width);
 	});
 });

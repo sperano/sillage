@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SOURCE_ROW_PX, type SourceBand } from './chart';
-	import { reasonText } from './coverage';
+	import { reasonTexts } from './coverage';
 	import { fitText, SMALL_CHAR_PX, TITLE_X_PX } from './layout';
 	import type { Scale } from './view';
 
@@ -14,6 +14,8 @@
 	let { band, scale, ids }: Props = $props();
 
 	const INSET_PX = 3;
+
+	const reasons = $derived(reasonTexts(band.unknown, scale));
 </script>
 
 <!-- One source: shaded wherever its records are unknown, with the reason. -->
@@ -25,7 +27,7 @@
 		{#each band.unknown as u, i (i)}
 			{@const x1 = scale.x(u.start)}
 			{@const width = Math.max(scale.x(u.end) - x1, 0)}
-			{@const reason = reasonText(u, scale)}
+			{@const reason = reasons[i]}
 			<g data-unknown role="img" aria-label={u.reason}>
 				<title>{u.reason}</title>
 				<rect
@@ -35,7 +37,7 @@
 					height={SOURCE_ROW_PX - 2 * INSET_PX}
 					style:fill="url(#{ids}-hatch)"
 				/>
-				<!-- Written in the span, before it, or not at all: see reasonText. -->
+				<!-- Written in the span, before it, or not at all: see reasonTexts. -->
 				{#if reason}
 					<text
 						class="reason"

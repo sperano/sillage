@@ -58,27 +58,56 @@ export interface ReasonText {
 	text: string;
 }
 
+/** How far right a band is taken by the spans and the reasons placed so far. */
+interface Taken {
+	spanEnd: number;
+	textEnd: number;
+}
+
 /**
- * Where a span's reason goes: whole, inside the part of the span in the
- * window when it fits there; else cut, before the span (when it starts in
- * the window) or inside its visible part, wherever more of it fits, before
- * it on a tie. Undefined for a span outside the window, or with no room for
- * the reason at all.
+ * Where each of a band's span reasons goes, in the spans' order: placed
+ * left to right, so that no reason overlaps another, and none written
+ * before its span lies over an earlier span.
  */
-export function reasonText(u: UnknownSpan, scale: Scale): ReasonText | undefined {
+export function reasonTexts(spans: UnknownSpan[], scale: Scale): (ReasonText | undefined)[] {
+	const texts = new Array<ReasonText | undefined>(spans.length);
+	const taken: Taken = { spanEnd: scale.left, textEnd: scale.left };
+	const order = spans.map((_, i) => i).sort((a, b) => spans[a]!.start - spans[b]!.start);
+	for (const i of order) {
+		const u = spans[i]!;
+		const text = reasonText(u, scale, taken);
+		texts[i] = text;
+		if (text) taken.textEnd = Math.max(taken.textEnd, textEnd(text));
+		taken.spanEnd = Math.max(taken.spanEnd, scale.x(u.end));
+	}
+	return texts;
+}
+
+/**
+ * Where a span's reason goes: whole, inside the free part of the span in
+ * the window when it fits there; else cut, before the span (when it starts
+ * after every earlier span ends) or inside its free part, wherever more of
+ * it fits, before it on a tie. Undefined for a span outside the window, or
+ * with no room for the reason at all.
+ */
+function reasonText(u: UnknownSpan, scale: Scale, taken: Taken): ReasonText | undefined {
 	const x1 = scale.x(u.start);
-	const from = Math.max(x1, scale.left);
-	const visible = Math.min(scale.x(u.end), scale.right) - from;
-	if (visible <= 0) return undefined;
+	const from = Math.max(x1, taken.textEnd);
+	const free = Math.min(scale.x(u.end), scale.right) - from;
+	if (free <= 0) return undefined;
 	const fit = (width: number) => fitText(u.reason, width - 2 * REASON_PAD_PX, SMALL_CHAR_PX);
-	if (fit(visible) === u.reason)
-		return { x: from + REASON_PAD_PX, anchor: 'start', text: u.reason };
-	const before = x1 > scale.left ? fit(x1 - scale.left) : '';
-	const inside = fit(visible);
+	const inside = fit(free);
+	if (inside === u.reason) return { x: from + REASON_PAD_PX, anchor: 'start', text: inside };
+	const before = fit(x1 - taken.spanEnd);
 	if (before && before.length >= inside.length) {
 		return { x: x1 - REASON_PAD_PX, anchor: 'end', text: before };
 	}
 	return inside ? { x: from + REASON_PAD_PX, anchor: 'start', text: inside } : undefined;
+}
+
+/** The right edge of a reason as written. */
+function textEnd(t: ReasonText): number {
+	return t.anchor === 'end' ? t.x : t.x + t.text.length * SMALL_CHAR_PX;
 }
 
 /** Every source the story's coverage names, and every other one a row reads. */
