@@ -11,9 +11,10 @@ export interface Link {
 	 * two or more records, none chosen: the records of one kind one record
 	 * is ambiguously linked to, from it (an edit two runs could have made)
 	 * or, on the same evidence, to it (two runs an announcement could be
-	 * from, each linked to the task). Empty when the other candidates are
-	 * not in the story: the collector drops a correlation whose other end
-	 * is outside it. A list, so that a later rule can yield several sets.
+	 * from, each linked to the task). Empty when no other candidate is
+	 * linked ambiguously: stronger evidence (a Task label) can have made a
+	 * sibling's link certain. A list, so that a later rule can yield
+	 * several sets.
 	 */
 	candidateSets: Ref[][];
 }

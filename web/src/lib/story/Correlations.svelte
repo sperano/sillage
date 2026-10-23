@@ -74,7 +74,8 @@
 								{/each}
 							</ul>
 						{:else}
-							Ambiguous: one of several candidates, none chosen; the others are not in this story.
+							Ambiguous: one of several candidates, none chosen; no other candidate is linked
+							ambiguously in this story (one may be linked by stronger evidence).
 						{/each}
 					</div>
 				{/if}
