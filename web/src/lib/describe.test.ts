@@ -54,5 +54,6 @@ test('check conclusions are named in words, an unknown one as it is', () => {
 	expect(conclusionLabel('timed_out')).toBe('timed out');
 	expect(conclusionLabel('action_required')).toBe('action required');
 	expect(conclusionLabel('success')).toBe('succeeded');
+	// A conclusion the Go model gained after this build, which the union cannot name.
 	expect(conclusionLabel('later_value' as CheckConclusion)).toBe('later_value');
 });

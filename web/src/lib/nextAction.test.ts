@@ -157,20 +157,32 @@ describe('agent requests', () => {
 		return s;
 	}
 
-	test.each(['vikunja-fu-widgets-104-c5499', 'vikunja-fu-widgets-104-c5499-retry1'])(
-		'an announcement whose Task name %s names the request answers it',
+	test.each([
+		'vikunja-fu-widgets-104-c5499',
+		'vikunja-fu-widgets-104-c5499-retry1',
+		'wiki-fu-widgets-57-c5499',
+		'pr-followup-widgets-7-r5499',
+		'pr-followup-widgets-7-l5499-retry2'
+	])('an announcement whose Task name %s names the request answers it', (name) => {
+		const s = announcedAs(name);
+		s.events.push(request('2026-03-05T14:00:00Z'));
+		expect(nextActions(s)).toEqual([]);
+	});
+
+	test.each(['vikunja-fu-widgets-104-c5500', 'pr-followup-widgets-7-c54990'])(
+		'an announcement whose Task name %s names another request leaves it waiting',
 		(name) => {
 			const s = announcedAs(name);
-			s.events.push(request('2026-03-05T14:00:00Z'));
-			expect(nextActions(s)).toEqual([]);
+			const r = request('2026-03-05T14:00:00Z');
+			s.events.push(r);
+			expect(nextActions(s)).toEqual([{ kind: 'agent', request: r }]);
 		}
 	);
 
-	test('an announcement whose Task name names another request leaves it waiting', () => {
-		const s = announcedAs('vikunja-fu-widgets-104-c5500');
-		const r = request('2026-03-05T14:00:00Z');
-		s.events.push(r);
-		expect(nextActions(s)).toEqual([{ kind: 'agent', request: r }]);
+	test('an announcement whose Task name names no request answers an earlier one', () => {
+		const s = announcedAs('vikunja-widgets-agent-opus-104');
+		s.events.push(request('2026-03-05T14:00:00Z'));
+		expect(nextActions(s)).toEqual([]);
 	});
 
 	test('a request a correlation links to a run is answered', () => {

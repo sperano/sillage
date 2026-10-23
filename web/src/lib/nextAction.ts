@@ -63,6 +63,7 @@ function pendingReviews(story: Story, pr: PRKey): NextAction[] {
 				break;
 			case 'pr.merged':
 				pending.clear();
+				closed = true;
 				break;
 			case 'pr.closed':
 				closed = true;
@@ -89,7 +90,12 @@ function answeredID(announcement: Event): string | undefined {
 	return answeringName.exec(announcement.details?.taskName ?? '')?.[1];
 }
 
-/** The request's own id: the number its event id ends in ("issues/comments/5" → "5"). */
+/**
+ * The request's own id: the number its event id ends in ("issues/comments/5"
+ * → "5"). The Task name's letter, which says what kind of record it names,
+ * is not compared: a comment and a review of the same number on one pull
+ * request would be taken for each other, which only hides a request.
+ */
 function requestID(request: Event): string | undefined {
 	return /\/([0-9]+)$/.exec(request.id)?.[1];
 }
@@ -108,8 +114,8 @@ function mayAnswer(announcement: Event, request: Event): boolean {
 	if (eventTime(announcement) < eventTime(request)) {
 		return false;
 	}
-	const named = answeredID(announcement);
-	return named === undefined || named === requestID(request);
+	const answeredRequestID = answeredID(announcement);
+	return answeredRequestID === undefined || answeredRequestID === requestID(request);
 }
 
 /** Whether a run is linked to the request, or an announcement may be its answer. */

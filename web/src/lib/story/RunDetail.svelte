@@ -27,6 +27,8 @@
 	} = $props();
 
 	const consoleLink = $derived(runLink(run, links));
+	const USAGE_SEPARATOR = ' · ';
+
 	/** The reported usage's values, with a separator only between them. */
 	const usage = $derived.by(() => {
 		const u = run.usage;
@@ -34,7 +36,7 @@
 		if (u?.costUSD) parts.push(`US$${u.costUSD}`);
 		if (u?.inputTokens !== undefined) parts.push(`${u.inputTokens} input tokens`);
 		if (u?.outputTokens !== undefined) parts.push(`${u.outputTokens} output tokens`);
-		return parts.join(' · ');
+		return parts.join(USAGE_SEPARATOR);
 	});
 	const fields = $derived(
 		(

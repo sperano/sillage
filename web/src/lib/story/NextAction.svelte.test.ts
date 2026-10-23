@@ -58,8 +58,9 @@ test('a request seen by polling is not given the poll as its time', async () => 
 	const request = story.events.find((e) => e.kind === 'request.created');
 	if (!request) throw new Error('no request');
 	delete request.sourceTime;
+	request.observedAt = '2026-03-04T15:02:00Z';
 	render(NextAction, { story, timeZone: 'UTC' });
 	await expect
 		.element(region())
-		.toHaveTextContent(/by owner \(seen 2026-03-04 \d\d:\d\d:\d\d UTC, no source time\)/);
+		.toHaveTextContent('by owner (seen 2026-03-04 15:02:00 UTC, no source time)');
 });
