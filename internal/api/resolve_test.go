@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -87,6 +88,7 @@ func TestResolveNotFound(t *testing.T) {
 		"https://wiki.example.com/en/widgets/missing",
 		"https://wiki.example.com/ai/notes",
 		"https://wiki.example.org/en/widgets/reports/caching",
+		"https://wiki.example.com/en/vikunja-widgets-agent-opus-104",
 		"vikunja-widgets-agent-opus-1",
 		"other/vikunja-widgets-agent-opus-104",
 		"https://example.com/",
@@ -130,4 +132,23 @@ func TestResolveWikiListingFails(t *testing.T) {
 	if strings.Contains(p.Detail, "wiki down") {
 		t.Errorf("detail %q quotes the wiki's error", p.Detail)
 	}
+}
+
+// TestResolveWikiPathTriesEveryReading falls back to the default-locale
+// reading of a path when the page its first reading names has no story.
+func TestResolveWikiPathTriesEveryReading(t *testing.T) {
+	pages := []wiki.Page{{ID: 60, Locale: "fr", Path: "notes"}, {ID: 57, Locale: "en", Path: "fr/notes"}}
+	h := New(Config{Store: newFakeStore(t), Wiki: fakeWiki{pages: pages}, WikiInstance: testWikiInstance})
+	var got ResolveResponse
+	decode(t, get(t, h, resolvePath("https://wiki.example.com/fr/notes")), &got)
+	if len(got.Roots) != 1 || got.Roots[0].Title != "wiki-rooted-request" {
+		t.Errorf("roots = %+v, want page 57's", got.Roots)
+	}
+}
+
+func TestResolveWikiListingTimesOut(t *testing.T) {
+	h := New(Config{Store: newFakeStore(t), Wiki: fakeWiki{err: context.DeadlineExceeded},
+		WikiInstance: testWikiInstance})
+	wantProblem(t, get(t, h, resolvePath("https://wiki.example.com/en/widgets/reports/caching")),
+		http.StatusServiceUnavailable)
 }

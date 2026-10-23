@@ -30,7 +30,8 @@ const (
 	DefaultTimeout = 30 * time.Second
 	// DefaultMaxResponseBytes bounds a response's body when
 	// Config.MaxResponseBytes is zero.
-	DefaultMaxResponseBytes = 16 << 20
+	DefaultMaxResponseBytes = 16 * mebibyte
+	mebibyte                = 1 << 20
 )
 
 // PageLister lists a wiki's pages with their locale and path: the wiki
@@ -96,7 +97,7 @@ func (a *api) handle(mux *http.ServeMux, pattern string, e endpoint) {
 		defer cancel()
 		body, err := e(r.WithContext(ctx))
 		if err != nil {
-			a.writeProblem(w, r, err)
+			writeProblem(w, r, err)
 			return
 		}
 		a.writeJSON(w, r, body)

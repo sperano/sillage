@@ -69,10 +69,11 @@ func (s *Store) Root(ctx context.Context, root model.Root) (RootSummary, error) 
 }
 
 // PageRoots returns the stored roots of wiki page id at instance, in every
-// locale, most recently active first.
+// locale, most recently active first, at most MaxSearchLimit.
 func (s *Store) PageRoots(ctx context.Context, instance string, id int64) ([]RootSummary, error) {
 	found, err := s.summaries(ctx, "SELECT "+rootColumns+` FROM roots o
-		WHERE o.kind = 'page' AND o.instance = $1 AND o.source_id = $2 `+rootOrder, instance, id)
+		WHERE o.kind = 'page' AND o.instance = $1 AND o.source_id = $2 `+rootOrder+" LIMIT $3",
+		instance, id, MaxSearchLimit)
 	if err != nil {
 		return nil, fmt.Errorf("store: roots of page %s/%d: %w", instance, id, err)
 	}
@@ -80,14 +81,13 @@ func (s *Store) PageRoots(ctx context.Context, instance string, id int64) ([]Roo
 }
 
 // RootsOfPullRequest returns the roots whose stories hold the pull
-// request, most recently active first. The repository matches in any
-// case, as GitHub's do.
+// request, most recently active first, at most MaxSearchLimit. The
+// repository matches in any case, as GitHub's do.
 func (s *Store) RootsOfPullRequest(ctx context.Context, key model.PRKey) ([]RootSummary, error) {
-	found, err := s.summaries(ctx, "SELECT DISTINCT "+rootColumns+`, o.ref FROM roots o
-		JOIN root_pull_requests m ON m.root_id = o.id
-		JOIN pull_requests p ON p.id = m.pull_request_id
-		WHERE p.instance = $1 AND lower(p.repository) = lower($2) AND p.number = $3 `+rootOrder,
-		key.Instance, key.Repository, key.Number)
+	found, err := s.summaries(ctx, "SELECT "+rootColumns+` FROM roots o
+		WHERE EXISTS (SELECT 1 FROM root_pull_requests m JOIN pull_requests p ON p.id = m.pull_request_id
+			WHERE m.root_id = o.id AND p.instance = $1 AND lower(p.repository) = lower($2) AND p.number = $3)
+		`+rootOrder+" LIMIT $4", key.Instance, key.Repository, key.Number, MaxSearchLimit)
 	if err != nil {
 		return nil, fmt.Errorf("store: roots of %s: %w", key, err)
 	}
@@ -95,16 +95,19 @@ func (s *Store) RootsOfPullRequest(ctx context.Context, key model.PRKey) ([]Root
 }
 
 // RootsOfRuns returns the roots whose stories hold a run q names, most
-// recently active first.
+// recently active first, at most MaxSearchLimit. A name is matched in the
+// runs' stored bodies, which no index covers: resolve is rare and runs
+// few next to events.
 func (s *Store) RootsOfRuns(ctx context.Context, q RunQuery) ([]RootSummary, error) {
 	if err := q.validate(); err != nil {
 		return nil, err
 	}
-	found, err := s.summaries(ctx, "SELECT DISTINCT "+rootColumns+`, o.ref FROM roots o
-		JOIN root_runs m ON m.root_id = o.id
-		JOIN runs r ON r.id = m.run_id
-		WHERE (($1 <> '' AND r.uid = $1) OR ($2 <> '' AND r.body->>'taskName' = $2))
-			AND ($3 = '' OR r.namespace = $3) `+rootOrder, q.UID, q.Name, q.Namespace)
+	found, err := s.summaries(ctx, "SELECT "+rootColumns+` FROM roots o
+		WHERE EXISTS (SELECT 1 FROM root_runs m JOIN runs r ON r.id = m.run_id
+			WHERE m.root_id = o.id
+				AND (($1 <> '' AND r.uid = $1) OR ($2 <> '' AND r.body->>'taskName' = $2))
+				AND ($3 = '' OR r.namespace = $3))
+		`+rootOrder+" LIMIT $4", q.UID, q.Name, q.Namespace, MaxSearchLimit)
 	if err != nil {
 		return nil, fmt.Errorf("store: roots of runs: %w", err)
 	}
@@ -133,7 +136,7 @@ func (s *Store) Freshness(ctx context.Context) ([]SourceFreshness, error) {
 	return out, nil
 }
 
-// summaries runs a query whose first columns are rootColumns.
+// summaries runs a query that selects rootColumns.
 func (s *Store) summaries(ctx context.Context, sql string, args ...any) ([]RootSummary, error) {
 	rows, err := s.pool.Query(ctx, sql, args...)
 	if err != nil {
@@ -142,18 +145,12 @@ func (s *Store) summaries(ctx context.Context, sql string, args ...any) ([]RootS
 	return collectSummaries(rows)
 }
 
-// collectSummaries reads rows whose first columns are rootColumns; any
-// further column (the ref a DISTINCT query must select to order by it) is
-// skipped.
+// collectSummaries reads rows of rootColumns.
 func collectSummaries(rows pgx.Rows) ([]RootSummary, error) {
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (RootSummary, error) {
 		var r RootSummary
 		var body []byte
-		dest := []any{&body, &r.Title, &r.LastActivity}
-		for range len(row.FieldDescriptions()) - len(dest) {
-			dest = append(dest, nil)
-		}
-		if err := row.Scan(dest...); err != nil {
+		if err := row.Scan(&body, &r.Title, &r.LastActivity); err != nil {
 			return r, err
 		}
 		r.LastActivity = utcPointer(r.LastActivity)

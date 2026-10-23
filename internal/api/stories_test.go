@@ -73,6 +73,7 @@ func TestStoryBadRequest(t *testing.T) {
 		"/api/v1/stories/task/vikunja.example.com/abc",
 		"/api/v1/stories/task/vikunja.example.com/0",
 		"/api/v1/stories/task/vikunja.example.com/-1",
+		"/api/v1/stories/task/vikunja.example.com/+101",
 		"/api/v1/stories/task/vikunja.example.com/99999999999999999999",
 		"/api/v1/stories/task/" + strings.Repeat("a", maxInstance+1) + "/101",
 		"/api/v1/stories/page/wiki.example.com/57/english",

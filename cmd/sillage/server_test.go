@@ -72,7 +72,6 @@ func TestFrontendDeepLinks(t *testing.T) {
 		{"/page/wiki.example.com/57/en", testIndex},
 		{"/open?url=https%3A%2F%2Fvikunja.example.com%2Ftasks%2F101", testIndex},
 		{"/assets/", testIndex},
-		{"/assets/missing.js", testIndex},
 		{"/assets/app-1.js", testScript},
 	}
 	for _, tt := range tests {
@@ -80,6 +79,18 @@ func TestFrontendDeepLinks(t *testing.T) {
 		testHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tt.path, nil))
 		if rec.Code != http.StatusOK || rec.Body.String() != tt.want {
 			t.Errorf("GET %s = %d %q, want 200 %q", tt.path, rec.Code, rec.Body.String(), tt.want)
+		}
+	}
+}
+
+// TestFrontendMissingFile answers 404 for a missing file, which HTML
+// would replace with the wrong type.
+func TestFrontendMissingFile(t *testing.T) {
+	for _, path := range []string{"/assets/app-0.js", "/favicon.ico"} {
+		rec := httptest.NewRecorder()
+		testHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("GET %s: status = %d, want %d", path, rec.Code, http.StatusNotFound)
 		}
 	}
 }

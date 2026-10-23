@@ -91,9 +91,10 @@ func (a *api) resolve(r *http.Request) (any, error) {
 }
 
 // lookups are the readings of raw, in the order they are tried, and
-// whether raw is a link: an http or https URL by its host and path, then
-// its last path segment as a Kelos Task (the console has no documented
-// deep link); anything else as a Kelos Task reference.
+// whether raw is a link: an http or https URL by its host and path, or,
+// when its path is none of a Vikunja task, a pull request or a wiki page,
+// by its last segment as a Kelos Task (the console has no documented deep
+// link); anything else as a Kelos Task reference.
 func (a *api) lookups(raw string) ([]lookup, bool) {
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
@@ -104,8 +105,8 @@ func (a *api) lookups(raw string) ([]lookup, bool) {
 	for _, host := range hostsOf(u) {
 		out = append(out, a.urlLookups(host, raw, parts)...)
 	}
-	if len(parts) > 0 {
-		out = append(out, a.kelosLookups(parts[len(parts)-1])...)
+	if len(out) == 0 && len(parts) > 0 {
+		out = a.kelosLookups(parts[len(parts)-1])
 	}
 	return out, true
 }
@@ -167,10 +168,14 @@ func (a *api) rootLookup(kind LinkKind, root model.Root) lookup {
 	}}
 }
 
-// pageByPath finds the page a link by path names in the wiki's listing,
-// as written, then as a default-locale path, and returns its stored root.
+// pageByPath finds the pages a link by path may name in the wiki's
+// listing, as written, then as a default-locale path, and returns the
+// first one's stored root.
 func (a *api) pageByPath(ctx context.Context, host string, link wiki.Link) ([]store.RootSummary, error) {
 	pages, err := a.cfg.Wiki.Pages(ctx)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return nil, err
+	}
 	if err != nil {
 		slog.Error("api: listing the wiki's pages failed", "error", err)
 		return nil, problem(http.StatusBadGateway, "listing the wiki's pages, to find the page by its path, failed")
@@ -181,7 +186,10 @@ func (a *api) pageByPath(ctx context.Context, host string, link wiki.Link) ([]st
 			continue
 		}
 		key := model.PageKey{Instance: host, ID: pages[i].ID, Locale: pages[i].Locale}
-		return a.rootLookup(LinkWikiPage, model.Root{Page: &key}).find(ctx)
+		found, err := a.rootLookup(LinkWikiPage, model.Root{Page: &key}).find(ctx)
+		if err != nil || len(found) > 0 {
+			return found, err
+		}
 	}
 	return nil, nil
 }
@@ -210,8 +218,12 @@ func (a *api) kelosLookups(ref string) []lookup {
 	return out
 }
 
-// positive parses a positive decimal id.
+// positive parses a positive id written in decimal digits only, so that
+// one resource has one spelling ("+5" is none).
 func positive(s string) (int64, bool) {
+	if s == "" || strings.ContainsFunc(s, func(r rune) bool { return r < '0' || r > '9' }) {
+		return 0, false
+	}
 	n, err := strconv.ParseInt(s, 10, 64)
 	return n, err == nil && n > 0
 }

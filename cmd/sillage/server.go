@@ -38,7 +38,10 @@ func handleHealthz(w http.ResponseWriter, _ *http.Request) {
 
 // frontendHandler serves frontend's files, and its index.html for any
 // other path, so that a deep link to a client-side route loads the app,
-// which then routes it (and says when nothing matches).
+// which then routes it (and says when nothing matches). A missing path
+// whose last segment has an extension is a missing file, not a route
+// (an asset an old page names after a deploy): it is a 404, as HTML in
+// its place would fail in the browser as the wrong type.
 func frontendHandler(frontend fs.FS) http.Handler {
 	files := http.FileServerFS(frontend)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -47,11 +50,15 @@ func frontendHandler(frontend fs.FS) http.Handler {
 			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 			return
 		}
-		if name := strings.TrimPrefix(path.Clean(r.URL.Path), "/"); name != "" && isFile(frontend, name) {
+		name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
+		switch {
+		case name != "" && isFile(frontend, name):
 			files.ServeHTTP(w, r)
-			return
+		case path.Ext(name) != "":
+			http.NotFound(w, r)
+		default:
+			http.ServeFileFS(w, r, frontend, indexFile)
 		}
-		http.ServeFileFS(w, r, frontend, indexFile)
 	})
 }
 

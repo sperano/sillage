@@ -179,8 +179,8 @@ func instanceParam(r *http.Request) (string, error) {
 // idParam is the path's id, a positive number.
 func idParam(r *http.Request) (int64, error) {
 	raw := r.PathValue("id")
-	id, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil || id <= 0 {
+	id, ok := positive(raw)
+	if !ok {
 		return 0, badRequest("%q is not a positive id", raw)
 	}
 	return id, nil

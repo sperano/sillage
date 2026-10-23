@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -47,13 +46,10 @@ func badRequest(format string, args ...any) error {
 // errMethod answers a method the API never serves.
 var errMethod = problem(http.StatusMethodNotAllowed, "the API is read-only: it serves "+allowedMethods)
 
-// errTooLarge stops encoding a response past the size bound.
-var errTooLarge = errors.New("response too large")
-
 // problemOf is the status and detail err is answered with. Errors this
 // package did not make are logged and answered without their text, which
 // may name the database.
-func problemOf(r *http.Request, err error) (int, string) {
+func problemOf(path string, err error) (int, string) {
 	var pe *problemError
 	switch {
 	case errors.As(err, &pe):
@@ -63,15 +59,15 @@ func problemOf(r *http.Request, err error) (int, string) {
 	case errors.Is(err, context.DeadlineExceeded):
 		return http.StatusServiceUnavailable, "the request took longer than the API allows"
 	}
-	slog.Error("api request failed", "path", r.URL.Path, "error", err)
+	slog.Error("api request failed", "path", path, "error", err)
 	return http.StatusInternalServerError, "reading the store failed"
 }
 
-func (a *api) writeProblem(w http.ResponseWriter, r *http.Request, err error) {
+func writeProblem(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(r.Context().Err(), context.Canceled) {
 		return // the client is gone
 	}
-	status, detail := problemOf(r, err)
+	status, detail := problemOf(r.URL.Path, err)
 	if status == http.StatusMethodNotAllowed {
 		w.Header().Set("Allow", allowedMethods)
 	}
@@ -82,16 +78,20 @@ func (a *api) writeProblem(w http.ResponseWriter, r *http.Request, err error) {
 // writeJSON sends v, or a 500 when its encoding exceeds the size bound:
 // a story is never cut short.
 func (a *api) writeJSON(w http.ResponseWriter, r *http.Request, v any) {
-	buf := &cappedBuffer{max: a.cfg.MaxResponseBytes}
-	if err := json.NewEncoder(buf).Encode(v); err != nil {
-		if errors.Is(err, errTooLarge) {
-			err = problem(http.StatusInternalServerError,
-				"the response exceeds the API's bound of "+strconv.Itoa(a.cfg.MaxResponseBytes)+" bytes")
-		}
-		a.writeProblem(w, r, err)
+	body, err := json.Marshal(v)
+	if err != nil {
+		slog.Error("api: encoding the response failed", "path", r.URL.Path, "error", err)
+		writeProblem(w, r, problem(http.StatusInternalServerError, "encoding the response failed"))
 		return
 	}
-	write(w, http.StatusOK, contentTypeJSON, buf.Bytes())
+	if len(body) > a.cfg.MaxResponseBytes {
+		slog.Error("api: response exceeds the bound", "path", r.URL.Path, "bytes", len(body),
+			"bound", a.cfg.MaxResponseBytes)
+		writeProblem(w, r, problem(http.StatusInternalServerError,
+			"the response exceeds the API's bound of "+strconv.Itoa(a.cfg.MaxResponseBytes)+" bytes"))
+		return
+	}
+	write(w, http.StatusOK, contentTypeJSON, body)
 }
 
 func write(w http.ResponseWriter, status int, contentType string, body []byte) {
@@ -99,17 +99,4 @@ func write(w http.ResponseWriter, status int, contentType string, body []byte) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(status)
 	_, _ = w.Write(body)
-}
-
-// cappedBuffer is a buffer that refuses to grow past max bytes.
-type cappedBuffer struct {
-	bytes.Buffer
-	max int
-}
-
-func (b *cappedBuffer) Write(p []byte) (int, error) {
-	if b.Len()+len(p) > b.max {
-		return 0, errTooLarge
-	}
-	return b.Buffer.Write(p)
 }
