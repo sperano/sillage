@@ -3,7 +3,7 @@
 // shades these spans with their reason; what happened in them is unknown,
 // never idle time and never work.
 
-import { coverageKey, type Story } from '../model';
+import { coverageKey, type Coverage, type Story } from '../model';
 import { fitText, SMALL_CHAR_PX } from './layout';
 import { formatFull, type Zone } from './time';
 import type { Scale, TimeWindow } from './view';
@@ -17,14 +17,14 @@ export interface UnknownSpan {
 	reason: string;
 }
 
-/** The spans of domain in which the source's records are unknown. */
+/** The spans of domain in which the source's records are unknown, by its coverage. */
 export function unknownSpans(
-	story: Story,
+	coverage: readonly Coverage[],
 	source: string,
 	domain: TimeWindow,
 	zone: Zone
 ): UnknownSpan[] {
-	const c = story.coverage.find((c) => coverageKey(c.source, c.instance) === source);
+	const c = coverage.find((c) => coverageKey(c.source, c.instance) === source);
 	if (!c) return [{ ...domain, reason: `${source}: no coverage recorded` }];
 	if (!c.lastSuccessfulRead) return [{ ...domain, reason: `${source}: never read successfully` }];
 	const spans: UnknownSpan[] = (c.gaps ?? []).map((g) => ({

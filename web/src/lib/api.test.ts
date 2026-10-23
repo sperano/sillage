@@ -12,6 +12,8 @@ import {
 import type { Root } from './model';
 import { json, problem } from '../testing/fakeServer';
 import { goldenStory } from '../testing/goldenStories';
+import { DEFAULT_QUERY } from './overview/query';
+import { overviewGoldenJSON } from './testing/overview';
 
 const TASK: Root = { task: { instance: 'vikunja.example.com', id: 102 } };
 const PAGE: Root = { page: { instance: 'wiki.example.com', id: 57, locale: 'en' } };
@@ -82,6 +84,24 @@ describe('requests', () => {
 		const fetchFn = answering(() => json(coverage));
 		expect(await createApi({ fetch: fetchFn }).coverage()).toEqual(coverage);
 		expect(requested(fetchFn)).toEqual([`${API_BASE}/coverage`]);
+	});
+
+	test('overview sends the filters and the cursor, and decodes the page', async () => {
+		const fetchFn = answering(() => json(overviewGoldenJSON()));
+		const api = createApi({ fetch: fetchFn });
+		expect((await api.overview(DEFAULT_QUERY)).rows).toHaveLength(6);
+		await api.overview({ ...DEFAULT_QUERY, project: 'widgets', failed: true }, 'next-page');
+		expect(requested(fetchFn)).toEqual([
+			`${API_BASE}/overview`,
+			`${API_BASE}/overview?project=widgets&failed=true&after=next-page`
+		]);
+	});
+
+	test('an overview page that is not one is an invalid response', async () => {
+		const fetchFn = answering(() => json({ rows: [] }));
+		await expect(createApi({ fetch: fetchFn }).overview(DEFAULT_QUERY)).rejects.toThrow(
+			InvalidResponseError
+		);
 	});
 });
 

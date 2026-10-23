@@ -54,7 +54,7 @@ export interface ChartInput {
 export function layoutChart(input: ChartInput): Chart {
 	const { story, domain, zone } = input;
 	const unknownOf = new Map(
-		input.sources.map((s) => [s, unknownSpans(story, s, domain, zone)] as const)
+		input.sources.map((s) => [s, unknownSpans(story.coverage, s, domain, zone)] as const)
 	);
 	let y = AXIS_PX;
 	const sources = input.sources.map((source) => {

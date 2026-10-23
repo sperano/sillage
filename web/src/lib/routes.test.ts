@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { DEFAULT_QUERY } from './overview/query';
 import { type Route, homeHref, openHref, parseRoute, rootHref } from './routes';
 
 const ORIGIN = 'http://sillage.example.com';
@@ -31,7 +32,15 @@ describe('parseRoute', () => {
 			'/open?url=https%3A%2F%2Fvikunja.example.com%2Ftasks%2F102',
 			{ name: 'open', url: 'https://vikunja.example.com/tasks/102' }
 		],
-		['/open', { name: 'open', url: '' }]
+		['/open', { name: 'open', url: '' }],
+		['/overview', { name: 'overview', query: DEFAULT_QUERY }],
+		[
+			'/overview?executor=agent-cedar&review=true&group=executor',
+			{
+				name: 'overview',
+				query: { ...DEFAULT_QUERY, executor: 'agent-cedar', review: true, group: 'executor' }
+			}
+		]
 	])('%s', (href, want) => {
 		expect(route(href)).toEqual(want);
 	});

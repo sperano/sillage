@@ -6,6 +6,7 @@
 // "Routes").
 
 import type { PageKey, Root, TaskKey } from './model';
+import { parseOverviewQuery, type OverviewQuery } from './overview/query';
 import { rootSegments } from './roots';
 
 export type Route =
@@ -15,6 +16,8 @@ export type Route =
 	| { name: 'page'; key: PageKey }
 	/** Resolve url to its root, then show that root's story. */
 	| { name: 'open'; url: string }
+	/** What was working on what: the tasks active in a window. */
+	| { name: 'overview'; query: OverviewQuery }
 	| { name: 'not-found'; path: string };
 
 /** The search parameter of the entry page. */
@@ -64,6 +67,9 @@ export function parseRoute(url: URL): Route {
 	if (parts === undefined) return notFound;
 	if (parts.length === 1 && parts[0] === 'open') {
 		return { name: 'open', url: url.searchParams.get(URL_PARAM) ?? '' };
+	}
+	if (parts.length === 1 && parts[0] === 'overview') {
+		return { name: 'overview', query: parseOverviewQuery(url.searchParams) };
 	}
 	return parseRoot(parts) ?? notFound;
 }

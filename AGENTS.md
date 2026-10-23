@@ -37,6 +37,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `web/src/lib/` | The story types (`model.ts`), their key strings (`keys.ts`) and their runtime decoder, the read API client, the routes and the router. |
 | `web/src/lib/selection.svelte.ts` | The selected event, run, check or review wait (`ItemRef`, `timeline.ts`), one instance shared by the timeline graph, the event list and the detail panel. |
 | `web/src/lib/timeline/` | The single-task timeline graph (SVG): lanes, intervals, coverage shading, zoom and pan. Layout is pure TypeScript; the components draw it and handle zoom, pan, selection and group expansion. |
+| `web/src/lib/overview/` | The multi-task overview: its types and decoder (the Go `overview.Page`), its URL query, what a row says at an instant and at the window's end, its lanes (by task or by executor) and the components that draw them. |
 | `web/src/lib/testing/` | Web test helpers: the golden stories, record builders. |
 | `web/src/pages/`, `web/src/components/` | One component per route, and the parts they share. |
 | `web/placeholder/` | The committed page embedded by default, so Go builds without Node. |
@@ -60,7 +61,8 @@ keeps `./...` out of npm's tree.
 
 The frontend routes with the history API, not the hash, so that a link to
 it is a plain URL: `/` (the entry page; `/?q=` a search), `/task/<instance>/<id>`,
-`/page/<instance>/<id>/<locale>`, and `/open?url=<link>`, which resolves a
+`/page/<instance>/<id>/<locale>`, `/overview` (what was working on what, its
+window, filters and grouping in the query), and `/open?url=<link>`, which resolves a
 Vikunja, Kelos, GitHub or wiki link to its story. The server must answer
 every non-API `GET` path with `index.html` for those deep links to load.
 The API client (`web/src/lib/api.ts`) makes one request per call, never
