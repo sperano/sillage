@@ -69,15 +69,17 @@ interface Taken {
  * left to right, so that no reason overlaps another, and none written
  * before its span lies over an earlier span.
  */
-export function reasonTexts(spans: UnknownSpan[], scale: Scale): (ReasonText | undefined)[] {
-	const texts = new Array<ReasonText | undefined>(spans.length);
+export function reasonTexts(
+	spans: readonly UnknownSpan[],
+	scale: Scale
+): (ReasonText | undefined)[] {
+	const texts: (ReasonText | undefined)[] = spans.map(() => undefined);
 	const taken: Taken = { spanEnd: scale.left, textEnd: scale.left };
-	const order = spans.map((_, i) => i).sort((a, b) => spans[a]!.start - spans[b]!.start);
-	for (const i of order) {
-		const u = spans[i]!;
+	const order = spans.map((u, i) => ({ u, i })).sort((a, b) => a.u.start - b.u.start);
+	for (const { u, i } of order) {
 		const text = reasonText(u, scale, taken);
 		texts[i] = text;
-		if (text) taken.textEnd = Math.max(taken.textEnd, textEnd(text));
+		if (text) taken.textEnd = Math.max(taken.textEnd, rightEdge(text));
 		taken.spanEnd = Math.max(taken.spanEnd, scale.x(u.end));
 	}
 	return texts;
@@ -85,8 +87,8 @@ export function reasonTexts(spans: UnknownSpan[], scale: Scale): (ReasonText | u
 
 /**
  * Where a span's reason goes: whole, inside the free part of the span in
- * the window when it fits there; else cut, before the span (when it starts
- * after every earlier span ends) or inside its free part, wherever more of
+ * the window when it fits there; else cut, before the span (in the room
+ * left after the earlier spans) or inside its free part, wherever more of
  * it fits, before it on a tie. Undefined for a span outside the window, or
  * with no room for the reason at all.
  */
@@ -106,7 +108,7 @@ function reasonText(u: UnknownSpan, scale: Scale, taken: Taken): ReasonText | un
 }
 
 /** The right edge of a reason as written. */
-function textEnd(t: ReasonText): number {
+function rightEdge(t: ReasonText): number {
 	return t.anchor === 'end' ? t.x : t.x + t.text.length * SMALL_CHAR_PX;
 }
 

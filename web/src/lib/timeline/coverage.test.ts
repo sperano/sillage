@@ -6,7 +6,6 @@ import {
 	reasonTexts,
 	storySources,
 	unknownSpans,
-	type ReasonText,
 	type UnknownSpan
 } from './coverage';
 import { SMALL_CHAR_PX } from './layout';
@@ -78,7 +77,6 @@ describe('reasonTexts', () => {
 		reason
 	});
 	const one = (u: UnknownSpan) => reasonTexts([u], scale)[0];
-	const left = (t: ReasonText) => t.x - t.text.length * SMALL_CHAR_PX;
 
 	test('writes the reason inside the visible part of a span it fits in', () => {
 		expect(one(span(-50, 150))).toEqual({
@@ -124,7 +122,9 @@ describe('reasonTexts', () => {
 			anchor: 'end',
 			text: `${reason.slice(0, chars - 1)}…`
 		});
-		expect(left(second!)).toBeGreaterThanOrEqual(190 + REASON_PAD_PX);
+		expect(second!.x - second!.text.length * SMALL_CHAR_PX).toBeGreaterThanOrEqual(
+			190 + REASON_PAD_PX
+		);
 	});
 
 	test('starts a reason after the one an overlapping span wrote, in the spans’ order', () => {
