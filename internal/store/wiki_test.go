@@ -111,26 +111,39 @@ func TestNewestLiveEditKept(t *testing.T) {
 	}
 }
 
-// TestLiveEditOfAnotherAccount replaces a live edit with another
-// account's: the story holds the newer edit, without the older's links.
+// TestLiveEditOfAnotherAccount saves two accounts' live edits of a page,
+// the agent's linked to a run, in either order: the story holds the newer
+// edit, without the older's links.
 func TestLiveEditOfAnotherAccount(t *testing.T) {
-	s := newTestStore(t, Retention{})
-	root := pageRoot(57)
-	older, newer := liveEdit(0), liveEdit(10)
-	newer.Actor = model.Account{Login: "owner", Kind: model.ActorPerson}
-	run := finishedRun("uid-1", 0, 5, model.OutcomeSucceeded)
-	mustSave(t, s, root, model.Records{
-		Events:       []model.Event{older},
-		Runs:         []model.Run{run},
-		Correlations: []model.Correlation{link(older.Ref(), run.Key.Ref())},
-	})
-	mustSave(t, s, root, model.Records{Events: []model.Event{newer}})
-	story := mustStory(t, s, root)
-	if got := eventIDs(story); len(got) != 1 || got[0] != newer.ID {
-		t.Errorf("events = %v, want only %s", got, newer.ID)
-	}
-	if len(story.Correlations) != 0 {
-		t.Errorf("correlations = %+v, want the agent's link not given to the owner's edit", story.Correlations)
+	for _, olderFirst := range []bool{true, false} {
+		t.Run("older first "+strconv.FormatBool(olderFirst), func(t *testing.T) {
+			s := newTestStore(t, Retention{})
+			root := pageRoot(57)
+			older, newer := liveEdit(0), liveEdit(10)
+			newer.Actor = model.Account{Login: "owner", Kind: model.ActorPerson}
+			run := finishedRun("uid-1", 0, 5, model.OutcomeSucceeded)
+			reads := []model.Records{
+				{
+					Events:       []model.Event{older},
+					Runs:         []model.Run{run},
+					Correlations: []model.Correlation{link(older.Ref(), run.Key.Ref())},
+				},
+				{Events: []model.Event{newer}},
+			}
+			if !olderFirst {
+				reads[0], reads[1] = reads[1], reads[0]
+			}
+			for _, recs := range reads {
+				mustSave(t, s, root, recs)
+			}
+			story := mustStory(t, s, root)
+			if got := eventIDs(story); len(got) != 1 || got[0] != newer.ID {
+				t.Errorf("events = %v, want only %s", got, newer.ID)
+			}
+			if len(story.Correlations) != 0 {
+				t.Errorf("correlations = %+v, want the agent's link not given to the owner's edit", story.Correlations)
+			}
+		})
 	}
 }
 

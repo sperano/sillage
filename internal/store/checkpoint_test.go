@@ -55,10 +55,11 @@ func TestCheckpointValidate(t *testing.T) {
 		name string
 		c    Checkpoint
 	}{
-		{"no source", Checkpoint{Instance: testCluster, Scope: "tasks"}},
-		{"no instance", Checkpoint{Source: model.SourceKelos, Scope: "tasks"}},
-		{"no scope", Checkpoint{Source: model.SourceKelos, Instance: testCluster}},
-		{"invalid root", Checkpoint{Source: model.SourceKelos, Instance: testCluster, Scope: "x", Root: &model.Root{}}},
+		{"no source", Checkpoint{Instance: testCluster, Scope: "tasks", Value: "1"}},
+		{"no instance", Checkpoint{Source: model.SourceKelos, Scope: "tasks", Value: "1"}},
+		{"no scope", Checkpoint{Source: model.SourceKelos, Instance: testCluster, Value: "1"}},
+		{"no value", Checkpoint{Source: model.SourceKelos, Instance: testCluster, Scope: "tasks"}},
+		{"invalid root", Checkpoint{Source: model.SourceKelos, Instance: testCluster, Scope: "x", Value: "1", Root: &model.Root{}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

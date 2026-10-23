@@ -13,9 +13,9 @@
 // Each record is stored as its model JSON, the source of truth read back
 // into a story, next to the columns that key it (events by source,
 // instance and id; runs by cluster, namespace and Task UID, or pod for a
-// placeholder; pull requests by repository and number, their check runs by
-// id per commit; correlations by the pair they link) and that its rules
-// need. Records are shared: a root's story is the records its saves added
+// placeholder; pull requests by instance, repository and number, their
+// check runs by id per commit; correlations by the pair they link) and
+// that its rules need. Records are shared: a root's story is the records its saves added
 // (root_events, root_runs, ...), so a run that two stories name is stored
 // once. Coverage is per root and source instance.
 //

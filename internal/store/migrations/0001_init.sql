@@ -162,6 +162,7 @@ CREATE TABLE checkpoints (
     updated_at timestamptz NOT NULL,
     PRIMARY KEY (source, instance, scope)
 );
+CREATE INDEX checkpoints_root ON checkpoints (root_id) WHERE root_id IS NOT NULL;
 
 -- Webhook deliveries received, one row per attempt (a redelivery reuses
 -- the delivery id). Written by the webhook receiver, which comes later.

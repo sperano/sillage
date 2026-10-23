@@ -1,6 +1,8 @@
 package store
 
 import (
+	"cmp"
+	"slices"
 	"testing"
 	"time"
 
@@ -21,6 +23,9 @@ type observedRange struct {
 	first, last time.Time
 }
 
+// ranges returns the story's observations by first observation, then
+// value: same-time observations are in the story by id, which is a
+// fingerprint, so the value gives them an order a test can name.
 func ranges(story model.Story) []observedRange {
 	var out []observedRange
 	for _, e := range story.Events {
@@ -33,6 +38,9 @@ func ranges(story model.Story) []observedRange {
 		}
 		out = append(out, r)
 	}
+	slices.SortStableFunc(out, func(a, b observedRange) int {
+		return cmp.Or(a.first.Compare(b.first), cmp.Compare(a.value, b.value))
+	})
 	return out
 }
 

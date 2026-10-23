@@ -34,8 +34,8 @@ func (c Checkpoint) validate() error {
 	if !c.Source.Valid() {
 		return fmt.Errorf("store: checkpoint: unknown source %q", c.Source)
 	}
-	if c.Instance == "" || c.Scope == "" {
-		return errors.New("store: checkpoint: an instance and a scope are required")
+	if c.Instance == "" || c.Scope == "" || c.Value == "" {
+		return errors.New("store: checkpoint: an instance, a scope and a value are required")
 	}
 	if c.Root != nil {
 		if err := c.Root.Validate(); err != nil {
