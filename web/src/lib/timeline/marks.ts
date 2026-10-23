@@ -19,6 +19,13 @@ export type MarkKind =
 	| 'pr-merged'
 	| 'pr-closed';
 
+/** Half a glyph's size. */
+export const GLYPH_R_PX = 5;
+/** The radius of the ring around a selected glyph. */
+export const SELECTED_RING_R_PX = 9;
+/** The radius of the keyboard focus ring, outside the selection ring. */
+export const FOCUS_RING_R_PX = 11;
+
 /** The mark of an event: its kind's own, or a plain or observed dot. */
 export function eventMark(e: Event): MarkKind {
 	switch (e.kind) {

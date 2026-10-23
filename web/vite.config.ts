@@ -35,6 +35,8 @@ export default defineConfig({
 				test: {
 					name: 'node',
 					environment: 'node',
+					// The browser tests' zone, for the same reason.
+					env: { TZ: 'America/Toronto' },
 					include: ['src/**/*.test.ts'],
 					exclude: ['src/**/*.svelte.test.ts']
 				}

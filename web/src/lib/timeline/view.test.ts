@@ -15,8 +15,16 @@ describe('storyDomain', () => {
 	test('leaves out a time that does not parse', () => {
 		const s = golden('discuss-no-pr');
 		const broken = { ...s, events: [{ ...s.events[0]!, sourceTime: 'not a time' }] };
-		const d = storyDomain(broken);
-		expect(Number.isFinite(d.start) && Number.isFinite(d.end)).toBe(true);
+		expect(storyDomain(broken)).toEqual(storyDomain({ ...s, events: [] }));
+	});
+
+	test('spans the coverage gaps', () => {
+		const s = golden('discuss-no-pr');
+		const before = Date.parse('2020-01-01T00:00:00Z');
+		const gap = { start: '2020-01-01T00:00:00Z', end: '2020-01-02T00:00:00Z', reason: 'r' };
+		const gapped = { ...s, coverage: s.coverage.map((c) => ({ ...c, gaps: [gap] })) };
+		expect(storyDomain(s).start).toBeGreaterThan(before);
+		expect(storyDomain(gapped).start).toBeLessThan(before);
 	});
 
 	test('is never narrower than the minimum span', () => {

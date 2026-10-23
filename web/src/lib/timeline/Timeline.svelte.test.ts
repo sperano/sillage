@@ -126,6 +126,29 @@ describe('intervals', () => {
 		expect(container.querySelector('[data-bar]')).toBeNull();
 		const stub = container.querySelector('[data-stub]')!.closest('[data-span]')!;
 		expect(stub.textContent).toContain('running, start unknown');
+		stub.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+		await tick();
+		// The selection shows on the stub itself, not only on its edge.
+		expect(getComputedStyle(container.querySelector('[data-stub]')!).strokeWidth).toBe('3px');
+	});
+
+	test('an open end with an unknown start is a stub that stays open', async () => {
+		const r = run({
+			outcome: 'running',
+			interval: { start: { state: 'unknown' }, end: { state: 'open' } }
+		});
+		const s = story({
+			runs: [r],
+			coverage: [
+				{ source: 'kelos', instance: 'cluster-a', lastSuccessfulRead: '2026-03-01T11:00:00Z' }
+			]
+		});
+		const { container } = await show(s);
+		const stub = container.querySelector('[data-stub]')!.closest('[data-span]')!;
+		expect(stub.textContent).toContain('running, start unknown, not ended at the last read');
+		// A chevron at the open end, and no closing edge.
+		expect(stub.querySelector('path.edge')).not.toBeNull();
+		expect(stub.querySelector('line.edge')).toBeNull();
 	});
 
 	test('an open end is drawn open', async () => {
@@ -251,6 +274,36 @@ describe('interaction', () => {
 		await expect.element(zoomIn).toBeDisabled();
 		await page.getByRole('button', { name: 'Whole story' }).click();
 		await expect.element(range).toHaveTextContent(whole);
+	});
+
+	test('holding Space on a group toggles it once, on release', async () => {
+		const at = (s: number) => `2026-03-01T10:00:${String(s).padStart(2, '0')}Z`;
+		const far = event({ sourceTime: '2026-03-02T10:00:00Z' });
+		await show(
+			story({ events: [event({ sourceTime: at(0) }), event({ sourceTime: at(10) }), far] })
+		);
+		const badge = page.getByRole('button', { name: /^2 events from/ });
+		const key = (type: string, repeat: boolean) =>
+			badge.element().dispatchEvent(new KeyboardEvent(type, { key: ' ', repeat, bubbles: true }));
+		key('keydown', false);
+		key('keydown', true);
+		key('keydown', true);
+		await expect.element(badge).toHaveAttribute('aria-expanded', 'false');
+		key('keyup', false);
+		await expect.element(badge).toHaveAttribute('aria-expanded', 'true');
+	});
+
+	test('writes no coverage reason for a span outside the window', async () => {
+		const { container } = await show(golden('implementation-merged'));
+		const zoomIn = page.getByRole('button', { name: 'Zoom in' });
+		for (let i = 0; i < 3; i++) await zoomIn.click();
+		const clip = container.querySelector('clipPath rect')!;
+		const right = Number(clip.getAttribute('x')) + Number(clip.getAttribute('width'));
+		const past = all(container, '[data-source] [data-unknown]').filter(
+			(u) => Number(u.querySelector('rect')!.getAttribute('x')) > right
+		);
+		expect(past.length).toBeGreaterThan(0);
+		for (const u of past) expect(u.querySelector('text')).toBeNull();
 	});
 
 	test('groups crowded events under a count that expands', async () => {

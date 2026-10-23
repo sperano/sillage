@@ -2,23 +2,23 @@
 	import type { Selection } from '../selection.svelte';
 	import EventGlyph from './EventGlyph.svelte';
 	import { spanDescription, spanText } from './intervals';
-	import { onActivate } from './keys';
-	import { LABEL_LINE_GAP_PX, LABEL_NUDGE_PX, labelWidth, type Bar } from './layout';
+	import { activation } from './keys';
+	import { LABEL_LINE_GAP_PX, labelWidth, type Bar } from './layout';
 	import { formatClock, type Zone } from './time';
 
 	interface Props {
 		bar: Bar;
 		/** The vertical centre of the bar's track. */
 		y: number;
-		/** Where the exit label's first line sits; unset when it is hidden. */
-		labelY?: number;
+		/** Where the exit label's first line starts; unset when it is hidden. */
+		label?: { x: number; y: number };
 		zone: Zone;
 		selection: Selection;
 		/** Prefix of the ids of the chart's fill patterns. */
 		patterns: string;
 	}
 
-	let { bar, y, labelY, zone, selection, patterns }: Props = $props();
+	let { bar, y, label, zone, selection, patterns }: Props = $props();
 
 	const BAR_PX = 16;
 	/** Room kept between a bar's edge and its text. */
@@ -43,13 +43,19 @@
 	);
 	const selected = $derived(selection.is(span.selected));
 	const select = () => selection.select(span.selected);
-	// A stub starts at its known end and leaves towards the unknown one.
+	// A stub starts at its known or open end and leaves towards the unknown one.
 	const unknownSide = $derived(span.start === undefined ? 'start' : 'end');
 	const stubText = $derived(
-		unknownSide === 'end' && open
-			? `${span.text}, not ended at the last read`
-			: `${span.text}, ${unknownSide} unknown`
+		[
+			span.text,
+			span.start === undefined ? 'start unknown' : '',
+			open ? 'not ended at the last read' : span.end === undefined ? 'end unknown' : ''
+		]
+			.filter(Boolean)
+			.join(', ')
 	);
+	/** Where the stub's drawn end is: its start, or its end when the start is unknown. */
+	const stubEnd = $derived(unknownSide === 'start' ? bar.x2 : bar.x1);
 </script>
 
 <g
@@ -63,7 +69,7 @@
 	data-start={span.startState}
 	data-end={span.endState}
 	onclick={select}
-	onkeydown={onActivate(select)}
+	{...activation(select)}
 >
 	<title>{description}</title>
 	{#if bar.shape === 'bar'}
@@ -90,15 +96,17 @@
 			<text class="inside" x={bar.x1 + TEXT_PAD_PX} {y} dy="0.35em">{text}</text>
 		{/if}
 	{:else}
-		<!-- One end unknown: no bar, a dashed stub from the known end. -->
+		<!-- One end unknown: no bar, a dashed stub from the other end. An open
+		     end has no closing edge, only the chevron. -->
 		<line class="stub" data-stub x1={bar.x1} y1={y} x2={bar.x2} y2={y} />
-		<line
-			class="edge"
-			x1={unknownSide === 'start' ? bar.x2 : bar.x1}
-			y1={top}
-			x2={unknownSide === 'start' ? bar.x2 : bar.x1}
-			y2={top + BAR_PX}
-		/>
+		{#if unknownSide === 'start' && open}
+			<path
+				class="edge"
+				d="M {stubEnd} {y - CHEVRON_PX} L {stubEnd + CHEVRON_PX} {y} L {stubEnd} {y + CHEVRON_PX}"
+			/>
+		{:else}
+			<line class="edge" x1={stubEnd} y1={top} x2={stubEnd} y2={top + BAR_PX} />
+		{/if}
 		<text
 			class="outside"
 			x={unknownSide === 'start' ? bar.x1 - TEXT_PAD_PX : bar.x2 + TEXT_PAD_PX}
@@ -108,9 +116,9 @@
 	{/if}
 	{#if span.exit}
 		<EventGlyph mark={span.exit.mark} x={bar.x2} {y} />
-		{#if labelY !== undefined}
-			<text class="label" x={bar.x2 - LABEL_NUDGE_PX} y={labelY}>{span.exit.label}</text>
-			<text class="time" x={bar.x2 - LABEL_NUDGE_PX} y={labelY + LABEL_LINE_GAP_PX}
+		{#if label !== undefined}
+			<text class="label" x={label.x} y={label.y}>{span.exit.label}</text>
+			<text class="time" x={label.x} y={label.y + LABEL_LINE_GAP_PX}
 				>{formatClock(span.exit.at, zone)}</text
 			>
 		{/if}
@@ -151,11 +159,14 @@
 		stroke-dasharray: 4 3;
 	}
 	.selected .edge,
-	.span:focus-visible .edge {
+	.selected .stub,
+	.span:focus-visible .edge,
+	.span:focus-visible .stub {
 		stroke: var(--tl-selected);
 		stroke-width: 3;
 	}
-	.span:focus-visible .edge {
+	.span:focus-visible .edge,
+	.span:focus-visible .stub {
 		stroke: var(--tl-focus);
 	}
 	.inside,

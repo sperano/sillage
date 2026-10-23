@@ -3,7 +3,15 @@
 	import type { RowChart } from './chart';
 	import EventGroup from './EventGroup.svelte';
 	import EventPoint from './EventPoint.svelte';
-	import { fitText, LABEL_BAND_PX, SMALL_CHAR_PX, TITLE_X_PX, TRACK_PX } from './layout';
+	import {
+		fitText,
+		LABEL_BAND_PX,
+		LINE_PX,
+		SMALL_CHAR_PX,
+		TITLE_X_PX,
+		TRACK_PX,
+		type LabelPlace
+	} from './layout';
 	import SpanBar from './SpanBar.svelte';
 	import type { Zone } from './time';
 	import type { Scale } from './view';
@@ -26,9 +34,11 @@
 	const SUBTITLE_GAP_PX = 14;
 
 	const row = $derived(layout.row);
-	/** The baseline of a line of labels, or undefined for a hidden label. */
-	const labelAt = (level: number | undefined) =>
-		level === undefined ? undefined : layout.labelY + level * LABEL_BAND_PX;
+	/** Where a label's first line is drawn, or undefined for a hidden label. */
+	const labelAt = (label: LabelPlace | undefined) =>
+		label === undefined
+			? undefined
+			: { x: label.x, y: layout.labelY + label.level * LABEL_BAND_PX };
 	const titleWidth = $derived(scale.left - TITLE_X_PX - COLUMN_GUTTER_PX);
 </script>
 
@@ -71,7 +81,7 @@
 			<SpanBar
 				{bar}
 				y={layout.markY + bar.track * TRACK_PX}
-				labelY={labelAt(bar.exitLabelLevel)}
+				label={labelAt(bar.exitLabel)}
 				{zone}
 				{selection}
 				patterns={ids}
@@ -79,13 +89,7 @@
 		{/each}
 		{#each layout.placed as p (p.kind === 'point' ? p.point.key : p.id)}
 			{#if p.kind === 'point'}
-				<EventPoint
-					point={p.point}
-					y={layout.markY}
-					labelY={labelAt(p.labelLevel)}
-					{zone}
-					{selection}
-				/>
+				<EventPoint point={p.point} y={layout.markY} label={labelAt(p.label)} {zone} {selection} />
 			{:else}
 				<EventGroup
 					id={p.id}
@@ -93,7 +97,7 @@
 					members={p.members}
 					expanded={p.expanded}
 					y={layout.markY}
-					listY={layout.listY}
+					listY={layout.listY + p.listLine * LINE_PX}
 					{zone}
 					{selection}
 					{ontoggle}

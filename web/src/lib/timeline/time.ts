@@ -31,6 +31,9 @@ const TICK_STEPS_MS = [
 
 const PAD_WIDTH = 2;
 
+/** The largest offset any zone has from UTC, UTC+14. */
+const MAX_ZONE_OFFSET_MS = 14 * HOUR_MS;
+
 /** The zone's offset from UTC at t, in milliseconds. */
 function offsetMs(t: number, zone: Zone): number {
 	return zone === 'utc' ? 0 : -new Date(t).getTimezoneOffset() * MINUTE_MS;
@@ -115,11 +118,26 @@ export function tickStep(span: number, maxTicks: number): number {
 }
 
 /**
+ * The first instant at which the zone's wall clock reads wall (a wall time
+ * written as if it were UTC), or undefined when a daylight saving change
+ * skips it. The zone's offset a day either side covers both offsets of any
+ * change near it; an instant is the wall time only under its own offset.
+ */
+function instantOf(wall: number, zone: Zone): number | undefined {
+	const offsets = new Set([offsetMs(wall - DAY_MS, zone), offsetMs(wall + DAY_MS, zone)]);
+	const instants = [...offsets]
+		.map((o) => wall - o)
+		.filter((at) => wall - at === offsetMs(at, zone));
+	return instants.length > 0 ? Math.min(...instants) : undefined;
+}
+
+/**
  * The axis ticks in [start, end], aligned on the zone's wall clock: whole
  * minutes, hours or midnights there, and never more than maxTicks, even
- * past the largest step. A tick shows its date when it is the first or the
- * day changed since the previous one. A window that is not a finite time
- * has no ticks.
+ * past the largest step. A wall time a daylight saving change skips has no
+ * tick, and one it repeats has one, at its first occurrence. A tick shows
+ * its date when it is the first or the day changed since the previous one.
+ * A window that is not a finite time has no ticks.
  */
 export function ticks(start: number, end: number, maxTicks: number, zone: Zone): Tick[] {
 	if (!Number.isFinite(start) || !Number.isFinite(end)) return [];
@@ -127,10 +145,11 @@ export function ticks(start: number, end: number, maxTicks: number, zone: Zone):
 	const out: Tick[] = [];
 	let wall = Math.ceil((start + offsetMs(start, zone)) / step) * step;
 	let previousDay = '';
-	for (; ; wall += step) {
-		// Undo the offset at the tick itself, which differs across a DST change.
-		const at = wall - offsetMs(wall - offsetMs(start, zone), zone);
-		if (at > end || out.length >= maxTicks) break;
+	// No instant of a wall time is earlier than the largest offset allows.
+	for (; wall - MAX_ZONE_OFFSET_MS <= end && out.length < maxTicks; wall += step) {
+		const at = instantOf(wall, zone);
+		if (at === undefined || at < start) continue;
+		if (at > end) break;
 		const day = formatDate(at, zone);
 		const label =
 			step >= DAY_MS

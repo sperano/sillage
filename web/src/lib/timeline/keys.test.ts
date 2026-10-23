@@ -1,24 +1,32 @@
 import { expect, test, vi } from 'vitest';
-import { onActivate } from './keys';
+import { activation } from './keys';
 
-function press(key: string) {
+type Phase = 'keydown' | 'keyup';
+
+function press(phase: Phase, key: string, repeat = false) {
 	const activate = vi.fn();
-	const e = { key, preventDefault: vi.fn() } as unknown as KeyboardEvent;
-	onActivate(activate)(e);
-	return {
-		activate,
-		prevented: (e.preventDefault as ReturnType<typeof vi.fn>).mock.calls.length > 0
-	};
+	const preventDefault = vi.fn();
+	const e = { key, repeat, preventDefault } as unknown as KeyboardEvent;
+	activation(activate)[phase === 'keydown' ? 'onkeydown' : 'onkeyup'](e);
+	return { activated: activate.mock.calls.length, prevented: preventDefault.mock.calls.length > 0 };
 }
 
-test('Enter and Space activate, and keep the page from scrolling', () => {
-	expect(press('Enter')).toMatchObject({ prevented: true });
-	expect(press('Enter').activate).toHaveBeenCalledOnce();
-	expect(press(' ').activate).toHaveBeenCalledOnce();
+test('Enter activates on keydown, and keeps the page from scrolling', () => {
+	expect(press('keydown', 'Enter')).toEqual({ activated: 1, prevented: true });
+	expect(press('keyup', 'Enter')).toEqual({ activated: 0, prevented: false });
+});
+
+test('Space activates on keyup, and keeps the page from scrolling on both', () => {
+	expect(press('keydown', ' ')).toEqual({ activated: 0, prevented: true });
+	expect(press('keyup', ' ')).toEqual({ activated: 1, prevented: true });
+});
+
+test('a held key activates once', () => {
+	expect(press('keydown', 'Enter', true)).toEqual({ activated: 0, prevented: true });
+	expect(press('keydown', ' ', true)).toEqual({ activated: 0, prevented: true });
 });
 
 test('other keys do nothing', () => {
-	const { activate, prevented } = press('Tab');
-	expect(activate).not.toHaveBeenCalled();
-	expect(prevented).toBe(false);
+	expect(press('keydown', 'Tab')).toEqual({ activated: 0, prevented: false });
+	expect(press('keyup', 'Tab')).toEqual({ activated: 0, prevented: false });
 });

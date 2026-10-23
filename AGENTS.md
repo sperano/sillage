@@ -34,8 +34,8 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
 | `web/src/lib/` | The story types (`model.ts`), their key strings and their runtime decoder, the read API client, the routes and the router. |
-| `web/src/lib/selection.svelte.ts` | The selected event or interval, shared by the graph, the event list and the detail panel. |
-| `web/src/lib/timeline/` | The single-task timeline graph (SVG): lanes, intervals, coverage shading, zoom and pan. Layout is pure TypeScript; the components only draw it. |
+| `web/src/lib/selection.svelte.ts` | The selected event or interval. Only the timeline graph uses it for now; the event list and the detail panel will share it. |
+| `web/src/lib/timeline/` | The single-task timeline graph (SVG): lanes, intervals, coverage shading, zoom and pan. Layout is pure TypeScript; the components draw it and handle zoom, pan, selection and group expansion. |
 | `web/src/lib/testing/` | Web test helpers: the golden stories, record builders. |
 | `web/src/pages/`, `web/src/components/` | One component per route, and the parts they share. |
 | `web/placeholder/` | The committed page embedded by default, so Go builds without Node. |

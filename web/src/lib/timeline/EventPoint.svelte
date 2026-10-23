@@ -1,24 +1,21 @@
 <script lang="ts">
 	import type { Selection } from '../selection.svelte';
 	import EventGlyph from './EventGlyph.svelte';
-	import { onActivate } from './keys';
-	import { LABEL_LINE_GAP_PX, LABEL_NUDGE_PX, type Point } from './layout';
-	import { eventName } from './marks';
+	import { activation } from './keys';
+	import { LABEL_LINE_GAP_PX, type Point } from './layout';
+	import { eventName, FOCUS_RING_R_PX } from './marks';
 	import { formatClock, type Zone } from './time';
 
 	interface Props {
 		point: Point;
 		y: number;
-		/** Where the label's first line sits; unset when the label is hidden. */
-		labelY?: number;
+		/** Where the label's first line starts; unset when the label is hidden. */
+		label?: { x: number; y: number };
 		zone: Zone;
 		selection: Selection;
 	}
 
-	let { point, y, labelY, zone, selection }: Props = $props();
-
-	/** The keyboard focus ring's radius. */
-	const FOCUS_R = 11;
+	let { point, y, label, zone, selection }: Props = $props();
 
 	const name = $derived(eventName(point.event, zone));
 	const selected = $derived(selection.is(point.selected));
@@ -33,14 +30,14 @@
 	aria-pressed={selected}
 	data-event={point.key}
 	onclick={select}
-	onkeydown={onActivate(select)}
+	{...activation(select)}
 >
 	<title>{name}</title>
-	<circle class="focus" cx={point.x} cy={y} r={FOCUS_R} />
+	<circle class="focus" cx={point.x} cy={y} r={FOCUS_RING_R_PX} />
 	<EventGlyph mark={point.mark} x={point.x} {y} {selected} />
-	{#if labelY !== undefined}
-		<text class="label" x={point.x - LABEL_NUDGE_PX} y={labelY}>{point.label}</text>
-		<text class="time" x={point.x - LABEL_NUDGE_PX} y={labelY + LABEL_LINE_GAP_PX}
+	{#if label !== undefined}
+		<text class="label" x={label.x} y={label.y}>{point.label}</text>
+		<text class="time" x={label.x} y={label.y + LABEL_LINE_GAP_PX}
 			>{formatClock(point.at, zone)}</text
 		>
 	{/if}

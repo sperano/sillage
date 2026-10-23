@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { MarkKind } from './marks';
+	import { GLYPH_R_PX, SELECTED_RING_R_PX, type MarkKind } from './marks';
 
 	interface Props {
 		mark: MarkKind;
@@ -10,10 +10,8 @@
 
 	let { mark, x, y, selected = false }: Props = $props();
 
-	/** Half the glyph's size. */
-	const R = 5;
-	/** The selection ring's radius. */
-	const RING_R = 9;
+	/** Half the glyph's size, short for the shapes below. */
+	const R = GLYPH_R_PX;
 	/** A check mark drawn inside a glyph. */
 	const TICK_PATH = `M ${-R * 0.6} 0 L ${-R * 0.2} ${R / 2} L ${R * 0.6} ${-R / 2}`;
 	/** How far a run exit's flagpole reaches past the glyph, and its flag's depth. */
@@ -27,7 +25,7 @@
 <!-- Each kind of mark has its own shape: an ending is never just a dot. -->
 <g class="glyph {mark}" transform="translate({x} {y})" data-mark={mark}>
 	{#if selected}
-		<circle class="ring" r={RING_R} />
+		<circle class="ring" r={SELECTED_RING_R_PX} />
 	{/if}
 	{#if mark === 'observed'}
 		<circle class="hollow" r={R} />

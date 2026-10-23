@@ -27,7 +27,8 @@
 			{@const x1 = scale.x(u.start)}
 			{@const width = Math.max(scale.x(u.end) - x1, 0)}
 			{@const visible = Math.min(x1 + width, scale.right) - Math.max(x1, scale.left)}
-			<!-- A reason that does not fit in its span is written before it. -->
+			<!-- A reason that does not fit in its span is written before it, and a
+			     span outside the window has none. -->
 			{@const inside = u.reason.length * SMALL_CHAR_PX + 2 * TEXT_PAD_PX <= visible}
 			<g data-unknown role="img" aria-label={u.reason}>
 				<title>{u.reason}</title>
@@ -45,7 +46,7 @@
 						y={band.y + SOURCE_ROW_PX / 2}
 						dy="0.35em">{u.reason}</text
 					>
-				{:else}
+				{:else if visible > 0}
 					<text
 						class="reason"
 						x={x1 - TEXT_PAD_PX}

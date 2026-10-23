@@ -24,8 +24,8 @@ export const PAN_FRACTION = 0.25;
 
 /**
  * Every time the story records: events, run creations and known bounds,
- * check bounds, and each source's last successful read, after which the
- * story is unknown. A time that does not parse is left out.
+ * check bounds, and each source's coverage gaps and last successful read,
+ * after which the story is unknown. A time that does not parse is left out.
  */
 export function storyTimes(story: Story): number[] {
 	return recordedTimes(story).filter(Number.isFinite);
@@ -44,6 +44,7 @@ function recordedTimes(story: Story): number[] {
 	}
 	for (const c of story.coverage) {
 		if (c.lastSuccessfulRead) times.push(Date.parse(c.lastSuccessfulRead));
+		for (const gap of c.gaps ?? []) times.push(Date.parse(gap.start), Date.parse(gap.end));
 	}
 	return times;
 }

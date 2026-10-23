@@ -152,6 +152,36 @@ describe('event placement', () => {
 		);
 	});
 
+	test('a run with no start, open with no last read, is noted on its row', () => {
+		const r = run({
+			outcome: 'running',
+			interval: { start: { state: 'unknown' }, end: { state: 'open' } }
+		});
+		const rows = buildRows(story({ runs: [r] }));
+		expect(rows.find((x) => x.id.startsWith('run:'))!.note).toBe(
+			'start unknown, not ended at the last read: no bar'
+		);
+	});
+
+	test('runs of one name are attempts only within one cluster and namespace', () => {
+		const here = { cluster: 'cluster-a', namespace: 'agents' };
+		const rows = buildRows(
+			story({
+				runs: [
+					run({ key: { ...here, uid: 'uid-first' } }),
+					run({ key: { ...here, uid: 'uid-retry' } }),
+					run({ key: { cluster: 'cluster-a', namespace: 'other', uid: 'uid-other-namespace' } }),
+					run({ key: { cluster: 'cluster-b', namespace: 'agents', uid: 'uid-other-cluster' } })
+				]
+			})
+		);
+		const subtitle = (uid: string) => rows.find((x) => x.id.endsWith(uid))!.subtitle;
+		expect(subtitle('uid-first')).toBe('implementation · attempt 1 · succeeded');
+		expect(subtitle('uid-retry')).toBe('implementation · attempt 2 · succeeded');
+		expect(subtitle('uid-other-namespace')).toBe('implementation · succeeded');
+		expect(subtitle('uid-other-cluster')).toBe('implementation · succeeded');
+	});
+
 	test('an automation run goes to the automation lane', () => {
 		const rows = buildRows(story({ runs: [run({ role: 'automation' })] }));
 		expect(inSection(rows, 'automation')).toHaveLength(1);

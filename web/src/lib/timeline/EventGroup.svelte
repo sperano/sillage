@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { Selection } from '../selection.svelte';
 	import EventGlyph from './EventGlyph.svelte';
-	import { onActivate } from './keys';
+	import { activation } from './keys';
 	import { LINE_PX, type Point } from './layout';
-	import { eventName } from './marks';
+	import { eventName, FOCUS_RING_R_PX } from './marks';
 	import { formatClock, formatFull, type Zone } from './time';
 
 	interface Props {
@@ -25,10 +25,8 @@
 	const BADGE_R = 9;
 	/** How far right of the group the expanded list starts. */
 	const LIST_INDENT_PX = 8;
-	/** The keyboard focus ring's distance outside the badge or glyph. */
+	/** The keyboard focus ring's distance outside the badge. */
 	const FOCUS_GAP_PX = 4;
-	/** A glyph's half size, around which a member's focus ring is drawn. */
-	const GLYPH_R = 5;
 
 	const first = $derived(members[0]!);
 	const last = $derived(members[members.length - 1]!);
@@ -46,7 +44,7 @@
 		aria-label={name}
 		aria-expanded={expanded}
 		onclick={toggle}
-		onkeydown={onActivate(toggle)}
+		{...activation(toggle)}
 	>
 		<title>{name}</title>
 		<circle class="focus" cx={x} cy={y} r={BADGE_R + FOCUS_GAP_PX} />
@@ -67,11 +65,11 @@
 				aria-pressed={selected}
 				data-event={m.key}
 				onclick={select}
-				onkeydown={onActivate(select)}
+				{...activation(select)}
 			>
 				<title>{name}</title>
 				<line class="lead" x1={m.x} y1={y} x2={x + LIST_INDENT_PX} y2={lineY} />
-				<circle class="focus" cx={x + LIST_INDENT_PX} cy={lineY} r={GLYPH_R + FOCUS_GAP_PX} />
+				<circle class="focus" cx={x + LIST_INDENT_PX} cy={lineY} r={FOCUS_RING_R_PX} />
 				<EventGlyph mark={m.mark} x={x + LIST_INDENT_PX} y={lineY} {selected} />
 				<text x={x + LIST_INDENT_PX * 2} y={lineY} dy="0.35em"
 					>{m.label} · {formatClock(m.at, zone)}</text

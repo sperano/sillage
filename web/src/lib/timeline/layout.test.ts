@@ -8,9 +8,12 @@ import {
 	fitText,
 	GROUP_GAP_PX,
 	groupPoints,
+	labelWidth,
 	layoutRow,
+	LINE_PX,
 	MIN_BAR_PX,
 	STUB_PX,
+	type Placed,
 	type Point
 } from './layout';
 import { scaleOf } from './view';
@@ -101,6 +104,8 @@ describe('groupPoints', () => {
 	});
 });
 
+const eventLabelOf = (p: Placed) => (p.kind === 'point' ? p.point.label : '');
+
 describe('layoutRow', () => {
 	const row = (spans: Span[], events = [] as Row['events']): Row => ({
 		id: 'r',
@@ -150,6 +155,37 @@ describe('layoutRow', () => {
 		expect(laid.placed.map((p) => p.kind === 'point' && p.point.event)).toEqual([events[1]]);
 	});
 
+	test('keeps a bar on its track when panning leaves the bar it overlapped out of view', () => {
+		const spans = [
+			span({ key: 'a', start: T0 + 10 * MINUTE, end: T0 + 20 * MINUTE }),
+			span({ key: 'b', start: T0 + 15 * MINUTE, end: T0 + 60 * MINUTE })
+		];
+		const panned = scaleOf({ start: T0 + 40 * MINUTE, end: T0 + 140 * MINUTE }, 0, 100);
+		const whole = layoutRow(row(spans), 0, scale, new Set(), String);
+		const laid = layoutRow(row(spans), 0, panned, new Set(), String);
+		expect(laid.bars.map((b) => [b.span.key, b.track])).toEqual([['b', 1]]);
+		expect(laid.height).toBe(whole.height);
+	});
+
+	test('lists each expanded group on its own lines', () => {
+		const at = (min: number) => event({ sourceTime: new Date(T0 + min * MINUTE).toISOString() });
+		const events = [at(10), at(11), at(50), at(51), at(52)];
+		const ids = [events[0]!, events[2]!].map((e) => `r|${eventKey(e)}`);
+		const closed = layoutRow(row([], events), 0, scale, new Set(), String);
+		const open = layoutRow(row([], events), 0, scale, new Set(ids), String);
+		expect(open.placed.map((p) => p.kind === 'group' && p.listLine)).toEqual([0, 2]);
+		expect(open.height - closed.height).toBe(5 * LINE_PX);
+	});
+
+	test('keeps the label of a mark near an edge inside the plot', () => {
+		const at = (min: number) => event({ sourceTime: new Date(T0 + min * MINUTE).toISOString() });
+		const events = [at(1), at(99)];
+		const laid = layoutRow(row([], events), 0, scale, new Set(), () => '10:00:00');
+		const labels = laid.placed.map((p) => (p.kind === 'point' ? p.label : undefined));
+		const width = labelWidth(eventLabelOf(laid.placed[1]!), '10:00:00');
+		expect(labels.map((l) => l?.x)).toEqual([0, 100 - width]);
+	});
+
 	test('moves a label that would overlap down a line, and hides it when no line is free', () => {
 		const events = [
 			event({ sourceTime: new Date(T0 + 10 * MINUTE).toISOString() }),
@@ -159,7 +195,7 @@ describe('layoutRow', () => {
 			})
 		];
 		const laid = layoutRow(row([], events), 0, scale, new Set(), () => '10:00:00');
-		expect(laid.placed.map((p) => p.kind === 'point' && p.labelLevel)).toEqual([0, 1, undefined]);
+		expect(laid.placed.map((p) => p.kind === 'point' && p.label?.level)).toEqual([0, 1, undefined]);
 	});
 });
 

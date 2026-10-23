@@ -38,7 +38,7 @@ export const TITLE_X_PX = 12;
 /** The space between the two lines of a mark's label: what, then when. */
 export const LABEL_LINE_GAP_PX = 12;
 /** How far left of its mark a label starts. */
-export const LABEL_NUDGE_PX = 4;
+const LABEL_NUDGE_PX = 4;
 /** How far outside the window a mark is still laid out. */
 const CULL_MARGIN_PX = GROUP_GAP_PX;
 /** Text cut shorter than this many characters is left out. */
@@ -54,9 +54,23 @@ export interface Point {
 	selected: Selected;
 }
 
+/** Where a mark's label is drawn: its line of labels and its left edge. */
+export interface LabelPlace {
+	level: number;
+	x: number;
+}
+
 export type Placed =
-	| { kind: 'point'; point: Point; labelLevel?: number }
-	| { kind: 'group'; id: string; x: number; members: Point[]; expanded: boolean };
+	| { kind: 'point'; point: Point; label?: LabelPlace }
+	| {
+			kind: 'group';
+			id: string;
+			x: number;
+			members: Point[];
+			expanded: boolean;
+			/** The first of the row's list lines this group's list takes when expanded. */
+			listLine: number;
+	  };
 
 export interface Bar {
 	span: Span;
@@ -65,8 +79,8 @@ export interface Bar {
 	/** bar: both ends placed; stub: one end unknown, dashed from the other. */
 	shape: 'bar' | 'stub';
 	track: number;
-	/** The line of labels the exit's label is on; unset when it is hidden. */
-	exitLabelLevel?: number;
+	/** Where the exit's label is drawn; unset when it is hidden. */
+	exitLabel?: LabelPlace;
 }
 
 export interface RowLayout {
@@ -77,7 +91,7 @@ export interface RowLayout {
 	markY: number;
 	/** The baseline of the first line of labels. */
 	labelY: number;
-	/** Where expanded groups list their members. */
+	/** The first line of the expanded groups' lists, each on its own lines. */
 	listY: number;
 	bars: Bar[];
 	placed: Placed[];
@@ -151,7 +165,7 @@ export function groupPoints(
 		if (members.length === 1) return { kind: 'point', point: members[0]! };
 		const id = `${rowId}|${members[0]!.key}`;
 		const x = members.reduce((sum, m) => sum + m.x, 0) / members.length;
-		return { kind: 'group', id, x, members, expanded: expanded.has(id) };
+		return { kind: 'group', id, x, members, expanded: expanded.has(id), listLine: 0 };
 	});
 }
 
@@ -161,35 +175,66 @@ export function labelWidth(...lines: string[]): number {
 }
 
 /**
+ * Where a label of the given width starts: just left of its mark, and
+ * moved inside the plot when its mark is in the window but the label would
+ * cross an edge, which clips it.
+ */
+function labelStart(x: number, width: number, scale: Scale): number {
+	const start = x - LABEL_NUDGE_PX;
+	if (x < scale.left || x > scale.right) return start;
+	return Math.max(scale.left, Math.min(start, scale.right - width));
+}
+
+/**
  * Puts each label, left to right over events and bar exits together, on
  * the first line where it overlaps no label before it, and hides it when
  * none is free. A hidden label stays in the mark's accessible name and
  * tooltip. Returns the number of lines used.
  */
-function placeLabels(placed: Placed[], bars: Bar[], timeText: (t: number) => string): number {
-	type Slot = { x: number; width: number; show: (level: number) => void };
+function placeLabels(
+	placed: Placed[],
+	bars: Bar[],
+	scale: Scale,
+	timeText: (t: number) => string
+): number {
+	type Slot = { x: number; width: number; show: (label: LabelPlace) => void };
 	const slots: Slot[] = [];
+	const slot = (markX: number, width: number, show: Slot['show']) =>
+		slots.push({ x: labelStart(markX, width, scale), width, show });
 	for (const p of placed) {
 		if (p.kind !== 'point') continue;
 		const width = labelWidth(p.point.label, timeText(p.point.at));
-		slots.push({ x: p.point.x, width, show: (level) => (p.labelLevel = level) });
+		slot(p.point.x, width, (label) => (p.label = label));
 	}
 	for (const b of bars) {
 		const exit = b.span.exit;
 		if (!exit) continue;
-		const width = labelWidth(exit.label, timeText(exit.at));
-		slots.push({ x: b.x2, width, show: (level) => (b.exitLabelLevel = level) });
+		slot(b.x2, labelWidth(exit.label, timeText(exit.at)), (label) => (b.exitLabel = label));
 	}
 	const free: number[] = Array(LABEL_LEVELS).fill(Number.NEGATIVE_INFINITY);
 	let used = 0;
-	for (const slot of slots.sort((a, b) => a.x - b.x)) {
-		const level = free.findIndex((f) => slot.x >= f);
+	for (const s of slots.sort((a, b) => a.x - b.x)) {
+		const level = free.findIndex((f) => s.x >= f);
 		if (level < 0) continue;
-		slot.show(level);
-		free[level] = slot.x + slot.width + TRACK_GAP_PX;
+		s.show({ level, x: s.x });
+		free[level] = s.x + s.width + TRACK_GAP_PX;
 		used = Math.max(used, level + 1);
 	}
 	return used;
+}
+
+/**
+ * Gives each expanded group its own lines under the row's labels, left to
+ * right, so that no two lists overlap. Returns the number of lines used.
+ */
+function stackLists(placed: Placed[]): number {
+	let line = 0;
+	for (const p of placed) {
+		if (p.kind !== 'group' || !p.expanded) continue;
+		p.listLine = line;
+		line += p.members.length;
+	}
+	return line;
 }
 
 /** Whether x1..x2 reaches into the window, give or take the cull margin. */
@@ -199,6 +244,8 @@ function inView(x1: number, x2: number, scale: Scale): boolean {
 
 /**
  * Lays out one row from its top edge y: only what reaches into the window.
+ * Bars are stacked on tracks over the whole row, drawn or not, so that
+ * panning never moves a bar to another track or changes the row's tracks.
  * A span with neither end known has no extent; the row's note says so.
  */
 export function layoutRow(
@@ -208,20 +255,18 @@ export function layoutRow(
 	expanded: ReadonlySet<string>,
 	timeText: (t: number) => string
 ): RowLayout {
-	const unpacked = row.spans.flatMap((span) => {
-		const extent = barExtent(span, scale);
-		return extent && inView(extent.x1, extent.x2, scale) ? [{ span, ...extent }] : [];
-	});
-	const bars = packTracks(unpacked);
-	const tracks = Math.max(1, ...bars.map((b) => b.track + 1));
+	const packed = packTracks(
+		row.spans.flatMap((span) => {
+			const extent = barExtent(span, scale);
+			return extent ? [{ span, ...extent }] : [];
+		})
+	);
+	const tracks = Math.max(1, ...packed.map((b) => b.track + 1));
+	const bars = packed.filter((b) => inView(b.x1, b.x2, scale));
 	const points = row.events.map((e) => pointOf(e, scale)).filter((p) => inView(p.x, p.x, scale));
 	const placed = groupPoints(points, row.id, expanded);
-	const levels = Math.max(1, placeLabels(placed, bars, timeText));
-	// Each expanded group lists its members under itself, from the same line.
-	const expandedLines = Math.max(
-		0,
-		...placed.map((p) => (p.kind === 'group' && p.expanded ? p.members.length : 0))
-	);
+	const levels = Math.max(1, placeLabels(placed, bars, scale, timeText));
+	const expandedLines = stackLists(placed);
 	const tracksBottom = y + ROW_PAD_PX + tracks * TRACK_PX;
 	const listY = tracksBottom + levels * LABEL_BAND_PX;
 	return {

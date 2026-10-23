@@ -166,14 +166,22 @@ function addRoot(ctx: Context): void {
 	if (page) pageRow(ctx, page).order = Number.NEGATIVE_INFINITY;
 }
 
-/** One row per run: a retry is a separate attempt, never merged. */
+/**
+ * One row per run: a retry is a separate attempt, never merged. Runs are
+ * numbered as attempts of one name only within a cluster and namespace: a
+ * name is a label, not an identity, so the same name elsewhere is another
+ * task.
+ */
 function addRuns(ctx: Context): void {
-	const byName = new Map<string, Run[]>();
+	const byScope = new Map<string, { name: string; attempts: Run[] }>();
 	for (const run of ctx.story.runs) {
 		const name = run.taskName ?? run.pod ?? runKeyString(run.key);
-		byName.set(name, [...(byName.get(name) ?? []), run]);
+		const scope = JSON.stringify([run.key.cluster, run.key.namespace, name]);
+		const entry = byScope.get(scope) ?? { name, attempts: [] };
+		entry.attempts.push(run);
+		byScope.set(scope, entry);
 	}
-	for (const [name, attempts] of byName) {
+	for (const { name, attempts } of byScope.values()) {
 		attempts.sort((a, b) => runAnchor(a) - runAnchor(b));
 		attempts.forEach((run, i) => addRun(ctx, run, name, attempts.length > 1 ? i + 1 : 0));
 	}
@@ -272,17 +280,29 @@ function entityRow(ctx: Context, e: Event): Row {
 }
 
 /**
- * Notes each interval with neither end known, which has nothing to draw:
- * without the note it would look like no interval at all.
+ * What is known of an interval with nothing to draw: no start, and an end
+ * that is unknown, or open with no last read to run it to. Undefined for
+ * an interval that has a bar or a stub.
+ */
+function undrawnEnds(span: Span): string | undefined {
+	if (span.start !== undefined) return undefined;
+	if (span.endState === 'unknown') return 'start and end unknown';
+	if (span.endState === 'open' && span.openUntil === undefined) {
+		return 'start unknown, not ended at the last read';
+	}
+	return undefined;
+}
+
+/**
+ * Notes each interval with nothing to draw: without the note it would
+ * look like no interval at all.
  */
 function addNote(row: Row): void {
-	const notes = row.spans
-		.filter((s) => s.start === undefined && s.endState === 'unknown')
-		.map((s) =>
-			s.selected.kind === 'run'
-				? 'start and end unknown: no bar'
-				: `${s.text}: start and end unknown, no bar`
-		);
+	const notes = row.spans.flatMap((s) => {
+		const ends = undrawnEnds(s);
+		if (ends === undefined) return [];
+		return [s.selected.kind === 'run' ? `${ends}: no bar` : `${s.text}: ${ends}, no bar`];
+	});
 	if (notes.length > 0) row.note = notes.join('; ');
 }
 

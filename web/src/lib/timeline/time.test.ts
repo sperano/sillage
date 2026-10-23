@@ -18,12 +18,11 @@ describe('formatting', () => {
 		expect(formatFull(AT, 'utc')).toBe('2026-03-03 18:05:40 UTC');
 	});
 
+	// vite.config.ts runs these tests in America/Toronto, five hours behind
+	// UTC in March before its daylight saving change.
 	test('shows local times in the zone the browser runs in', () => {
-		const local = new Date(AT);
-		const pad = (n: number) => String(n).padStart(2, '0');
-		expect(formatClock(AT, 'local')).toBe(
-			`${pad(local.getHours())}:${pad(local.getMinutes())}:${pad(local.getSeconds())}`
-		);
+		expect(formatClock(AT, 'local')).toBe('13:05:40');
+		expect(formatFull(AT, 'local')).toBe('2026-03-03 13:05:40 America/Toronto');
 	});
 
 	test.each([
@@ -40,6 +39,9 @@ describe('ticks', () => {
 	test('picks the smallest step that fits', () => {
 		expect(tickStep(10 * MINUTE_MS, 10)).toBe(MINUTE_MS);
 		expect(tickStep(10 * HOUR_MS, 10)).toBe(HOUR_MS);
+	});
+
+	test('falls back to the largest step when none fits', () => {
 		expect(tickStep(365 * DAY_MS, 10)).toBe(30 * DAY_MS);
 	});
 
@@ -53,6 +55,36 @@ describe('ticks', () => {
 			'01:00',
 			'02:00'
 		]);
+	});
+
+	// In America/Toronto, 2026-03-08 02:00 EST is 03:00 EDT, and 2026-11-01
+	// 02:00 EDT is 01:00 EST.
+	const localTicks = (start: string, end: string, maxTicks: number) =>
+		ticks(Date.parse(start), Date.parse(end), maxTicks, 'local');
+
+	test('skips the wall time a spring-forward change skips', () => {
+		const out = localTicks('2026-03-08T05:30:00Z', '2026-03-08T09:00:00Z', 4);
+		expect(out.map((t) => t.label)).toEqual(['2026-03-08 01:00', '03:00', '04:00', '05:00']);
+		expect(out.map((t) => new Date(t.at).toISOString())).toEqual([
+			'2026-03-08T06:00:00.000Z',
+			'2026-03-08T07:00:00.000Z',
+			'2026-03-08T08:00:00.000Z',
+			'2026-03-08T09:00:00.000Z'
+		]);
+	});
+
+	test('puts no tick before a window that starts in the skipped hour', () => {
+		const start = '2026-03-08T06:30:00Z';
+		const out = localTicks(start, '2026-03-08T09:00:00Z', 4);
+		expect(out.map((t) => t.label)).toEqual(['2026-03-08 03:00', '04:00', '05:00']);
+		expect(out.every((t) => t.at >= Date.parse(start))).toBe(true);
+	});
+
+	test('ticks a wall time a fall-back change repeats once, at its first occurrence', () => {
+		const out = localTicks('2026-11-01T04:30:00Z', '2026-11-01T09:00:00Z', 5);
+		expect(out.map((t) => t.label)).toEqual(['2026-11-01 01:00', '02:00', '03:00', '04:00']);
+		expect(new Date(out[0]!.at).toISOString()).toBe('2026-11-01T05:00:00.000Z');
+		expect(new Date(out[1]!.at).toISOString()).toBe('2026-11-01T07:00:00.000Z');
 	});
 
 	test('has no ticks for a window that is not a time, and caps a long one', () => {
