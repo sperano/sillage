@@ -50,29 +50,44 @@ func (s *Store) Save(ctx context.Context, b Batch) error {
 	if err != nil {
 		return fmt.Errorf("store: %w", err)
 	}
-	err = s.write(ctx, func(tx pgx.Tx) error {
-		w := &saver{
-			ctx:     ctx,
-			tx:      tx,
-			runKeys: make(map[model.RunKey]model.RunKey),
-			moved:   make(map[model.Ref]model.Ref),
-			dropped: make(map[model.Ref]bool),
-			runs:    make(map[int64]time.Time),
-		}
-		return w.save(b.Title, story)
-	})
+	err = s.write(ctx, func(tx pgx.Tx) error { return newSaver(ctx, tx, coverageMerge).save(b.Title, story) })
 	if err != nil {
 		return fmt.Errorf("store: save %s: %w", rootRef(b.Root), err)
 	}
 	return nil
 }
 
+// coverageRule is how a save combines a root's coverage of one source
+// instance with the stored one.
+type coverageRule int
+
+const (
+	// coverageMerge merges the two (see mergeCoverage): Save's rule.
+	coverageMerge coverageRule = iota
+	// coverageReplace stores the incoming coverage in place of the stored
+	// one: Commit's rule.
+	coverageReplace
+)
+
+func newSaver(ctx context.Context, tx pgx.Tx, coverage coverageRule) *saver {
+	return &saver{
+		ctx:      ctx,
+		tx:       tx,
+		coverage: coverage,
+		runKeys:  make(map[model.RunKey]model.RunKey),
+		moved:    make(map[model.Ref]model.Ref),
+		dropped:  make(map[model.Ref]bool),
+		runs:     make(map[int64]time.Time),
+	}
+}
+
 // saver writes one batch inside one transaction. It lives for one Save
-// call, whose context it carries.
+// or Commit call, whose context it carries.
 type saver struct {
-	ctx  context.Context
-	tx   pgx.Tx
-	root int64
+	ctx      context.Context
+	tx       pgx.Tx
+	coverage coverageRule
+	root     int64
 	// runKeys maps the batch's placeholder runs to the UID they are stored
 	// under.
 	runKeys map[model.RunKey]model.RunKey
