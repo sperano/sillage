@@ -180,7 +180,11 @@ func (b *runBuilder) setLifecycle(l lifecycleOf, prefix string, from func(field,
 		outcome = model.OutcomeSucceeded
 	case PhaseFailed:
 		outcome = model.OutcomeFailed
-	case "", PhasePending, PhaseWaiting, PhaseRunning:
+	case PhasePending, PhaseWaiting:
+		if !l.completed {
+			outcome, iv.End = model.OutcomeWaiting, model.OpenEnd()
+		}
+	case "", PhaseRunning:
 		if !l.completed {
 			outcome, iv.End = model.OutcomeRunning, model.OpenEnd()
 		}

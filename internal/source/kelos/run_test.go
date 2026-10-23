@@ -94,6 +94,14 @@ func TestTaskOnly(t *testing.T) {
 // model is set by a WorkerPool, which is not read, so it stays unknown.
 func TestTasksUnfinished(t *testing.T) {
 	recs := storyRecords(t, "tasks-unfinished")
+	story, err := model.BuildStory(
+		model.Root{Task: &model.TaskKey{Instance: testVikunja, ID: testTaskID}},
+		recs,
+	)
+	if err != nil {
+		t.Fatalf("BuildStory: %v", err)
+	}
+	recs = story.Records
 	if len(recs.Runs) != 2 || len(recs.Correlations) != 0 {
 		t.Fatalf("got %d runs and %d correlations, want 2 and none", len(recs.Runs), len(recs.Correlations))
 	}
@@ -102,12 +110,14 @@ func TestTasksUnfinished(t *testing.T) {
 		running.Interval.Start.State != model.BoundKnown || running.Interval.End.State != model.BoundOpen {
 		t.Errorf("running: role %q, outcome %q, interval %+v", running.Role, running.Outcome, running.Interval)
 	}
-	if waiting.Role != model.RoleAutomation || waiting.Outcome != model.OutcomeRunning ||
-		waiting.Interval.Start.State != model.BoundUnknown || waiting.Model != "" {
+	if waiting.Role != model.RoleAutomation || waiting.Outcome != model.OutcomeWaiting ||
+		waiting.Created == nil || waiting.Interval.Start.State != model.BoundUnknown ||
+		waiting.Interval.End.State != model.BoundOpen || waiting.Model != "" {
 		t.Errorf("waiting: role %q, outcome %q, interval %+v, model %q", waiting.Role, waiting.Outcome, waiting.Interval, waiting.Model)
 	}
 	// Its creation is its only time, and is labelled as a lifecycle time.
-	checkNote(t, noteOf(t, waiting, "tasks/agents/"), "outcome (status.phase Waiting)", taskTimesNote)
+	checkNote(t, noteOf(t, waiting, "tasks/agents/"), "created (metadata.creationTimestamp)",
+		"outcome (status.phase Waiting)", taskTimesNote)
 }
 
 // Two attempts with the same Task name stay two runs, each with its own
@@ -148,13 +158,15 @@ func TestLifecyclePhases(t *testing.T) {
 		{"failed", PhaseFailed, &end, false, model.OutcomeFailed, model.BoundKnown},
 		{"failed without completion", PhaseFailed, nil, false, model.OutcomeFailed, model.BoundUnknown},
 		{"running", PhaseRunning, nil, false, model.OutcomeRunning, model.BoundOpen},
-		{"pending", PhasePending, nil, false, model.OutcomeRunning, model.BoundOpen},
-		{"waiting", PhaseWaiting, nil, false, model.OutcomeRunning, model.BoundOpen},
+		{"pending", PhasePending, nil, false, model.OutcomeWaiting, model.BoundOpen},
+		{"waiting", PhaseWaiting, nil, false, model.OutcomeWaiting, model.BoundOpen},
 		{"no phase yet", "", nil, false, model.OutcomeRunning, model.BoundOpen},
 		{"unknown phase", "Suspended", nil, false, model.OutcomeUnknown, model.BoundUnknown},
 		{"unknown phase with completion", "Suspended", &end, false, model.OutcomeUnknown, model.BoundKnown},
 		{"record succeeded", PhaseSucceeded, &end, true, model.OutcomeSucceeded, model.BoundKnown},
 		{"record running", PhaseRunning, &end, true, model.OutcomeUnknown, model.BoundKnown},
+		{"record pending", PhasePending, &end, true, model.OutcomeUnknown, model.BoundKnown},
+		{"record waiting", PhaseWaiting, &end, true, model.OutcomeUnknown, model.BoundKnown},
 		{"record without phase", "", nil, true, model.OutcomeUnknown, model.BoundUnknown},
 	}
 	for _, tt := range tests {
