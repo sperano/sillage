@@ -4,7 +4,7 @@
 
 import { eventKey, eventTime, type Event } from '../model';
 import type { Selected } from '../selection.svelte';
-import type { Span } from './intervals';
+import { drawnEnd, type Span } from './intervals';
 import type { Row } from './lanes';
 import { eventLabel, eventMark, type MarkKind } from './marks';
 import type { Scale } from './view';
@@ -106,7 +106,7 @@ export function barExtent(
 	span: Span,
 	scale: Scale
 ): { x1: number; x2: number; shape: Bar['shape'] } | undefined {
-	const endAt = span.endState === 'open' ? span.openUntil : span.end;
+	const endAt = drawnEnd(span);
 	const end = endAt === undefined ? undefined : scale.x(endAt);
 	if (span.start !== undefined && end !== undefined) {
 		const x1 = scale.x(span.start);
@@ -176,19 +176,17 @@ export function labelWidth(...lines: string[]): number {
 
 /**
  * Where a label of the given width starts: just left of its mark, and
- * moved inside the plot when its mark is in the window but the label would
- * cross an edge, which clips it.
+ * moved inside the plot when it would cross an edge, which clips it.
  */
 function labelStart(x: number, width: number, scale: Scale): number {
-	const start = x - LABEL_NUDGE_PX;
-	if (x < scale.left || x > scale.right) return start;
-	return Math.max(scale.left, Math.min(start, scale.right - width));
+	return Math.max(scale.left, Math.min(x - LABEL_NUDGE_PX, scale.right - width));
 }
 
 /**
  * Puts each label, left to right over events and bar exits together, on
  * the first line where it overlaps no label before it, and hides it when
- * none is free. A hidden label stays in the mark's accessible name and
+ * none is free. A mark outside the window, laid out only for grouping,
+ * has no label. A hidden label stays in the mark's accessible name and
  * tooltip. Returns the number of lines used.
  */
 function placeLabels(
@@ -199,8 +197,10 @@ function placeLabels(
 ): number {
 	type Slot = { x: number; width: number; show: (label: LabelPlace) => void };
 	const slots: Slot[] = [];
-	const slot = (markX: number, width: number, show: Slot['show']) =>
+	const slot = (markX: number, width: number, show: Slot['show']) => {
+		if (markX < scale.left || markX > scale.right) return;
 		slots.push({ x: labelStart(markX, width, scale), width, show });
+	};
 	for (const p of placed) {
 		if (p.kind !== 'point') continue;
 		const width = labelWidth(p.point.label, timeText(p.point.at));
@@ -261,7 +261,8 @@ export function layoutRow(
 			return extent ? [{ span, ...extent }] : [];
 		})
 	);
-	const tracks = Math.max(1, ...packed.map((b) => b.track + 1));
+	// A loop, not Math.max(...): spreading a long array overflows the stack.
+	const tracks = packed.reduce((n, b) => Math.max(n, b.track + 1), 1);
 	const bars = packed.filter((b) => inView(b.x1, b.x2, scale));
 	const points = row.events.map((e) => pointOf(e, scale)).filter((p) => inView(p.x, p.x, scale));
 	const placed = groupPoints(points, row.id, expanded);

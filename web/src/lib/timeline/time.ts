@@ -135,7 +135,8 @@ function instantOf(wall: number, zone: Zone): number | undefined {
  * The axis ticks in [start, end], aligned on the zone's wall clock: whole
  * minutes, hours or midnights there, and never more than maxTicks, even
  * past the largest step. A wall time a daylight saving change skips has no
- * tick, and one it repeats has one, at its first occurrence. A tick shows
+ * tick, and one it repeats has one, at its first occurrence, so the
+ * repeated hour's second pass has none. A tick shows
  * its date when it is the first or the day changed since the previous one.
  * A window that is not a finite time has no ticks.
  */

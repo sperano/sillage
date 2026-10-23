@@ -167,6 +167,28 @@ export function reviewWaits(events: Event[], openUntil: number | undefined): Spa
 	});
 }
 
+/**
+ * The time a bar's end is drawn at: its end, or for an open end the last
+ * read of its source. Undefined when there is no such time.
+ */
+export function drawnEnd(span: Span): number | undefined {
+	return span.endState === 'open' ? span.openUntil : span.end;
+}
+
+/** Whether the span has an end to draw a bar or a stub from. */
+export function hasExtent(span: Span): boolean {
+	return span.start !== undefined || drawnEnd(span) !== undefined;
+}
+
+/** A stub's text: what the interval is, and which of its ends are not known. */
+export function stubText(span: Span): string {
+	const parts = [span.text];
+	if (span.start === undefined) parts.push('start unknown');
+	if (span.endState === 'open') parts.push('not ended at the last read');
+	else if (span.end === undefined) parts.push('end unknown');
+	return parts.join(', ');
+}
+
 /** The bar's text: what the interval is and, when both ends are known, its length. */
 export function spanText(span: Span): string {
 	if (span.start !== undefined && span.end !== undefined) {

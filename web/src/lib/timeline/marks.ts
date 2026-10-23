@@ -23,8 +23,10 @@ export type MarkKind =
 export const GLYPH_R_PX = 5;
 /** The radius of the ring around a selected glyph. */
 export const SELECTED_RING_R_PX = 9;
+/** How far outside the selection ring the keyboard focus ring is drawn. */
+const FOCUS_RING_GAP_PX = 2;
 /** The radius of the keyboard focus ring, outside the selection ring. */
-export const FOCUS_RING_R_PX = 11;
+export const FOCUS_RING_R_PX = SELECTED_RING_R_PX + FOCUS_RING_GAP_PX;
 
 /** The mark of an event: its kind's own, or a plain or observed dot. */
 export function eventMark(e: Event): MarkKind {

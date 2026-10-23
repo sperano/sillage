@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'vitest';
+import type { Bound, StartBound } from '../model';
 import { prEvent, run, PR } from '../testing/builders';
-import { checkSpan, reviewWaits, runSpans, spanDescription, spanText } from './intervals';
+import {
+	checkSpan,
+	hasExtent,
+	reviewWaits,
+	runSpans,
+	spanDescription,
+	spanText,
+	stubText
+} from './intervals';
 
 const READ = Date.parse('2026-03-01T12:00:00Z');
 const at = (s: string) => Date.parse(s);
@@ -200,4 +209,25 @@ test('spanDescription says what is known of each end', () => {
 	expect(spanDescription(span!, 'utc')).toBe(
 		'running, start unknown, to 2026-03-01 10:10:00 UTC, run exit: failed'
 	);
+});
+
+describe('stubText and hasExtent', () => {
+	const runWith = (start: StartBound, end: Bound, read: number | undefined) =>
+		runSpans(run({ outcome: 'running', interval: { start, end } }), read)[0]!;
+	const known: StartBound & Bound = { state: 'known', at: '2026-03-01T10:00:00Z' };
+	const unknown: StartBound & Bound = { state: 'unknown' };
+	const open: Bound = { state: 'open' };
+
+	test.each([
+		[known, unknown, READ, 'running, end unknown', true],
+		[unknown, known, READ, 'running, start unknown', true],
+		[known, open, undefined, 'running, not ended at the last read', true],
+		[unknown, open, READ, 'running, start unknown, not ended at the last read', true],
+		[unknown, open, undefined, 'running, start unknown, not ended at the last read', false],
+		[unknown, unknown, READ, 'running, start unknown, end unknown', false]
+	])('start %o, end %o, last read %s: %s', (start, end, read, text, extent) => {
+		const span = runWith(start, end, read);
+		expect(stubText(span)).toBe(text);
+		expect(hasExtent(span)).toBe(extent);
+	});
 });

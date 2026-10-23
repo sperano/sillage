@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { SOURCE_ROW_PX, type SourceBand } from './chart';
+	import { reasonText } from './coverage';
 	import { fitText, SMALL_CHAR_PX, TITLE_X_PX } from './layout';
 	import type { Scale } from './view';
 
@@ -12,8 +13,6 @@
 
 	let { band, scale, ids }: Props = $props();
 
-	/** Room kept between a reason and its span's edge. */
-	const TEXT_PAD_PX = 4;
 	const INSET_PX = 3;
 </script>
 
@@ -26,10 +25,7 @@
 		{#each band.unknown as u, i (i)}
 			{@const x1 = scale.x(u.start)}
 			{@const width = Math.max(scale.x(u.end) - x1, 0)}
-			{@const visible = Math.min(x1 + width, scale.right) - Math.max(x1, scale.left)}
-			<!-- A reason that does not fit in its span is written before it, and a
-			     span outside the window has none. -->
-			{@const inside = u.reason.length * SMALL_CHAR_PX + 2 * TEXT_PAD_PX <= visible}
+			{@const reason = reasonText(u, scale)}
 			<g data-unknown role="img" aria-label={u.reason}>
 				<title>{u.reason}</title>
 				<rect
@@ -39,21 +35,14 @@
 					height={SOURCE_ROW_PX - 2 * INSET_PX}
 					style:fill="url(#{ids}-hatch)"
 				/>
-				{#if inside}
+				<!-- Written in the span, before it, or not at all: see reasonText. -->
+				{#if reason}
 					<text
 						class="reason"
-						x={Math.max(x1, scale.left) + TEXT_PAD_PX}
-						y={band.y + SOURCE_ROW_PX / 2}
-						dy="0.35em">{u.reason}</text
-					>
-				{:else if visible > 0}
-					<text
-						class="reason"
-						x={x1 - TEXT_PAD_PX}
+						x={reason.x}
 						y={band.y + SOURCE_ROW_PX / 2}
 						dy="0.35em"
-						text-anchor="end"
-						>{fitText(u.reason, x1 - scale.left - 2 * TEXT_PAD_PX, SMALL_CHAR_PX)}</text
+						text-anchor={reason.anchor}>{reason.text}</text
 					>
 				{/if}
 			</g>

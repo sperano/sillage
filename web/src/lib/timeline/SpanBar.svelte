@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Selection } from '../selection.svelte';
 	import EventGlyph from './EventGlyph.svelte';
-	import { spanDescription, spanText } from './intervals';
+	import { spanDescription, spanText, stubText } from './intervals';
 	import { activation } from './keys';
 	import { LABEL_LINE_GAP_PX, labelWidth, type Bar } from './layout';
 	import { formatClock, type Zone } from './time';
@@ -45,15 +45,9 @@
 	const select = () => selection.select(span.selected);
 	// A stub starts at its known or open end and leaves towards the unknown one.
 	const unknownSide = $derived(span.start === undefined ? 'start' : 'end');
-	const stubText = $derived(
-		[
-			span.text,
-			span.start === undefined ? 'start unknown' : '',
-			open ? 'not ended at the last read' : span.end === undefined ? 'end unknown' : ''
-		]
-			.filter(Boolean)
-			.join(', ')
-	);
+	/** The chevron that marks an open end at x. */
+	const chevron = (x: number) =>
+		`M ${x} ${y - CHEVRON_PX} L ${x + CHEVRON_PX} ${y} L ${x} ${y + CHEVRON_PX}`;
 	/** Where the stub's drawn end is: its start, or its end when the start is unknown. */
 	const stubEnd = $derived(unknownSide === 'start' ? bar.x2 : bar.x1);
 </script>
@@ -85,10 +79,7 @@
 		{#if open}
 			<!-- An open end has no closing edge: three sides and a chevron. -->
 			<path class="edge" d="M {bar.x2} {top} H {bar.x1} V {top + BAR_PX} H {bar.x2}" />
-			<path
-				class="edge"
-				d="M {bar.x2} {y - CHEVRON_PX} L {bar.x2 + CHEVRON_PX} {y} L {bar.x2} {y + CHEVRON_PX}"
-			/>
+			<path class="edge" d={chevron(bar.x2)} />
 		{:else}
 			<rect class="edge" x={bar.x1} y={top} width={bar.x2 - bar.x1} height={BAR_PX} />
 		{/if}
@@ -100,10 +91,7 @@
 		     end has no closing edge, only the chevron. -->
 		<line class="stub" data-stub x1={bar.x1} y1={y} x2={bar.x2} y2={y} />
 		{#if unknownSide === 'start' && open}
-			<path
-				class="edge"
-				d="M {stubEnd} {y - CHEVRON_PX} L {stubEnd + CHEVRON_PX} {y} L {stubEnd} {y + CHEVRON_PX}"
-			/>
+			<path class="edge" d={chevron(stubEnd)} />
 		{:else}
 			<line class="edge" x1={stubEnd} y1={top} x2={stubEnd} y2={top + BAR_PX} />
 		{/if}
@@ -111,7 +99,7 @@
 			class="outside"
 			x={unknownSide === 'start' ? bar.x1 - TEXT_PAD_PX : bar.x2 + TEXT_PAD_PX}
 			y={top - STUB_TEXT_RAISE_PX}
-			text-anchor={unknownSide === 'start' ? 'end' : 'start'}>{stubText}</text
+			text-anchor={unknownSide === 'start' ? 'end' : 'start'}>{stubText(span)}</text
 		>
 	{/if}
 	{#if span.exit}

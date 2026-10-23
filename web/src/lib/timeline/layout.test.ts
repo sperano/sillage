@@ -186,6 +186,12 @@ describe('layoutRow', () => {
 		expect(labels.map((l) => l?.x)).toEqual([0, 100 - width]);
 	});
 
+	test('labels no mark outside the window', () => {
+		const at = (min: number) => event({ sourceTime: new Date(T0 + min * MINUTE).toISOString() });
+		const laid = layoutRow(row([], [at(-5), at(105)]), 0, scale, new Set(), String);
+		expect(laid.placed.map((p) => p.kind === 'point' && p.label)).toEqual([undefined, undefined]);
+	});
+
 	test('moves a label that would overlap down a line, and hides it when no line is free', () => {
 		const events = [
 			event({ sourceTime: new Date(T0 + 10 * MINUTE).toISOString() }),

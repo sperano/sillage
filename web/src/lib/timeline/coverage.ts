@@ -4,8 +4,12 @@
 // never idle time and never work.
 
 import { coverageKey, type Story } from '../model';
+import { fitText, SMALL_CHAR_PX } from './layout';
 import { formatFull, type Zone } from './time';
-import type { TimeWindow } from './view';
+import type { Scale, TimeWindow } from './view';
+
+/** Room kept between a reason and its span's edge. */
+export const REASON_PAD_PX = 4;
 
 export interface UnknownSpan {
 	start: number;
@@ -45,6 +49,33 @@ function clip(spans: UnknownSpan[], domain: TimeWindow): UnknownSpan[] {
 			end: Math.min(s.end, domain.end)
 		}))
 		.filter((s) => s.end > s.start);
+}
+
+/** Where a span's reason is written, and the text written there. */
+export interface ReasonText {
+	x: number;
+	anchor: 'start' | 'end';
+	text: string;
+}
+
+/**
+ * Where a span's reason goes: whole, inside the part of the span in the
+ * window when it fits there; else cut, before the span when it starts in
+ * the window and there is room, else inside its visible part. Undefined for
+ * a span outside the window, or with no room for the reason at all.
+ */
+export function reasonText(u: UnknownSpan, scale: Scale): ReasonText | undefined {
+	const x1 = scale.x(u.start);
+	const from = Math.max(x1, scale.left);
+	const visible = Math.min(scale.x(u.end), scale.right) - from;
+	if (visible <= 0) return undefined;
+	const fit = (width: number) => fitText(u.reason, width - 2 * REASON_PAD_PX, SMALL_CHAR_PX);
+	if (fit(visible) === u.reason)
+		return { x: from + REASON_PAD_PX, anchor: 'start', text: u.reason };
+	const before = x1 > scale.left ? fit(x1 - scale.left) : '';
+	if (before) return { x: x1 - REASON_PAD_PX, anchor: 'end', text: before };
+	const inside = fit(visible);
+	return inside ? { x: from + REASON_PAD_PX, anchor: 'start', text: inside } : undefined;
 }
 
 /** Every source the story's coverage names, and every other one a row reads. */

@@ -3,30 +3,60 @@ import { activation } from './keys';
 
 type Phase = 'keydown' | 'keyup';
 
-function press(phase: Phase, key: string, repeat = false) {
+/** One mark's handlers, and how often they activated it. */
+function mark() {
 	const activate = vi.fn();
-	const preventDefault = vi.fn();
-	const e = { key, repeat, preventDefault } as unknown as KeyboardEvent;
-	activation(activate)[phase === 'keydown' ? 'onkeydown' : 'onkeyup'](e);
-	return { activated: activate.mock.calls.length, prevented: preventDefault.mock.calls.length > 0 };
+	const handlers = activation(activate);
+	return {
+		press(phase: Phase, key: string, repeat = false) {
+			const preventDefault = vi.fn();
+			const e = { key, repeat, preventDefault } as unknown as KeyboardEvent;
+			handlers[phase === 'keydown' ? 'onkeydown' : 'onkeyup'](e);
+			return preventDefault.mock.calls.length > 0;
+		},
+		blur: handlers.onblur,
+		activations: () => activate.mock.calls.length
+	};
 }
 
 test('Enter activates on keydown, and keeps the page from scrolling', () => {
-	expect(press('keydown', 'Enter')).toEqual({ activated: 1, prevented: true });
-	expect(press('keyup', 'Enter')).toEqual({ activated: 0, prevented: false });
+	const m = mark();
+	expect(m.press('keydown', 'Enter')).toBe(true);
+	expect(m.activations()).toBe(1);
+	expect(m.press('keyup', 'Enter')).toBe(false);
+	expect(m.activations()).toBe(1);
 });
 
 test('Space activates on keyup, and keeps the page from scrolling on both', () => {
-	expect(press('keydown', ' ')).toEqual({ activated: 0, prevented: true });
-	expect(press('keyup', ' ')).toEqual({ activated: 1, prevented: true });
+	const m = mark();
+	expect(m.press('keydown', ' ')).toBe(true);
+	expect(m.activations()).toBe(0);
+	expect(m.press('keyup', ' ')).toBe(true);
+	expect(m.activations()).toBe(1);
 });
 
 test('a held key activates once', () => {
-	expect(press('keydown', 'Enter', true)).toEqual({ activated: 0, prevented: true });
-	expect(press('keydown', ' ', true)).toEqual({ activated: 0, prevented: true });
+	const m = mark();
+	m.press('keydown', 'Enter');
+	m.press('keydown', 'Enter', true);
+	m.press('keydown', ' ');
+	m.press('keydown', ' ', true);
+	m.press('keyup', ' ');
+	expect(m.activations()).toBe(2);
+});
+
+test('a Space pressed elsewhere, or before the mark lost focus, does not activate', () => {
+	const m = mark();
+	m.press('keyup', ' ');
+	m.press('keydown', ' ');
+	m.blur();
+	m.press('keyup', ' ');
+	expect(m.activations()).toBe(0);
 });
 
 test('other keys do nothing', () => {
-	expect(press('keydown', 'Tab')).toEqual({ activated: 0, prevented: false });
-	expect(press('keyup', 'Tab')).toEqual({ activated: 0, prevented: false });
+	const m = mark();
+	expect(m.press('keydown', 'Tab')).toBe(false);
+	expect(m.press('keyup', 'Tab')).toBe(false);
+	expect(m.activations()).toBe(0);
 });

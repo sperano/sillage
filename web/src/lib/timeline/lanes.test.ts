@@ -176,10 +176,10 @@ describe('event placement', () => {
 			})
 		);
 		const subtitle = (uid: string) => rows.find((x) => x.id.endsWith(uid))!.subtitle;
-		expect(subtitle('uid-first')).toBe('implementation · attempt 1 · succeeded');
-		expect(subtitle('uid-retry')).toBe('implementation · attempt 2 · succeeded');
-		expect(subtitle('uid-other-namespace')).toBe('implementation · succeeded');
-		expect(subtitle('uid-other-cluster')).toBe('implementation · succeeded');
+		expect(subtitle('uid-first')).toBe('implementation · cluster-a/agents · attempt 1 · succeeded');
+		expect(subtitle('uid-retry')).toBe('implementation · cluster-a/agents · attempt 2 · succeeded');
+		expect(subtitle('uid-other-namespace')).toBe('implementation · cluster-a/other · succeeded');
+		expect(subtitle('uid-other-cluster')).toBe('implementation · cluster-b/agents · succeeded');
 	});
 
 	test('an automation run goes to the automation lane', () => {

@@ -18,7 +18,7 @@ import {
 	type Story,
 	type TaskKey
 } from '../model';
-import { checkSpan, reviewWaits, runSpans, type Span } from './intervals';
+import { checkSpan, hasExtent, reviewWaits, runSpans, type Span } from './intervals';
 
 /** The lanes, in the order they are drawn after the root's lane. */
 export const SECTIONS = ['task', 'people', 'runs', 'automation', 'pulls', 'pages'] as const;
@@ -170,20 +170,27 @@ function addRoot(ctx: Context): void {
  * One row per run: a retry is a separate attempt, never merged. Runs are
  * numbered as attempts of one name only within a cluster and namespace: a
  * name is a label, not an identity, so the same name elsewhere is another
- * task.
+ * task, and its rows name their cluster and namespace.
  */
 function addRuns(ctx: Context): void {
 	const byScope = new Map<string, { name: string; attempts: Run[] }>();
+	const scopesOfName = new Map<string, number>();
 	for (const run of ctx.story.runs) {
 		const name = run.taskName ?? run.pod ?? runKeyString(run.key);
 		const scope = JSON.stringify([run.key.cluster, run.key.namespace, name]);
-		const entry = byScope.get(scope) ?? { name, attempts: [] };
-		entry.attempts.push(run);
-		byScope.set(scope, entry);
+		const entry = byScope.get(scope);
+		if (entry) entry.attempts.push(run);
+		else {
+			byScope.set(scope, { name, attempts: [run] });
+			scopesOfName.set(name, (scopesOfName.get(name) ?? 0) + 1);
+		}
 	}
 	for (const { name, attempts } of byScope.values()) {
 		attempts.sort((a, b) => runAnchor(a) - runAnchor(b));
-		attempts.forEach((run, i) => addRun(ctx, run, name, attempts.length > 1 ? i + 1 : 0));
+		const scoped = (scopesOfName.get(name) ?? 0) > 1;
+		attempts.forEach((run, i) =>
+			addRun(ctx, run, { name, attempt: attempts.length > 1 ? i + 1 : 0, scoped })
+		);
 	}
 }
 
@@ -194,12 +201,24 @@ function runAnchor(run: Run): number {
 	return known.length > 0 ? Math.min(...known) : Number.POSITIVE_INFINITY;
 }
 
-function addRun(ctx: Context, run: Run, name: string, attempt: number): void {
+/**
+ * How a run's row is titled: its name, its attempt (0 for a run with no
+ * retry), and whether runs of the same name elsewhere call for its cluster
+ * and namespace.
+ */
+interface RunTitle {
+	name: string;
+	attempt: number;
+	scoped: boolean;
+}
+
+function addRun(ctx: Context, run: Run, { name, attempt, scoped }: RunTitle): void {
 	const source = coverageKey('kelos', run.key.cluster);
+	const scope = scoped ? `${run.key.cluster}/${run.key.namespace}` : '';
 	const row = ctx.ensure(`run:${runKeyString(run.key)}`, () => ({
 		section: run.role === 'automation' ? 'automation' : 'runs',
 		title: name,
-		subtitle: [run.role, attempt > 0 ? `attempt ${attempt}` : '', run.outcome]
+		subtitle: [run.role, scope, attempt > 0 ? `attempt ${attempt}` : '', run.outcome]
 			.filter(Boolean)
 			.join(' · '),
 		sources: [source]
@@ -285,12 +304,10 @@ function entityRow(ctx: Context, e: Event): Row {
  * an interval that has a bar or a stub.
  */
 function undrawnEnds(span: Span): string | undefined {
-	if (span.start !== undefined) return undefined;
-	if (span.endState === 'unknown') return 'start and end unknown';
-	if (span.endState === 'open' && span.openUntil === undefined) {
-		return 'start unknown, not ended at the last read';
-	}
-	return undefined;
+	if (hasExtent(span)) return undefined;
+	return span.endState === 'open'
+		? 'start unknown, not ended at the last read'
+		: 'start and end unknown';
 }
 
 /**
