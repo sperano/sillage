@@ -160,6 +160,9 @@ func (w *saver) insertRun(r model.Run) (int64, error) {
 	var id int64
 	err = w.tx.QueryRow(w.ctx, `INSERT INTO runs (cluster, namespace, uid, key_pod, ref, pod, body)
 		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`, cols...).Scan(&id)
+	if err == nil {
+		w.touchRun(id, r)
+	}
 	return id, err
 }
 
@@ -172,6 +175,7 @@ func (w *saver) writeRun(id int64, r model.Run) error {
 	if err != nil {
 		return err
 	}
+	w.touchRun(id, r)
 	return w.exec(`UPDATE runs SET cluster = $1, namespace = $2, uid = $3, key_pod = $4, ref = $5, pod = $6, body = $7
 		WHERE id = $8`, append(cols, id)...)
 }

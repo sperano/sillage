@@ -81,6 +81,7 @@ func (w *saver) saveEvent(e model.Event) error {
 	if err != nil {
 		return err
 	}
+	w.touchEvent(id)
 	return w.exec("INSERT INTO root_events (root_id, event_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", w.root, id)
 }
 

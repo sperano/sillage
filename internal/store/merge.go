@@ -188,34 +188,3 @@ func earliest(a, b time.Time) time.Time {
 	}
 	return b
 }
-
-// activity returns the latest time the records show anything happening,
-// and false when they show no time: an event's time (its last
-// observation, for a state seen again), a run's known bounds and
-// creation. Retention counts from it.
-func activity(recs model.Records) (time.Time, bool) {
-	var last time.Time
-	see := func(t time.Time) {
-		if t.After(last) {
-			last = t
-		}
-	}
-	for _, e := range recs.Events {
-		see(e.Time())
-		if e.LastObservedAt != nil {
-			see(*e.LastObservedAt)
-		}
-	}
-	for _, r := range recs.Runs {
-		if r.Created != nil {
-			see(*r.Created)
-		}
-		if t, ok := r.Interval.Start.Time(); ok {
-			see(t)
-		}
-		if t, ok := r.Interval.End.Time(); ok {
-			see(t)
-		}
-	}
-	return last, !last.IsZero()
-}

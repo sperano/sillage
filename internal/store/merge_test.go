@@ -247,18 +247,3 @@ func TestMergeCoverageKnownStaysKnown(t *testing.T) {
 		}
 	}
 }
-
-func TestActivity(t *testing.T) {
-	if _, ok := activity(model.Records{}); ok {
-		t.Error("no records have an activity time")
-	}
-	seen := bucket("Doing", 0)
-	seen.LastObservedAt = ptr(at(40))
-	recs := model.Records{
-		Events: []model.Event{comment(7, "comments/1", 10), seen},
-		Runs:   []model.Run{finishedRun("uid-1", 0, 30, model.OutcomeSucceeded)},
-	}
-	if got, ok := activity(recs); !ok || !got.Equal(at(40)) {
-		t.Errorf("activity = %v, %v; want minute 40", got, ok)
-	}
-}

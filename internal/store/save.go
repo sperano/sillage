@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -56,6 +57,7 @@ func (s *Store) Save(ctx context.Context, b Batch) error {
 			runKeys: make(map[model.RunKey]model.RunKey),
 			moved:   make(map[model.Ref]model.Ref),
 			dropped: make(map[model.Ref]bool),
+			runs:    make(map[int64]time.Time),
 		}
 		return w.save(b.Title, story)
 	})
@@ -81,6 +83,10 @@ type saver struct {
 	// dropped are the records not stored, whose correlations are dropped
 	// too: live wiki edits another account's newer one replaced.
 	dropped map[model.Ref]bool
+	// events and runs are the rows the batch stored, the runs with their
+	// latest time, whose roots touchRoots updates.
+	events []int64
+	runs   map[int64]time.Time
 }
 
 func (w *saver) save(title string, story model.Story) error {
@@ -95,14 +101,12 @@ func (w *saver) save(title string, story model.Story) error {
 		func() error { return w.savePullRequests(story.PullRequests) },
 		func() error { return w.saveCorrelations(story.Correlations) },
 		func() error { return w.saveCoverage(story.Coverage) },
+		w.touchRoots,
 	}
 	for _, step := range steps {
 		if err := step(); err != nil {
 			return err
 		}
-	}
-	if at, ok := activity(story.Records); ok {
-		return w.exec("UPDATE roots SET last_activity = GREATEST(last_activity, $2) WHERE id = $1", w.root, at)
 	}
 	return nil
 }

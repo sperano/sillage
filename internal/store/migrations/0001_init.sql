@@ -16,7 +16,8 @@ CREATE TABLE roots (
     -- Shown and searched; never part of the key.
     title         text,
     body          jsonb NOT NULL,
-    -- Latest time of any record saved for the root; retention counts from it.
+    -- Latest time of any record in the root's story, shared records included;
+    -- retention counts from it.
     last_activity timestamptz,
     created_at    timestamptz NOT NULL DEFAULT now(),
     updated_at    timestamptz NOT NULL DEFAULT now(),
