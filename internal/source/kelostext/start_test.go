@@ -128,3 +128,16 @@ func TestGrammarPhrases(t *testing.T) {
 		t.Errorf("another surface's phrase: error %v, want %v", err, ErrNotAnnouncement)
 	}
 }
+
+func TestNewGrammarPanics(t *testing.T) {
+	for _, phrases := range [][]string{nil, {PhraseFollowUp, ""}} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("NewGrammar(%q) did not panic", phrases)
+				}
+			}()
+			NewGrammar(phrases...)
+		}()
+	}
+}

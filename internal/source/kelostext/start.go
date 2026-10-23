@@ -52,20 +52,24 @@ const (
 // a period: Hollingsworth #296, merged 2026-10-22 02:54 UTC. The follow-up
 // phrase is the same on every surface.
 const (
+	// PhraseTaskStarted: a Vikunja task's first run.
 	PhraseTaskStarted = "IS ON THE CASE. THIS ONE HAS THE STUFF"
-	PhraseFollowUp    = "IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR"
-	PhraseConflict    = "IS RESOLVING THE PULL REQUEST'S MERGE CONFLICT. PUT CAUTION IN THE SHOTGUN SEAT"
+	// PhraseFollowUp: a follow-up on a Vikunja task, a wiki page or a PR.
+	PhraseFollowUp = "IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR"
+	// PhraseConflict: a PR's merge conflict resolution.
+	PhraseConflict = "IS RESOLVING THE PULL REQUEST'S MERGE CONFLICT. PUT CAUTION IN THE SHOTGUN SEAT"
 )
 
+// K8sLabel matches a DNS label: a namespace, or a workspace name.
+const K8sLabel = `[a-z0-9](?:[a-z0-9-]*[a-z0-9])?`
+
 const (
-	// K8sName matches a Kubernetes object name (DNS subdomain).
-	K8sName = `[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?`
-	// K8sLabel matches a namespace name (DNS label).
-	K8sLabel = `[a-z0-9](?:[a-z0-9-]*[a-z0-9])?`
+	// k8sName matches a Kubernetes object name (DNS subdomain).
+	k8sName = `[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?`
 	// leadAgent matches who started: an agent named or not, and its model.
 	leadAgent = `^(?:(?:Agent|AGENT) (\S+)|The agent|THE AGENT|An agent|AN AGENT)(?: \((?:model|MODEL) (\S+)\))? `
 	// leadTask matches the Kelos Task and pod after the action phrase.
-	leadTask = `[:.] (?:Kelos Task|KELOS TASK) (` + K8sName + `)(?:, (?:pod|POD) (` + K8sName + `))?\.$`
+	leadTask = `[:.] (?:Kelos Task|KELOS TASK) (` + k8sName + `)(?:, (?:pod|POD) (` + k8sName + `))?\.$`
 )
 
 var (
@@ -106,7 +110,12 @@ type Grammar struct {
 }
 
 // NewGrammar returns the grammar of announcements that use one of phrases.
+// It panics when phrases is empty or holds an empty phrase, which every
+// text would contain.
 func NewGrammar(phrases ...string) *Grammar {
+	if len(phrases) == 0 || slices.Contains(phrases, "") {
+		panic("kelostext: NewGrammar needs non-empty phrases")
+	}
 	sorted := slices.Clone(phrases)
 	// Longest first, so a phrase that starts another is tried after it.
 	slices.SortFunc(sorted, func(a, b string) int { return cmp.Compare(len(b), len(a)) })

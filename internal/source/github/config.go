@@ -15,6 +15,14 @@ const (
 	// EnvToken names the environment variable holding a GitHub token with
 	// read-only access to pull requests, issues and checks.
 	EnvToken = "SILLAGE_GITHUB_TOKEN"
+	// EnvAnnouncers names the environment variable holding the logins,
+	// comma-separated, whose conversation comments are parsed as Kelos
+	// start announcements: the accounts of the Workspaces' tokens (the
+	// owner's for a PAT, the App's bot for a GitHub App). Unset, no
+	// comment is read as one.
+	EnvAnnouncers = "SILLAGE_GITHUB_ANNOUNCERS"
+	// loginSeparator separates the logins of EnvAnnouncers.
+	loginSeparator = ","
 	// DefaultAPIURL is github.com's REST API.
 	DefaultAPIURL = "https://api.github.com"
 	// dotComAPIHost is github.com's API host; its records belong to the
@@ -52,14 +60,18 @@ type Config struct {
 	Instance string
 	// Token is sent as a bearer token. It must only grant read access.
 	Token Token
+	// Announcers are the logins whose conversation comments are parsed
+	// as start announcements; hand them to Normalize.
+	Announcers []string
 }
 
 // ConfigFromEnv reads a Config through getenv (os.Getenv in production)
 // and derives Instance from the API URL.
 func ConfigFromEnv(getenv func(string) string) (Config, error) {
 	cfg := Config{
-		APIURL: strings.TrimRight(strings.TrimSpace(getenv(EnvAPIURL)), "/"),
-		Token:  Token(strings.TrimSpace(getenv(EnvToken))),
+		APIURL:     strings.TrimRight(strings.TrimSpace(getenv(EnvAPIURL)), "/"),
+		Token:      Token(strings.TrimSpace(getenv(EnvToken))),
+		Announcers: logins(getenv(EnvAnnouncers)),
 	}
 	if cfg.APIURL == "" {
 		cfg.APIURL = DefaultAPIURL
@@ -69,6 +81,17 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 	}
 	cfg.Instance = instanceOf(cfg.APIURL)
 	return cfg, nil
+}
+
+// logins splits a comma-separated list of logins, dropping blanks.
+func logins(list string) []string {
+	var out []string
+	for _, l := range strings.Split(list, loginSeparator) {
+		if l = strings.TrimSpace(l); l != "" {
+			out = append(out, l)
+		}
+	}
+	return out
 }
 
 // instanceOf names the instance an API URL belongs to: github.com for

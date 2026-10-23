@@ -1,6 +1,7 @@
 package github
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -46,6 +47,25 @@ func TestConfigFromEnv(t *testing.T) {
 					cfg.Token == testToken, tt.wantAPI, tt.wantInstance)
 			}
 		})
+	}
+}
+
+func TestConfigAnnouncers(t *testing.T) {
+	tests := []struct {
+		value string
+		want  []string
+	}{
+		{"", nil},
+		{" owner-gh , example-agents[bot],, ", []string{"owner-gh", "example-agents[bot]"}},
+	}
+	for _, tt := range tests {
+		cfg, err := ConfigFromEnv(envOf(map[string]string{EnvToken: testToken, EnvAnnouncers: tt.value}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(cfg.Announcers, tt.want) {
+			t.Errorf("%s=%q: announcers %q, want %q", EnvAnnouncers, tt.value, cfg.Announcers, tt.want)
+		}
 	}
 }
 

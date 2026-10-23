@@ -19,6 +19,10 @@ import (
 // go test ./internal/source/github -run TestNormalizeGolden -update
 var update = flag.Bool("update", false, "rewrite the GitHub fixtures' golden files")
 
+// testAnnouncers are the fixtures' Workspace accounts: the owner's, as for
+// a PAT, and an App's bot, in another case than GitHub reports it.
+var testAnnouncers = []string{"owner-gh", "Example-Agents[bot]"}
+
 const (
 	goldenFile = "records.golden.json"
 	// goldenPerm is the mode of a rewritten golden file.
@@ -46,7 +50,7 @@ func storyRecords(t *testing.T, story string) model.Records {
 	}
 	all := model.Records{Events: []model.Event{}, PullRequests: []model.PullRequest{}}
 	for _, s := range snaps {
-		recs, err := Normalize(s)
+		recs, err := Normalize(s, testAnnouncers)
 		if err != nil {
 			t.Fatalf("Normalize pull request %d: %v", s.PullRequest.Number, err)
 		}
@@ -231,7 +235,8 @@ func TestChecksTwoSHAsStory(t *testing.T) {
 }
 
 // Start announcements in every form, posted by the owner's account or the
-// App's bot, name their runs; /gordon and /kelos requests are requests.
+// App's bot, name their runs; another account's stays a comment. /gordon
+// and /kelos requests are requests.
 func TestNormalizeFollowUpAnnounced(t *testing.T) {
 	recs := storyRecords(t, "follow-up-announced")
 	tests := []struct {
@@ -260,6 +265,7 @@ func TestNormalizeFollowUpAnnounced(t *testing.T) {
 			"namespace": "agents", "role": "pr-follow-up",
 		}, ""},
 		{"issues/comments/5307", model.KindComment, nil, ""},
+		{"issues/comments/5308", model.KindComment, nil, ""},
 	}
 	for _, tt := range tests {
 		e := eventByID(t, recs, tt.id)
@@ -310,7 +316,7 @@ func TestCheckRunConversionErrors(t *testing.T) {
 		c := base
 		c.Conclusion = tt.conclusion
 		s.Checks = []CheckRun{c, c}
-		recs, err := Normalize(s)
+		recs, err := Normalize(s, nil)
 		switch {
 		case tt.want == "" && err != nil:
 			t.Errorf("%s: %v", tt.name, err)
@@ -339,7 +345,7 @@ func TestNormalizeDedupesRecords(t *testing.T) {
 	s := testSnapshot()
 	c := Comment{ID: 5, User: testOwner, CreatedAt: testCreated}
 	s.Comments = []Comment{c, c}
-	recs, err := Normalize(s)
+	recs, err := Normalize(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -363,7 +369,7 @@ func TestReviewCommentTimes(t *testing.T) {
 		{ID: 12, User: testOther, CreatedAt: drafted, ReviewID: 2},
 		{ID: 13, User: testOther, CreatedAt: drafted, ReviewID: 3},
 	}
-	recs, err := Normalize(s)
+	recs, err := Normalize(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

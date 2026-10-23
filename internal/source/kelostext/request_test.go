@@ -24,6 +24,9 @@ func TestParseRequest(t *testing.T) {
 		{"/gordon @, tighten the steps", Request{Command: CommandGordon}, true},
 		{"/gordon\tplease", Request{Command: CommandGordon}, true},
 		{"/gordonx do it", Request{}, false},
+		// Punctuation right after the command makes it another word.
+		{"/gordon, please look", Request{}, false},
+		{"/gordon: please look", Request{}, false},
 		{"/kelosx do it", Request{}, false},
 		{"please /gordon do it", Request{}, false},
 		{"/Gordon do it", Request{}, false},

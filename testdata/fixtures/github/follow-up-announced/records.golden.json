@@ -312,6 +312,32 @@
         "ref": "GET /repos/example-org/widgets/issues/51/comments",
         "note": "comment 5307; reads like a start announcement but names no Kelos Task of this pull request"
       }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5308",
+      "idKind": "source",
+      "kind": "comment.created",
+      "sourceTime": "2026-04-05T12:20:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "drive-by-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/51/comments",
+        "note": "comment 5308"
+      }
     }
   ],
   "pullRequests": [

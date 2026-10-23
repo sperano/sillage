@@ -23,14 +23,14 @@ const (
 // Normalize turns one read of a pull request into model records: the pull
 // request with its check runs, and its events (opened, closed, merged,
 // reopened, review requests, conversation and inline review comments and
-// requests, start announcements, submitted reviews), in time order. Each
-// event's actor is the GitHub account; its executor stays unset unless
-// executorOf or a start announcement names it. A merge is a pr.merged
+// requests, start announcements posted by one of announcers, submitted
+// reviews), in time order. Each event's actor is the GitHub account; its
+// executor stays unset unless executorOf or a start announcement names it. A merge is a pr.merged
 // event and the close that comes with it is dropped: pr.closed means
 // closed without being merged. Neither is the task being done. Every
 // record is validated.
-func Normalize(s Snapshot) (model.Records, error) {
-	n := normalizer{s: s, key: prKey(s), seen: make(map[string]bool)}
+func Normalize(s Snapshot, announcers []string) (model.Records, error) {
+	n := normalizer{s: s, key: prKey(s), announcers: announcers, seen: make(map[string]bool)}
 	n.add(n.opened())
 	if err := n.timeline(); err != nil {
 		return model.Records{}, err
@@ -58,10 +58,11 @@ func Normalize(s Snapshot) (model.Records, error) {
 // normalizer accumulates the events of one snapshot, each id once: a
 // record repeated across two pages read while it changed counts once.
 type normalizer struct {
-	s      Snapshot
-	key    model.PRKey
-	events []model.Event
-	seen   map[string]bool
+	s          Snapshot
+	key        model.PRKey
+	announcers []string
+	events     []model.Event
+	seen       map[string]bool
 }
 
 func (n *normalizer) add(e model.Event) {
@@ -148,10 +149,11 @@ func (n *normalizer) comment(c Comment, idPrefix, path, notePrefix string) model
 }
 
 // conversationComment is a conversation comment: a request, a start
-// announcement, or a plain comment. Kelos announces runs only there.
+// announcement when one of the announcers posted it, or a plain comment.
+// Kelos announces runs only there.
 func (n *normalizer) conversationComment(c Comment) model.Event {
 	e := n.comment(c, "issues/comments/", commentsPath(n.s.Repository, n.s.PullRequest.Number), "comment ")
-	if e.Kind != model.KindComment {
+	if e.Kind != model.KindComment || !n.announcer(c.User) {
 		return e
 	}
 	a, err := parseAnnouncement(c.Body, n.s.PullRequest.Number)
@@ -162,6 +164,12 @@ func (n *normalizer) conversationComment(c Comment) model.Event {
 		e.Evidence.Note += "; reads like a start announcement but names no Kelos Task of this pull request"
 	}
 	return e
+}
+
+// announcer reports whether u is one of the announcers. GitHub logins are
+// case-insensitive.
+func (n *normalizer) announcer(u *User) bool {
+	return u != nil && slices.ContainsFunc(n.announcers, func(l string) bool { return strings.EqualFold(l, u.Login) })
 }
 
 // reviewComments adds the inline review comments others can see. One

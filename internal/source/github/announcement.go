@@ -29,8 +29,9 @@ import (
 //	The link shows ... (namespace `NAMESPACE`).
 //
 // A conflict run's phrase is the conflict one of the same form. Since the
-// account can be the owner's, a comment is an announcement only when its
-// Task name is one Kelos gives a run on this pull request.
+// account can be the owner's, which also posts requests and replies, a
+// comment is an announcement only when its Task name is one Kelos gives a
+// run on this pull request.
 
 // rolesByPhrase maps each start phrase posted on GitHub to the run role it
 // announces.
