@@ -308,3 +308,59 @@ func TestWikiFollowUpJoinedByItsOrigin(t *testing.T) {
 		}
 	}
 }
+
+// An Origin naming another host than the configured instance joins
+// nothing, so it does not keep a record-only run out of its stories: the
+// label, branch and name joins still apply.
+func TestOriginOnAnotherHostKeepsTheOtherJoins(t *testing.T) {
+	m := newFakeMemory()
+	m.remember(t, "uid-labelled", at(-60), map[string]string{
+		kelos.AnnotationSource: kelos.OriginVikunja, kelos.AnnotationSourceInstance: "tasks.example.com",
+	})
+	other := prOrigin("7")
+	other[kelos.AnnotationSourceInstance] = "github.example.org"
+	m.remember(t, "uid-follow", at(-60), other)
+	followUp := map[string]string{testVikunjaHost + "/workspace": testWorkspace, testVikunjaHost + "/role": "pr-followup"}
+	snap := kelos.Snapshot{Records: []kelos.TaskRecord{
+		record("vikunja-widgets-agent-opus-104", "uid-labelled", taskLabels("104"), 1, 2),
+		record("pr-followup-widgets-7-c3", "uid-follow", followUp, 1, 2),
+	}}
+	res := collectWithMemory(t, m, snap, pullRequest(7, taskBranch(104)))
+	if c, ok := linkBetween(res.Story, runRef("uid-labelled"), taskRoot(104).Task.Ref()); !ok ||
+		c.Confidence != model.ConfidenceIdentifier || len(c.Evidence) != 1 {
+		t.Errorf("labelled run -> task = %+v, %v; want the label's identifier alone", c, ok)
+	}
+	if c, ok := linkBetween(res.Story, runRef("uid-follow"), prRef(7)); !ok || c.Confidence != model.ConfidenceHeuristic {
+		t.Errorf("follow-up -> PR 7 = %+v, %v; want the name's heuristic", c, ok)
+	}
+}
+
+// A wiki follow-up read from its TaskRecord alone, whose kept Origin names
+// the page on another host, is still joined by its name.
+func TestWikiFollowUpOnAnotherHostJoinedByName(t *testing.T) {
+	m := newFakeMemory()
+	m.remember(t, "uid-wiki", at(-60), map[string]string{
+		kelos.AnnotationSource: kelos.OriginWiki, kelos.AnnotationSourceInstance: "docs.example.com",
+		kelos.AnnotationWikiPage: "57", kelos.AnnotationWikiLocale: "en", kelos.AnnotationComment: "801",
+	})
+	src := emptySources()
+	src.Kelos = fixedKelos{kelos.Snapshot{Records: []kelos.TaskRecord{record("wiki-fu-widgets-57-c801", "uid-wiki", nil, 1, 2)}}}
+	src.Wiki = fixedWiki{wiki.Snapshot{
+		Instance: testWikiHost, ObservedAt: testNow,
+		Page: wiki.Page{ID: 57, Path: "widgets/notes", Locale: "en", CreatedAt: at(0), UpdatedAt: at(0),
+			AuthorID: 7, AuthorName: "Robin Owner", CreatorID: 7, CreatorName: "Robin Owner"},
+	}}
+	c, err := New(testConfig(), src, WithOriginMemory(m))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.now = func() time.Time { return testNow }
+	res, err := c.Collect(t.Context(), pageRoot(57))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l, ok := linkBetween(res.Story, runRef("uid-wiki"), pageRoot(57).Page.Ref()); !ok ||
+		!strings.Contains(l.Evidence[0].Note, "Task name names page 57") {
+		t.Errorf("run -> page 57 = %+v, %v; want the name's join", l, ok)
+	}
+}

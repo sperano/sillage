@@ -93,20 +93,24 @@ func (a *assembly) branchEvidence(p kelos.Placement, more string) model.Evidence
 	}
 }
 
-// linkedRuns adds the runs whose label or Origin names the root.
-func (a *assembly) linkedRuns() {
+// linkedRuns adds the runs whose label or Origin names the root, and
+// returns them.
+func (a *assembly) linkedRuns() map[model.Ref]bool {
+	linked := make(map[model.Ref]bool)
 	for _, c := range a.kelos.links {
 		if c.To == a.rootRef {
 			a.includeRun(c.From)
 			a.links.add(c)
+			linked[c.From] = true
 		}
 	}
+	return linked
 }
 
 // taskRuns adds the runs that belong to task id: by their task label, by
 // the branch their Task works on (identifiers), or by the task and comment
-// spawners' name conventions (a heuristic, only for a run with neither the
-// label nor an Origin).
+// spawners' name conventions (a heuristic, only for a run nothing else
+// joins).
 func (a *assembly) taskRuns(id int64) {
 	if a.kelos == nil {
 		return
@@ -118,9 +122,6 @@ func (a *assembly) taskRuns(id int64) {
 			a.addRun(r)
 			a.links.identifier(r.Key.Ref(), a.rootRef, a.branchEvidence(p, ""))
 		}
-		if a.originOf(r) != nil {
-			continue
-		}
 		if n, _, ok := taskOfName(r.TaskName); ok && n == id && !a.links.has(r.Key.Ref(), a.rootRef) {
 			a.addRun(r)
 			a.links.heuristic(r.Key.Ref(), a.rootRef, false, a.kelosEvidence(r,
@@ -131,17 +132,17 @@ func (a *assembly) taskRuns(id int64) {
 }
 
 // pageRuns adds the runs that belong to page key: by their Origin, by
-// the branch their Task works on, or, for a run with no Origin, by the
-// wiki spawner's Task name, which names the page and the requesting
+// the branch their Task works on, or, for a run its Origin does not join,
+// by the wiki spawner's Task name, which names the page and the requesting
 // comment.
 func (a *assembly) pageRuns(key model.PageKey) {
 	if a.kelos == nil {
 		return
 	}
-	a.linkedRuns()
+	annotated := a.linkedRuns()
 	branch := pageBranch(key.ID)
 	for _, r := range a.kelos.runs {
-		if req, ok := pageOfName(r.TaskName); ok && req.page == key.ID && a.originOf(r) == nil {
+		if req, ok := pageOfName(r.TaskName); ok && req.page == key.ID && !annotated[r.Key.Ref()] {
 			a.addRun(r)
 			a.links.identifier(r.Key.Ref(), a.rootRef, a.kelosEvidence(r, "Task name names page "+
 				strconv.FormatInt(req.page, 10)))

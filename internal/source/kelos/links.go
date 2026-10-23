@@ -12,8 +12,9 @@ import (
 const maxPRNumber = math.MaxInt32
 
 // taskLink returns the correlation with the Vikunja task the task label
-// names, if any. The task is on the configured Vikunja instance, unless
-// the Origin says a Vikunja event started the Task and names its host.
+// names, if any, on the configured Vikunja instance. A Vikunja Origin on
+// that instance adds its evidence; one naming another host (the chart's
+// view of the instance may differ from sillage's) does not move the link.
 func (b *runBuilder) taskLink(labels map[string]string, ref string, origin Origin) []model.Correlation {
 	id, ok := b.cfg.taskID(labels)
 	if !ok {
@@ -27,8 +28,7 @@ func (b *runBuilder) taskLink(labels map[string]string, ref string, origin Origi
 		Ref:      ref,
 		Note:     "label " + key + "=" + labels[key],
 	}}
-	if host, ok := origin.instanceOf(OriginVikunja); ok {
-		task.Instance = host
+	if host, ok := origin.instanceOf(OriginVikunja); ok && host == b.cfg.VikunjaInstance {
 		evidence = append(evidence, origin.Evidence(b.cfg, AnnotationSource, AnnotationSourceInstance))
 	}
 	return []model.Correlation{identifier(b.run.Key.Ref(), task.Ref(), evidence...)}

@@ -67,16 +67,17 @@ func withValue(values map[string]string, name, v string) map[string]string {
 	return out
 }
 
-// A task label is on the Vikunja instance a Vikunja Origin names, else on
-// the configured one.
-func TestTaskLinkTakesTheOriginsVikunja(t *testing.T) {
+// A task label is always on the configured Vikunja instance; a Vikunja
+// Origin on that instance adds its evidence, one on another host does not.
+func TestTaskLinkStaysOnTheConfiguredVikunja(t *testing.T) {
 	for name, tt := range map[string]struct {
-		values map[string]string
-		want   string
+		values   map[string]string
+		evidence int
 	}{
-		"vikunja origin": {map[string]string{AnnotationSource: OriginVikunja, AnnotationSourceInstance: "Tasks.Example.com"}, "tasks.example.com"},
-		"github origin":  {map[string]string{AnnotationSource: OriginGitHub, AnnotationSourceInstance: "github.example.com"}, testVikunja},
-		"no instance":    {map[string]string{AnnotationSource: OriginVikunja}, testVikunja},
+		"same vikunja":    {map[string]string{AnnotationSource: OriginVikunja, AnnotationSourceInstance: "Vikunja.Example.com"}, 2},
+		"another vikunja": {map[string]string{AnnotationSource: OriginVikunja, AnnotationSourceInstance: "tasks.example.com"}, 1},
+		"github origin":   {map[string]string{AnnotationSource: OriginGitHub, AnnotationSourceInstance: "github.example.com"}, 1},
+		"no instance":     {map[string]string{AnnotationSource: OriginVikunja}, 1},
 	} {
 		task := annotated("vikunja-widgets-agent-opus-7", "u1", tt.values)
 		task.Labels = map[string]string{testDomain + "/task": "7"}
@@ -84,9 +85,10 @@ func TestTaskLinkTakesTheOriginsVikunja(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		wantRef := model.TaskKey{Instance: tt.want, ID: 7}.Ref()
-		if len(recs.Correlations) != 1 || recs.Correlations[0].To != wantRef {
-			t.Errorf("%s: correlations = %v, want one to %s", name, recs.Correlations, wantRef)
+		wantRef := model.TaskKey{Instance: testVikunja, ID: 7}.Ref()
+		if len(recs.Correlations) != 1 || recs.Correlations[0].To != wantRef ||
+			len(recs.Correlations[0].Evidence) != tt.evidence {
+			t.Errorf("%s: correlations = %v, want one to %s with %d evidence", name, recs.Correlations, wantRef, tt.evidence)
 		}
 	}
 }

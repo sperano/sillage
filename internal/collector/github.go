@@ -133,8 +133,8 @@ var followUpRoles = []model.RunRole{model.RolePRFollowUp, model.RoleConflictFix,
 
 // prRuns joins the namespace's PR follow-up, conflict and bookkeeping
 // runs, and the runs whose Origin names a pull request, to the story's
-// pull requests. An Origin naming a pull request is an identifier, and the
-// only join of its run. Otherwise the Task's branch is an identifier when
+// pull requests. An Origin naming one of them is an identifier, and then
+// the only join of its run. Otherwise the Task's branch is an identifier when
 // it is the head of exactly one of them, or when the Task name picks one;
 // a Task name alone (its Task gone) is a heuristic; a branch with several
 // pull requests and no name to pick one makes each ambiguous.
@@ -146,27 +146,32 @@ func (a *assembly) prRuns() {
 		return strings.Compare(x.Key.String(), y.Key.String())
 	})
 	for _, r := range a.kelos.runs {
-		if annotated := a.annotatedLinks(r, model.RefPR); len(annotated) > 0 {
-			a.annotatedPRRun(r, annotated)
-		} else if slices.Contains(followUpRoles, r.Role) {
+		if a.annotatedPRRun(r) {
+			continue
+		}
+		if slices.Contains(followUpRoles, r.Role) {
 			a.prRun(r, prs)
 		}
 	}
 }
 
 // annotatedPRRun joins r to the pull requests its Origin names that the
-// story holds. GitHub compares repository names without case.
-func (a *assembly) annotatedPRRun(r model.Run, annotated []model.Correlation) {
-	for _, c := range annotated {
+// story holds, and reports whether it named one. GitHub compares
+// repository names without case.
+func (a *assembly) annotatedPRRun(r model.Run) bool {
+	joined := false
+	for _, c := range a.annotatedLinks(r, model.RefPR) {
 		for _, pr := range a.prs {
 			if strings.EqualFold(pr.Key.Ref().ID, c.To.ID) {
 				a.links.add(model.Correlation{
 					From: c.From, To: pr.Key.Ref(), Confidence: c.Confidence, Evidence: c.Evidence,
 				})
 				a.addRun(r)
+				joined = true
 			}
 		}
 	}
+	return joined
 }
 
 func (a *assembly) prRun(r model.Run, prs []model.PullRequest) {
