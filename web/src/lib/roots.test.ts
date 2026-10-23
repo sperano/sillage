@@ -25,5 +25,4 @@ test('rootSegments encodes each part', () => {
 	expect(
 		rootSegments({ page: { instance: 'wiki.example.com:8443', id: 7, locale: 'pt/br' } })
 	).toBe('/page/wiki.example.com%3A8443/7/pt%2Fbr');
-	expect(() => rootSegments({})).toThrow(TypeError);
 });

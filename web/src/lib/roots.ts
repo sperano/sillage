@@ -20,8 +20,7 @@ export function sameRoot(a: Root, b: Root): boolean {
 /** What a reader calls root: "task 102 on vikunja.example.com". */
 export function rootLabel(root: Root): string {
 	if (root.task) return `task ${root.task.id} on ${root.task.instance}`;
-	if (root.page) return `page ${root.page.id} (${root.page.locale}) on ${root.page.instance}`;
-	return 'an unnamed root';
+	return `page ${root.page.id} (${root.page.locale}) on ${root.page.instance}`;
 }
 
 /**
@@ -32,9 +31,6 @@ export function rootLabel(root: Root): string {
 export function rootSegments(root: Root): string {
 	const enc = encodeURIComponent;
 	if (root.task) return `/task/${enc(root.task.instance)}/${root.task.id}`;
-	if (root.page) {
-		const { instance, id, locale } = root.page;
-		return `/page/${enc(instance)}/${id}/${enc(locale)}`;
-	}
-	throw new TypeError('a root names a task or a page');
+	const { instance, id, locale } = root.page;
+	return `/page/${enc(instance)}/${id}/${enc(locale)}`;
 }

@@ -10,13 +10,16 @@
 
 	let { api, root }: { api: Api; root: Root } = $props();
 
+	const uid = $props.id();
 	const story = load(() => {
 		const r = root;
 		return (signal) => api.story(r, signal);
 	});
 </script>
 
-<h1>History of {rootLabel(root)}</h1>
+<svelte:head><title>History of {rootLabel(root)} · Sillage</title></svelte:head>
+
+<h1 tabindex="-1">History of {rootLabel(root)}</h1>
 {#if story.current.state === 'loaded'}
 	{@const s = story.current.value}
 	<p>
@@ -25,8 +28,8 @@
 		{count(s.correlations.length, 'correlation')}.
 	</p>
 	<p>The timeline and the event list are not built yet.</p>
-	<section aria-labelledby="story-sources-heading">
-		<h2 id="story-sources-heading">Sources</h2>
+	<section aria-labelledby="{uid}-sources">
+		<h2 id="{uid}-sources">Sources</h2>
 		<Freshness coverage={s.coverage} />
 	</section>
 {:else if story.current.state === 'failed'}

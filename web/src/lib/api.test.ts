@@ -10,25 +10,12 @@ import {
 	isAbort
 } from './api';
 import type { Root } from './model';
+import { json, problem } from '../testing/fakeServer';
 import { goldenStory } from '../testing/goldenStories';
 
 const TASK: Root = { task: { instance: 'vikunja.example.com', id: 102 } };
 const PAGE: Root = { page: { instance: 'wiki.example.com', id: 57, locale: 'en' } };
 const SHORT_TIMEOUT_MS = 20;
-
-function json(body: unknown, init: ResponseInit = {}): Response {
-	return new Response(JSON.stringify(body), {
-		...init,
-		headers: { 'Content-Type': 'application/json' }
-	});
-}
-
-function problem(status: number, title: string, detail?: string): Response {
-	return new Response(JSON.stringify({ type: 'about:blank', title, status, detail }), {
-		status,
-		headers: { 'Content-Type': 'application/problem+json' }
-	});
-}
 
 // answering returns a fetch that answers every request with respond's
 // response and records the paths asked for.

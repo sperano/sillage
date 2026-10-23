@@ -1,9 +1,10 @@
 // The client of sillage's read API. It makes one request per call and never
 // retries: a source or server outage must show as an error, not as a slow
 // page. A caller's AbortSignal cancels the request (a navigation away); its
-// abort rejects with the signal's reason, which isAbort recognizes.
+// abort rejects with the signal's reason, which isAbort recognizes when the
+// caller aborted without one of its own.
 
-import { type Decoder, decode, DecodeError, array, object, text, timestamp } from './check';
+import { type Decoder, DecodeError, array, decode, object, text, timestamp, unique } from './check';
 import { coverageList, parseStory, root as rootDecoder } from './decodeModel';
 import type { Coverage, Root, Story } from './model';
 import { rootSegments, sameRoot } from './roots';
@@ -31,8 +32,9 @@ export interface RootSummary {
 	lastActivity?: string;
 }
 
-const rootSummaries: Decoder<RootSummary[]> = array(
-	object({ root: rootDecoder }, { title: text, lastActivity: timestamp })
+const rootSummaries: Decoder<RootSummary[]> = unique(
+	array(object({ root: rootDecoder }, { title: text, lastActivity: timestamp })),
+	(s) => rootSegments(s.root)
 );
 
 /** The problem body the API answers an error with (RFC 9457). */
@@ -199,9 +201,12 @@ async function httpError(name: string, response: Response): Promise<HttpError> {
 async function readProblem(response: Response): Promise<Problem> {
 	const body: unknown = await response.json().catch(() => undefined);
 	if (typeof body !== 'object' || body === null) return {};
-	const { title, detail } = body as Record<string, unknown>;
 	const problem: Problem = {};
-	if (typeof title === 'string' && title !== '') problem.title = title;
-	if (typeof detail === 'string' && detail !== '') problem.detail = detail;
+	if ('title' in body && typeof body.title === 'string' && body.title !== '') {
+		problem.title = body.title;
+	}
+	if ('detail' in body && typeof body.detail === 'string' && body.detail !== '') {
+		problem.detail = body.detail;
+	}
 	return problem;
 }

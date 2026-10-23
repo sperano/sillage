@@ -9,8 +9,15 @@
 	let { api, router }: { api: Api; router: Router } = $props();
 
 	const route = $derived(router.route);
+	let main: HTMLElement | undefined = $state();
 
 	$effect(() => router.start());
+
+	// After a navigation, move focus to the new page's heading, so that a
+	// keyboard or screen reader user lands on what replaced the link.
+	$effect(() => {
+		if (router.navigations > 0) main?.querySelector<HTMLElement>('h1')?.focus();
+	});
 </script>
 
 <svelte:document onclick={(event) => router.handleClick(event)} />
@@ -18,7 +25,7 @@
 {#if route.name !== 'home'}
 	<header><a href="/">Sillage</a></header>
 {/if}
-<main>
+<main bind:this={main}>
 	{#if route.name === 'home'}
 		<EntryPage {api} {router} query={route.query} />
 	{:else if route.name === 'task'}

@@ -45,7 +45,8 @@ describe('handleClick', () => {
 		['another origin', { href: 'https://vikunja.example.com/tasks/7' }, {}],
 		['a new tab', { href: '/task/vikunja.example.com/7', target: '_blank' }, {}],
 		['a download', { href: '/task/vikunja.example.com/7', download: '' }, {}],
-		['the API', { href: '/api/v1/coverage' }, {}]
+		['the API', { href: '/api/v1/coverage' }, {}],
+		['a fragment of the current page', { href: '#sources' }, {}]
 	])('leaves %s to the browser', (_, attrs, init) => {
 		const history = memoryHistory('/');
 		const router = new Router(history);
@@ -63,6 +64,17 @@ test('start follows back and forward until stopped', () => {
 	history.back();
 	expect(router.route).toEqual({ name: 'home', query: '' });
 	stop();
+});
+
+test('the same URL again keeps the route, and counts no navigation', () => {
+	const router = new Router(memoryHistory('/task/vikunja.example.com/1'));
+	const route = router.route;
+	router.start()();
+	router.navigate('/task/vikunja.example.com/1', { replace: true });
+	expect(router.route).toBe(route);
+	expect(router.navigations).toBe(0);
+	router.navigate('/');
+	expect(router.navigations).toBe(1);
 });
 
 test('navigate with replace drops the current entry', () => {

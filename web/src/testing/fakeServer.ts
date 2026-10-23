@@ -50,7 +50,7 @@ export function fakeServer(handlers: Record<string, Handler>): FakeServer {
 		const answer = handler ? handler(url) : problem(HTTP_NOT_FOUND, 'Not Found');
 		if (answer !== HANG) return Promise.resolve(answer);
 		return new Promise((_resolve, reject) => {
-			signal.addEventListener('abort', () => reject(signal.reason as Error));
+			signal.addEventListener('abort', () => reject(signal.reason));
 		});
 	};
 	return { api: createApi({ fetch: fakeFetch }), requests };

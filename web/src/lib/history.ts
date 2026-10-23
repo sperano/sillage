@@ -34,14 +34,19 @@ export function memoryHistory(href: string): History & { entries(): string[]; ba
 	const entries = [new URL(href, MEMORY_ORIGIN)];
 	let index = 0;
 	const listeners = new Set<() => void>();
+	const current = (): URL => {
+		const url = entries[index];
+		if (url === undefined) throw new Error(`memory history has no entry ${index}`);
+		return url;
+	};
 	return {
-		location: () => new URL(entries[index] ?? MEMORY_ORIGIN),
+		location: () => new URL(current()),
 		push: (to) => {
-			entries.splice(index + 1, Infinity, new URL(to, entries[index]));
+			entries.splice(index + 1, Infinity, new URL(to, current()));
 			index = entries.length - 1;
 		},
 		replace: (to) => {
-			entries[index] = new URL(to, entries[index]);
+			entries[index] = new URL(to, current());
 		},
 		listen: (onChange) => {
 			listeners.add(onChange);

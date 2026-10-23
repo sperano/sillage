@@ -9,7 +9,9 @@
 	let { api, router, query }: { api: Api; router: Router; query: string } = $props();
 </script>
 
-<h1>Sillage</h1>
+<svelte:head><title>Sillage</title></svelte:head>
+
+<h1 tabindex="-1">Sillage</h1>
 <p>What people, agents and automation did on a task, from Vikunja, Kelos, GitHub and the wiki.</p>
 <SearchSection {api} {router} {query} />
 <OpenLinkForm {router} />

@@ -13,10 +13,12 @@ import {
 	object,
 	oneOf,
 	positiveInteger,
+	nonEmpty,
 	record,
 	refine,
 	text,
-	timestamp
+	timestamp,
+	unique
 } from './check';
 import {
 	ACTOR_KINDS,
@@ -65,14 +67,14 @@ export const pageKey: Decoder<PageKey> = object({
 	locale: text
 });
 
-export const runKey: Decoder<RunKey> = refine(
-	object({ cluster: text, namespace: text }, { uid: text, pod: text }),
-	(k, path) => {
-		if ((k.uid === undefined) === (k.pod === undefined)) {
-			fail(path, 'exactly one of uid and pod is required');
-		}
-	}
-);
+const runKeyFields = object({ cluster: text, namespace: text }, { uid: text, pod: text });
+
+export const runKey: Decoder<RunKey> = (value, path) => {
+	const { cluster, namespace, uid, pod } = runKeyFields(value, path);
+	if (uid !== undefined && pod === undefined) return { cluster, namespace, uid };
+	if (pod !== undefined && uid === undefined) return { cluster, namespace, pod };
+	return fail(path, 'exactly one of uid and pod is required');
+};
 
 export const prKey: Decoder<PRKey> = object({
 	instance: text,
@@ -80,27 +82,27 @@ export const prKey: Decoder<PRKey> = object({
 	number: positiveInteger
 });
 
-export const root: Decoder<Root> = refine(
-	object({}, { task: taskKey, page: pageKey }),
-	(r, path) => {
-		if ((r.task === undefined) === (r.page === undefined)) {
-			fail(path, 'exactly one of task and page is required');
-		}
-	}
-);
+const rootFields = object({}, { task: taskKey, page: pageKey });
+
+export const root: Decoder<Root> = (value, path) => {
+	const { task, page } = rootFields(value, path);
+	if (task !== undefined && page === undefined) return { task };
+	if (page !== undefined && task === undefined) return { page };
+	return fail(path, 'exactly one of task and page is required');
+};
 
 const ref: Decoder<Ref> = object({ kind: oneOf(REF_KINDS), id: text });
 
 const evidence: Decoder<Evidence> = object({ source, instance: text, ref: text }, { note: text });
 
-const account: Decoder<Account> = refine(
-	object({ kind: actorKind }, { login: text }),
-	(a, path) => {
-		if ((a.login === undefined) !== (a.kind === 'unknown')) {
-			fail(path, 'a login and a kind, or kind unknown without a login, are required');
-		}
-	}
-);
+const accountFields = object({ kind: actorKind }, { login: text });
+
+const account: Decoder<Account> = (value, path) => {
+	const { kind, login } = accountFields(value, path);
+	if (kind === 'unknown' && login === undefined) return { kind };
+	if (kind !== 'unknown' && login !== undefined) return { kind, login };
+	return fail(path, 'a login and a kind, or kind unknown without a login, are required');
+};
 
 const executor: Decoder<Executor> = object({ name: text, kind: actorKind });
 
@@ -276,23 +278,4 @@ export function parseStory(value: unknown): Story {
 
 function refString(r: Ref): string {
 	return `${r.kind}:${r.id}`;
-}
-
-function nonEmpty<T>(decoder: Decoder<T[]>): Decoder<T[]> {
-	return refine(decoder, (list, path) => {
-		if (list.length === 0) fail(path, 'at least one is required');
-	});
-}
-
-// unique rejects two elements with the same key: the Go model never builds
-// a story holding one record twice.
-function unique<T>(decoder: Decoder<T[]>, key: (item: T) => string): Decoder<T[]> {
-	return refine(decoder, (list, path) => {
-		const seen = new Set<string>();
-		list.forEach((item, i) => {
-			const k = key(item);
-			if (seen.has(k)) fail(`${path}[${i}]`, `duplicate record ${k}`);
-			seen.add(k);
-		});
-	});
 }

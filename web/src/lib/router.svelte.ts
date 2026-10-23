@@ -9,8 +9,13 @@ const PRIMARY_BUTTON = 0;
 export class Router {
 	/** The route the current URL shows. */
 	route: Route = $state.raw({ name: 'home', query: '' });
+	/** How many times the route changed since the first. */
+	navigations = $state(0);
 
 	readonly #history: History;
+	// The URL route was parsed from: a sync to the same URL keeps the route,
+	// so that what depends on it (a story's request) does not start again.
+	#href = '';
 
 	constructor(history: History) {
 		this.#history = history;
@@ -33,7 +38,8 @@ export class Router {
 	/**
 	 * Handles a click on a link to one of the app's own routes, without
 	 * reloading the page. A click the browser should handle (a modified or
-	 * middle click, another origin, a download, the API) is left to it.
+	 * middle click, another origin, a download, the API, a fragment of the
+	 * current page) is left to it.
 	 */
 	handleClick(event: MouseEvent): void {
 		const href = this.#ownHref(event);
@@ -50,15 +56,22 @@ export class Router {
 		if (anchor.target !== '' && anchor.target !== '_self') return undefined;
 		const raw = anchor.getAttribute('href');
 		if (raw === null) return undefined;
+		const here = this.#history.location();
 		// A value computed and dropped here, not state: nothing reacts to it.
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const url = new URL(raw, this.#history.location());
-		if (url.origin !== this.#history.location().origin) return undefined;
+		const url = new URL(raw, here);
+		if (url.origin !== here.origin) return undefined;
 		if (url.pathname === API_BASE || url.pathname.startsWith(`${API_BASE}/`)) return undefined;
-		return url.pathname + url.search + url.hash;
+		const own = url.pathname + url.search;
+		if (url.hash !== '' && own === here.pathname + here.search) return undefined;
+		return own + url.hash;
 	}
 
 	#sync(): void {
-		this.route = parseRoute(this.#history.location());
+		const url = this.#history.location();
+		if (url.href === this.#href) return;
+		if (this.#href !== '') this.navigations++;
+		this.#href = url.href;
+		this.route = parseRoute(url);
 	}
 }

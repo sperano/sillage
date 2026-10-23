@@ -27,6 +27,12 @@ test('/ is the entry page', async () => {
 	await expect.element(page.getByRole('heading', { name: 'Source freshness' })).toBeVisible();
 });
 
+test('a deep link asks for its story once', async () => {
+	const { server } = await renderAt('/task/vikunja.example.com/102', { [TASK_STORY]: () => HANG });
+	await expect.element(page.getByRole('status')).toHaveTextContent('Loading the history');
+	expect(server.requests.filter((r) => r.path === TASK_STORY)).toHaveLength(1);
+});
+
 test('a deep link to a task or a page loads its story', async () => {
 	await renderAt('/page/wiki.example.com/57/en', {
 		[PAGE_STORY]: () => json(goldenStory('wiki-rooted-request'))
@@ -49,6 +55,8 @@ test('a search result opens its story in the page, and back returns to the resul
 		.toHaveTextContent('History of task 102 on vikunja.example.com');
 	expect(history.entries()).toEqual(['/?q=widgets', '/task/vikunja.example.com/102']);
 	expect(server.requests.map((r) => r.path)).toContain(TASK_STORY);
+	await expect.element(page.getByRole('heading', { level: 1 })).toHaveFocus();
+	expect(document.title).toBe('History of task 102 on vikunja.example.com · Sillage');
 
 	history.back();
 	await expect.element(page.getByRole('link', { name: 'Widgets' })).toBeVisible();

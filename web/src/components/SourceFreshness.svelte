@@ -7,11 +7,12 @@
 
 	let { api }: { api: Api } = $props();
 
+	const uid = $props.id();
 	const coverage = load(() => (signal) => api.coverage(signal));
 </script>
 
-<section aria-labelledby="freshness-heading">
-	<h2 id="freshness-heading">Source freshness</h2>
+<section aria-labelledby="{uid}-heading">
+	<h2 id="{uid}-heading">Source freshness</h2>
 	{#if coverage.current.state === 'loaded'}
 		<Freshness coverage={coverage.current.value} />
 	{:else if coverage.current.state === 'failed'}

@@ -2,6 +2,8 @@
 // shows changes or the component goes away: a navigation never leaves a
 // request running, nor lets a late answer overwrite a newer one.
 
+import { untrack } from 'svelte';
+
 export type Load<T> =
 	/** Nothing to load. */
 	| { state: 'idle' }
@@ -14,8 +16,9 @@ export type Loader<T> = ((signal: AbortSignal) => Promise<T>) | undefined;
 
 /**
  * Runs loader in an effect, from a component's initialization. The state
- * it reads when called (props, route) are the effect's dependencies: when
- * one changes, the request in flight is aborted and loader runs again.
+ * loader reads when called (props, route), and only that, is the effect's
+ * dependencies: when one changes, the request in flight is aborted and
+ * loader runs again.
  */
 export function load<T>(loader: () => Loader<T>): { readonly current: Load<T> } {
 	let current: Load<T> = $state.raw({ state: 'idle' });
@@ -27,13 +30,15 @@ export function load<T>(loader: () => Loader<T>): { readonly current: Load<T> } 
 		}
 		const controller = new AbortController();
 		current = { state: 'loading' };
-		run(controller.signal).then(
-			(value) => {
-				if (!controller.signal.aborted) current = { state: 'loaded', value };
-			},
-			(error: unknown) => {
-				if (!controller.signal.aborted) current = { state: 'failed', error };
-			}
+		const settle = (next: Load<T>) => {
+			if (!controller.signal.aborted) current = next;
+		};
+		// The request runs untracked: what it reads before its first await is
+		// not a dependency. The async wrapper turns a synchronous throw into a
+		// failure.
+		void untrack(async () => run(controller.signal)).then(
+			(value) => settle({ state: 'loaded', value }),
+			(error: unknown) => settle({ state: 'failed', error })
 		);
 		return () => controller.abort();
 	});

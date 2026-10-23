@@ -10,6 +10,7 @@
 
 	let { api, router, query }: { api: Api; router: Router; query: string } = $props();
 
+	const uid = $props.id();
 	const wanted = $derived(query.trim());
 	const results = load(() => {
 		const q = wanted;
@@ -23,8 +24,8 @@
 	}
 </script>
 
-<section aria-labelledby="search-heading">
-	<h2 id="search-heading">Find a task or a page</h2>
+<section aria-labelledby="{uid}-heading">
+	<h2 id="{uid}-heading">Find a task or a page</h2>
 	<form role="search" onsubmit={submit}>
 		<label>
 			Title or key

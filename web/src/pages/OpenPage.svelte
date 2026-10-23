@@ -8,9 +8,10 @@
 
 	let { api, router, url }: { api: Api; router: Router; url: string } = $props();
 
+	const link = $derived(url.trim());
 	const resolved = load(() => {
-		const link = url.trim();
-		return link === '' ? undefined : (signal) => api.resolve(link, signal);
+		const l = link;
+		return l === '' ? undefined : (signal) => api.resolve(l, signal);
 	});
 
 	$effect(() => {
@@ -20,8 +21,10 @@
 	});
 </script>
 
-<h1>Open a link</h1>
-{#if resolved.current.state === 'idle'}
+<svelte:head><title>Open a link · Sillage</title></svelte:head>
+
+<h1 tabindex="-1">Open a link</h1>
+{#if link === ''}
 	<p>There is no link to open.</p>
 	<p><a href="/">Paste a link or search</a></p>
 {:else if resolved.current.state === 'failed'}

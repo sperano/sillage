@@ -83,7 +83,44 @@ export const nonNegativeInteger: Decoder<number> = (value, path) => {
 
 // What Go's time.Time marshals to: RFC 3339 with optional fractional
 // seconds, and Z or a numeric offset.
-const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+const RFC3339 =
+	/^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})(?:\.\d+)?(?:Z|[+-](?<offsetHour>\d{2}):(?<offsetMinute>\d{2}))$/;
+
+const MAX_MONTH = 12;
+const MAX_HOUR = 23;
+const MAX_MINUTE = 59;
+const MAX_SECOND = 59;
+
+// The number of days in month (1 to 12) of year: day 0 of the next month is
+// its last day.
+function daysIn(year: number, month: number): number {
+	return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+// validTime reports whether s is an RFC 3339 time whose every field is in
+// range, as Go's time.Parse checks it: no February 30, no hour 24, no leap
+// second, which Date.parse would accept or roll over.
+function validTime(s: string): boolean {
+	const g = RFC3339.exec(s)?.groups;
+	if (g === undefined) return false;
+	const year = Number(g.year);
+	const month = Number(g.month);
+	const day = Number(g.day);
+	// Z has no offset: zero.
+	const offsetHour = Number(g.offsetHour ?? 0);
+	const offsetMinute = Number(g.offsetMinute ?? 0);
+	return (
+		month >= 1 &&
+		month <= MAX_MONTH &&
+		day >= 1 &&
+		day <= daysIn(year, month) &&
+		Number(g.hour) <= MAX_HOUR &&
+		Number(g.minute) <= MAX_MINUTE &&
+		Number(g.second) <= MAX_SECOND &&
+		offsetHour <= MAX_HOUR &&
+		offsetMinute <= MAX_MINUTE
+	);
+}
 
 /**
  * An RFC 3339 timestamp, kept as the string the source sent: converting it
@@ -91,9 +128,7 @@ const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})
  */
 export const timestamp: Decoder<string> = (value, path) => {
 	const s = anyString(value, path);
-	if (!RFC3339.test(s) || Number.isNaN(Date.parse(s))) {
-		fail(path, `expected an RFC 3339 time, got ${JSON.stringify(s)}`);
-	}
+	if (!validTime(s)) fail(path, `expected an RFC 3339 time, got ${JSON.stringify(s)}`);
 	return s;
 };
 
@@ -101,6 +136,7 @@ export const timestamp: Decoder<string> = (value, path) => {
 export function oneOf<const T extends string>(values: readonly T[]): Decoder<T> {
 	return (value, path) => {
 		const s = anyString(value, path);
+		// Widened to search it for any string; the includes check narrows s to T.
 		if (!(values as readonly string[]).includes(s)) {
 			fail(path, `unknown value ${JSON.stringify(s)}; expected one of ${values.join(', ')}`);
 		}
@@ -120,19 +156,19 @@ function plainObject(value: unknown, path: string): Record<string, unknown> {
 	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
 		fail(path, `expected an object, got ${describe(value)}`);
 	}
+	// A non-null, non-array object: JSON's objects are string-keyed.
 	return value as Record<string, unknown>;
 }
 
 /** An object whose every key is a non-empty string and every value item decodes. */
 export function record<T>(item: Decoder<T>): Decoder<Record<string, T>> {
 	return (value, path) => {
-		const obj = plainObject(value, path);
-		const out: Record<string, T> = {};
-		for (const [k, v] of Object.entries(obj)) {
+		const entries = Object.entries(plainObject(value, path)).map(([k, v]): [string, T] => {
 			if (k === '') fail(path, 'an empty key');
-			out[k] = item(v, `${path}.${k}`);
-		}
-		return out;
+			return [k, item(v, `${path}.${k}`)];
+		});
+		// fromEntries defines each key, so that one named __proto__ stays a key.
+		return Object.fromEntries(entries);
 	};
 }
 
@@ -165,6 +201,7 @@ export function object<R extends Fields, O extends Fields = Record<never, never>
 				fail(path, `unexpected field ${k}`);
 			}
 		}
+		// Each required key was set from its decoder, each optional one when present.
 		return out as Decoded<R> & Partial<Decoded<O>>;
 	};
 }
@@ -179,4 +216,26 @@ export function refine<T>(
 		check(decoded, path);
 		return decoded;
 	};
+}
+
+/** A list decoder's list, which must not be empty. */
+export function nonEmpty<T>(decoder: Decoder<T[]>): Decoder<T[]> {
+	return refine(decoder, (list, path) => {
+		if (list.length === 0) fail(path, 'at least one is required');
+	});
+}
+
+/**
+ * A list decoder's list, without two elements of the same key: the Go
+ * model never builds a story holding one record twice.
+ */
+export function unique<T>(decoder: Decoder<T[]>, key: (item: T) => string): Decoder<T[]> {
+	return refine(decoder, (list, path) => {
+		const seen = new Set<string>();
+		list.forEach((item, i) => {
+			const k = key(item);
+			if (seen.has(k)) fail(`${path}[${i}]`, `duplicate record ${k}`);
+			seen.add(k);
+		});
+	});
 }

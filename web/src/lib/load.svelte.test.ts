@@ -51,3 +51,25 @@ test('a change of what it reads aborts the request in flight, and its late answe
 	destroy();
 	expect(signals[1]?.aborted).toBe(true);
 });
+
+test('a loader that throws before its request fails instead of breaking the effect', async () => {
+	const err = new Error('bad input');
+	const { state, destroy } = track<number>(() => () => {
+		throw err;
+	});
+	await expect.poll(() => state.current).toEqual({ state: 'failed', error: err });
+	destroy();
+});
+
+test('what the request reads is not a dependency', async () => {
+	let other = $state(1);
+	let calls = 0;
+	const { destroy } = track(() => async () => {
+		calls++;
+		return other;
+	});
+	other = 2;
+	flushSync();
+	expect(calls).toBe(1);
+	destroy();
+});

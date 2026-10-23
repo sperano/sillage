@@ -1,5 +1,6 @@
 // The JSON of internal/model's Story, as the read API serves it unchanged.
-// Each type mirrors its Go struct field for field; decodeModel.ts checks a
+// Each type mirrors its Go struct's JSON field for field, as a union where
+// the Go model allows only some combinations of its fields; decodeModel.ts checks a
 // response against them, so that a model change fails the web tests
 // (decodeModel.test.ts loads every golden story) instead of rendering wrong.
 //
@@ -24,16 +25,12 @@ export interface PageKey {
 }
 
 /**
- * Identifies one run, one Kelos Task attempt: exactly one of uid and pod
- * is set. A pod stands in for the UID when only a start announcement was
- * read.
+ * Identifies one run, one Kelos Task attempt: by its Task UID, or, when
+ * only a start announcement was read, by its pod.
  */
-export interface RunKey {
-	cluster: string;
-	namespace: string;
-	uid?: string;
-	pod?: string;
-}
+export type RunKey = { cluster: string; namespace: string } & (
+	{ uid: string; pod?: never } | { pod: string; uid?: never }
+);
 
 /** Identifies a GitHub pull request; repository is owner/name. */
 export interface PRKey {
@@ -42,11 +39,8 @@ export interface PRKey {
 	number: number;
 }
 
-/** What a story is about: exactly one of task and page is set. */
-export interface Root {
-	task?: TaskKey;
-	page?: PageKey;
-}
+/** What a story is about: a task, or a page when the work has no task. */
+export type Root = { task: TaskKey; page?: never } | { page: PageKey; task?: never };
 
 /** The kinds of record a Ref points to. */
 export const REF_KINDS = ['task', 'page', 'run', 'pr', 'event'] as const;
@@ -80,6 +74,7 @@ export const EVENT_KIND_SOURCES = {
 	'pr.reopened': ['github']
 } as const satisfies Record<string, readonly Source[]>;
 export type EventKind = keyof typeof EVENT_KIND_SOURCES;
+// Object.keys types its result string[]; these keys are EventKind by definition.
 export const EVENT_KINDS = Object.keys(EVENT_KIND_SOURCES) as EventKind[];
 
 /** Where an event id comes from: the source, or a fingerprint when it has none. */
@@ -94,10 +89,8 @@ export type ActorKind = (typeof ACTOR_KINDS)[number];
  * The account a source says acted. A state seen by polling has no known
  * actor: kind unknown, and no login.
  */
-export interface Account {
-	login?: string;
-	kind: ActorKind;
-}
+export type Account =
+	{ kind: Exclude<ActorKind, 'unknown'>; login: string } | { kind: 'unknown'; login?: never };
 
 /** Who actually acted, when known and different from the account. */
 export interface Executor {
