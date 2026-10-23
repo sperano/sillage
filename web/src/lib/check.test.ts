@@ -164,8 +164,11 @@ describe('compareTimes', () => {
 		expect(Math.sign(compareTimes(b, a))).toBe(-want || 0);
 	});
 
-	test('throws on a string that is not a time', () => {
-		expect(() => compareTimes('2026-03-03T20:00:00Z', 'yesterday')).toThrow(RangeError);
+	test.each<[string, string]>([
+		['2026-03-03T20:00:00Z', 'yesterday'],
+		['yesterday', '2026-03-03T20:00:00Z']
+	])('throws naming the string that is not a time: %s against %s', (a, b) => {
+		expect(() => compareTimes(a, b)).toThrow(new RangeError('not an RFC 3339 time: "yesterday"'));
 	});
 });
 
