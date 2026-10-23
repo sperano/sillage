@@ -69,7 +69,7 @@ func TestConfigFromEnvRejects(t *testing.T) {
 }
 
 func TestTokenNeverPrinted(t *testing.T) {
-	cfg := Config{BaseURL: "https://vikunja.example.com", Token: testToken, ServiceAccount: "kelos"}
+	cfg := Config{BaseURL: "https://vikunja.example.com", Token: testToken, ServiceAccount: serviceAccount}
 	var logged bytes.Buffer
 	slog.New(slog.NewJSONHandler(&logged, nil)).Info("config", "cfg", cfg, "token", cfg.Token)
 	encoded, err := json.Marshal(cfg)

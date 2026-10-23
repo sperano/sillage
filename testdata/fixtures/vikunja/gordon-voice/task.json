@@ -1,0 +1,36 @@
+{
+  "id": 4220,
+  "project_id": 30,
+  "title": "Rename a fabricated setting",
+  "identifier": "#20",
+  "created": "2026-03-10T09:00:00-05:00",
+  "updated": "2026-03-10T09:00:00-05:00",
+  "created_by": {
+    "id": 7,
+    "username": "owner",
+    "name": "Robin Owner"
+  },
+  "done": false,
+  "done_at": "0001-01-01T00:00:00Z",
+  "labels": [
+    {
+      "id": 1,
+      "title": "in progress"
+    }
+  ],
+  "assignees": [
+    {
+      "id": 21,
+      "username": "agent-opus",
+      "name": "Agent Opus"
+    }
+  ],
+  "bucket_id": 0,
+  "buckets": [
+    {
+      "id": 12,
+      "title": "Doing",
+      "project_view_id": 4
+    }
+  ]
+}

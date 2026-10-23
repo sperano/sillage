@@ -1,0 +1,9 @@
+{
+  "data": {
+    "pages": {
+      "version": {
+        "path": "widgets/runbooks/cache-warmup"
+      }
+    }
+  }
+}

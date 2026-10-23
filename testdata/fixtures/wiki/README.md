@@ -26,6 +26,7 @@ the last two listed as agent users.
 
 | Story | Page | What it covers |
 | --- | --- | --- |
-| `live-edit-not-in-trail` | 57 | The trail holds the creation's version and one edit; the newest edit is only the live page's `updatedAt` and author, and becomes an edit with a fingerprint id. A `/kelos` request, its start announcement and the agent's reply. |
+| `live-edit-not-in-trail` | 57 | The trail holds the creation's version and one edit; the newest edit is only the live page's `updatedAt` and author, and becomes an edit with a fingerprint id. A `/kelos` request, its start announcement in the lowercase form posted until 2026-10-22, and the agent's reply. |
 | `two-agents` | 58 | Two agents, each started by its own `/kelos @<agent>` request and announcement, edit the page in turn; the owner moves it in between (a move with an unknown actor). Six versions over three trail pages, the oldest of which Wiki.js reports as a move from `""`. |
 | `announcement-no-reply` | 59 | A request and its announcement with no reply after it. Read with a token refused `pages.single`: the live page comes from `pages.list`, the live edit's author is unknown, and the creator is the oldest version's author, dated as the creation's render. A person quoting an announcement, and an agent's announcement naming another page, stay plain comments. |
+| `gordon-voice` | 62 | Start announcements in the uppercase forms posted since 2026-10-22: one in the current form, answering a `/gordon @<agent>` request, the namespace in the console paragraph; one in the brief colon form, answering a `/kelos` request. The live edit is the only one after the creation. |

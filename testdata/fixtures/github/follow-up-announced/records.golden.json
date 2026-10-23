@@ -1,0 +1,371 @@
+{
+  "events": [
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "pulls/7051",
+      "idKind": "source",
+      "kind": "pr.opened",
+      "sourceTime": "2026-04-05T09:00:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "details": {
+        "branch": "kelos/vikunja-4305"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/51",
+        "note": "user owner-gh"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5301",
+      "idKind": "source",
+      "kind": "request.created",
+      "sourceTime": "2026-04-05T10:00:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "details": {
+        "agent": "agent-sol",
+        "command": "/gordon"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/51/comments",
+        "note": "comment 5301"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5302",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-04-05T10:00:40Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "executor": {
+        "name": "agent-sol",
+        "kind": "agent"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "details": {
+        "model": "example-model-3",
+        "pod": "pr-followup-widgets-51-c5301-x2c4v",
+        "role": "pr-follow-up",
+        "taskName": "pr-followup-widgets-51-c5301"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/51/comments",
+        "note": "comment 5302, and the Kelos Task and pod it names"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "pulls/comments/6501",
+      "idKind": "source",
+      "kind": "request.created",
+      "sourceTime": "2026-04-05T10:05:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "details": {
+        "command": "/gordon"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/51/comments",
+        "note": "review comment 6501"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5303",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-04-05T11:00:20Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "example-agents[bot]",
+        "kind": "service"
+      },
+      "executor": {
+        "name": "agent-opus",
+        "kind": "agent"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "details": {
+        "model": "example-model-2[1m]",
+        "pod": "pr-conflict-0a1b2c3d-51-4e5f6a7b-8c9d0e1f-k9l8m",
+        "role": "conflict-fix",
+        "taskName": "pr-conflict-0a1b2c3d-51-4e5f6a7b-8c9d0e1f"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/51/comments",
+        "note": "comment 5303, and the Kelos Task and pod it names"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5304",
+      "idKind": "source",
+      "kind": "request.created",
+      "sourceTime": "2026-04-05T11:30:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "details": {
+        "command": "/kelos"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/51/comments",
+        "note": "comment 5304"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5305",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-04-05T11:30:35Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "executor": {
+        "name": "agent-opus",
+        "kind": "agent"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "details": {
+        "model": "example-model-2[1m]",
+        "namespace": "agents",
+        "pod": "pr-followup-widgets-51-c5304-fghij",
+        "role": "pr-follow-up",
+        "taskName": "pr-followup-widgets-51-c5304"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/51/comments",
+        "note": "comment 5305, and the Kelos Task, pod and namespace it names"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "reviews/3501",
+      "idKind": "source",
+      "kind": "pr.review_submitted",
+      "sourceTime": "2026-04-05T12:00:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "review-bot[bot]",
+        "kind": "service"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "details": {
+        "state": "commented"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/51/reviews",
+        "note": "review 3501"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5306",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-04-05T12:00:30Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "details": {
+        "namespace": "agents",
+        "pod": "pr-followup-widgets-51-r3501-abcde",
+        "role": "pr-follow-up",
+        "taskName": "pr-followup-widgets-51-r3501"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/51/comments",
+        "note": "comment 5306, and the Kelos Task, pod and namespace it names"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5307",
+      "idKind": "source",
+      "kind": "comment.created",
+      "sourceTime": "2026-04-05T12:10:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/51/comments",
+        "note": "comment 5307; reads like a start announcement but names no Kelos Task of this pull request"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5308",
+      "idKind": "source",
+      "kind": "comment.created",
+      "sourceTime": "2026-04-05T12:20:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "drive-by-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/51/comments",
+        "note": "comment 5308"
+      }
+    }
+  ],
+  "pullRequests": [
+    {
+      "key": {
+        "instance": "github.example.com",
+        "repository": "example-org/widgets",
+        "number": 51
+      },
+      "branch": "kelos/vikunja-4305",
+      "checks": [
+        {
+          "id": 9501,
+          "sha": "5555555555555555555555555555555555555555",
+          "name": "test",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-04-05T09:00:30Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-04-05T09:03:00Z"
+            }
+          },
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}

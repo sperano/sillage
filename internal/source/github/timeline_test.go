@@ -76,7 +76,7 @@ func TestMergedFromPR(t *testing.T) {
 	merged := testCreated.Add(time.Hour)
 	s := testSnapshot(TimelineEvent{ID: 9, Event: timelineClosed, Actor: testOwner, CreatedAt: merged})
 	s.PullRequest.MergedAt = &merged
-	recs, err := Normalize(s)
+	recs, err := Normalize(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestCloseBeforeMergeKept(t *testing.T) {
 		TimelineEvent{ID: 4, Event: timelineClosed, Actor: testOwner, CreatedAt: merged},
 	)
 	s.PullRequest.MergedAt = &merged
-	recs, err := Normalize(s)
+	recs, err := Normalize(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestCloseBeforeMergeKept(t *testing.T) {
 }
 
 func TestTimelineEventWithoutID(t *testing.T) {
-	_, err := Normalize(testSnapshot(TimelineEvent{Event: timelineClosed, Actor: testOwner, CreatedAt: testCreated}))
+	_, err := Normalize(testSnapshot(TimelineEvent{Event: timelineClosed, Actor: testOwner, CreatedAt: testCreated}), nil)
 	if err == nil || !strings.Contains(err.Error(), "without an id") {
 		t.Errorf("Normalize error = %v, want a missing id", err)
 	}
@@ -121,7 +121,7 @@ func TestTimelineIgnoresOtherEvents(t *testing.T) {
 	recs, err := Normalize(testSnapshot(
 		TimelineEvent{Event: timelineCommitted, SHA: "c"},
 		TimelineEvent{ID: 5, Event: "head_ref_deleted", Actor: testOwner, CreatedAt: testCreated},
-	))
+	), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestTimelineIgnoresOtherEvents(t *testing.T) {
 func TestReviewRequestForDeletedReviewer(t *testing.T) {
 	recs, err := Normalize(testSnapshot(TimelineEvent{
 		ID: 6, Event: timelineReviewRequested, Actor: testOwner, CreatedAt: testCreated, RequestedReviewer: &User{},
-	}))
+	}), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

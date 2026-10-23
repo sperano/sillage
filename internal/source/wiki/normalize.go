@@ -41,7 +41,7 @@ func Branch(pageID int64) string {
 // Normalize turns one read of a page into model events, in time order:
 // the page's creation; one event per later state of the page, the live
 // one included, each an edit by its author or a move by an unknown actor;
-// and each comment, as a /kelos request, a start announcement posted by
+// and each comment, as a request, a start announcement posted by
 // one of agentUsers, or a plain comment (a reply). Only what Wiki.js
 // records is claimed: no comment edits, no reading.
 //

@@ -6,9 +6,10 @@ import (
 
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/htmltext"
+	"github.com/sperano/sillage/internal/source/kelostext"
 )
 
-// comment is a /kelos request, a start announcement when an agent user
+// comment is a request, a start announcement when an agent user
 // posted one, or else a plain comment: a reply, whoever wrote it. Which
 // request a reply answers is not recorded, so it is not claimed.
 func (n *normalizer) comment(c Comment) model.Event {
@@ -18,11 +19,11 @@ func (n *normalizer) comment(c Comment) model.Event {
 	e.Evidence.Ref = "comments.list(locale: " + n.s.Page.Locale + ", path: " + n.s.Page.Path + ")"
 	e.Evidence.Note = "comment " + id + ": createdAt, authorId, authorName"
 	text := htmltext.Plain(c.Render)
-	if agent, ok := parseRequest(text); ok {
+	if r, ok := kelostext.ParseRequest(text); ok {
 		e.Kind = model.KindRequest
-		setDetail(&e, "command", requestPrefix)
-		if agent != "" {
-			setDetail(&e, "agent", agent)
+		setDetail(&e, "command", r.Command)
+		if r.Agent != "" {
+			setDetail(&e, "agent", r.Agent)
 		}
 		return e
 	}
@@ -33,7 +34,7 @@ func (n *normalizer) comment(c Comment) model.Event {
 	switch {
 	case err == nil:
 		announced(&e, a)
-	case errors.Is(err, errUnparsedAnnouncement):
+	case errors.Is(err, kelostext.ErrUnparsedAnnouncement):
 		e.Evidence.Note += "; reads like a start announcement but names no Kelos Task of this page"
 	}
 	return e

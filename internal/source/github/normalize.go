@@ -8,15 +8,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/source/kelostext"
 )
 
 const (
-	// requestPrefix starts a comment asking an agent to act.
-	requestPrefix = "/kelos"
 	// botType is User.Type for a GitHub App or other bot account.
 	botType = "Bot"
 	// reviewPending is the state of a review not yet submitted.
@@ -26,19 +23,20 @@ const (
 // Normalize turns one read of a pull request into model records: the pull
 // request with its check runs, and its events (opened, closed, merged,
 // reopened, review requests, conversation and inline review comments and
-// requests, submitted reviews), in time order. Each event's actor is the
-// GitHub account; its executor stays unset unless executorOf finds
-// evidence. A merge is a pr.merged event and the close that comes with it
-// is dropped: pr.closed means closed without being merged. Neither is the
-// task being done. Every record is validated.
-func Normalize(s Snapshot) (model.Records, error) {
-	n := normalizer{s: s, key: prKey(s), seen: make(map[string]bool)}
+// requests, start announcements posted by one of announcers, submitted
+// reviews), in time order. Each event's actor is the GitHub account; its
+// executor stays unset unless executorOf or a start announcement names it. A merge is a pr.merged
+// event and the close that comes with it is dropped: pr.closed means
+// closed without being merged. Neither is the task being done. Every
+// record is validated.
+func Normalize(s Snapshot, announcers []string) (model.Records, error) {
+	n := normalizer{s: s, key: prKey(s), announcers: announcers, seen: make(map[string]bool)}
 	n.add(n.opened())
 	if err := n.timeline(); err != nil {
 		return model.Records{}, err
 	}
 	for _, c := range s.Comments {
-		n.add(n.comment(c, "issues/comments/", commentsPath(s.Repository, s.PullRequest.Number), "comment "))
+		n.add(n.conversationComment(c))
 	}
 	n.reviewComments()
 	for _, r := range s.Reviews {
@@ -60,10 +58,11 @@ func Normalize(s Snapshot) (model.Records, error) {
 // normalizer accumulates the events of one snapshot, each id once: a
 // record repeated across two pages read while it changed counts once.
 type normalizer struct {
-	s      Snapshot
-	key    model.PRKey
-	events []model.Event
-	seen   map[string]bool
+	s          Snapshot
+	key        model.PRKey
+	announcers []string
+	events     []model.Event
+	seen       map[string]bool
 }
 
 func (n *normalizer) add(e model.Event) {
@@ -138,11 +137,39 @@ func (n *normalizer) opened() model.Event {
 // is idPrefix and GitHub's id, unique among comments of its endpoint path.
 func (n *normalizer) comment(c Comment, idPrefix, path, notePrefix string) model.Event {
 	id := strconv.FormatInt(c.ID, 10)
-	kind := model.KindComment
-	if isRequest(c.Body) {
-		kind = model.KindRequest
+	e := n.event(model.KindComment, idPrefix+id, c.CreatedAt, c.User, path, notePrefix+id)
+	if r, ok := kelostext.ParseRequest(c.Body); ok {
+		e.Kind = model.KindRequest
+		setDetail(&e, "command", r.Command)
+		if r.Agent != "" {
+			setDetail(&e, "agent", r.Agent)
+		}
 	}
-	return n.event(kind, idPrefix+id, c.CreatedAt, c.User, path, notePrefix+id)
+	return e
+}
+
+// conversationComment is a conversation comment: a request, a start
+// announcement when one of the announcers posted it, or a plain comment.
+// Kelos announces runs only there.
+func (n *normalizer) conversationComment(c Comment) model.Event {
+	e := n.comment(c, "issues/comments/", commentsPath(n.s.Repository, n.s.PullRequest.Number), "comment ")
+	if e.Kind != model.KindComment || !n.announcer(c.User) {
+		return e
+	}
+	a, err := parseAnnouncement(c.Body, n.s.PullRequest.Number)
+	switch {
+	case err == nil:
+		announced(&e, a)
+	case errors.Is(err, kelostext.ErrUnparsedAnnouncement):
+		e.Evidence.Note += "; reads like a start announcement but names no Kelos Task of this pull request"
+	}
+	return e
+}
+
+// announcer reports whether u is one of the announcers. GitHub logins are
+// case-insensitive.
+func (n *normalizer) announcer(u *User) bool {
+	return u != nil && slices.ContainsFunc(n.announcers, func(l string) bool { return strings.EqualFold(l, u.Login) })
 }
 
 // reviewComments adds the inline review comments others can see. One
@@ -175,17 +202,6 @@ func (n *normalizer) reviewComments() {
 // submitted reports whether a review was submitted, so others can see it.
 func submitted(r Review) bool {
 	return r.SubmittedAt != nil && r.State != reviewPending
-}
-
-// isRequest reports whether a comment body starts with requestPrefix as a
-// word.
-func isRequest(body string) bool {
-	rest, ok := strings.CutPrefix(strings.TrimLeftFunc(body, unicode.IsSpace), requestPrefix)
-	if !ok {
-		return false
-	}
-	r, _ := utf8.DecodeRuneInString(rest)
-	return rest == "" || unicode.IsSpace(r)
 }
 
 func (n *normalizer) review(r Review) model.Event {
