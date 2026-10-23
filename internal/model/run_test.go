@@ -73,7 +73,7 @@ func TestRunValidateOutcomeAndInterval(t *testing.T) {
 		{
 			"running with a known end",
 			func(r *Run) { r.Outcome = OutcomeRunning },
-			"only a running run, has an open end",
+			"only a waiting or running run, has an open end",
 		},
 		{
 			"running with an unknown end",
@@ -81,12 +81,12 @@ func TestRunValidateOutcomeAndInterval(t *testing.T) {
 				r.Outcome = OutcomeRunning
 				r.Interval.End = UnknownBound()
 			},
-			"only a running run, has an open end",
+			"only a waiting or running run, has an open end",
 		},
 		{
 			"open end without running",
 			func(r *Run) { r.Interval.End = OpenEnd() },
-			"only a running run, has an open end",
+			"only a waiting or running run, has an open end",
 		},
 		{
 			"unknown outcome with an open end",
@@ -94,7 +94,7 @@ func TestRunValidateOutcomeAndInterval(t *testing.T) {
 				r.Outcome = OutcomeUnknown
 				r.Interval.End = OpenEnd()
 			},
-			"only a running run, has an open end",
+			"only a waiting or running run, has an open end",
 		},
 		{
 			"unknown interval",
@@ -103,6 +103,33 @@ func TestRunValidateOutcomeAndInterval(t *testing.T) {
 				r.Interval = Interval{Start: UnknownBound(), End: UnknownBound()}
 			},
 			"",
+		},
+	}
+	runRunCases(t, tests)
+}
+
+func TestRunValidateWaitingOutcome(t *testing.T) {
+	tests := []runCase{
+		{
+			"waiting with an open end",
+			func(r *Run) {
+				r.Outcome = OutcomeWaiting
+				r.Interval = Interval{Start: UnknownBound(), End: OpenEnd()}
+			},
+			"",
+		},
+		{
+			"waiting with a known end",
+			func(r *Run) { r.Outcome = OutcomeWaiting },
+			"a waiting or running run",
+		},
+		{
+			"waiting with an unknown end",
+			func(r *Run) {
+				r.Outcome = OutcomeWaiting
+				r.Interval.End = UnknownBound()
+			},
+			"a waiting or running run",
 		},
 	}
 	runRunCases(t, tests)

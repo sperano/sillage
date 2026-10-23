@@ -21,6 +21,7 @@ const (
 	testNamespace = "agents"
 	testDomain    = "vikunja.example.com"
 	testVikunja   = "vikunja.example.com"
+	testTaskID    = 1
 )
 
 var testObservedAt = time.Date(2026, 3, 15, 12, 0, 0, 0, time.UTC)

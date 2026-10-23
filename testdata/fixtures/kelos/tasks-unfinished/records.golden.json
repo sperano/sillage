@@ -48,7 +48,7 @@
           "state": "open"
         }
       },
-      "outcome": "running",
+      "outcome": "waiting",
       "message": "Waiting for branch lock",
       "evidence": [
         {

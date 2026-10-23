@@ -82,7 +82,7 @@ func TestNormalizeGolden(t *testing.T) {
 func TestNormalizedStoriesBuild(t *testing.T) {
 	for _, story := range stories(t) {
 		t.Run(story, func(t *testing.T) {
-			root := model.Root{Task: &model.TaskKey{Instance: testVikunja, ID: 1}}
+			root := model.Root{Task: &model.TaskKey{Instance: testVikunja, ID: testTaskID}}
 			if _, err := model.BuildStory(root, storyRecords(t, story)); err != nil {
 				t.Errorf("BuildStory: %v", err)
 			}
