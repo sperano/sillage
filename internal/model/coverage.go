@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -23,6 +24,10 @@ type Coverage struct {
 	// nil if it never was. Anything after it is unknown.
 	LastSuccessfulRead *time.Time `json:"lastSuccessfulRead,omitempty"`
 	Gaps               []Gap      `json:"gaps,omitempty"`
+	// Notes say what the reads left unknown that no time range bounds: a
+	// pull request's commits whose checks were not read, a source not read
+	// because nothing named what to read in it.
+	Notes []string `json:"notes,omitempty"`
 }
 
 // Key returns the coverage's identity: source and instance.
@@ -42,8 +47,8 @@ func (c Coverage) Known(t time.Time) bool {
 	return true
 }
 
-// Validate reports whether the coverage is complete and each gap has a
-// reason and a positive length.
+// Validate reports whether the coverage is complete, each gap has a
+// reason and a positive length, and no note is empty.
 func (c Coverage) Validate() error {
 	if !c.Source.valid() || c.Instance == "" {
 		return fmt.Errorf("coverage %s: source and instance are required", c.Key())
@@ -52,6 +57,9 @@ func (c Coverage) Validate() error {
 		if g.Reason == "" || !g.End.After(g.Start) {
 			return fmt.Errorf("coverage %s: a gap needs a reason and an end after its start", c.Key())
 		}
+	}
+	if slices.Contains(c.Notes, "") {
+		return fmt.Errorf("coverage %s: a note is empty", c.Key())
 	}
 	return nil
 }
@@ -66,4 +74,5 @@ func (c *Coverage) normalize() {
 		c.Gaps[i].End = c.Gaps[i].End.UTC()
 	}
 	sortGaps(c.Gaps)
+	slices.Sort(c.Notes)
 }

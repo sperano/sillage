@@ -1,0 +1,29 @@
+[
+  {
+    "id": 7007,
+    "number": 7,
+    "state": "closed",
+    "title": "Fabricated change 7",
+    "user": {
+      "login": "owner-gh",
+      "type": "User"
+    },
+    "created_at": "2026-03-03T18:20:00Z",
+    "closed_at": "2026-03-03T19:00:00Z",
+    "merged_at": "2026-03-03T19:00:00Z",
+    "head": {
+      "ref": "kelos/vikunja-102",
+      "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "repo": {
+        "full_name": "example-org/widgets"
+      }
+    },
+    "base": {
+      "ref": "main",
+      "sha": "0000000000000000000000000000000000000000",
+      "repo": {
+        "full_name": "example-org/widgets"
+      }
+    }
+  }
+]

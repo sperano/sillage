@@ -1,0 +1,31 @@
+{
+  "id": 102,
+  "project_id": 30,
+  "title": "Add a fabricated widget cache",
+  "identifier": "#2",
+  "created": "2026-03-03T17:00:00Z",
+  "updated": "2026-03-03T17:00:00Z",
+  "created_by": {
+    "id": 7,
+    "username": "owner",
+    "name": "Robin Owner"
+  },
+  "done": true,
+  "done_at": "2026-03-03T19:13:00Z",
+  "labels": [],
+  "assignees": [
+    {
+      "id": 21,
+      "username": "agent-opus",
+      "name": "Agent Opus"
+    }
+  ],
+  "bucket_id": 0,
+  "buckets": [
+    {
+      "id": 12,
+      "title": "Done",
+      "project_view_id": 4
+    }
+  ]
+}

@@ -48,15 +48,15 @@ func (r Records) validate() error {
 		validateAll(r.Runs, Run.Validate, func(run Run) string { return run.Key.String() }),
 		validateRunPods(r.Runs),
 		validateAll(r.PullRequests, PullRequest.Validate, func(p PullRequest) string { return p.Key.String() }),
-		validateAll(r.Correlations, Correlation.Validate, Correlation.pairKey),
+		validateAll(r.Correlations, Correlation.Validate, Correlation.Pair),
 		validateAll(r.Coverage, Coverage.Validate, Coverage.Key),
 	)
 }
 
 // validateAll validates each record and rejects a key seen twice.
-func validateAll[T any](records []T, validate func(T) error, key func(T) string) error {
+func validateAll[T any, K comparable](records []T, validate func(T) error, key func(T) K) error {
 	var errs []error
-	seen := make(map[string]bool, len(records))
+	seen := make(map[K]bool, len(records))
 	for _, rec := range records {
 		if err := validate(rec); err != nil {
 			errs = append(errs, err)
@@ -64,7 +64,7 @@ func validateAll[T any](records []T, validate func(T) error, key func(T) string)
 		}
 		k := key(rec)
 		if seen[k] {
-			errs = append(errs, fmt.Errorf("%s: duplicate record", k))
+			errs = append(errs, fmt.Errorf("%v: duplicate record", k))
 		}
 		seen[k] = true
 	}
@@ -121,6 +121,7 @@ func (r Records) clone() Records {
 	}
 	for i := range out.Coverage {
 		out.Coverage[i].Gaps = slices.Clone(out.Coverage[i].Gaps)
+		out.Coverage[i].Notes = slices.Clone(out.Coverage[i].Notes)
 	}
 	return out
 }

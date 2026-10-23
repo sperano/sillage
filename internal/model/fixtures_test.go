@@ -7,7 +7,6 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
-	"slices"
 	"testing"
 )
 
@@ -151,77 +150,11 @@ func shuffled(recs Records, r *rand.Rand) Records {
 	}
 	for _, c := range out.Coverage {
 		shuffle(r, c.Gaps)
+		shuffle(r, c.Notes)
 	}
 	return out
 }
 
 func shuffle[T any](r *rand.Rand, s []T) {
 	r.Shuffle(len(s), func(i, j int) { s[i], s[j] = s[j], s[i] })
-}
-
-// TestFixtureRefsResolve checks that every correlation in a fixture points
-// to an event, run or pull request of the story, or to its root or a task
-// or page its events name, so a typo in a fixture cannot go unnoticed.
-func TestFixtureRefsResolve(t *testing.T) {
-	for _, name := range storyNames(t) {
-		t.Run(name, func(t *testing.T) {
-			s := buildFixture(t, name)
-			known := storyRefs(s)
-			for _, c := range s.Correlations {
-				for _, ref := range []Ref{c.From, c.To} {
-					if !known[ref] {
-						t.Errorf("correlation %s: %s is not in the story", c, ref)
-					}
-				}
-			}
-		})
-	}
-}
-
-func storyRefs(s Story) map[Ref]bool {
-	known := make(map[Ref]bool)
-	addRelated := func(r Related) {
-		if r.Task != nil {
-			known[r.Task.Ref()] = true
-		}
-		if r.Page != nil {
-			known[r.Page.Ref()] = true
-		}
-	}
-	addRelated(Related{Task: s.Root.Task, Page: s.Root.Page})
-	for _, e := range s.Events {
-		known[e.Ref()] = true
-		addRelated(e.Related)
-	}
-	for _, r := range s.Runs {
-		known[r.Key.Ref()] = true
-	}
-	for _, p := range s.PullRequests {
-		known[p.Key.Ref()] = true
-	}
-	return known
-}
-
-// TestEveryFixtureHasInvariants makes adding a fixture without asserting
-// what it is for fail.
-func TestEveryFixtureHasInvariants(t *testing.T) {
-	names := storyNames(t)
-	for _, name := range names {
-		if _, ok := fixtureInvariants[name]; !ok {
-			t.Errorf("fixture %s has no entry in fixtureInvariants", name)
-		}
-	}
-	for name := range fixtureInvariants {
-		if !slices.Contains(names, name) {
-			t.Errorf("fixtureInvariants names %s, which is not a fixture", name)
-		}
-	}
-}
-
-func TestFixtureInvariants(t *testing.T) {
-	for name, check := range fixtureInvariants {
-		t.Run(name, func(t *testing.T) {
-			check(t, buildFixture(t, name))
-		})
-	}
 }

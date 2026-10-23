@@ -1,0 +1,60 @@
+{
+  "apiVersion": "kelos.dev/v1alpha2",
+  "kind": "TaskList",
+  "metadata": {},
+  "items": [
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "Task",
+      "metadata": {
+        "name": "vikunja-widgets-agent-opus-102",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000000102",
+        "creationTimestamp": "2026-03-03T18:05:20Z",
+        "labels": {
+          "vikunja.example.com/project": "widgets",
+          "vikunja.example.com/variant": "agent-opus",
+          "vikunja.example.com/task": "102"
+        }
+      },
+      "spec": {
+        "type": "claude-code",
+        "prompt": "Fabricated prompt: never read into a run.",
+        "branch": "kelos/vikunja-102"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "podName": "vikunja-widgets-agent-opus-102-bcdef",
+        "jobName": "vikunja-widgets-agent-opus-102",
+        "startTime": "2026-03-03T18:05:37Z",
+        "completionTime": "2026-03-03T18:31:10Z"
+      }
+    },
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "Task",
+      "metadata": {
+        "name": "vikunja-merge-widgets-7-true",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000000703",
+        "creationTimestamp": "2026-03-03T19:00:05Z",
+        "labels": {
+          "vikunja.example.com/workspace": "widgets",
+          "vikunja.example.com/role": "merge-close"
+        }
+      },
+      "spec": {
+        "type": "claude-code",
+        "prompt": "Fabricated prompt: never read into a run.",
+        "branch": "kelos/vikunja-102"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "podName": "vikunja-merge-widgets-7-true-mmmmm",
+        "jobName": "vikunja-merge-widgets-7-true",
+        "startTime": "2026-03-03T19:00:10Z",
+        "completionTime": "2026-03-03T19:00:40Z"
+      }
+    }
+  ]
+}

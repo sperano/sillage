@@ -1,0 +1,50 @@
+[
+  {
+    "id": 8701,
+    "event": "labeled",
+    "actor": {
+      "login": "owner-gh",
+      "type": "User"
+    },
+    "created_at": "2026-03-03T18:20:01Z",
+    "label": {
+      "name": "kelos:agent-opus"
+    }
+  },
+  {
+    "event": "committed",
+    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "author": {
+      "name": "Owner",
+      "date": "2026-03-03T18:19:00Z"
+    }
+  },
+  {
+    "event": "committed",
+    "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "author": {
+      "name": "Owner",
+      "date": "2026-03-03T18:50:00Z"
+    }
+  },
+  {
+    "id": 8702,
+    "event": "merged",
+    "actor": {
+      "login": "owner-gh",
+      "type": "User"
+    },
+    "created_at": "2026-03-03T19:00:00Z",
+    "commit_id": "ffffffffffffffffffffffffffffffffffffffff"
+  },
+  {
+    "id": 8703,
+    "event": "closed",
+    "actor": {
+      "login": "owner-gh",
+      "type": "User"
+    },
+    "created_at": "2026-03-03T19:00:00Z",
+    "commit_id": null
+  }
+]

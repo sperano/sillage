@@ -1,6 +1,7 @@
 package model
 
 import (
+	"slices"
 	"testing"
 	"time"
 )
@@ -85,6 +86,8 @@ func TestCoverageValidate(t *testing.T) {
 			},
 			"end after its start",
 		},
+		{"valid note", func(c *Coverage) { c.Notes = []string{"checks of 1 commit not read"} }, ""},
+		{"empty note", func(c *Coverage) { c.Notes = []string{"a", ""} }, "a note is empty"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -115,7 +118,11 @@ func TestCoverageNormalize(t *testing.T) {
 		{Start: atEST(40), End: atEST(45), Reason: "b"},
 		{Start: atEST(20), End: atEST(30), Reason: "a"},
 	}
+	c.Notes = []string{"b", "a"}
 	c.normalize()
+	if !slices.Equal(c.Notes, []string{"a", "b"}) {
+		t.Errorf("notes = %q, want them sorted", c.Notes)
+	}
 	if got := c.LastSuccessfulRead.Location(); got != time.UTC {
 		t.Errorf("LastSuccessfulRead location = %v, want UTC", got)
 	}

@@ -1,0 +1,22 @@
+{
+  "data": {
+    "pages": {
+      "list": [
+        {
+          "id": 12,
+          "path": "widgets/home",
+          "locale": "en",
+          "createdAt": "2026-01-02T09:00:00.000Z",
+          "updatedAt": "2026-02-01T09:00:00.000Z"
+        },
+        {
+          "id": 41,
+          "path": "widgets/reports/caching-options",
+          "locale": "en",
+          "createdAt": "2026-03-02T14:07:16.000Z",
+          "updatedAt": "2026-03-02T14:07:18.400Z"
+        }
+      ]
+    }
+  }
+}

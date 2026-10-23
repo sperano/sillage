@@ -291,6 +291,7 @@ func estCoverage() []Coverage {
 		{Start: atEST(70), End: atEST(75), Reason: "later"},
 		{Start: atEST(30), End: atEST(35), Reason: "earlier"},
 	}
+	vikunja.Notes = []string{"later note", "earlier note"}
 	return []Coverage{wiki, vikunja}
 }
 
@@ -423,6 +424,9 @@ func TestBuildStoryDoesNotModifyInput(t *testing.T) {
 	if reason := got.Coverage[1].Gaps[0].Reason; reason != "later" {
 		t.Errorf("input first gap = %q, want later", reason)
 	}
+	if note := got.Coverage[1].Notes[0]; note != "later note" {
+		t.Errorf("input first note = %q, want later note", note)
+	}
 
 	// The story must not share its lists with the input either.
 	story.Events[0].ID = "mutated"
@@ -433,6 +437,7 @@ func TestBuildStoryDoesNotModifyInput(t *testing.T) {
 	story.PullRequests[0].Checks[0].ID = -1
 	story.Correlations[1].Evidence[0].Ref = "mutated"
 	story.Coverage[0].Gaps = append(story.Coverage[0].Gaps[:0], Gap{Reason: "mutated"})
+	story.Coverage[0].Notes[0] = "mutated"
 	if !reflect.DeepEqual(got, want) {
 		t.Error("changing the story changed the input records")
 	}

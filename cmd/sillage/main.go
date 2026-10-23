@@ -1,5 +1,8 @@
 // Command sillage serves sillage's HTTP endpoints. For now that is a health
-// check and the embedded frontend; the collector and the read API come later.
+// check and the embedded frontend; the read API comes later.
+//
+// "sillage story -task <id>" (or "-page <id>") instead prints one story's
+// JSON, assembled from the live sources the environment configures.
 package main
 
 import (
@@ -58,12 +61,19 @@ func main() {
 	// After the first signal, restore the default handling so that a second
 	// one kills a shutdown that hangs.
 	context.AfterFunc(ctx, stop)
-	err := run(ctx, os.Args[1:], os.Getenv, os.Stderr)
+	var err error
+	if args := os.Args[1:]; len(args) > 0 && args[0] == storyCommand {
+		err = runStory(ctx, args[1:], os.Getenv, os.Stdout, os.Stderr, openCollector)
+	} else {
+		err = run(ctx, args, os.Getenv, os.Stderr)
+	}
 	stop()
 	switch {
 	case err == nil, errors.Is(err, flag.ErrHelp):
 	case errors.Is(err, errUsage):
 		os.Exit(exitUsage)
+	case errors.Is(err, errPartial):
+		os.Exit(exitPartial)
 	default:
 		fmt.Fprintln(os.Stderr, "sillage:", err)
 		os.Exit(1)

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 )
@@ -34,15 +35,23 @@ type Correlation struct {
 
 func (c Correlation) String() string { return c.From.String() + " -> " + c.To.String() }
 
-// pairKey identifies the pair of records whatever the direction, so that a
-// link recorded from each end counts as one.
-func (c Correlation) pairKey() string {
-	from, to := c.From.String(), c.To.String()
-	if to < from {
-		from, to = to, from
+// RefPair is two records whatever the direction, so that a link recorded
+// from each end counts as one. It compares the refs themselves: no id can
+// make two pairs equal.
+type RefPair struct{ first, second Ref }
+
+// PairOf returns the pair of a and b, in either order.
+func PairOf(a, b Ref) RefPair {
+	if cmp.Or(cmp.Compare(b.Kind, a.Kind), cmp.Compare(b.ID, a.ID)) < 0 {
+		a, b = b, a
 	}
-	return from + " <-> " + to
+	return RefPair{first: a, second: b}
 }
+
+func (p RefPair) String() string { return p.first.String() + " <-> " + p.second.String() }
+
+// Pair returns the pair of records the correlation joins.
+func (c Correlation) Pair() RefPair { return PairOf(c.From, c.To) }
 
 // Validate reports whether the correlation is complete.
 func (c Correlation) Validate() error {

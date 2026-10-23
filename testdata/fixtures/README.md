@@ -44,18 +44,23 @@ story, and assert the invariant the story exists for:
 | `failed-run-retry` | A retry with the same Task name and a new UID is a second run, never merged with the failed one. |
 | `announced-run-only` | A run known only from its start announcement is keyed by pod, its interval and outcome stay unknown despite a later agent comment, and Kelos coverage marks the period unknown. |
 
-Source adapters will add each source's raw, fabricated responses next to
-`input.json` and test that normalizing them yields its records.
+Each source's raw, fabricated responses live in its own directory
+(`vikunja/`, `kelos/`, `github/`, `wiki/`), and the responses from which
+the collector assembles each story in `collector/`.
 
 ### Adding a story
 
 1. Create `stories/<name>/input.json` (copy the closest story). Fabricate
    every value, as above. Event ids are the source's own ids, or, when it
    has none, `model.Fingerprint` of the documented parts.
-2. Add `<name>` to `fixtureInvariants` in
-   `internal/model/invariants_test.go`, with a check function that asserts
-   the story's point explicitly; `TestEveryFixtureHasInvariants` fails
-   until you do.
+2. Add `<name>` to `invariants` in
+   `internal/model/storytest/invariants.go`, with a check function that
+   asserts the story's point explicitly; `TestEveryFixtureHasInvariants`
+   fails until you do.
 3. Generate the golden file and read it before committing:
    `go test ./internal/model -run TestStoryGolden -update`.
-4. Add a row to the table above.
+4. Make the collector assemble the story from source responses: add them
+   under `collector/<name>/` (see its README) and a case to `storyCases`
+   in `internal/collector/collector_test.go`; `TestEveryStoryIsAssembled`
+   fails until you do.
+5. Add a row to the table above.

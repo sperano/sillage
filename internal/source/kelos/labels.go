@@ -14,6 +14,9 @@ const (
 	labelVariant = "variant"
 	labelRole    = "role"
 	labelTask    = "task"
+	// labelWorkspace names the workspace (repository) of the Tasks that
+	// have no project label: PR and wiki follow-ups, bookkeeping.
+	labelWorkspace = "workspace"
 )
 
 // The values of the role label. A Task the task spawner starts has no role

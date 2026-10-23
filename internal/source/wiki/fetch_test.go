@@ -2,8 +2,10 @@ package wiki
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -167,5 +169,33 @@ func TestFetchRestrictedPageNotListed(t *testing.T) {
 	_, err := c.Fetch(t.Context(), 60)
 	if err == nil || !strings.Contains(err.Error(), "page 60 is not listed") {
 		t.Errorf("Fetch error = %v, want the page not listed", err)
+	}
+}
+
+func TestPages(t *testing.T) {
+	fake := storyFake(t, "announcement-no-reply")
+	pages, err := newTestClient(t, fake).Pages(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, p := range pages {
+		got = append(got, strconv.FormatInt(p.ID, 10)+" "+p.Locale+"/"+p.Path)
+	}
+	if want := []string{"12 en/widgets/home", "59 en/widgets/notes/capacity"}; !slices.Equal(got, want) {
+		t.Errorf("Pages() = %v, want %v", got, want)
+	}
+	if ops := fake.log.seen(); !slices.Equal(ops, []string{opPageList}) {
+		t.Errorf("Pages() sent %v, want only %s", ops, opPageList)
+	}
+}
+
+func TestPagesReportsFailure(t *testing.T) {
+	c := newTestClient(t, graphQLHandler(func(_ string, w http.ResponseWriter) {
+		http.Error(w, "down", http.StatusBadGateway)
+	}))
+	_, err := c.Pages(t.Context())
+	if se, ok := errors.AsType[*StatusError](err); !ok || se.Code != http.StatusBadGateway {
+		t.Errorf("Pages() error = %v, want a %d StatusError", err, http.StatusBadGateway)
 	}
 }

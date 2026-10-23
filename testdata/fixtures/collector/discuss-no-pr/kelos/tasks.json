@@ -1,0 +1,61 @@
+{
+  "apiVersion": "kelos.dev/v1alpha2",
+  "kind": "TaskList",
+  "metadata": {},
+  "items": [
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "Task",
+      "metadata": {
+        "name": "vikunja-discuss-widgets-agent-opus-101",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000000101",
+        "creationTimestamp": "2026-03-02T14:00:40Z",
+        "labels": {
+          "vikunja.example.com/project": "widgets",
+          "vikunja.example.com/variant": "agent-opus",
+          "vikunja.example.com/task": "101"
+        }
+      },
+      "spec": {
+        "type": "claude-code",
+        "prompt": "Fabricated prompt: never read into a run.",
+        "branch": "kelos/vikunja-101"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "podName": "vikunja-discuss-widgets-agent-opus-101-abcde",
+        "jobName": "vikunja-discuss-widgets-agent-opus-101",
+        "startTime": "2026-03-02T14:01:02Z",
+        "completionTime": "2026-03-02T14:07:51Z"
+      }
+    },
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "Task",
+      "metadata": {
+        "name": "vikunja-widgets-agent-sonnet-150",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000000150",
+        "creationTimestamp": "2026-03-02T13:59:00Z",
+        "labels": {
+          "vikunja.example.com/project": "widgets",
+          "vikunja.example.com/variant": "agent-sonnet",
+          "vikunja.example.com/task": "150"
+        }
+      },
+      "spec": {
+        "type": "claude-code",
+        "prompt": "Fabricated prompt: never read into a run.",
+        "branch": "kelos/vikunja-150"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "podName": "vikunja-widgets-agent-sonnet-150-zzzzz",
+        "jobName": "vikunja-widgets-agent-sonnet-150",
+        "startTime": "2026-03-02T14:00:00Z",
+        "completionTime": "2026-03-02T14:30:00Z"
+      }
+    }
+  ]
+}
