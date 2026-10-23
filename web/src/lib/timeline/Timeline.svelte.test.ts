@@ -299,11 +299,39 @@ describe('interaction', () => {
 		for (let i = 0; i < 3; i++) await zoomIn.click();
 		const clip = container.querySelector('clipPath rect')!;
 		const right = Number(clip.getAttribute('x')) + Number(clip.getAttribute('width'));
-		const past = all(container, '[data-source] [data-unknown]').filter(
-			(u) => Number(u.querySelector('rect')!.getAttribute('x')) > right
-		);
-		expect(past.length).toBeGreaterThan(0);
-		for (const u of past) expect(u.querySelector('text')).toBeNull();
+		let past = 0;
+		for (const band of all(container, '[data-source]')) {
+			all(band, '[data-unknown] rect').forEach((rect, i) => {
+				if (Number(rect.getAttribute('x')) <= right) return;
+				past++;
+				expect(band.querySelector(`[data-reason="${i}"]`)).toBeNull();
+			});
+		}
+		expect(past).toBeGreaterThan(0);
+	});
+
+	test('draws every coverage reason over every span of its band', async () => {
+		const at = (h: number) => `2026-03-01T${String(h).padStart(2, '0')}:00:00Z`;
+		const overlapping = story({
+			events: [event({ sourceTime: at(0) }), event({ sourceTime: at(12) })],
+			coverage: [
+				{
+					source: 'vikunja',
+					instance: 'vikunja.example.com',
+					lastSuccessfulRead: at(12),
+					gaps: [
+						{ start: at(1), end: at(8), reason: 'first outage' },
+						{ start: at(2), end: at(9), reason: 'second outage' }
+					]
+				}
+			]
+		});
+		const { container } = await show(overlapping);
+		const band = container.querySelector('[data-source="vikunja/vikunja.example.com"]')!;
+		const marks = all(band, 'rect, [data-reason]').map((m) => m.tagName);
+		const firstReason = marks.indexOf('text');
+		expect(firstReason).toBeGreaterThan(-1);
+		expect(marks.lastIndexOf('rect')).toBeLessThan(firstReason);
 	});
 
 	test('groups crowded events under a count that expands', async () => {

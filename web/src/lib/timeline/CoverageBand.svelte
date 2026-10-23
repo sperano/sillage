@@ -27,7 +27,6 @@
 		{#each band.unknown as u, i (i)}
 			{@const x1 = scale.x(u.start)}
 			{@const width = Math.max(scale.x(u.end) - x1, 0)}
-			{@const reason = reasons[i]}
 			<g data-unknown role="img" aria-label={u.reason}>
 				<title>{u.reason}</title>
 				<rect
@@ -37,17 +36,22 @@
 					height={SOURCE_ROW_PX - 2 * INSET_PX}
 					style:fill="url(#{ids}-hatch)"
 				/>
-				<!-- Written in the span, before it, or not at all: see reasonTexts. -->
-				{#if reason}
-					<text
-						class="reason"
-						x={reason.x}
-						y={band.y + SOURCE_ROW_PX / 2}
-						dy="0.35em"
-						text-anchor={reason.anchor}>{reason.text}</text
-					>
-				{/if}
 			</g>
+		{/each}
+		<!-- After every span, so that no span's hatch, overlapping or not, is drawn over a reason.
+		     Written in the span, before it, or not at all: see reasonTexts. -->
+		{#each reasons as reason, i (i)}
+			{#if reason}
+				<text
+					class="reason"
+					data-reason={i}
+					aria-hidden="true"
+					x={reason.x}
+					y={band.y + SOURCE_ROW_PX / 2}
+					dy="0.35em"
+					text-anchor={reason.anchor}>{reason.text}</text
+				>
+			{/if}
 		{/each}
 	</g>
 </g>
