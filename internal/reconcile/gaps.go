@@ -42,7 +42,10 @@ func (l *Loop) openGaps(ctx context.Context, open func(*sourceState) bool) error
 }
 
 // kelosFailed opens a gap on the Kelos coverage of every root: the
-// cycle's one read serves them all, read this cycle or not.
+// cycle's one read serves them all, read this cycle or not. Each gap
+// starts at the root's own last Kelos success, not at the last shared
+// read: a root not read then may have had a run that read would have
+// joined, through an announcement, where no Kelos label names the root.
 func (l *Loop) kelosFailed(ctx context.Context, err error) {
 	l.log.Warn("source read failed", "source", model.SourceKelos, "instance", l.ccfg.Kelos.Cluster,
 		"reason", reasonOf(err), "error", err)
@@ -50,7 +53,8 @@ func (l *Loop) kelosFailed(ctx context.Context, err error) {
 	cerr := l.openGaps(ctx, func(st *sourceState) bool {
 		return st.Source == model.SourceKelos && st.Instance == l.ccfg.Kelos.Cluster && st.fail(reason)
 	})
-	if cerr != nil {
-		l.storeFailed(ctx, operationCommit, model.Ref{}, cerr)
+	if cerr != nil && ctx.Err() == nil {
+		l.metrics.storeErrors.WithLabelValues(operationCommit).Inc()
+		l.log.Error("store commit of the Kelos failure's gaps failed", "error", cerr)
 	}
 }

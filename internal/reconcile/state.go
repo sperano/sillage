@@ -162,10 +162,11 @@ func (st *sourceState) fail(reason string) bool {
 	return true
 }
 
-// restart records that sillage was not collecting from after (zero when
-// unknown) until the next successful read, and reports whether it opened
-// a gap for it.
-func (st *sourceState) restart(after time.Time, reason string) bool {
+// openAfter opens a gap from the later of the last success and after
+// (zero when unknown) until the next successful read, unless one is open,
+// and reports whether it did: what was read is known until after, as when
+// sillage stopped after its last cycle, or a shared read last succeeded.
+func (st *sourceState) openAfter(after time.Time, reason string) bool {
 	if st.Open != nil || st.LastSuccess == nil {
 		return false
 	}

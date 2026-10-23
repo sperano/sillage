@@ -29,7 +29,7 @@ func TestSourceStateGaps(t *testing.T) {
 	}
 }
 
-func TestSourceStateRestart(t *testing.T) {
+func TestSourceStateOpenAfter(t *testing.T) {
 	cov := model.Coverage{Source: model.SourceKelos, Instance: testCluster}
 	tests := []struct {
 		name      string
@@ -44,14 +44,14 @@ func TestSourceStateRestart(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var st sourceState
 			st.succeed(minute(1), cov)
-			st.restart(tt.lastCycle, "restarted")
+			st.openAfter(tt.lastCycle, "restarted")
 			if st.Open == nil || !st.Open.Start.Equal(tt.want) {
 				t.Errorf("open gap = %+v, want one from %v", st.Open, tt.want)
 			}
 		})
 	}
 	var never sourceState
-	never.restart(minute(4), "restarted")
+	never.openAfter(minute(4), "restarted")
 	if never.Open != nil {
 		t.Errorf("a source never read opened %+v on restart, want nothing", never.Open)
 	}

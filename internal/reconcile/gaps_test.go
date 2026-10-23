@@ -72,3 +72,17 @@ func TestRestartGapsFailTheLoadWhenUncommitted(t *testing.T) {
 		t.Error("load() = nil with the restart's gaps not committed, want an error")
 	}
 }
+
+func TestKelosFailureGapStartsAtTheRootsLastRead(t *testing.T) {
+	h := newHarness(t, hourly)
+	h.loop.cycle(t.Context())
+	read := h.loop.roots[testRoot().Ref()].Sources["kelos/"+testCluster].LastSuccess
+	// A shared read that does not read the root, then a failed one.
+	h.loop.cycle(t.Context())
+	h.kelos.set(kelos.Snapshot{}, errors.New("fabricated API server outage"))
+	h.loop.cycle(t.Context())
+	open := h.loop.roots[testRoot().Ref()].Sources["kelos/"+testCluster].Open
+	if open == nil || !open.Start.Equal(*read) {
+		t.Errorf("open gap = %+v, want one from the root's own last read %v", open, read)
+	}
+}

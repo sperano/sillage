@@ -144,7 +144,7 @@ func (l *Loop) load(ctx context.Context) error {
 		}
 	}
 	reason := restartReason(lastCycle, l.now())
-	err = l.openGaps(ctx, func(st *sourceState) bool { return st.restart(lastCycle, reason) })
+	err = l.openGaps(ctx, func(st *sourceState) bool { return st.openAfter(lastCycle, reason) })
 	if err != nil {
 		return fmt.Errorf("committing the restart's gaps: %w", err)
 	}
