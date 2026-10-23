@@ -214,25 +214,8 @@ func (s *Store) SearchRoots(ctx context.Context, q RootQuery) ([]RootSummary, er
 	}
 	limit = min(limit, MaxSearchLimit)
 	pattern := "%" + likeEscaper.Replace(strings.TrimSpace(q.Text)) + "%"
-	rows, err := s.pool.Query(ctx, `SELECT body, COALESCE(title, ''), last_activity FROM roots
-		WHERE title ILIKE $1 OR ref ILIKE $1
-		ORDER BY last_activity DESC NULLS LAST, ref
-		LIMIT $2`, pattern, limit)
-	if err != nil {
-		return nil, fmt.Errorf("store: search roots: %w", err)
-	}
-	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (RootSummary, error) {
-		var r RootSummary
-		var body []byte
-		if err := row.Scan(&body, &r.Title, &r.LastActivity); err != nil {
-			return r, err
-		}
-		if r.LastActivity != nil {
-			t := r.LastActivity.UTC()
-			r.LastActivity = &t
-		}
-		return r, json.Unmarshal(body, &r.Root)
-	})
+	out, err := s.summaries(ctx, "SELECT "+rootColumns+` FROM roots o
+		WHERE o.title ILIKE $1 OR o.ref ILIKE $1 `+rootOrder+" LIMIT $2", pattern, limit)
 	if err != nil {
 		return nil, fmt.Errorf("store: search roots: %w", err)
 	}

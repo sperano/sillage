@@ -30,6 +30,18 @@ type Reader interface {
 	// Coverage returns how far each source was read for root, or
 	// ErrNotFound.
 	Coverage(ctx context.Context, root model.Root) ([]model.Coverage, error)
+	// Root returns a stored root's summary, or ErrNotFound.
+	Root(ctx context.Context, root model.Root) (RootSummary, error)
+	// PageRoots returns the stored roots of a wiki page, in every locale.
+	PageRoots(ctx context.Context, instance string, id int64) ([]RootSummary, error)
+	// RootsOfPullRequest returns the roots whose stories hold the pull
+	// request.
+	RootsOfPullRequest(ctx context.Context, key model.PRKey) ([]RootSummary, error)
+	// RootsOfRuns returns the roots whose stories hold a run q names.
+	RootsOfRuns(ctx context.Context, q RunQuery) ([]RootSummary, error)
+	// Freshness returns how recently each source instance was read,
+	// across the stored roots.
+	Freshness(ctx context.Context) ([]SourceFreshness, error)
 }
 
 var _ Reader = (*Store)(nil)
