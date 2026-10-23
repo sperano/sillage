@@ -35,7 +35,8 @@ type Loop struct {
 	unsaved map[model.Ref]bool
 }
 
-// New returns a loop reading src as ccfg describes, into store.
+// New returns a loop reading src as ccfg describes, into store, each
+// store operation within storeTimeout.
 func New(cfg Config, ccfg collector.Config, src Sources, store Store, m *Metrics, log *slog.Logger) (*Loop, error) {
 	if err := errors.Join(cfg.validate(), src.validate()); err != nil {
 		return nil, err
@@ -46,7 +47,10 @@ func New(cfg Config, ccfg collector.Config, src Sources, store Store, m *Metrics
 	if _, err := collector.New(ccfg, src.Sources); err != nil {
 		return nil, err
 	}
-	return &Loop{cfg: cfg, ccfg: ccfg, src: src, store: store, metrics: m, log: log, now: time.Now, jitter: jitter}, nil
+	return &Loop{
+		cfg: cfg, ccfg: ccfg, src: src, store: boundedStore{s: store, timeout: storeTimeout}, metrics: m, log: log,
+		now: time.Now, jitter: jitter,
+	}, nil
 }
 
 // jitter returns d spread by up to jitterFraction either way.

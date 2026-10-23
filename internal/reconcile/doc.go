@@ -18,5 +18,8 @@
 // shutdown interrupts commits nothing.
 //
 // One process collects at a time: the loop runs under a lock, and a
-// process that cannot take it reads nothing and says so.
+// process that cannot take it reads nothing and says so. Each source read
+// and each store operation has a deadline of its own, so that neither a
+// hanging source nor a hanging store holds the lock while no cycle
+// progresses.
 package reconcile
