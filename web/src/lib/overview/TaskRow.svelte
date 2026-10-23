@@ -5,7 +5,7 @@
 	import { rootLabel } from '../roots';
 	import { rootHref } from '../routes';
 	import { endChips } from './end';
-	import { collapsedLane, expandedLanes, rowName } from './lanes';
+	import { collapsedLane, expandedLanes, rowTitle } from './lanes';
 	import LanePlot from './LanePlot.svelte';
 	import type { OverviewRow } from './model';
 	import type { Range } from './spans';
@@ -22,7 +22,7 @@
 
 	const id = $props.id();
 	let expanded = $state(false);
-	const title = $derived(row.title ?? rowName(row.root));
+	const title = $derived(rowTitle(row));
 	const executors = $derived([...new Set(row.runs.flatMap((r) => (r.agent ? [r.agent] : [])))]);
 	const executorsText = $derived.by(() => {
 		if (row.runs.length === 0) return 'no run in this window';
@@ -44,7 +44,9 @@
 			aria-expanded={expanded}
 			aria-controls="{id}-lanes"
 			onclick={() => (expanded = !expanded)}
-			>{expanded ? 'Collapse' : 'Expand'}<span class="visually-hidden"> {title}</span></button
+			><span aria-hidden="true">{expanded ? '▾' : '▸'}</span> Details<span class="visually-hidden">
+				of {title}</span
+			></button
 		>
 	</div>
 	<div class="lanes" id="{id}-lanes">
@@ -58,7 +60,11 @@
 	</div>
 	<ul class="chips" aria-label="State of {title} at the window's end">
 		{#each chips as chip, i (i)}
-			<li class="chip {chip.kind}" title={chip.note}>{chip.text}</li>
+			<li class="chip {chip.kind}" title={chip.note}>
+				{chip.text}{#if chip.note}<span class={expanded ? 'note' : 'visually-hidden'}
+						>: {chip.note}</span
+					>{/if}
+			</li>
 		{/each}
 	</ul>
 </li>
@@ -117,6 +123,9 @@
 	.chip.pr-closed,
 	.chip.not-done {
 		background: color-mix(in srgb, var(--ov-failure) 20%, var(--ov-bg));
+	}
+	.note {
+		color: var(--ov-muted);
 	}
 	.chip.missing {
 		border: 1px dashed var(--ov-unknown);

@@ -3,8 +3,9 @@
 // executor, one lane per run under its agent profile, so that two runs of
 // one profile at the same time stay two lanes.
 
-import { boundTime, type Root, type Run } from '../model';
+import { boundTime, type Run } from '../model';
 import { prKeyString } from '../keys';
+import { rootName } from '../roots';
 import type { Mark, OverviewRow } from './model';
 import {
 	announcedRun,
@@ -18,7 +19,7 @@ import {
 
 export interface Lane {
 	key: string;
-	/** What the lane is: shown beside it when expanded, its accessible name always. */
+	/** What the lane is: shown above it when expanded, its accessible name always. */
 	label: string;
 	spans: OverviewSpan[];
 	marks: Mark[];
@@ -34,7 +35,9 @@ export function attempts(runs: readonly Run[]): Map<Run, number> {
 	for (const r of runs) {
 		if (r.taskName === undefined) continue;
 		const scope = JSON.stringify([r.key.cluster, r.key.namespace, r.taskName]);
-		byName.set(scope, [...(byName.get(scope) ?? []), r]);
+		const group = byName.get(scope);
+		if (group) group.push(r);
+		else byName.set(scope, [r]);
 	}
 	const out = new Map<Run, number>();
 	for (const group of byName.values()) {
@@ -62,7 +65,9 @@ const NO_BAR_NOTE = 'start and end unknown: no bar';
 
 function runLane(row: OverviewRow, run: Run, label: string, owner?: OverviewRow): Lane {
 	const spans = runBars(row, run);
-	const drawable = spans.some((s) => s.start !== undefined || s.end !== undefined || s.openUntil);
+	const drawable = spans.some(
+		(s) => s.start !== undefined || s.end !== undefined || s.openUntil !== undefined
+	);
 	return {
 		key: runLaneKey(run),
 		label,
@@ -132,23 +137,33 @@ export function byExecutor(rows: readonly OverviewRow[]): ExecutorGroup[] {
 	const groups = new Map<string | undefined, { run: Run; lane: Lane }[]>();
 	for (const row of rows) {
 		const numbers = attempts(row.runs);
-		const title = row.title ?? rowName(row.root);
+		const title = rowTitle(row);
 		for (const run of row.runs) {
 			const n = numbers.get(run);
 			const label = n === undefined ? title : `${title} · attempt ${n}`;
 			const lane = runLane(row, run, `${label} · ${run.outcome}`, row);
-			groups.set(run.agent, [...(groups.get(run.agent) ?? []), { run, lane }]);
+			const group = groups.get(run.agent);
+			if (group) group.push({ run, lane });
+			else groups.set(run.agent, [{ run, lane }]);
 		}
 	}
 	return [...groups.entries()]
-		.sort(([a], [b]) => (a === undefined ? 1 : b === undefined ? -1 : a.localeCompare(b)))
+		.sort(([a], [b]) => byName(a, b))
 		.map(([executor, runs]) => ({
 			executor,
 			lanes: [...runs].sort((a, b) => anchor(a.run) - anchor(b.run)).map((r) => r.lane)
 		}));
 }
 
-/** A root's short name: "task 201", "page 57 (en)". */
-export function rowName(root: Root): string {
-	return root.task ? `task ${root.task.id}` : `page ${root.page.id} (${root.page.locale})`;
+/** Orders agent profiles by name, the missing one last, whatever the locale. */
+function byName(a: string | undefined, b: string | undefined): number {
+	if (a === b) return 0;
+	if (a === undefined) return 1;
+	if (b === undefined) return -1;
+	return a < b ? -1 : 1;
+}
+
+/** A row's title, or its root's short name when it has none. */
+export function rowTitle(row: OverviewRow): string {
+	return row.title ?? rootName(row.root);
 }

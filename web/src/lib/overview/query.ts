@@ -3,7 +3,13 @@
 // API takes them.
 
 /** How the overview groups its lanes: a row per task, or a group per agent profile. */
-export type Grouping = 'task' | 'executor';
+export const GROUPINGS = ['task', 'executor'] as const;
+export type Grouping = (typeof GROUPINGS)[number];
+
+/** The grouping a parameter names: the first, a row per task, unless it names another. */
+export function parseGrouping(value: unknown): Grouping {
+	return GROUPINGS.find((g) => g === value) ?? GROUPINGS[0];
+}
 
 export interface OverviewQuery {
 	/** RFC 3339; absent: the API's default, the day before to. */
@@ -38,8 +44,7 @@ export const PARAMS = {
 	failed: 'failed',
 	missing: 'missing',
 	group: 'group',
-	after: 'after',
-	limit: 'limit'
+	after: 'after'
 } as const;
 
 const TRUE = 'true';
@@ -52,7 +57,7 @@ export const DEFAULT_QUERY: OverviewQuery = {
 	review: false,
 	failed: false,
 	missing: false,
-	group: 'task'
+	group: GROUPINGS[0]
 };
 
 /** The query a URL's parameters hold. */
@@ -65,7 +70,7 @@ export function parseOverviewQuery(params: URLSearchParams): OverviewQuery {
 		review: params.get(PARAMS.review) === TRUE,
 		failed: params.get(PARAMS.failed) === TRUE,
 		missing: params.get(PARAMS.missing) === TRUE,
-		group: params.get(PARAMS.group) === 'executor' ? 'executor' : 'task'
+		group: parseGrouping(params.get(PARAMS.group))
 	};
 	const from = text(PARAMS.from);
 	const to = text(PARAMS.to);
@@ -91,7 +96,7 @@ function filterParams(q: OverviewQuery): URLSearchParams {
 /** The overview page's URL for the query. */
 export function overviewHref(q: OverviewQuery): string {
 	const p = filterParams(q);
-	if (q.group === 'executor') p.set(PARAMS.group, 'executor');
+	if (q.group !== DEFAULT_QUERY.group) p.set(PARAMS.group, q.group);
 	const search = p.toString();
 	return search ? `${OVERVIEW_PATH}?${search}` : OVERVIEW_PATH;
 }
@@ -101,4 +106,44 @@ export function overviewApiParams(q: OverviewQuery, after?: string): URLSearchPa
 	const p = filterParams(q);
 	if (after) p.set(PARAMS.after, after);
 	return p;
+}
+
+/** A datetime-local value to the second: 2026-03-10T14:00:00. */
+const FIELD_LENGTH = 'YYYY-MM-DDTHH:MM:SS'.length;
+/** A datetime-local value to the minute, as the browser gives one without seconds. */
+const MINUTE_FIELD_LENGTH = 'YYYY-MM-DDTHH:MM'.length;
+
+/** An RFC 3339 time as a datetime-local value in UTC; empty for none, or for one that is not a time. */
+export function timeField(time: string | undefined): string {
+	if (time === undefined) return '';
+	const ms = Date.parse(time);
+	return Number.isNaN(ms) ? '' : new Date(ms).toISOString().slice(0, FIELD_LENGTH);
+}
+
+/** A datetime-local value, read as UTC, as RFC 3339; undefined when empty. */
+export function fieldTime(value: FormDataEntryValue | null): string | undefined {
+	if (typeof value !== 'string' || value === '') return undefined;
+	return value.length === MINUTE_FIELD_LENGTH ? `${value}:00Z` : `${value}Z`;
+}
+
+function fieldText(value: FormDataEntryValue | null): string {
+	return typeof value === 'string' ? value.trim() : '';
+}
+
+/** The query the filter form holds, its fields named as the parameters. */
+export function queryOfForm(form: FormData): OverviewQuery {
+	const q: OverviewQuery = {
+		project: fieldText(form.get(PARAMS.project)),
+		task: fieldText(form.get(PARAMS.task)),
+		executor: fieldText(form.get(PARAMS.executor)),
+		review: form.has(PARAMS.review),
+		failed: form.has(PARAMS.failed),
+		missing: form.has(PARAMS.missing),
+		group: parseGrouping(form.get(PARAMS.group))
+	};
+	const from = fieldTime(form.get(PARAMS.from));
+	const to = fieldTime(form.get(PARAMS.to));
+	if (from) q.from = from;
+	if (to) q.to = to;
+	return q;
 }

@@ -5,9 +5,8 @@
      takes whatever width it is given. -->
 <script lang="ts">
 	import type { UnknownSpan } from '../timeline/coverage';
-	import { runExitLabel } from '../timeline/marks';
 	import type { Lane } from './lanes';
-	import { barText, describeMark, describeSpan, place, type Range } from './spans';
+	import { barText, describeMark, describeSpan, markGlyph, place, type Range } from './spans';
 
 	interface Props {
 		lane: Lane;
@@ -43,19 +42,13 @@
 			onpick(range.start + ((e.clientX - box.left) / box.width) * (range.end - range.start));
 		}
 	}
-
-	const glyphs: Record<string, string> = {
-		'task.done': '✓',
-		'pr.merged': '◆',
-		'pr.closed': '✕'
-	};
 </script>
 
 <!-- The plot is a pointer shortcut for the cursor's slider, which the
      keyboard reaches; the bars and marks carry their own names. -->
 <!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="plot" onclick={pick}>
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div class="plot" role="group" aria-label={lane.label} onclick={pick}>
 	{#each hatches as u, i (i)}
 		<span
 			class="unknown"
@@ -71,11 +64,10 @@
 			class:stub-start={placement.stub === 'start'}
 			class:stub-end={placement.stub === 'end'}
 			class:open={span.endState === 'open' && !placement.clippedEnd}
-			class:failed={span.exit === runExitLabel('failed')}
+			class:failed={span.outcome === 'failed'}
 			style:left={pct(placement.left)}
 			style:width={placement.stub ? undefined : pct(placement.right - placement.left)}
 			role="img"
-			aria-label={description}
 			title={description}
 			>{#if labelled && !placement.stub}<span class="text">{barText(span)}</span>{/if}</span
 		>
@@ -86,11 +78,10 @@
 			class:failed={m.kind === 'pr.closed'}
 			style:left={pct(at(Date.parse(m.at)))}
 			role="img"
-			aria-label={describeMark(m)}
-			title={describeMark(m)}>{glyphs[m.kind] ?? '•'}</span
+			title={describeMark(m)}>{markGlyph(m.kind)}</span
 		>
 	{/each}
-	{#if inRange(cursor)}
+	{#if cursor >= range.start && cursor <= range.end}
 		<span class="cursor" style:left={pct(at(cursor))} aria-hidden="true"></span>
 	{/if}
 	{#if lane.note}<span class="note">{lane.note}</span>{/if}

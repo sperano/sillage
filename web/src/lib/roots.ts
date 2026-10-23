@@ -23,6 +23,11 @@ export function rootLabel(root: Root): string {
 	return `page ${root.page.id} (${root.page.locale}) on ${root.page.instance}`;
 }
 
+/** A root's short name, when its title is unknown: "task 201", "page 57 (en)". */
+export function rootName(root: Root): string {
+	return root.task ? `task ${root.task.id}` : `page ${root.page.id} (${root.page.locale})`;
+}
+
 /**
  * root's key as URL path segments, "/task/<instance>/<id>" or
  * "/page/<instance>/<id>/<locale>": the shape of both the API's story

@@ -4,7 +4,9 @@ import {
 	OVERVIEW_PATH,
 	overviewApiParams,
 	overviewHref,
-	parseOverviewQuery
+	parseOverviewQuery,
+	queryOfForm,
+	timeField
 } from './query';
 
 describe('the overview query', () => {
@@ -40,5 +42,34 @@ describe('the overview query', () => {
 			'c1'
 		);
 		expect(params.toString()).toBe('executor=agent-cedar&after=c1');
+	});
+});
+
+describe('the filter form', () => {
+	function form(fields: Record<string, string>): FormData {
+		const data = new FormData();
+		for (const [k, v] of Object.entries(fields)) data.set(k, v);
+		return data;
+	}
+
+	it('reads its window as UTC, with or without seconds', () => {
+		const q = queryOfForm(form({ from: '2026-03-10T14:00', to: '2026-03-10T15:00:30' }));
+		expect([q.from, q.to]).toEqual(['2026-03-10T14:00:00Z', '2026-03-10T15:00:30Z']);
+	});
+
+	it('leaves an empty window to the API, and keeps a time to the second', () => {
+		expect(queryOfForm(form({ from: '', project: ' widgets ' }))).toEqual({
+			...DEFAULT_QUERY,
+			project: 'widgets'
+		});
+		expect(timeField('2026-03-10T14:00:30+01:00')).toBe('2026-03-10T13:00:30');
+		expect(timeField('not a time')).toBe('');
+		expect(timeField(undefined)).toBe('');
+	});
+
+	it('reads its flags and grouping', () => {
+		const q = queryOfForm(form({ review: 'on', missing: 'on', group: 'executor' }));
+		expect([q.review, q.failed, q.missing, q.group]).toEqual([true, false, true, 'executor']);
+		expect(queryOfForm(form({ group: 'other' })).group).toBe('task');
 	});
 });

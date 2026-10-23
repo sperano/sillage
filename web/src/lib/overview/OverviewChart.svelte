@@ -1,6 +1,7 @@
 <!-- The overview's chart: a time axis over the window, the cursor's slider,
      and a row per task, or a group per agent profile. -->
 <script lang="ts">
+	import { rootSegments } from '../roots';
 	import { formatFull, formatMinute, MINUTE_MS, ticks } from '../timeline/time';
 	import ExecutorGroupView from './ExecutorGroupView.svelte';
 	import { byExecutor } from './lanes';
@@ -27,7 +28,9 @@
 	const axis = $derived(ticks(range.start, range.end, MAX_TICKS, 'utc'));
 	const groups = $derived(grouping === 'executor' ? byExecutor(rows) : []);
 	const pick = (t: number) => {
-		cursor = Math.min(range.end, Math.max(range.start, t));
+		// To the minute, as the slider moves it.
+		const minute = Math.round(t / MINUTE_MS) * MINUTE_MS;
+		cursor = Math.min(range.end - MINUTE_MS, Math.max(range.start, minute));
 	};
 </script>
 
@@ -51,7 +54,7 @@
 			id="{id}-cursor"
 			type="range"
 			min={range.start}
-			max={range.end}
+			max={range.end - MINUTE_MS}
 			step={MINUTE_MS}
 			value={cursor}
 			aria-valuetext={formatFull(cursor, 'utc')}
@@ -67,7 +70,7 @@
 		</ol>
 	{:else}
 		<ol class="rows" aria-label="Tasks">
-			{#each rows as row (JSON.stringify(row.root))}
+			{#each rows as row (rootSegments(row.root))}
 				<TaskRow {row} {range} {cursor} onpick={pick} />
 			{/each}
 		</ol>
@@ -84,37 +87,11 @@
 	.chart {
 		--ov-name-width: 12rem;
 		--ov-state-width: 10rem;
-		--ov-bg: #ffffff;
-		--ov-fg: #1d2733;
-		--ov-muted: #5b6b7c;
-		--ov-grid: #d9e0e8;
-		--ov-running: #2a7f86;
-		--ov-on-running: #ffffff;
-		--ov-waiting: #a86b00;
-		--ov-review: #6f42c1;
-		--ov-pr: #1f5f9e;
-		--ov-failure: #b3261e;
-		--ov-unknown: #8a96a3;
-		--ov-mark: #1d2733;
-		--ov-cursor: #d97706;
-		color: var(--ov-fg);
-		background: var(--ov-bg);
 	}
-	@media (prefers-color-scheme: dark) {
+	@media (max-width: 40rem) {
 		.chart {
-			--ov-bg: #10161d;
-			--ov-fg: #e3e9ef;
-			--ov-muted: #9aa8b6;
-			--ov-grid: #2b3743;
-			--ov-running: #5cc2ca;
-			--ov-on-running: #10161d;
-			--ov-waiting: #e0a84a;
-			--ov-review: #b99af0;
-			--ov-pr: #7ab3ef;
-			--ov-failure: #f2867e;
-			--ov-unknown: #6b7884;
-			--ov-mark: #e3e9ef;
-			--ov-cursor: #f59e0b;
+			--ov-name-width: 7rem;
+			--ov-state-width: 6rem;
 		}
 	}
 	.head {

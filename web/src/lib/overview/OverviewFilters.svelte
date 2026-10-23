@@ -1,9 +1,16 @@
 <!-- The overview's window, filters and grouping. Applying them changes the
      page's URL, so that a filtered overview is a link and back undoes it. -->
 <script lang="ts">
-	import type { Router } from '../router.svelte';
 	import { MAX_SEARCH_LENGTH } from '../api';
-	import { OVERVIEW_PATH, overviewHref, type Grouping, type OverviewQuery } from './query';
+	import type { Router } from '../router.svelte';
+	import {
+		OVERVIEW_PATH,
+		PARAMS,
+		overviewHref,
+		queryOfForm,
+		timeField,
+		type OverviewQuery
+	} from './query';
 
 	interface Props {
 		router: Router;
@@ -16,84 +23,94 @@
 	let { router, query, executors }: Props = $props();
 
 	const id = $props.id();
-	/** A datetime-local value, to the minute: 2026-03-10T14:00. */
-	const LOCAL_LENGTH = 'YYYY-MM-DDTHH:MM'.length;
-
-	/** An RFC 3339 time as a datetime-local value in UTC. */
-	function fieldValue(time: string | undefined): string {
-		if (time === undefined) return '';
-		const ms = Date.parse(time);
-		return Number.isNaN(ms) ? '' : new Date(ms).toISOString().slice(0, LOCAL_LENGTH);
-	}
-
-	/** A datetime-local value, read as UTC, as RFC 3339; undefined when empty. */
-	function fieldTime(value: FormDataEntryValue | null): string | undefined {
-		return typeof value === 'string' && value !== '' ? `${value}:00Z` : undefined;
-	}
-
-	function text(value: FormDataEntryValue | null): string {
-		return typeof value === 'string' ? value.trim() : '';
-	}
+	// Counts the resets, so that the form is drawn again with the query's
+	// values even when resetting does not change the URL.
+	let resets = $state(0);
 
 	function submit(event: SubmitEvent & { currentTarget: HTMLFormElement }) {
 		event.preventDefault();
-		const form = new FormData(event.currentTarget);
-		const next: OverviewQuery = {
-			from: fieldTime(form.get('from')),
-			to: fieldTime(form.get('to')),
-			project: text(form.get('project')),
-			task: text(form.get('task')),
-			executor: text(form.get('executor')),
-			review: form.has('review'),
-			failed: form.has('failed'),
-			missing: form.has('missing'),
-			group: (form.get('group') === 'executor' ? 'executor' : 'task') satisfies Grouping
-		};
-		router.navigate(overviewHref(next));
+		router.navigate(overviewHref(queryOfForm(new FormData(event.currentTarget))));
+	}
+
+	function reset() {
+		resets++;
+		router.navigate(OVERVIEW_PATH);
 	}
 </script>
 
-<form class="filters" onsubmit={submit} aria-label="Window and filters">
-	<fieldset>
-		<legend>Window, UTC (empty: the day before now)</legend>
-		<label>From <input type="datetime-local" name="from" value={fieldValue(query.from)} /></label>
-		<label>To <input type="datetime-local" name="to" value={fieldValue(query.to)} /></label>
-	</fieldset>
-	<fieldset>
-		<legend>Filters</legend>
-		<label
-			>Project <input name="project" value={query.project} maxlength={MAX_SEARCH_LENGTH} /></label
-		>
-		<label>Task <input name="task" value={query.task} maxlength={MAX_SEARCH_LENGTH} /></label>
-		<label
-			>Executor <input
-				name="executor"
-				value={query.executor}
-				list="{id}-executors"
-				maxlength={MAX_SEARCH_LENGTH}
-			/></label
-		>
-		<datalist id="{id}-executors">
-			{#each executors as e (e)}<option value={e}></option>{/each}
-		</datalist>
-		<label><input type="checkbox" name="review" checked={query.review} /> Review requested</label>
-		<label><input type="checkbox" name="failed" checked={query.failed} /> Failed run</label>
-		<label><input type="checkbox" name="missing" checked={query.missing} /> Missing history</label>
-	</fieldset>
-	<fieldset>
-		<legend>Group</legend>
-		<label
-			><input type="radio" name="group" value="task" checked={query.group === 'task'} /> By task</label
-		>
-		<label
-			><input type="radio" name="group" value="executor" checked={query.group === 'executor'} /> By executor</label
-		>
-	</fieldset>
-	<div class="actions">
-		<button type="submit">Apply</button>
-		<a href={OVERVIEW_PATH}>Reset</a>
-	</div>
-</form>
+{#key `${overviewHref(query)}#${resets}`}
+	<form class="filters" onsubmit={submit} aria-label="Window and filters">
+		<fieldset>
+			<legend>Window, UTC (empty: the day before the end, now by default)</legend>
+			<label
+				>From <input
+					type="datetime-local"
+					step="1"
+					name={PARAMS.from}
+					value={timeField(query.from)}
+				/></label
+			>
+			<label
+				>To <input
+					type="datetime-local"
+					step="1"
+					name={PARAMS.to}
+					value={timeField(query.to)}
+				/></label
+			>
+		</fieldset>
+		<fieldset>
+			<legend>Filters</legend>
+			<label
+				>Project <input
+					name={PARAMS.project}
+					value={query.project}
+					maxlength={MAX_SEARCH_LENGTH}
+				/></label
+			>
+			<label
+				>Task <input name={PARAMS.task} value={query.task} maxlength={MAX_SEARCH_LENGTH} /></label
+			>
+			<label
+				>Executor <input
+					name={PARAMS.executor}
+					value={query.executor}
+					list="{id}-executors"
+					maxlength={MAX_SEARCH_LENGTH}
+				/></label
+			>
+			<datalist id="{id}-executors">
+				{#each executors as e (e)}<option value={e}></option>{/each}
+			</datalist>
+			<label
+				><input type="checkbox" name={PARAMS.review} checked={query.review} /> Review requested</label
+			>
+			<label><input type="checkbox" name={PARAMS.failed} checked={query.failed} /> Failed run</label
+			>
+			<label
+				><input type="checkbox" name={PARAMS.missing} checked={query.missing} /> Missing history</label
+			>
+		</fieldset>
+		<fieldset>
+			<legend>Group</legend>
+			<label
+				><input type="radio" name={PARAMS.group} value="task" checked={query.group === 'task'} /> By task</label
+			>
+			<label
+				><input
+					type="radio"
+					name={PARAMS.group}
+					value="executor"
+					checked={query.group === 'executor'}
+				/> By executor</label
+			>
+		</fieldset>
+		<div class="actions">
+			<button type="submit">Apply</button>
+			<button type="button" onclick={reset}>Reset</button>
+		</div>
+	</form>
+{/key}
 
 <style>
 	.filters {
@@ -107,7 +124,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.4rem;
-		border: 1px solid #d9e0e8;
+		border: 1px solid var(--ov-grid);
 		border-radius: 0.4rem;
 	}
 	label {

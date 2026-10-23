@@ -18,8 +18,9 @@ import {
 	unique
 } from '../check';
 import { coverageList, interval, prKey, root, run } from '../decodeModel';
-import { EVENT_KINDS } from '../model';
+import { rootSegments } from '../roots';
 import {
+	MARK_KINDS,
 	PR_STATES,
 	type Mark,
 	type OverviewPage,
@@ -49,7 +50,7 @@ const reviewWait: Decoder<ReviewWait> = object(
 );
 
 const mark: Decoder<Mark> = object(
-	{ kind: oneOf(EVENT_KINDS), at: timestamp, event: text },
+	{ kind: oneOf(MARK_KINDS), at: timestamp, event: text },
 	{ pr: prKey, pod: text }
 );
 
@@ -68,7 +69,14 @@ const row: Decoder<OverviewRow> = object(
 );
 
 const page: Decoder<OverviewPage> = refine(
-	object({ window: windowDecoder, rows: array(row), total: nonNegativeInteger }, { next: text }),
+	object(
+		{
+			window: windowDecoder,
+			rows: unique(array(row), (r) => rootSegments(r.root)),
+			total: nonNegativeInteger
+		},
+		{ next: text }
+	),
 	(p, path) => {
 		if (p.rows.length > p.total) fail(path, 'more rows than the total');
 	}

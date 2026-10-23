@@ -3,13 +3,15 @@
 // whether the history is incomplete. A closed, unmerged pull request never
 // reads as the task being done: the task's state is Vikunja's.
 
-import { boundTime, type Interval } from '../model';
+import { boundTime, type Interval, type Run } from '../model';
 import { prKeyString } from '../keys';
 import type { OverviewRow, ReviewWait } from './model';
+import { runLastRead, runStateAt } from './state';
 
 export type ChipKind =
 	| 'running'
 	| 'waiting'
+	| 'unknown'
 	| 'failed'
 	| 'review'
 	| 'pr-open'
@@ -47,21 +49,7 @@ function reviewText(w: ReviewWait): string {
 
 /** The chips of the row's state at the window's end, to (in milliseconds). */
 export function endChips(row: OverviewRow, to: number): Chip[] {
-	const chips: Chip[] = [];
-	for (const run of row.runs) {
-		if (
-			!goingAt(run.interval, to) &&
-			!(run.outcome === 'waiting' && run.interval.end.state === 'open')
-		) {
-			continue;
-		}
-		const queued = run.outcome === 'waiting';
-		chips.push({
-			kind: queued ? 'waiting' : 'running',
-			text: queued ? 'waiting to run' : 'running',
-			note: run.interval.end.state === 'open' ? OPEN_NOTE : undefined
-		});
-	}
+	const chips: Chip[] = row.runs.flatMap((run) => runChips(row, run, to));
 	const failed = row.runs.filter((r) => r.outcome === 'failed').length;
 	if (failed > 0) {
 		chips.push({
@@ -89,6 +77,29 @@ export function endChips(row: OverviewRow, to: number): Chip[] {
 		});
 	}
 	return chips;
+}
+
+/**
+ * A run's chip at the window's end: running or waiting when its records
+ * say it had not ended, unknown when they cannot say, none when it had.
+ */
+function runChips(row: OverviewRow, run: Run, to: number): Chip[] {
+	const queued = run.outcome === 'waiting';
+	if (goingAt(run.interval, to) || (queued && run.interval.end.state === 'open')) {
+		return [
+			{
+				kind: queued ? 'waiting' : 'running',
+				text: queued ? 'waiting to run' : 'running',
+				note: run.interval.end.state === 'open' ? OPEN_NOTE : undefined
+			}
+		];
+	}
+	if (runStateAt(run, to, runLastRead(row, run)) === 'unknown') {
+		return [
+			{ kind: 'unknown', text: 'run state unknown', note: 'its records do not say whether it ran' }
+		];
+	}
+	return [];
 }
 
 function prChips(row: OverviewRow): Chip[] {

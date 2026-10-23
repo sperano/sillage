@@ -3,11 +3,11 @@
 // is drawn open from each opening to its merge or close; a review wait
 // from its request to its answer. Nothing is drawn between two records.
 
-import { boundTime, type BoundState, type Interval, type Run } from '../model';
+import { boundTime, type BoundState, type Interval, type Outcome, type Run } from '../model';
 import { prKeyString, runKeyString } from '../keys';
 import { runSpans } from '../timeline/intervals';
 import { formatDuration, formatFull } from '../timeline/time';
-import type { Mark, OverviewPullRequest, OverviewRow, ReviewWait } from './model';
+import type { Mark, MarkKind, OverviewPullRequest, OverviewRow, ReviewWait } from './model';
 import { lastRead, runLastRead } from './state';
 
 /** What an interval was. Each is drawn with its own text and fill. */
@@ -27,6 +27,8 @@ export interface OverviewSpan {
 	openUntil?: number;
 	/** What its known end was: a run's exit. */
 	exit?: string;
+	/** The run's outcome, for a run's span. */
+	outcome?: Outcome;
 }
 
 /** The spans of a run: waiting to start, then running (or queued). */
@@ -39,7 +41,8 @@ export function runBars(row: OverviewRow, run: Run): OverviewSpan[] {
 		endState: s.endState,
 		end: s.end,
 		openUntil: s.openUntil,
-		exit: s.exit?.label
+		exit: s.exit?.label,
+		outcome: run.outcome
 	}));
 }
 
@@ -160,8 +163,20 @@ export function markLabel(m: Mark): string {
 			return `${pr}reopened`;
 		case 'pr.review_submitted':
 			return `${pr}review submitted`;
+	}
+}
+
+/** The glyph of a mark: its own for a completion, a merge and a close, a dot for any other. */
+export function markGlyph(kind: MarkKind): string {
+	switch (kind) {
+		case 'task.done':
+			return '✓';
+		case 'pr.merged':
+			return '◆';
+		case 'pr.closed':
+			return '✕';
 		default:
-			return m.kind;
+			return '•';
 	}
 }
 

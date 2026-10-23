@@ -4,7 +4,7 @@
 <script lang="ts">
 	import { count } from '../format';
 	import { formatMinute } from '../timeline/time';
-	import { rowName } from './lanes';
+	import { rowTitle } from './lanes';
 	import type { OverviewRow } from './model';
 	import type { Range } from './spans';
 	import { endChips } from './end';
@@ -20,8 +20,7 @@
 
 	let { rows, range, cursor, partial }: Props = $props();
 
-	const name = (r: OverviewRow) => r.title ?? rowName(r.root);
-	const names = (list: readonly OverviewRow[]) => list.map(name).join(', ');
+	const names = (list: readonly OverviewRow[]) => list.map(rowTitle).join(', ');
 
 	const instant = $derived(instantOf(rows, cursor));
 	const runs = $derived(instant.executing.reduce((n, e) => n + e.runs.length, 0));
@@ -38,7 +37,7 @@
 		<p class="big">{count(runs, 'run')} executing</p>
 		<p>
 			{#if instant.executing.length > 0}
-				{instant.executing.map((e) => name(e.row)).join(', ')}
+				{names(instant.executing.map((e) => e.row))}
 			{:else}
 				No run was recorded executing then.
 			{/if}
@@ -71,7 +70,7 @@
 		gap: 0.5rem;
 	}
 	.card {
-		border: 1px solid #d9e0e8;
+		border: 1px solid var(--ov-grid);
 		border-radius: 0.4rem;
 		padding: 0.4rem 0.6rem;
 	}
@@ -80,7 +79,7 @@
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
 		margin: 0;
-		color: #5b6b7c;
+		color: var(--ov-muted);
 	}
 	p {
 		margin: 0.1rem 0;
@@ -92,7 +91,7 @@
 	}
 	.unknown,
 	.partial {
-		color: #5b6b7c;
+		color: var(--ov-muted);
 		font-size: 0.75rem;
 	}
 </style>

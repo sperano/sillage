@@ -4,7 +4,7 @@
 // and decode.test.ts decodes the golden overview
 // (testdata/fixtures/overview), so that a change on the Go side fails here.
 
-import type { Coverage, EventKind, Interval, PRKey, Root, Run } from '../model';
+import type { Coverage, Interval, PRKey, Root, Run } from '../model';
 
 /** A pull request's state at the end of the window. */
 export const PR_STATES = ['open', 'merged', 'closed', 'unknown'] as const;
@@ -36,9 +36,21 @@ export interface ReviewWait {
 	interval: Interval;
 }
 
+/** The event kinds a row shows as marks, as the Go overview's markKinds. */
+export const MARK_KINDS = [
+	'task.done',
+	'run.announced',
+	'pr.opened',
+	'pr.merged',
+	'pr.closed',
+	'pr.reopened',
+	'pr.review_submitted'
+] as const;
+export type MarkKind = (typeof MARK_KINDS)[number];
+
 /** One state change in the window: a completion, a pull request's, a review, an announcement. */
 export interface Mark {
-	kind: EventKind;
+	kind: MarkKind;
 	at: string;
 	/** The event's key. */
 	event: string;

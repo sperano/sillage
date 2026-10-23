@@ -45,7 +45,7 @@
 			</li>
 		{/each}
 	</ul>
-	<span></span>
+	<span aria-hidden="true"></span>
 </li>
 
 <style>

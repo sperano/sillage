@@ -29,8 +29,8 @@ describe('endChips', () => {
 		expect(chips(201)).toEqual(['review: review requested: owner-gh', 'pr-open: PR #21 open']);
 	});
 
-	it('says when the history is incomplete, and nothing more', () => {
-		expect(chips(205)).toEqual(['missing: history incomplete']);
+	it('says when a run and the history are unknown, and nothing more', () => {
+		expect(chips(205)).toEqual(['unknown: run state unknown', 'missing: history incomplete']);
 	});
 
 	it('notes that an open item is only known until the last read', () => {
