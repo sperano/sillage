@@ -29,7 +29,7 @@ func TestOpenStoreErrors(t *testing.T) {
 		}, store.EnvRetention},
 		{"unreachable", map[string]string{
 			store.EnvDatabaseURL: "postgres://sillage:" + password + "@127.0.0.1:1/sillage?connect_timeout=1",
-		}, "store:"},
+		}, "store: connecting:"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
