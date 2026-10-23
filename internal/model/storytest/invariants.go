@@ -5,22 +5,38 @@
 package storytest
 
 import (
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/sperano/sillage/internal/model"
 )
 
-// Invariants asserts, for each fixture story, the property it exists to
+// invariants asserts, for each fixture story, the property it exists to
 // protect. Every directory under testdata/fixtures/stories needs an entry.
 // The collector's tests assert the same properties of the stories it
 // assembles from source responses.
-var Invariants = map[string]func(*testing.T, model.Story){
+var invariants = map[string]func(*testing.T, model.Story){
 	"discuss-no-pr":         checkDiscussNoPR,
 	"implementation-merged": checkImplementationMerged,
 	"wiki-rooted-request":   checkWikiRootedRequest,
 	"failed-run-retry":      checkFailedRunRetry,
 	"announced-run-only":    checkAnnouncedRunOnly,
+}
+
+// Names returns the fixture stories that have an invariant, sorted.
+func Names() []string { return slices.Sorted(maps.Keys(invariants)) }
+
+// Check asserts the invariant of fixture story name of s, failing t when
+// name has none.
+func Check(t *testing.T, name string, s model.Story) {
+	t.Helper()
+	check, ok := invariants[name]
+	if !ok {
+		t.Fatalf("story %s has no invariant", name)
+	}
+	check(t, s)
 }
 
 // checkDiscussNoPR: no pull request is invented and nothing implies a

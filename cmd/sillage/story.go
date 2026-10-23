@@ -83,8 +83,11 @@ func parseStoryArgs(args []string, output io.Writer) (storyArgs, error) {
 	flags.StringVar(&a.locale, localeFlag, a.locale, "the wiki page's `locale`")
 	flags.Func(repoFlag, "also read the story's branch in `owner/name` (repeatable)", func(s string) error {
 		r, err := github.ParseRepository(s)
+		if err != nil {
+			return err
+		}
 		a.repos = append(a.repos, r)
-		return err
+		return nil
 	})
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -118,6 +121,8 @@ func runStory(ctx context.Context, args []string, getenv func(string) string, st
 	}
 	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", jsonIndent)
+	// Notes and refs hold URLs and arrows: print them as they are.
+	enc.SetEscapeHTML(false)
 	if err := enc.Encode(res.Story); err != nil {
 		return err
 	}

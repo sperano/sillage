@@ -70,6 +70,14 @@ func (a *assembly) kelosEvidence(r model.Run, note string) model.Evidence {
 	return model.Evidence{Source: model.SourceKelos, Instance: a.cfg.Kelos.Cluster, Ref: ref, Note: note}
 }
 
+// branchEvidence points to the Task whose spec.branch p names, saying
+// more after it.
+func (a *assembly) branchEvidence(p kelos.Placement, more string) model.Evidence {
+	return model.Evidence{
+		Source: model.SourceKelos, Instance: a.cfg.Kelos.Cluster, Ref: p.BranchRef, Note: "spec.branch " + p.Branch + more,
+	}
+}
+
 // taskRuns adds the runs that belong to task id: by their task label, by
 // the branch their Task works on (identifiers), or by the task and comment
 // spawners' name conventions (a heuristic, for a run without the label).
@@ -87,10 +95,7 @@ func (a *assembly) taskRuns(id int64) {
 	for _, r := range a.kelos.runs {
 		if p := a.kelos.placements[r.Key]; p.Branch == branch {
 			a.addRun(r)
-			a.links.identifier(r.Key.Ref(), a.rootRef, model.Evidence{
-				Source: model.SourceKelos, Instance: a.cfg.Kelos.Cluster, Ref: p.BranchRef,
-				Note: "spec.branch " + branch,
-			})
+			a.links.identifier(r.Key.Ref(), a.rootRef, a.branchEvidence(p, ""))
 		}
 		if n, _, ok := taskOfName(r.TaskName); ok && n == id && !a.links.has(r.Key.Ref(), a.rootRef) {
 			a.addRun(r)
@@ -120,10 +125,7 @@ func (a *assembly) pageRuns(key model.PageKey) {
 		}
 		if p := a.kelos.placements[r.Key]; p.Branch == branch {
 			a.addRun(r)
-			a.links.identifier(r.Key.Ref(), a.rootRef, model.Evidence{
-				Source: model.SourceKelos, Instance: a.cfg.Kelos.Cluster, Ref: p.BranchRef,
-				Note: "spec.branch " + branch,
-			})
+			a.links.identifier(r.Key.Ref(), a.rootRef, a.branchEvidence(p, ""))
 		}
 	}
 }

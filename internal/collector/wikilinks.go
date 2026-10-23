@@ -40,14 +40,19 @@ type pageLink struct {
 	path    string
 }
 
-// wikiLinks lists the pages of the wiki at host that s's comments link
-// to, each comment's links once, in comment order.
-func wikiLinks(s vikunja.Snapshot, host string) []pageLink {
-	urlPattern := regexp.MustCompile(`(?i)https?://` + regexp.QuoteMeta(host) + `(?::[0-9]+)?(/[^\s"'<>]*)?`)
+// wikiURLPattern matches a URL of the wiki at host, in a comment's HTML
+// or text.
+func wikiURLPattern(host string) *regexp.Regexp {
+	return regexp.MustCompile(`(?i)https?://` + regexp.QuoteMeta(host) + `(?::[0-9]+)?(/[^\s"'<>]*)?`)
+}
+
+// wikiLinks lists the pages that s's comments link to, by the URLs
+// wikiURL matches, each comment's links once, in comment order.
+func wikiLinks(s vikunja.Snapshot, wikiURL *regexp.Regexp) []pageLink {
 	var out []pageLink
 	for _, c := range s.Comments {
 		var seen []pageLink
-		for _, raw := range urlPattern.FindAllString(c.Body, -1) {
+		for _, raw := range wikiURL.FindAllString(c.Body, -1) {
 			link, ok := parseWikiURL(strings.TrimRight(html.UnescapeString(raw), trailingPunctuation))
 			if !ok {
 				continue

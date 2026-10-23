@@ -6,39 +6,44 @@ import (
 	"github.com/sperano/sillage/internal/model"
 )
 
-// kelosGaps marks Kelos unknown where runs may be missing from a read,
-// which lists only the Tasks still kept and the TaskRecords.
-func (a *assembly) kelosGaps(recs model.Records) {
-	st := a.sources[model.SourceKelos]
-	if st == nil || st.cov.LastSuccessfulRead == nil {
-		return
+// kelosGaps returns where runs may be missing from a Kelos read, which
+// lists only the Tasks still kept and the TaskRecords: before the Task
+// TTL, and from each announcement no Kelos object was found for.
+func (a *assembly) kelosGaps(cov model.Coverage, recs model.Records) []model.Gap {
+	read := cov.LastSuccessfulRead
+	if read == nil {
+		return nil
 	}
-	a.ttlGap(st, recs)
+	var gaps []model.Gap
+	if g, ok := a.ttlGap(*read, recs); ok {
+		gaps = append(gaps, g)
+	}
 	for key, at := range a.announcedOnly {
-		if at.Before(*st.cov.LastSuccessfulRead) {
-			st.cov.Gaps = append(st.cov.Gaps, model.Gap{
-				Start: at, End: *st.cov.LastSuccessfulRead,
+		if at.Before(*read) {
+			gaps = append(gaps, model.Gap{
+				Start: at, End: *read,
 				Reason: "run " + key.String() + " was announced, but no Task or TaskRecord of it was read: " +
 					"its records are missing, from its announcement until whenever it ended",
 			})
 		}
 	}
+	return gaps
 }
 
-// ttlGap marks the time before the Task TTL: TaskRecords exist only for
-// runs that reported usage, so from the story's earliest record to the
-// read minus the TTL, runs may be missing.
-func (a *assembly) ttlGap(st *sourceState, recs model.Records) {
-	cutoff := st.cov.LastSuccessfulRead.Add(-a.cfg.KelosTaskTTL)
+// ttlGap is the time before the Task TTL: TaskRecords exist only for runs
+// that reported usage, so from the story's earliest record to the read
+// minus the TTL, runs may be missing.
+func (a *assembly) ttlGap(read time.Time, recs model.Records) (model.Gap, bool) {
+	cutoff := read.Add(-a.cfg.KelosTaskTTL)
 	earliest, ok := earliestTime(recs)
 	if !ok || !earliest.Before(cutoff) {
-		return
+		return model.Gap{}, false
 	}
-	st.cov.Gaps = append(st.cov.Gaps, model.Gap{
+	return model.Gap{
 		Start: earliest, End: cutoff,
 		Reason: "Kelos deletes a finished Task after " + a.cfg.KelosTaskTTL.String() + " (" + EnvKelosTaskTTL +
 			"): a run before then is read only from its TaskRecord, which only a run that reported usage leaves",
-	})
+	}, true
 }
 
 // earliestTime is the earliest time any record of recs holds.

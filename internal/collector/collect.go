@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/github"
@@ -10,7 +11,11 @@ import (
 // collectTask assembles the story of Vikunja task id: the task and its
 // comments, the wiki pages they link, the namespace's runs that belong to
 // the task, and the pull requests of its branch.
-func (a *assembly) collectTask(ctx context.Context, id int64, repos []github.Repository) {
+func (a *assembly) collectTask(ctx context.Context, key model.TaskKey, repos []github.Repository) error {
+	if key.Instance != a.cfg.VikunjaInstance {
+		return fmt.Errorf("collector: task %s is not on %s", key, a.cfg.VikunjaInstance)
+	}
+	id := key.ID
 	for _, s := range []model.Source{model.SourceVikunja, model.SourceKelos, model.SourceGitHub, model.SourceWiki} {
 		a.source(s)
 	}
@@ -22,12 +27,16 @@ func (a *assembly) collectTask(ctx context.Context, id int64, repos []github.Rep
 	a.readGitHub(ctx, taskBranch(id), repos)
 	a.prRuns()
 	a.actorRuns()
+	return nil
 }
 
 // collectPage assembles the story of a wiki page: its versions and
 // comments, the runs its follow-ups started, and the pull requests of its
 // branch.
 func (a *assembly) collectPage(ctx context.Context, key model.PageKey, repos []github.Repository) error {
+	if key.Instance != a.cfg.WikiInstance {
+		return fmt.Errorf("collector: page %s is not on %s", key, a.cfg.WikiInstance)
+	}
 	for _, s := range []model.Source{model.SourceWiki, model.SourceKelos, model.SourceGitHub} {
 		a.source(s)
 	}
@@ -54,5 +63,5 @@ func (a *assembly) readTask(ctx context.Context, id int64) []pageLink {
 	}
 	a.read(model.SourceVikunja, at)
 	a.addEvents(a.vikunjaEvents(snap))
-	return wikiLinks(snap, a.cfg.WikiInstance)
+	return wikiLinks(snap, a.c.wikiURL)
 }

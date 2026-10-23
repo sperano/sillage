@@ -53,7 +53,7 @@ the collector assembles each story in `collector/`.
 1. Create `stories/<name>/input.json` (copy the closest story). Fabricate
    every value, as above. Event ids are the source's own ids, or, when it
    has none, `model.Fingerprint` of the documented parts.
-2. Add `<name>` to `Invariants` in
+2. Add `<name>` to `invariants` in
    `internal/model/storytest/invariants.go`, with a check function that
    asserts the story's point explicitly; `TestEveryFixtureHasInvariants`
    fails until you do.

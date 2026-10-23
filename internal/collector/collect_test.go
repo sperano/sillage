@@ -43,16 +43,28 @@ func TestFailedReadYieldsNoRecordsAndNoRead(t *testing.T) {
 		fail   func(*Sources)
 		absent func(model.Story) bool
 	}{
-		{"implementation-merged", model.SourceVikunja, func(s *Sources) { s.Vikunja = failingVikunja{} },
-			func(s model.Story) bool { return len(eventsFrom(s, model.SourceVikunja)) == 0 }},
-		{"implementation-merged", model.SourceKelos, func(s *Sources) { s.Kelos = failingKelos{} },
-			func(s model.Story) bool { return len(s.Runs) == 1 && s.Runs[0].Key.Pod != "" }},
-		{"implementation-merged", model.SourceGitHub, func(s *Sources) { s.GitHub = failingGitHub{} },
-			func(s model.Story) bool {
+		{
+			story: "implementation-merged", source: model.SourceVikunja,
+			fail:   func(s *Sources) { s.Vikunja = failingVikunja{} },
+			absent: func(s model.Story) bool { return len(eventsFrom(s, model.SourceVikunja)) == 0 },
+		},
+		{
+			story: "implementation-merged", source: model.SourceKelos,
+			fail:   func(s *Sources) { s.Kelos = failingKelos{} },
+			absent: func(s model.Story) bool { return len(s.Runs) == 1 && s.Runs[0].Key.Pod != "" },
+		},
+		{
+			story: "implementation-merged", source: model.SourceGitHub,
+			fail: func(s *Sources) { s.GitHub = failingGitHub{} },
+			absent: func(s model.Story) bool {
 				return len(s.PullRequests) == 0 && len(eventsFrom(s, model.SourceGitHub)) == 0
-			}},
-		{"discuss-no-pr", model.SourceWiki, func(s *Sources) { s.Wiki = failingWiki{} },
-			func(s model.Story) bool { return len(eventsFrom(s, model.SourceWiki)) == 0 }},
+			},
+		},
+		{
+			story: "discuss-no-pr", source: model.SourceWiki,
+			fail:   func(s *Sources) { s.Wiki = failingWiki{} },
+			absent: func(s model.Story) bool { return len(eventsFrom(s, model.SourceWiki)) == 0 },
+		},
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.source), func(t *testing.T) {
@@ -93,15 +105,20 @@ func TestKelosFailureKeepsAnnouncedRunsUnknown(t *testing.T) {
 
 func TestCollectRejectsAForeignRoot(t *testing.T) {
 	c := newStoryCollector(t, storyDirs{})
-	roots := map[string]model.Root{
-		"invalid":       {},
-		"other vikunja": {Task: &model.TaskKey{Instance: "vikunja.example.org", ID: 1}},
-		"other wiki":    {Page: &model.PageKey{Instance: "wiki.example.org", ID: 1, Locale: "en"}},
+	tests := []struct {
+		name string
+		root model.Root
+	}{
+		{"invalid", model.Root{}},
+		{"other vikunja", model.Root{Task: &model.TaskKey{Instance: "vikunja.example.org", ID: 1}}},
+		{"other wiki", model.Root{Page: &model.PageKey{Instance: "wiki.example.org", ID: 1, Locale: "en"}}},
 	}
-	for name, root := range roots {
-		if _, err := c.Collect(t.Context(), root); err == nil {
-			t.Errorf("%s: Collect() error = nil, want the root refused", name)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := c.Collect(t.Context(), tt.root); err == nil {
+				t.Error("Collect() error = nil, want the root refused")
+			}
+		})
 	}
 }
 
@@ -109,8 +126,9 @@ func TestCollectRejectsAPageOfAnotherLocale(t *testing.T) {
 	c := newStoryCollector(t, storyDirs{wiki: storyCases["wiki-rooted-request"].dirs.wiki})
 	root := pageRoot(57)
 	root.Page.Locale = "fr"
-	if _, err := c.Collect(t.Context(), root); err == nil || !strings.Contains(err.Error(), "not") {
-		t.Errorf("Collect() error = %v, want the page's own locale reported", err)
+	_, err := c.Collect(t.Context(), root)
+	if err == nil || !strings.Contains(err.Error(), "/pages/57/en, not ") || !strings.Contains(err.Error(), "/pages/57/fr") {
+		t.Errorf("Collect() error = %v, want the page's own locale and the root's reported", err)
 	}
 }
 

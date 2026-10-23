@@ -47,7 +47,7 @@ func TestWikiLinks(t *testing.T) {
 		{comment: 1, locale: "en", path: "widgets/a"},
 		{comment: 2, id: 41},
 	}
-	if got := wikiLinks(s, "wiki.example.com"); !slices.Equal(got, want) {
+	if got := wikiLinks(s, wikiURLPattern("wiki.example.com")); !slices.Equal(got, want) {
 		t.Errorf("wikiLinks() = %+v, want %+v", got, want)
 	}
 }

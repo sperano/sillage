@@ -11,23 +11,23 @@ import (
 // TestEveryFixtureHasInvariants makes adding a fixture without asserting
 // what it is for fail.
 func TestEveryFixtureHasInvariants(t *testing.T) {
-	names := model.StoryNames(t)
+	names, checked := model.StoryNames(t), storytest.Names()
 	for _, name := range names {
-		if _, ok := storytest.Invariants[name]; !ok {
-			t.Errorf("fixture %s has no entry in storytest.Invariants", name)
+		if !slices.Contains(checked, name) {
+			t.Errorf("fixture %s has no invariant in storytest", name)
 		}
 	}
-	for name := range storytest.Invariants {
+	for _, name := range checked {
 		if !slices.Contains(names, name) {
-			t.Errorf("storytest.Invariants names %s, which is not a fixture", name)
+			t.Errorf("storytest has an invariant for %s, which is not a fixture", name)
 		}
 	}
 }
 
 func TestFixtureInvariants(t *testing.T) {
-	for name, check := range storytest.Invariants {
+	for _, name := range storytest.Names() {
 		t.Run(name, func(t *testing.T) {
-			check(t, model.BuildFixture(t, name))
+			storytest.Check(t, name, model.BuildFixture(t, name))
 		})
 	}
 }

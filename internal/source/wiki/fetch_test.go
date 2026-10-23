@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -170,37 +171,29 @@ func TestFetchRestrictedPageNotListed(t *testing.T) {
 	}
 }
 
-func TestFindPage(t *testing.T) {
+func TestPages(t *testing.T) {
 	fake := storyFake(t, "announcement-no-reply")
-	c := newTestClient(t, fake)
-	tests := []struct {
-		locale, path string
-		want         int64
-		found        bool
-	}{
-		{"en", "widgets/notes/capacity", 59, true},
-		{"en", "widgets/home", 12, true},
-		{"fr", "widgets/home", 0, false},
-		{"en", "widgets/missing", 0, false},
+	pages, err := newTestClient(t, fake).Pages(t.Context())
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, tt := range tests {
-		id, found, err := c.FindPage(t.Context(), tt.locale, tt.path)
-		if err != nil || id != tt.want || found != tt.found {
-			t.Errorf("FindPage(%s, %s) = %d, %v, %v; want %d, %v", tt.locale, tt.path, id, found, err, tt.want, tt.found)
-		}
+	var got []string
+	for _, p := range pages {
+		got = append(got, strconv.FormatInt(p.ID, 10)+" "+p.Locale+"/"+p.Path)
 	}
-	for _, op := range fake.log.seen() {
-		if op != opPageList {
-			t.Errorf("FindPage sent %s, want only %s", op, opPageList)
-		}
+	if want := []string{"12 en/widgets/home", "59 en/widgets/notes/capacity"}; !slices.Equal(got, want) {
+		t.Errorf("Pages() = %v, want %v", got, want)
+	}
+	if ops := fake.log.seen(); !slices.Equal(ops, []string{opPageList}) {
+		t.Errorf("Pages() sent %v, want only %s", ops, opPageList)
 	}
 }
 
-func TestFindPageReportsFailure(t *testing.T) {
+func TestPagesReportsFailure(t *testing.T) {
 	c := newTestClient(t, graphQLHandler(func(_ string, w http.ResponseWriter) {
 		http.Error(w, "down", http.StatusBadGateway)
 	}))
-	if _, _, err := c.FindPage(t.Context(), "en", "widgets/home"); err == nil {
-		t.Error("FindPage() error = nil, want the reply's status")
+	if _, err := c.Pages(t.Context()); err == nil {
+		t.Error("Pages() error = nil, want the reply's status")
 	}
 }

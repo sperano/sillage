@@ -56,17 +56,17 @@ func collectStory(t *testing.T, name string) model.Story {
 }
 
 func TestStoryInvariants(t *testing.T) {
-	for name, check := range storytest.Invariants {
+	for _, name := range storytest.Names() {
 		t.Run(name, func(t *testing.T) {
 			s := collectStory(t, name)
-			check(t, s)
+			storytest.Check(t, name, s)
 			storytest.RefsResolve(t, s)
 		})
 	}
 }
 
 func TestEveryStoryIsAssembled(t *testing.T) {
-	for name := range storytest.Invariants {
+	for _, name := range storytest.Names() {
 		if _, ok := storyCases[name]; !ok {
 			t.Errorf("story %s has no case the collector assembles", name)
 		}

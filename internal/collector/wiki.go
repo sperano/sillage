@@ -3,6 +3,7 @@ package collector
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 
@@ -57,7 +58,7 @@ func (a *assembly) readLinkedPages(ctx context.Context, links []pageLink) {
 	}
 	var events []model.Event
 	keys := make(map[int64]model.PageKey)
-	for _, id := range sortedKeys(byPage) {
+	for _, id := range slices.Sorted(maps.Keys(byPage)) {
 		key, evs, err := a.readPage(ctx, id)
 		if err != nil {
 			a.fail(model.SourceWiki, fmt.Errorf("page %d: %w", id, err))
@@ -80,23 +81,26 @@ func (a *assembly) readLinkedPages(ctx context.Context, links []pageLink) {
 }
 
 // resolveLinks maps each linked page's id to the comments that link it.
-// A link by path is looked up as written, then, when its first part read
-// as a locale, as a path of the default locale. A path that names no page
-// is noted, not an error.
+// Links by path are resolved against one listing of the wiki: as written,
+// then, when the path's first part read as a locale, as a path of the
+// default locale. A path that names no page is noted, not an error.
 func (a *assembly) resolveLinks(ctx context.Context, links []pageLink) (map[int64][]int64, error) {
+	var byPath map[pageLink]int64
 	out := make(map[int64][]int64)
 	for _, l := range links {
-		id, found := l.id, l.id > 0
-		for _, try := range l.lookups() {
-			if found {
-				break
-			}
+		id := l.id
+		if id == 0 && byPath == nil {
 			var err error
-			if id, found, err = a.c.src.Wiki.FindPage(ctx, try.locale, try.path); err != nil {
+			if byPath, err = a.listPages(ctx); err != nil {
 				return nil, err
 			}
 		}
-		if !found {
+		for _, try := range l.lookups() {
+			if id == 0 {
+				id = byPath[try]
+			}
+		}
+		if id == 0 {
 			a.note(model.SourceWiki, "comment "+strconv.FormatInt(l.comment, 10)+" links "+l.locale+"/"+l.path+
 				", which is no page of "+a.cfg.WikiInstance)
 			continue
@@ -104,6 +108,19 @@ func (a *assembly) resolveLinks(ctx context.Context, links []pageLink) (map[int6
 		if !slices.Contains(out[id], l.comment) {
 			out[id] = append(out[id], l.comment)
 		}
+	}
+	return out, nil
+}
+
+// listPages indexes the wiki's pages by locale and path.
+func (a *assembly) listPages(ctx context.Context) (map[pageLink]int64, error) {
+	pages, err := a.c.src.Wiki.Pages(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[pageLink]int64, len(pages))
+	for _, p := range pages {
+		out[pageLink{locale: p.Locale, path: p.Path}] = p.ID
 	}
 	return out, nil
 }
@@ -118,13 +135,4 @@ func (l pageLink) lookups() []pageLink {
 		out = append(out, pageLink{locale: defaultWikiLocale, path: l.locale + "/" + l.path})
 	}
 	return out
-}
-
-func sortedKeys[V any](m map[int64]V) []int64 {
-	keys := make([]int64, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-	return keys
 }

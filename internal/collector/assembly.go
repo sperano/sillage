@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -36,7 +37,7 @@ type sourceState struct {
 }
 
 func newAssembly(c *Collector, root model.Root) *assembly {
-	ref := model.Ref{}
+	var ref model.Ref
 	if root.Task != nil {
 		ref = root.Task.Ref()
 	} else {
@@ -52,7 +53,7 @@ func newAssembly(c *Collector, root model.Root) *assembly {
 		prs:     make(map[model.PRKey]model.PullRequest),
 		links:   newLinks(),
 		sources: make(map[model.Source]*sourceState),
-
+		// announcedOnly is filled as announcements are read.
 		announcedOnly: make(map[model.RunKey]time.Time),
 	}
 }
@@ -76,8 +77,10 @@ func (a *assembly) instance(s model.Source) string {
 		return a.cfg.Kelos.Cluster
 	case model.SourceGitHub:
 		return a.cfg.GitHubInstance
+	case model.SourceWiki:
+		return a.cfg.WikiInstance
 	}
-	return a.cfg.WikiInstance
+	panic("collector: no instance configured for source " + string(s))
 }
 
 // read records a successful read of s that started at at. With several
@@ -129,16 +132,19 @@ func (a *assembly) eventsOf(kind model.EventKind) []model.Event {
 
 // build validates the records into the story. Correlations that point
 // outside the story (another task a candidate run belongs to) are left
-// out.
+// out. It does not change the assembly.
 func (a *assembly) build() (model.Story, error) {
 	recs := model.Records{
-		Events:       mapValues(a.events),
-		Runs:         mapValues(a.runs),
-		PullRequests: mapValues(a.prs),
+		Events:       slices.Collect(maps.Values(a.events)),
+		Runs:         slices.Collect(maps.Values(a.runs)),
+		PullRequests: slices.Collect(maps.Values(a.prs)),
 	}
-	a.kelosGaps(recs)
-	for _, st := range a.sources {
-		recs.Coverage = append(recs.Coverage, st.cov)
+	for s, st := range a.sources {
+		cov := st.cov
+		if s == model.SourceKelos {
+			cov.Gaps = append(slices.Clone(cov.Gaps), a.kelosGaps(cov, recs)...)
+		}
+		recs.Coverage = append(recs.Coverage, cov)
 	}
 	recs.Correlations = a.links.within(knownRefs(a.root, recs))
 	return model.BuildStory(a.root, recs)
@@ -169,12 +175,4 @@ func knownRefs(root model.Root, recs model.Records) map[model.Ref]bool {
 		known[p.Key.Ref()] = true
 	}
 	return known
-}
-
-func mapValues[K comparable, V any](m map[K]V) []V {
-	out := make([]V, 0, len(m))
-	for _, v := range m {
-		out = append(out, v)
-	}
-	return out
 }

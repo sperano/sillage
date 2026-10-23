@@ -3,6 +3,7 @@ package collector
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -134,8 +135,9 @@ func (a *assembly) prRuns() {
 	if a.kelos == nil || len(a.prs) == 0 {
 		return
 	}
-	prs := mapValues(a.prs)
-	slices.SortFunc(prs, func(x, y model.PullRequest) int { return strings.Compare(x.Key.String(), y.Key.String()) })
+	prs := slices.SortedFunc(maps.Values(a.prs), func(x, y model.PullRequest) int {
+		return strings.Compare(x.Key.String(), y.Key.String())
+	})
 	for _, r := range a.kelos.runs {
 		if slices.Contains(followUpRoles, r.Role) {
 			a.prRun(r, prs)
@@ -155,31 +157,31 @@ func (a *assembly) prRun(r model.Run, prs []model.PullRequest) {
 			byName = append(byName, pr)
 		}
 	}
-	branchEvidence := func(pr model.PullRequest) model.Evidence {
-		return model.Evidence{Source: model.SourceKelos, Instance: a.cfg.Kelos.Cluster, Ref: p.BranchRef,
-			Note: "spec.branch " + p.Branch + " is the head branch of pull request #" + strconv.Itoa(pr.Key.Number)}
-	}
-	switch {
-	case len(byName) == 1:
+	if len(byName) == 1 {
 		pr := byName[0]
-		nameEvidence := a.kelosEvidence(r, "Task name "+r.TaskName+" names pull request #"+
-			strconv.Itoa(number)+" of workspace "+ws)
 		if slices.ContainsFunc(byBranch, func(b model.PullRequest) bool { return b.Key == pr.Key }) {
-			a.links.identifier(r.Key.Ref(), pr.Key.Ref(), branchEvidence(pr))
+			a.links.identifier(r.Key.Ref(), pr.Key.Ref(), a.branchEvidence(p, headOf(pr)))
 		}
-		a.links.heuristic(r.Key.Ref(), pr.Key.Ref(), false, nameEvidence)
-	case len(byBranch) > 0:
-		for _, pr := range byBranch {
-			if len(byBranch) == 1 {
-				a.links.identifier(r.Key.Ref(), pr.Key.Ref(), branchEvidence(pr))
-			} else {
-				a.links.heuristic(r.Key.Ref(), pr.Key.Ref(), true, branchEvidence(pr))
-			}
-		}
-	default:
+		a.links.heuristic(r.Key.Ref(), pr.Key.Ref(), false, a.kelosEvidence(r, "Task name "+r.TaskName+
+			" names pull request #"+strconv.Itoa(number)+" of workspace "+ws))
+		a.addRun(r)
 		return
 	}
-	a.addRun(r)
+	for _, pr := range byBranch {
+		if len(byBranch) == 1 {
+			a.links.identifier(r.Key.Ref(), pr.Key.Ref(), a.branchEvidence(p, headOf(pr)))
+		} else {
+			a.links.heuristic(r.Key.Ref(), pr.Key.Ref(), true, a.branchEvidence(p, headOf(pr)))
+		}
+	}
+	if len(byBranch) > 0 {
+		a.addRun(r)
+	}
+}
+
+// headOf says that a Task's branch is pr's head.
+func headOf(pr model.PullRequest) string {
+	return " is the head branch of pull request #" + strconv.Itoa(pr.Key.Number)
 }
 
 // inWorkspace reports whether pr is in workspace's repository. A

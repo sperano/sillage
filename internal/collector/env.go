@@ -2,6 +2,7 @@ package collector
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -45,8 +46,12 @@ func ConfigFromEnv(getenv func(string) string) (EnvConfig, error) {
 	if err := errors.Join(errs...); err != nil {
 		return EnvConfig{}, err
 	}
+	host, err := hostOf(vcfg.BaseURL)
+	if err != nil {
+		return EnvConfig{}, err
+	}
 	cfg := Config{
-		VikunjaInstance:       hostOf(vcfg.BaseURL),
+		VikunjaInstance:       host,
 		VikunjaServiceAccount: vcfg.ServiceAccount,
 		VikunjaAgentUsers:     parseList(getenv(EnvVikunjaAgentUsers)),
 		Kelos:                 kcfg,
@@ -62,11 +67,14 @@ func ConfigFromEnv(getenv func(string) string) (EnvConfig, error) {
 	return EnvConfig{Collector: cfg, Vikunja: vcfg, GitHub: gcfg, Wiki: wcfg}, nil
 }
 
-// hostOf is a valid base URL's host, in lower case and without a port, as
-// the model's keys name an instance.
-func hostOf(baseURL string) string {
-	u, _ := url.Parse(baseURL)
-	return strings.ToLower(u.Hostname())
+// hostOf is a base URL's host, in lower case and without a port, as the
+// model's keys name an instance.
+func hostOf(baseURL string) (string, error) {
+	u, err := url.Parse(baseURL)
+	if err != nil || u.Hostname() == "" {
+		return "", fmt.Errorf("collector: %s has no host", vikunja.EnvURL)
+	}
+	return strings.ToLower(u.Hostname()), nil
 }
 
 // Open returns a collector of the sources e configures. The Kubernetes

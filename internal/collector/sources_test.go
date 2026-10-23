@@ -42,9 +42,7 @@ func (failingWiki) Fetch(context.Context, int64) (wiki.Snapshot, error) {
 	return wiki.Snapshot{}, errDown
 }
 
-func (failingWiki) FindPage(context.Context, string, string) (int64, bool, error) {
-	return 0, false, errDown
-}
+func (failingWiki) Pages(context.Context) ([]wiki.Page, error) { return nil, errDown }
 
 // fixedVikunja, fixedKelos and fixedGitHub answer with what they hold.
 type fixedVikunja struct{ snap vikunja.Snapshot }
