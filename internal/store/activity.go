@@ -13,7 +13,9 @@ func (w *saver) touchEvent(id int64) { w.events = append(w.events, id) }
 // touchRun notes that a save stored r as run row id.
 func (w *saver) touchRun(id int64, r model.Run) {
 	if at, ok := runActivity(r); ok {
-		w.runs[id] = at
+		if prev, seen := w.runs[id]; !seen || at.After(prev) {
+			w.runs[id] = at
+		}
 	}
 }
 

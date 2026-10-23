@@ -35,12 +35,14 @@ const (
 	listenAddrEnv = "SILLAGE_LISTEN_ADDR"
 	// readHeaderTimeout bounds how long a client may take to send headers.
 	readHeaderTimeout = 10 * time.Second
-	// writeTimeout bounds a request from its headers to the end of its
-	// response: the API's own bound on answering, then responseWriteTime
-	// to send it, so that a client that stops reading cannot hold the
-	// connection.
-	writeTimeout      = api.DefaultTimeout + responseWriteTime
+	// responseWriteTime is how long a response may take to send, once
+	// the handler has it.
 	responseWriteTime = time.Minute
+	// writeTimeout bounds a request from its headers to the end of its
+	// response: the API's own bound on answering (the default: newAPI sets
+	// no other), then responseWriteTime to send it, so that a client that
+	// stops reading cannot hold the connection.
+	writeTimeout = api.DefaultTimeout + responseWriteTime
 	// idleTimeout closes keep-alive connections left idle this long.
 	idleTimeout = 2 * time.Minute
 	// shutdownTimeout bounds how long in-flight requests may take to finish

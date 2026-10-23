@@ -172,7 +172,7 @@ func (f *fakeStore) Freshness(context.Context) ([]store.SourceFreshness, error) 
 				by[key] = &store.SourceFreshness{Source: c.Source, Instance: c.Instance}
 			}
 			by[key].Roots++
-			read(by[key], c.LastSuccessfulRead)
+			countRead(by[key], c.LastSuccessfulRead)
 		}
 	}
 	var out []store.SourceFreshness
@@ -185,12 +185,12 @@ func (f *fakeStore) Freshness(context.Context) ([]store.SourceFreshness, error) 
 	return out, nil
 }
 
-// read counts a root's last successful read into f, as the store does.
-func read(f *store.SourceFreshness, at *time.Time) {
+// countRead counts a root's last successful read into f, as the store
+// does.
+func countRead(f *store.SourceFreshness, at *time.Time) {
 	switch {
 	case at == nil:
 		f.NeverRead++
-		return
 	case f.NewestRead == nil:
 		f.NewestRead, f.OldestRead = at, at
 	case at.After(*f.NewestRead):

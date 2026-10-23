@@ -79,6 +79,7 @@ func TestStoryBadRequest(t *testing.T) {
 		"/api/v1/stories/task/vikunja%00.example.com/101",
 		"/api/v1/stories/task/vikunja%ff.example.com/101",
 		"/api/v1/stories/task/vikunja%20example.com/101",
+		"/api/v1/stories/task/vi%E2%84%AAunja.example.com/101", // a Kelvin sign, k in lower case
 		"/api/v1/stories/task/vikunja.example.com/99999999999999999999",
 		"/api/v1/stories/task/" + strings.Repeat("a", maxInstance+1) + "/101",
 		"/api/v1/stories/page/wiki.example.com/57/english",
@@ -130,10 +131,8 @@ func TestFreshness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i, s := range got.Sources {
-		if i < len(stored) && !sameFreshness(s, stored[i]) {
-			t.Errorf("source %d = %+v, want the store's %+v", i, s, stored[i])
-		}
+	if !slices.EqualFunc(got.Sources, stored, sameFreshness) {
+		t.Errorf("sources = %+v, want the store's %+v", got.Sources, stored)
 	}
 	if !slices.ContainsFunc(got.Sources, func(s store.SourceFreshness) bool { return s.NewestRead != nil }) {
 		t.Error("no source was read: the fixtures check no read times")

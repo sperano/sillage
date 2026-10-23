@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
+	"unicode/utf8"
 
 	"github.com/sperano/sillage/internal/store"
 )
@@ -50,10 +50,14 @@ func badRequest(format string, args ...any) error {
 // echo quotes request input for a problem's detail, cut to maxEchoed
 // bytes.
 func echo(s string) string {
-	if len(s) > maxEchoed {
-		return strconv.Quote(strings.ToValidUTF8(s[:maxEchoed], "")) + "..."
+	if len(s) <= maxEchoed {
+		return strconv.Quote(s)
 	}
-	return strconv.Quote(s)
+	cut := maxEchoed
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return strconv.Quote(s[:cut]) + "..."
 }
 
 // errMethod answers a method the API never serves.

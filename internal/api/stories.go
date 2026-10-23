@@ -21,10 +21,11 @@ const (
 	apiVersion = "v1"
 )
 
-// instancePattern matches the characters of a host in lower case, with its
-// port or as a bracketed IPv6 address: no space, slash or control
-// character, nothing the store would refuse.
-var instancePattern = regexp.MustCompile(`^[a-z0-9.:\[\]-]+$`)
+// instancePattern matches the characters of a host, with its port or as a
+// bracketed IPv6 address, in ASCII: no space, slash or control character,
+// nothing the store would refuse, and nothing that lower case would turn
+// into another spelling of a host.
+var instancePattern = regexp.MustCompile(`^[a-zA-Z0-9.:\[\]-]+$`)
 
 // The query parameters.
 const (
@@ -175,12 +176,12 @@ func pageRoot(r *http.Request) (model.Root, error) {
 // instanceParam is the path's instance, a host in lower case as the
 // model's keys name it.
 func instanceParam(r *http.Request) (string, error) {
-	instance := strings.ToLower(r.PathValue("instance"))
+	instance := r.PathValue("instance")
 	if len(instance) > maxInstance || !instancePattern.MatchString(instance) {
 		return "", badRequest("the instance must be a host, with or without its port, of at most %d characters",
 			maxInstance)
 	}
-	return instance, nil
+	return strings.ToLower(instance), nil
 }
 
 // idParam is the path's id, a positive number.

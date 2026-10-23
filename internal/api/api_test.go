@@ -164,17 +164,27 @@ func TestResponseBound(t *testing.T) {
 func TestProblemsFitTheLowestBound(t *testing.T) {
 	h := New(Config{Store: newFakeStore(t), MaxResponseBytes: 1})
 	long := strings.Repeat("a", 2*MinResponseBytes)
-	for path, status := range map[string]int{
-		"/api/v1/stories/task/vikunja.example.com/101": http.StatusInternalServerError,
-		"/api/v1/" + long: http.StatusNotFound,
-		"/api/v1/stories/task/vikunja.example.com/" + long: http.StatusBadRequest,
-		"/api/v1/stories/page/wiki.example.com/57/" + long: http.StatusBadRequest,
-	} {
-		rec := get(t, h, path)
-		wantProblem(t, rec, status)
-		if rec.Body.Len() > MinResponseBytes {
-			t.Errorf("%.40s...: problem of %d bytes, more than %d", path, rec.Body.Len(), MinResponseBytes)
-		}
+	// strconv.Quote writes a NUL as \x00, whose backslash JSON escapes.
+	escaped := strings.Repeat("%00", 2*MinResponseBytes)
+	tests := []struct {
+		name   string
+		path   string
+		status int
+	}{
+		{"story past the bound", "/api/v1/stories/task/vikunja.example.com/101", http.StatusInternalServerError},
+		{"long unknown path", "/api/v1/" + long, http.StatusNotFound},
+		{"long id", "/api/v1/stories/task/vikunja.example.com/" + long, http.StatusBadRequest},
+		{"long locale", "/api/v1/stories/page/wiki.example.com/57/" + long, http.StatusBadRequest},
+		{"escaped id", "/api/v1/stories/task/vikunja.example.com/" + escaped, http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := get(t, h, tt.path)
+			wantProblem(t, rec, tt.status)
+			if rec.Body.Len() > MinResponseBytes {
+				t.Errorf("problem of %d bytes, more than %d", rec.Body.Len(), MinResponseBytes)
+			}
+		})
 	}
 }
 

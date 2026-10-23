@@ -60,7 +60,8 @@ type Config struct {
 	// Timeout bounds each request; DefaultTimeout when zero.
 	Timeout time.Duration
 	// MaxResponseBytes bounds each response's body;
-	// DefaultMaxResponseBytes when zero, MinResponseBytes when lower.
+	// DefaultMaxResponseBytes when zero or less, and raised to
+	// MinResponseBytes when positive but lower.
 	MaxResponseBytes int
 }
 
@@ -75,7 +76,7 @@ func New(cfg Config) http.Handler {
 		cfg.Timeout = DefaultTimeout
 	}
 	switch {
-	case cfg.MaxResponseBytes == 0:
+	case cfg.MaxResponseBytes <= 0:
 		cfg.MaxResponseBytes = DefaultMaxResponseBytes
 	case cfg.MaxResponseBytes < MinResponseBytes:
 		cfg.MaxResponseBytes = MinResponseBytes
