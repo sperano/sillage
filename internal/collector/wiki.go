@@ -45,7 +45,6 @@ func (a *assembly) readRootPage(ctx context.Context, key model.PageKey) error {
 // joined to the task by the comment that links it. Without a link, the
 // wiki is not read, and its coverage says so.
 func (a *assembly) readLinkedPages(ctx context.Context, links []pageLink) {
-	a.source(model.SourceWiki)
 	if len(links) == 0 {
 		a.note(model.SourceWiki, "no comment of an agent ("+EnvVikunjaAgentUsers+") or of the service account links "+
 			"a page of "+a.cfg.WikiInstance+": the wiki was not read")

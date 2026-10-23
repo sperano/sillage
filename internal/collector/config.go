@@ -96,7 +96,7 @@ func parseWorkspaces(value string) (map[string]github.Repository, error) {
 		}
 		name, repo, ok := strings.Cut(item, pairSeparator)
 		name, repo = strings.TrimSpace(name), strings.TrimSpace(repo)
-		if !ok || len(validation.IsDNS1123Label(name)) > 0 {
+		if !ok || strings.Contains(repo, pairSeparator) || len(validation.IsDNS1123Label(name)) > 0 {
 			return nil, fmt.Errorf("collector: %s: %q is not <workspace>=<owner>/<repository>", EnvWorkspaces, item)
 		}
 		r, err := github.ParseRepository(repo)

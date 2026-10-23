@@ -48,19 +48,20 @@ var (
 // taskOfName returns the Vikunja task id a Task name names by the task
 // and comment spawners' conventions, and the role it implies.
 func taskOfName(name string) (int64, model.RunRole, bool) {
+	id, role := "", model.RunRole("")
 	if m := taskFollowUpName.FindStringSubmatch(name); m != nil {
-		return parseID(m[1]), model.RoleTaskFollowUp, true
+		id, role = m[1], model.RoleTaskFollowUp
+	} else if m := taskRunName.FindStringSubmatch(name); m != nil && !otherVikunjaName.MatchString(name) {
+		id, role = m[2], model.RoleImplementation
+		if m[1] != "" {
+			role = model.RoleDiscussion
+		}
 	}
-	if otherVikunjaName.MatchString(name) {
+	n, ok := parseID(id)
+	if !ok {
 		return 0, "", false
 	}
-	if m := taskRunName.FindStringSubmatch(name); m != nil {
-		if m[1] != "" {
-			return parseID(m[2]), model.RoleDiscussion, true
-		}
-		return parseID(m[2]), model.RoleImplementation, true
-	}
-	return 0, "", false
+	return n, role, true
 }
 
 // prOfName returns the workspace and pull request number a PR
@@ -88,7 +89,12 @@ func pageOfName(name string) (wikiRequest, bool) {
 	if m == nil {
 		return wikiRequest{}, false
 	}
-	return wikiRequest{workspace: m[1], page: parseID(m[2]), comment: parseID(m[3])}, true
+	page, okPage := parseID(m[2])
+	comment, okComment := parseID(m[3])
+	if !okPage || !okComment {
+		return wikiRequest{}, false
+	}
+	return wikiRequest{workspace: m[1], page: page, comment: comment}, true
 }
 
 // roleOfName is the role a Task name implies, or unknown.
@@ -103,8 +109,9 @@ func roleOfName(name string) model.RunRole {
 }
 
 // parseID parses an id the patterns above matched; they admit only
-// positive decimals, so it fails only past int64, which yields 0.
-func parseID(s string) int64 {
-	id, _ := strconv.ParseInt(s, 10, 64)
-	return id
+// positive decimals, so it fails only past int64: such a name names
+// nothing.
+func parseID(s string) (int64, bool) {
+	id, err := strconv.ParseInt(s, 10, 64)
+	return id, err == nil
 }

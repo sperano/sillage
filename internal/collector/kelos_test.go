@@ -146,3 +146,42 @@ func TestPageRunsNotFromOtherPages(t *testing.T) {
 		}
 	}
 }
+
+// customName is a Task name no spawner convention covers.
+const customName = "custom-run"
+
+func TestAnnouncedRunJoinsWhatItIsACommentOn(t *testing.T) {
+	tests := map[string]struct {
+		snap kelos.Snapshot
+		run  model.Ref
+		want model.Confidence
+	}{
+		"its pod's Task": {
+			kelos.Snapshot{Tasks: []kelos.Task{task(customName, "uid-x", "", nil, 2, 9)}},
+			runRef("uid-x"), model.ConfidenceIdentifier,
+		},
+		"the attempt it was posted from": {
+			kelos.Snapshot{Records: []kelos.TaskRecord{record(customName, "uid-y", nil, 2, 9)}},
+			runRef("uid-y"), model.ConfidenceHeuristic,
+		},
+	}
+	for name, tt := range tests {
+		src := emptySources()
+		src.Vikunja = fixedVikunja{announcedTask(104, customName, map[int]string{3: customName + "-pod00"})}
+		src.Kelos = fixedKelos{tt.snap}
+		s := collectWith(t, testConfig(), src, taskRoot(104)).Story
+		c, ok := linkBetween(s, tt.run, taskRoot(104).Task.Ref())
+		if !ok || c.Confidence != tt.want || c.Ambiguous {
+			t.Errorf("%s: run joined to the task by %+v (%v), want an unambiguous %s", name, c, ok, tt.want)
+		}
+	}
+}
+
+func TestAnnouncedRunTakesTheWordingsRole(t *testing.T) {
+	src := emptySources()
+	src.Vikunja = fixedVikunja{announcedTask(104, customName, map[int]string{3: "p-custom"})}
+	s := collectWith(t, testConfig(), src, taskRoot(104)).Story
+	if len(s.Runs) != 1 || s.Runs[0].Role != model.RoleImplementation {
+		t.Errorf("runs = %+v, want one implementation: its Task name says nothing, its announcement does", s.Runs)
+	}
+}

@@ -95,12 +95,26 @@ func parseStoryArgs(args []string, output io.Writer) (storyArgs, error) {
 		}
 		return storyArgs{}, fmt.Errorf("%w: %w", errUsage, err)
 	}
-	if flags.NArg() > 0 || (a.task > 0) == (a.page > 0) || a.task < 0 || a.page < 0 {
+	if flags.NArg() > 0 || !oneRoot(flags, a) {
 		fmt.Fprintf(output, "want exactly one positive -%s or -%s, and no argument\n", taskFlag, pageFlag)
 		flags.Usage()
 		return storyArgs{}, fmt.Errorf("%w: want one of -%s and -%s", errUsage, taskFlag, pageFlag)
 	}
 	return a, nil
+}
+
+// oneRoot reports whether exactly one of -task and -page was given, with
+// a positive id.
+func oneRoot(flags *flag.FlagSet, a storyArgs) bool {
+	set := make(map[string]bool)
+	flags.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	switch {
+	case set[taskFlag] && !set[pageFlag]:
+		return a.task > 0
+	case set[pageFlag] && !set[taskFlag]:
+		return a.page > 0
+	}
+	return false
 }
 
 // runStory prints the story the arguments ask for to stdout, and each

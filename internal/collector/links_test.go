@@ -56,3 +56,16 @@ func TestLinksWithinDropsOutsiders(t *testing.T) {
 		t.Error("has(b, a) = false, want true whatever the direction")
 	}
 }
+
+func TestLinksKeepPairsApartWhateverTheirIDs(t *testing.T) {
+	l := newLinks()
+	run := func(id string) model.Ref { return model.Ref{Kind: model.RefRun, ID: id} }
+	task := func(id string) model.Ref { return model.Ref{Kind: model.RefTask, ID: id} }
+	// Joined as text, both pairs read "run:x <-> task:y <-> task:z".
+	l.identifier(run("x <-> task:y"), task("z"), evA)
+	l.identifier(run("x"), task("y <-> task:z"), evB)
+	known := map[model.Ref]bool{run("x <-> task:y"): true, task("z"): true, run("x"): true, task("y <-> task:z"): true}
+	if got := l.within(known); len(got) != 2 {
+		t.Errorf("correlations = %v, want the two pairs apart", got)
+	}
+}

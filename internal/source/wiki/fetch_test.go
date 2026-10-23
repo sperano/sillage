@@ -2,6 +2,7 @@ package wiki
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"slices"
 	"strconv"
@@ -193,7 +194,8 @@ func TestPagesReportsFailure(t *testing.T) {
 	c := newTestClient(t, graphQLHandler(func(_ string, w http.ResponseWriter) {
 		http.Error(w, "down", http.StatusBadGateway)
 	}))
-	if _, err := c.Pages(t.Context()); err == nil {
-		t.Error("Pages() error = nil, want the reply's status")
+	_, err := c.Pages(t.Context())
+	if se, ok := errors.AsType[*StatusError](err); !ok || se.Code != http.StatusBadGateway {
+		t.Errorf("Pages() error = %v, want a %d StatusError", err, http.StatusBadGateway)
 	}
 }

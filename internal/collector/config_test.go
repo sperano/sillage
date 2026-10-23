@@ -37,6 +37,7 @@ func TestParseWorkspacesRejects(t *testing.T) {
 		"bad repository":  "widgets=example-org",
 		"listed twice":    "widgets=example-org/widgets,widgets=example-org/other",
 		"bad second pair": "widgets=example-org/widgets,docs",
+		"two separators":  "widgets=example-org/widgets=docs",
 	}
 	for name, value := range tests {
 		if _, err := parseWorkspaces(value); err == nil || !strings.Contains(err.Error(), EnvWorkspaces) {

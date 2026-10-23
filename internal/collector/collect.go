@@ -20,8 +20,12 @@ func (a *assembly) collectTask(ctx context.Context, key model.TaskKey, repos []g
 	for _, s := range []model.Source{model.SourceVikunja, model.SourceKelos, model.SourceGitHub, model.SourceWiki} {
 		a.source(s)
 	}
-	links := a.readTask(ctx, id)
-	a.readLinkedPages(ctx, links)
+	if links, ok := a.readTask(ctx, id); ok {
+		a.readLinkedPages(ctx, links)
+	} else {
+		a.note(model.SourceWiki, "the task could not be read, so the pages its comments link are unknown: "+
+			"the wiki was not read")
+	}
 	a.readKelos(ctx)
 	a.announcedRuns()
 	a.taskRuns(id)
@@ -54,17 +58,17 @@ func (a *assembly) collectPage(ctx context.Context, key model.PageKey, repos []g
 }
 
 // readTask reads the task and its comments, and returns the wiki pages
-// they link. A failed read yields neither.
-func (a *assembly) readTask(ctx context.Context, id int64) []pageLink {
+// they link. A failed read yields neither, and false.
+func (a *assembly) readTask(ctx context.Context, id int64) ([]pageLink, bool) {
 	at := a.c.now()
 	snap, err := a.c.src.Vikunja.Fetch(ctx, id)
 	if err != nil {
 		a.fail(model.SourceVikunja, err)
-		return nil
+		return nil, false
 	}
 	a.read(model.SourceVikunja, at)
 	a.addEvents(a.vikunjaEvents(snap))
-	return wikiLinks(snap, a.c.wikiURL, a.delivering)
+	return wikiLinks(snap, a.c.wikiURL, a.delivering), true
 }
 
 // delivering reports whether u's comments can name the task's

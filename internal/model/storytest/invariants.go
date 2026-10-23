@@ -288,37 +288,10 @@ func hasCoverage(s model.Story, source model.Source) bool {
 	return c != nil && c.LastSuccessfulRead != nil
 }
 
-// Refs returns every record a correlation of s may point to: its root,
-// its events and the tasks and pages they name, its runs and its pull
-// requests.
-func Refs(s model.Story) map[model.Ref]bool {
-	known := make(map[model.Ref]bool)
-	addRelated := func(r model.Related) {
-		if r.Task != nil {
-			known[r.Task.Ref()] = true
-		}
-		if r.Page != nil {
-			known[r.Page.Ref()] = true
-		}
-	}
-	addRelated(model.Related{Task: s.Root.Task, Page: s.Root.Page})
-	for _, e := range s.Events {
-		known[e.Ref()] = true
-		addRelated(e.Related)
-	}
-	for _, r := range s.Runs {
-		known[r.Key.Ref()] = true
-	}
-	for _, p := range s.PullRequests {
-		known[p.Key.Ref()] = true
-	}
-	return known
-}
-
 // RefsResolve fails t for each correlation of s that points outside it.
 func RefsResolve(t *testing.T, s model.Story) {
 	t.Helper()
-	known := Refs(s)
+	known := s.Refs(s.Root)
 	for _, c := range s.Correlations {
 		for _, ref := range []model.Ref{c.From, c.To} {
 			if !known[ref] {

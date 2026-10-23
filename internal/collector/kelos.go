@@ -9,14 +9,17 @@ import (
 	"github.com/sperano/sillage/internal/source/kelos"
 )
 
-// The details of a start announcement the collector reads.
+// The details of the Vikunja events the collector builds, and of the start
+// announcements it reads.
 const (
 	detailTaskName  = "taskName"
 	detailPod       = "pod"
 	detailNamespace = "namespace"
 	detailModel     = "model"
 	detailWorkspace = "workspace"
+	detailRole      = "role"
 	detailBucket    = "bucket"
+	detailView      = "view"
 	detailLabel     = "label"
 )
 
@@ -137,21 +140,25 @@ func (a *assembly) includeRun(ref model.Ref) {
 	}
 }
 
-// announcedRuns joins each start announcement to its run: the run whose
-// pod it names (an identifier); else the attempt of its Task name it was
-// posted from, when its time singles one out (a heuristic: a Task gone
-// leaves a TaskRecord, which names no pod); else a run keyed by that pod,
-// built from the announcement alone. An announcement naming no pod is
-// joined to the runs of its Task name, a heuristic: a retry reuses the
-// name.
+// announcedRuns joins each start announcement to its run, and that run
+// to the record the announcement is a comment on, with the same
+// confidence: the run whose pod it names (an identifier); else the attempt
+// of its Task name it was posted from, when its time singles one out (a
+// heuristic: a Task gone leaves a TaskRecord, which names no pod); else a
+// run keyed by that pod, built from the announcement alone. An
+// announcement naming no pod is joined to the runs of its Task name, a
+// heuristic: a retry reuses the name.
 func (a *assembly) announcedRuns() {
 	claimed := make(map[model.RunKey]bool)
 	for _, e := range a.eventsOf(model.KindRunAnnounced) {
 		name, pod := e.Details[detailTaskName], e.Details[detailPod]
 		if pod == "" {
-			a.sameNameRuns(e.Ref(), name, func(model.Run) model.Evidence {
+			candidates := a.sameNameRuns(e.Ref(), name, func(model.Run) model.Evidence {
 				return a.announcementEvidence(e, "names Kelos Task "+name+" but no pod; a retry reuses the name")
 			})
+			for _, r := range candidates {
+				a.runOnRelated(r.Key.Ref(), e, model.ConfidenceHeuristic, len(candidates) > 1)
+			}
 			continue
 		}
 		ns := cmp.Or(e.Details[detailNamespace], a.cfg.Kelos.Namespace)
@@ -160,6 +167,7 @@ func (a *assembly) announcedRuns() {
 		for _, r := range matches {
 			a.addRun(r)
 			a.links.identifier(e.Ref(), r.Key.Ref(), ev)
+			a.runOnRelated(r.Key.Ref(), e, model.ConfidenceIdentifier, false)
 		}
 		if len(matches) > 0 {
 			continue
@@ -170,10 +178,24 @@ func (a *assembly) announcedRuns() {
 			a.links.heuristic(e.Ref(), r.Key.Ref(), false, a.announcementEvidence(e, "names pod "+pod+
 				", which no Task read names; it was posted inside this attempt of "+name+" and no other, "+
 				"which, read without its Task, names no pod"))
+			a.runOnRelated(r.Key.Ref(), e, model.ConfidenceHeuristic, false)
 			continue
 		}
 		a.podRun(e, ns, name, pod)
 	}
+}
+
+// runOnRelated joins run to the task, page or pull request announcement e
+// is a comment on, as confidently as e is joined to run.
+func (a *assembly) runOnRelated(run model.Ref, e model.Event, confidence model.Confidence, ambiguous bool) {
+	on, ok := relatedRef(e.Related)
+	if !ok {
+		return
+	}
+	a.links.add(model.Correlation{
+		From: run, To: on, Confidence: confidence, Ambiguous: ambiguous,
+		Evidence: []model.Evidence{a.announcementEvidence(e, "is a comment on "+on.ID)},
+	})
 }
 
 // announcedAttempt returns the attempt an announcement whose pod no Task
@@ -221,9 +243,7 @@ func (a *assembly) podRun(e model.Event, ns, name, pod string) {
 		}
 	}
 	a.links.identifier(e.Ref(), key.Ref(), a.announcementEvidence(e, "names pod "+pod))
-	if on, ok := relatedRef(e.Related); ok {
-		a.links.identifier(key.Ref(), on, a.announcementEvidence(e, "is a comment on "+on.ID))
-	}
+	a.runOnRelated(key.Ref(), e, model.ConfidenceIdentifier, false)
 	a.sameNameRuns(key.Ref(), name, func(r model.Run) model.Evidence {
 		return a.kelosEvidence(r, "same Task name "+name+"; read without its Task, it names no pod, so "+
 			"whether it is the announced attempt is unknown")
@@ -231,26 +251,32 @@ func (a *assembly) podRun(e model.Event, ns, name, pod string) {
 }
 
 // sameNameRuns joins from to each run named name whose pod is unknown,
-// as heuristic candidates, ambiguous when there are several.
-func (a *assembly) sameNameRuns(from model.Ref, name string, evidence func(model.Run) model.Evidence) {
+// as heuristic candidates, ambiguous when there are several, and returns
+// them.
+func (a *assembly) sameNameRuns(from model.Ref, name string, evidence func(model.Run) model.Evidence) []model.Run {
 	if name == "" {
-		return
+		return nil
 	}
 	candidates := a.runsWhere(func(r model.Run) bool { return r.TaskName == name && r.Pod == "" })
 	for _, r := range candidates {
 		a.addRun(r)
 		a.links.heuristic(from, r.Key.Ref(), len(candidates) > 1, evidence(r))
 	}
+	return candidates
 }
 
 // announcedRole is the role of a run known from its announcement alone:
 // a wiki announcement starts a wiki follow-up; otherwise the Task name
-// says, by convention.
+// says, by convention, else the announcement's wording. The name comes
+// first: the wording names no discussion.
 func (a *assembly) announcedRole(e model.Event, name string) model.RunRole {
 	if e.Source == model.SourceWiki {
 		return model.RoleWikiFollowUp
 	}
-	return roleOfName(name)
+	if role := roleOfName(name); role != model.RoleUnknown {
+		return role
+	}
+	return cmp.Or(model.RunRole(e.Details[detailRole]), model.RoleUnknown)
 }
 
 func (a *assembly) announcementEvidence(e model.Event, note string) model.Evidence {

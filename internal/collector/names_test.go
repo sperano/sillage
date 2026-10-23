@@ -6,6 +6,9 @@ import (
 	"github.com/sperano/sillage/internal/model"
 )
 
+// pastInt64 is a decimal id the name patterns admit but int64 cannot hold.
+const pastInt64 = "9223372036854775808"
+
 func TestTaskOfName(t *testing.T) {
 	tests := []struct {
 		name string
@@ -24,6 +27,8 @@ func TestTaskOfName(t *testing.T) {
 		{"pr-followup-widgets-7-c5701", 0, "", false},
 		{"wiki-fu-widgets-57-c880", 0, "", false},
 		{"vikunja-widgets-agent-opus", 0, "", false},
+		{"vikunja-widgets-agent-opus-" + pastInt64, 0, "", false},
+		{"vikunja-fu-widgets-" + pastInt64 + "-c5701", 0, "", false},
 	}
 	for _, tt := range tests {
 		id, role, ok := taskOfName(tt.name)
@@ -69,6 +74,8 @@ func TestPageOfName(t *testing.T) {
 		{"wiki-fu-big-widgets-57-c880-retry3", wikiRequest{"big-widgets", 57, 880}, true},
 		{"wiki-fu-widgets-c880", wikiRequest{}, false},
 		{"vikunja-widgets-agent-opus-57", wikiRequest{}, false},
+		{"wiki-fu-widgets-" + pastInt64 + "-c880", wikiRequest{}, false},
+		{"wiki-fu-widgets-57-c" + pastInt64, wikiRequest{}, false},
 	}
 	for _, tt := range tests {
 		got, ok := pageOfName(tt.name)

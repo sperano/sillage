@@ -146,33 +146,6 @@ func (a *assembly) build() (model.Story, error) {
 		}
 		recs.Coverage = append(recs.Coverage, cov)
 	}
-	recs.Correlations = a.links.within(knownRefs(a.root, recs))
+	recs.Correlations = a.links.within(recs.Refs(a.root))
 	return model.BuildStory(a.root, recs)
-}
-
-// knownRefs returns every record a correlation may point to: the root,
-// the events and the tasks and pages they name, the runs and the pull
-// requests.
-func knownRefs(root model.Root, recs model.Records) map[model.Ref]bool {
-	known := make(map[model.Ref]bool)
-	addRelated := func(r model.Related) {
-		if r.Task != nil {
-			known[r.Task.Ref()] = true
-		}
-		if r.Page != nil {
-			known[r.Page.Ref()] = true
-		}
-	}
-	addRelated(model.Related{Task: root.Task, Page: root.Page})
-	for _, e := range recs.Events {
-		known[e.Ref()] = true
-		addRelated(e.Related)
-	}
-	for _, r := range recs.Runs {
-		known[r.Key.Ref()] = true
-	}
-	for _, p := range recs.PullRequests {
-		known[p.Key.Ref()] = true
-	}
-	return known
 }

@@ -190,3 +190,12 @@ func TestLinkedPageJoinedToTask(t *testing.T) {
 		t.Errorf("correlations = %v, want the linked page joined to the task by an identifier", s.Correlations)
 	}
 }
+
+func TestFailedTaskReadLeavesLinkedPagesUnknown(t *testing.T) {
+	src := emptySources()
+	src.Vikunja = failingVikunja{}
+	cov := coverageOf(t, collectWith(t, testConfig(), src, taskRoot(104)).Story, model.SourceWiki)
+	if cov.LastSuccessfulRead != nil || !hasNote(cov, "could not be read") || hasNote(cov, "no comment") {
+		t.Errorf("wiki coverage = %+v, want the linked pages unknown, not absent", cov)
+	}
+}

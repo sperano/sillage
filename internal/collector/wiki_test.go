@@ -11,16 +11,18 @@ import (
 	"github.com/sperano/sillage/internal/source/wiki"
 )
 
-// listedWiki holds pages, never edited, and counts its listings.
+// listedWiki holds pages and their history trails, and counts its
+// listings.
 type listedWiki struct {
-	pages []wiki.Page
-	lists *int
+	pages  []wiki.Page
+	trails map[int64][]wiki.Version
+	lists  *int
 }
 
 func (w listedWiki) Fetch(_ context.Context, id int64) (wiki.Snapshot, error) {
 	for _, p := range w.pages {
 		if p.ID == id {
-			return wiki.Snapshot{Instance: testWikiHost, Page: p, ObservedAt: testNow}, nil
+			return wiki.Snapshot{Instance: testWikiHost, Page: p, Trail: w.trails[id], ObservedAt: testNow}, nil
 		}
 	}
 	return wiki.Snapshot{}, errDown
@@ -73,9 +75,12 @@ func TestLinkedPageEditsJoinOnlyTheStorysRuns(t *testing.T) {
 	lists := 0
 	src := emptySources()
 	src.Wiki = listedWiki{lists: &lists, pages: []wiki.Page{{
-		ID: 41, Path: "widgets/a", Locale: "en", CreatedAt: at(5), UpdatedAt: at(5),
+		ID: 41, Path: "widgets/a", Locale: "en", CreatedAt: at(5), UpdatedAt: at(6),
 		AuthorID: testWikiUser, AuthorName: testAgent, CreatorID: testWikiUser, CreatorName: testAgent,
-	}}}
+	}}, trails: map[int64][]wiki.Version{41: {{
+		// The creation's own version; the live page, saved later, is an edit.
+		VersionID: 1, VersionDate: at(5), AuthorID: testWikiUser, AuthorName: testAgent, ActionType: "initial",
+	}}}}
 	snap := announcedTask(104, "", nil)
 	snap.Comments = []vikunja.Comment{{ID: 1, Author: vikunja.User{ID: 21, Username: testAgent}, Created: at(11),
 		Body: `https://wiki.example.com/i/41`}}
@@ -85,10 +90,20 @@ func TestLinkedPageEditsJoinOnlyTheStorysRuns(t *testing.T) {
 		record("vikunja-widgets-agent-opus-999", "uid-other", taskLabels("999"), 0, 10),
 	}}}
 	s := collectWith(t, testConfig(), src, taskRoot(104)).Story
-	created := model.Event{Source: model.SourceWiki, Instance: testWikiHost, ID: "pages/41"}
-	got := linksFrom(s, created.Ref())
-	if len(got) != 1 || got[0].To != runRef("uid-own") || got[0].Ambiguous {
-		t.Errorf("the linked page's creation links %v, want only the task's own run", got)
+	var edits int
+	for _, e := range s.Events {
+		if e.Source != model.SourceWiki || (e.Kind != model.KindPageCreated && e.Kind != model.KindPageEdited) {
+			continue
+		}
+		if e.Kind == model.KindPageEdited {
+			edits++
+		}
+		if got := linksFrom(s, e.Ref()); len(got) != 1 || got[0].To != runRef("uid-own") || got[0].Ambiguous {
+			t.Errorf("the linked page's %s %s links %v, want only the task's own run", e.Kind, e.ID, got)
+		}
+	}
+	if edits == 0 {
+		t.Error("the linked page's later edit was not read")
 	}
 	for _, r := range s.Runs {
 		if r.Key.UID == "uid-other" {

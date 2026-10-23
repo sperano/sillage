@@ -191,18 +191,29 @@ func (f *fakeSources) serve(w http.ResponseWriter, r *http.Request, dir, name, e
 	_, _ = w.Write(body)
 }
 
-// serveWiki answers a GraphQL query from its operation's file.
+// serveWiki answers a GraphQL query from its operation's file. A query
+// of a page other than the story's fails the test.
 func (f *fakeSources) serveWiki(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		OperationName string `json:"operationName"`
 		Query         string `json:"query"`
 		Variables     struct {
+			ID         int64 `json:"id"`
+			PageID     int64 `json:"pageId"`
 			OffsetPage int   `json:"offsetPage"`
 			VersionID  int64 `json:"versionId"`
 		} `json:"variables"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.HasPrefix(req.Query, "mutation") {
 		f.t.Errorf("wiki request %+v: %v", req, err)
+	}
+	asked := map[string]int64{
+		"SillagePage": req.Variables.ID, "SillageHistory": req.Variables.ID, "SillageVersion": req.Variables.PageID,
+	}
+	if id, ok := asked[req.OperationName]; ok && f.dirs.wiki != "" {
+		if want := f.wikiPageID(); id != want {
+			f.t.Errorf("wiki %s of page %d, want page %d", req.OperationName, id, want)
+		}
 	}
 	files := map[string]string{
 		"SillagePage":     "page.json",
@@ -212,6 +223,29 @@ func (f *fakeSources) serveWiki(w http.ResponseWriter, r *http.Request) {
 		"SillageComments": "comments.json",
 	}
 	f.serve(w, r, f.dirs.wiki, files[req.OperationName], "")
+}
+
+// wikiPageID is the id of the page the story's wiki responses hold. It
+// runs in the server's goroutine, so it reports with Errorf, not Fatal.
+func (f *fakeSources) wikiPageID() int64 {
+	data, err := os.ReadFile(filepath.Join(fixturesDir, f.dirs.wiki, "page.json"))
+	if err != nil {
+		f.t.Errorf("wiki page: %v", err)
+		return 0
+	}
+	var page struct {
+		Data struct {
+			Pages struct {
+				Single struct {
+					ID int64 `json:"id"`
+				} `json:"single"`
+			} `json:"pages"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(data, &page); err != nil {
+		f.t.Errorf("%s/page.json: %v", f.dirs.wiki, err)
+	}
+	return page.Data.Pages.Single.ID
 }
 
 // Kelos's resources, as the fake dynamic client lists them.

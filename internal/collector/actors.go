@@ -43,23 +43,26 @@ func (a *assembly) actorRuns() {
 				a.addRun(r)
 				a.links.heuristic(e.Ref(), r.Key.Ref(), len(candidates) > 1, model.Evidence{
 					Source: e.Source, Instance: e.Instance, Ref: e.Evidence.Ref,
-					Note: actorNote(e, r.Agent, len(candidates)),
+					Note: actorNote(e, agents, len(candidates)),
 				})
 			}
 		}
 	}
 }
 
-func actorNote(e model.Event, agent string, candidates int) string {
+// actorNote says why e is joined to one of candidates runs of agents,
+// the agents its account may have worked as.
+func actorNote(e model.Event, agents []string, candidates int) string {
 	who := e.Actor.Login
 	if e.Executor != nil {
 		who = e.Executor.Name
 	}
 	note := e.ID + " by " + who + " inside the run's interval; "
+	of := strings.Join(agents, " or ")
 	if candidates > 1 {
-		return note + strconv.Itoa(candidates) + " runs of " + agent + " were running"
+		return note + strconv.Itoa(candidates) + " runs of " + of + " were running"
 	}
-	return note + "no other run of " + agent + " with a known start was running"
+	return note + "no other run of " + of + " with a known start was running"
 }
 
 // onRoot reports whether e is on the story's root or one of its pull

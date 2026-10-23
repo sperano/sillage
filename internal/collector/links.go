@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"cmp"
 	"slices"
 
 	"github.com/sperano/sillage/internal/model"
@@ -9,18 +10,21 @@ import (
 // links accumulates correlations, one per pair of records whatever the
 // direction: a second piece of evidence for a pair joins the first's.
 type links struct {
-	byPair map[string]*model.Correlation
+	byPair map[pair]*model.Correlation
 }
 
-func newLinks() links { return links{byPair: make(map[string]*model.Correlation)} }
+// pair is two records, in an order that does not depend on the
+// correlation's direction.
+type pair struct{ first, second model.Ref }
+
+func newLinks() links { return links{byPair: make(map[pair]*model.Correlation)} }
 
 // pairKey names the pair of records whatever the direction.
-func pairKey(a, b model.Ref) string {
-	from, to := a.String(), b.String()
-	if to < from {
-		from, to = to, from
+func pairKey(a, b model.Ref) pair {
+	if cmp.Or(cmp.Compare(b.Kind, a.Kind), cmp.Compare(b.ID, a.ID)) < 0 {
+		a, b = b, a
 	}
-	return from + " <-> " + to
+	return pair{first: a, second: b}
 }
 
 // add records c, or joins its evidence to the pair's correlation: an

@@ -74,8 +74,9 @@ sources, joins them, and prints the story as JSON: the format of
 
 A source that cannot be read is reported on stderr and leaves a coverage
 record without a read; the story is still printed, and the exit status is 3.
-Every setting comes from the environment; each source reads with a
-read-only credential:
+The flags name the root and any extra repository; every source setting
+comes from the environment, and each source reads with a read-only
+credential:
 
 | Variable | Meaning |
 | --- | --- |
@@ -84,10 +85,10 @@ read-only credential:
 | `SILLAGE_VIKUNJA_AGENT_USERS` | Agents' Vikunja usernames, comma-separated: their comments are an agent's, and only theirs and the service account's are followed to the wiki pages they link (a discussion's deliverable). |
 | `SILLAGE_KELOS_CLUSTER`, `SILLAGE_KELOS_NAMESPACE` | Name given to the cluster, and the namespace read; the Kubernetes credentials are the in-cluster ones, else the kubeconfig's current context. |
 | `SILLAGE_KELOS_LABEL_DOMAIN`, `SILLAGE_KELOS_VIKUNJA_INSTANCE` | The spawners' label prefix, and the Vikunja host the task label names (must be `SILLAGE_VIKUNJA_URL`'s). |
-| `SILLAGE_KELOS_TASK_TTL` | How long Kelos keeps a finished Task (default `72h`); before it, runs may be missing. |
+| `SILLAGE_KELOS_TASK_TTL` | How long Kelos keeps a finished Task (default `72h`): runs that ended longer ago than that may be missing. |
 | `SILLAGE_GITHUB_TOKEN`, `SILLAGE_GITHUB_API_URL` | A read-only token, and the API (default `https://api.github.com`). |
 | `SILLAGE_WIKI_URL`, `SILLAGE_WIKI_TOKEN`, `SILLAGE_WIKI_AGENT_USERS` | Wiki.js base URL, a read-only key, and the agents' wiki user ids. |
-| `SILLAGE_WORKSPACES` | `<workspace>=<owner>/<repository>` pairs, comma-separated: where a run's workspace (or Vikunja project) works. Without a match, GitHub is not read. |
+| `SILLAGE_WORKSPACES` | `<workspace>=<owner>/<repository>` pairs, comma-separated: where a run's workspace (or Vikunja project) works. Without a match and without `-repo`, GitHub is not read. |
 
 ## Test
 

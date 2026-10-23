@@ -64,6 +64,9 @@ func TestParseStoryArgsRejects(t *testing.T) {
 		{"-task", "1", "extra"},
 		{"-task", "one"},
 		{"-task", "1", "-repo", "widgets"},
+		{"-task", "1", "-page", "0"},
+		{"-page", "0"},
+		{"-task", "0", "-page", "57"},
 	} {
 		var out bytes.Buffer
 		if _, err := parseStoryArgs(args, &out); !errors.Is(err, errUsage) || !strings.Contains(out.String(), "-"+taskFlag) {
@@ -84,20 +87,30 @@ func testStory(t *testing.T, root model.Root) model.Story {
 	return s
 }
 
+// assertPrintedTask fails t unless stdout holds the JSON of task id's story.
+func assertPrintedTask(t *testing.T, stdout []byte, id int64) {
+	t.Helper()
+	var got model.Story
+	if err := json.Unmarshal(stdout, &got); err != nil || got.Root.Task == nil || got.Root.Task.ID != id {
+		t.Errorf("printed %q (%v), want the JSON of task %d's story", stdout, err, id)
+	}
+}
+
 func TestRunStoryPrintsTheStory(t *testing.T) {
 	root := model.Root{Task: &model.TaskKey{Instance: "vikunja.example.com", ID: 102}}
 	fake := &fakeCollector{res: collector.Result{Story: testStory(t, root)}}
 	var stdout, stderr bytes.Buffer
-	if err := runStory(t.Context(), []string{"-task", "102"}, nil, &stdout, &stderr, fake.open); err != nil {
+	args := []string{"-task", "102", "-repo", "example-org/widgets"}
+	if err := runStory(t.Context(), args, nil, &stdout, &stderr, fake.open); err != nil {
 		t.Fatalf("runStory() error = %v, stderr %q", err, stderr.String())
 	}
 	if fake.root.Task == nil || *fake.root.Task != *root.Task {
 		t.Errorf("collected %+v, want task 102 of the configured Vikunja", fake.root)
 	}
-	var got model.Story
-	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil || got.Root.Task == nil || got.Root.Task.ID != 102 {
-		t.Errorf("printed %q (%v), want the story's JSON", stdout.String(), err)
+	if want := []github.Repository{{Owner: "example-org", Name: "widgets"}}; !slices.Equal(fake.repos, want) {
+		t.Errorf("collected with repositories %v, want %v", fake.repos, want)
 	}
+	assertPrintedTask(t, stdout.Bytes(), 102)
 }
 
 func TestRunStoryPageRoot(t *testing.T) {
@@ -119,22 +132,24 @@ func TestRunStoryReportsFailedReads(t *testing.T) {
 	}}
 	var stdout, stderr bytes.Buffer
 	err := runStory(t.Context(), []string{"-task", "102"}, nil, &stdout, &stderr, fake.open)
-	if !errors.Is(err, errPartial) || stdout.Len() == 0 || !strings.Contains(stderr.String(), "github github.example.com: down") {
-		t.Errorf("runStory() = %v, stdout %d bytes, stderr %q; want the story printed and the failure reported",
-			err, stdout.Len(), stderr.String())
+	if !errors.Is(err, errPartial) || !strings.Contains(stderr.String(), "github github.example.com: down") {
+		t.Errorf("runStory() = %v, stderr %q; want errPartial and the failure reported", err, stderr.String())
 	}
+	assertPrintedTask(t, stdout.Bytes(), 102)
 }
 
 func TestRunStoryReturnsErrors(t *testing.T) {
-	failing := &fakeCollector{err: errors.New("invalid records")}
-	if err := runStory(t.Context(), []string{"-task", "1"}, nil, io.Discard, io.Discard, failing.open); err == nil {
-		t.Error("runStory() error = nil, want the collector's error")
+	errInvalid := errors.New("invalid records")
+	failing := &fakeCollector{err: errInvalid}
+	if err := runStory(t.Context(), []string{"-task", "1"}, nil, io.Discard, io.Discard, failing.open); !errors.Is(err, errInvalid) {
+		t.Errorf("runStory() error = %v, want the collector's error", err)
 	}
+	errNoConfig := errors.New("no config")
 	cantOpen := func(func(string) string) (storyCollector, collector.Config, error) {
-		return nil, collector.Config{}, errors.New("no config")
+		return nil, collector.Config{}, errNoConfig
 	}
-	if err := runStory(t.Context(), []string{"-task", "1"}, nil, io.Discard, io.Discard, cantOpen); err == nil {
-		t.Error("runStory() error = nil, want the configuration error")
+	if err := runStory(t.Context(), []string{"-task", "1"}, nil, io.Discard, io.Discard, cantOpen); !errors.Is(err, errNoConfig) {
+		t.Errorf("runStory() error = %v, want the configuration error", err)
 	}
 }
 
