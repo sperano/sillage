@@ -19,17 +19,18 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 
 | Path | What goes there |
 | --- | --- |
-| `cmd/sillage/` | The one binary: today a `GET /healthz` server that also serves the embedded frontend, and `sillage story`, which prints one story assembled from the live sources; later the collector loop, the read API and the frontend together. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s. |
+| `cmd/sillage/` | The one binary: a server of `GET /healthz`, `GET /metrics` and the embedded frontend, which runs the collection loop when a store is configured, and `sillage story`, which prints one story assembled from the live sources; later the read API too. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s. |
 | `internal/model/` | Normalized events, runs, entities and links, and coverage. Source-independent. |
 | `internal/model/storytest/` | The invariant each fixture story exists for, asserted by the model's and the collector's tests. |
-| `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage. Read once, nothing kept. |
+| `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage; and names the roots a Kelos read points to. Read once, nothing kept: a caller passes what a store kept back in. |
 | `internal/source/vikunja/` | Read-only Vikunja client and its normalization into `model`. |
 | `internal/source/github/` | Read-only GitHub client and its normalization into `model`. |
 | `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and its normalization into `model`. |
 | `internal/source/wiki/` | Read-only Wiki.js client and its normalization into `model`. |
 | `internal/source/htmltext/` | Rendered comment HTML to plain text, shared by the sources that parse comments. |
 | `internal/source/kelostext/` | Requests (`/gordon`, `/kelos`) and Kelos start announcements in every form posted, shared by the sources that parse comments. |
-| `internal/store/` | Persistence of `model` records, checkpoints and coverage. |
+| `internal/reconcile/` | The collection loop: which roots to read and when, one Kelos read per cycle, freshness and gaps per root and source, the Prometheus metrics, the one-process lock. Talks to the store through its `Store` and `Locker` interfaces. |
+| `internal/store/` | Persistence of `model` records, checkpoints and coverage; the collector's PostgreSQL advisory lock. |
 | `internal/api/` | The read-only HTTP API over `store`. |
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |

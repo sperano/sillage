@@ -11,7 +11,8 @@ import (
 const testIndex = "<!doctype html><title>test</title>"
 
 func testHandler() http.Handler {
-	return newHandler(fstest.MapFS{"index.html": {Data: []byte(testIndex)}})
+	metrics, _ := newMetrics()
+	return newHandler(fstest.MapFS{"index.html": {Data: []byte(testIndex)}}, metrics)
 }
 
 func TestHealthz(t *testing.T) {

@@ -1,5 +1,7 @@
-// Command sillage serves sillage's HTTP endpoints. For now that is a health
-// check and the embedded frontend; the read API comes later.
+// Command sillage serves sillage's HTTP endpoints: a health check, the
+// Prometheus metrics and the embedded frontend; the read API comes later.
+// With a store configured, it also runs the collector, which keeps the
+// store current.
 //
 // "sillage story -task <id>" (or "-page <id>") instead prints one story's
 // JSON, assembled from the live sources the environment configures.
@@ -80,7 +82,9 @@ func main() {
 	}
 }
 
-// run parses the configuration, listens and serves until ctx is done.
+// run parses the configuration, listens, starts the collector the
+// environment configures, and serves until ctx is done. The collector
+// stops with the server, and run waits for it.
 func run(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) error {
 	cfg, err := parseConfig(args, getenv, stderr)
 	if err != nil {
@@ -92,7 +96,18 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 	if err != nil {
 		return err
 	}
-	return serve(ctx, ln, newHandler(web.FS()))
+	metrics, m := newMetrics()
+	collectCtx, stopCollecting := context.WithCancel(ctx)
+	defer stopCollecting()
+	wait, err := startCollector(collectCtx, getenv, m)
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
+	err = serve(ctx, ln, newHandler(web.FS(), metrics))
+	stopCollecting()
+	wait()
+	return err
 }
 
 // parseConfig reads the configuration from the command line and the

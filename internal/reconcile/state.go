@@ -1,0 +1,178 @@
+package reconcile
+
+import (
+	"encoding/json"
+	"maps"
+	"slices"
+	"time"
+
+	"github.com/sperano/sillage/internal/model"
+)
+
+// The keys of the loop's checkpoints. Every one starts with
+// checkpointPrefix, so that the loop reads only its own.
+const (
+	checkpointPrefix = "collector/"
+	// rootPrefix keys a root's state, after its ref.
+	rootPrefix = checkpointPrefix + "roots/"
+	// projectPrefix keys a Vikunja project's listing mark, after the
+	// instance and the project id.
+	projectPrefix = checkpointPrefix + "vikunja-projects/"
+	// heartbeatKey holds when the last cycle ended.
+	heartbeatKey = checkpointPrefix + "heartbeat"
+)
+
+// rootState is what the loop knows of one root between two reads.
+type rootState struct {
+	Root model.Root `json:"root"`
+	// Digest identifies the records of the root's last read that failed
+	// nowhere; empty before one.
+	Digest string `json:"digest,omitempty"`
+	// Read is when the root was last read, whatever the outcome.
+	Read time.Time `json:"read"`
+	// KelosRuns identifies the runs the last Kelos read named the root
+	// with.
+	KelosRuns string `json:"kelosRuns,omitempty"`
+	// Updated is the task's updated time as the last project listing that
+	// named it said.
+	Updated *time.Time `json:"updated,omitempty"`
+	// Sources are the root's source instances, by coverage key.
+	Sources map[string]*sourceState `json:"sources,omitempty"`
+}
+
+// sourceState is how far one source instance of a root is known.
+type sourceState struct {
+	Source   model.Source `json:"source"`
+	Instance string       `json:"instance"`
+	// FirstSuccess and LastSuccess are when the first and the last
+	// successful reads started.
+	FirstSuccess *time.Time `json:"firstSuccess,omitempty"`
+	LastSuccess  *time.Time `json:"lastSuccess,omitempty"`
+	// Open is the gap a failed read or a restart opened, which the next
+	// successful read closes.
+	Open *openGap `json:"open,omitempty"`
+	// Gaps are the gaps closed so far.
+	Gaps []model.Gap `json:"gaps,omitempty"`
+	// ReadGaps and Notes are what the collector said was missing at the
+	// last read that did not fail.
+	ReadGaps []model.Gap `json:"readGaps,omitempty"`
+	Notes    []string    `json:"notes,omitempty"`
+}
+
+// openGap is a gap whose end is the next successful read.
+type openGap struct {
+	Start  time.Time `json:"start"`
+	Reason string    `json:"reason"`
+}
+
+func newRootState(root model.Root) *rootState {
+	return &rootState{Root: root, Sources: make(map[string]*sourceState)}
+}
+
+// rootKey is the checkpoint key of root's state.
+func rootKey(root model.Root) string { return rootPrefix + root.Ref().String() }
+
+// clone returns a deep copy of s, to change and commit while s stays what
+// the store holds.
+func (s *rootState) clone() *rootState {
+	data, err := json.Marshal(s)
+	if err != nil {
+		panic("reconcile: a root state does not marshal: " + err.Error())
+	}
+	var out rootState
+	if err := json.Unmarshal(data, &out); err != nil {
+		panic("reconcile: a root state does not unmarshal: " + err.Error())
+	}
+	if out.Sources == nil {
+		out.Sources = make(map[string]*sourceState)
+	}
+	return &out
+}
+
+// source returns the state of the source instance cov covers, adding it.
+func (s *rootState) source(cov model.Coverage) *sourceState {
+	st, ok := s.Sources[cov.Key()]
+	if !ok {
+		st = &sourceState{Source: cov.Source, Instance: cov.Instance}
+		s.Sources[cov.Key()] = st
+	}
+	return st
+}
+
+// kelosSince is when Kelos was first read for the root; zero if never.
+func (s *rootState) kelosSince() time.Time {
+	for _, st := range s.Sources {
+		if st.Source == model.SourceKelos && st.FirstSuccess != nil {
+			return *st.FirstSuccess
+		}
+	}
+	return time.Time{}
+}
+
+// coverage returns the root's coverage, in key order.
+func (s *rootState) coverage() []model.Coverage {
+	out := make([]model.Coverage, 0, len(s.Sources))
+	for _, key := range slices.Sorted(maps.Keys(s.Sources)) {
+		out = append(out, s.Sources[key].coverage())
+	}
+	return out
+}
+
+// succeed records a successful read that started at at, with what the
+// collector said it left unknown: it closes the open gap there.
+func (st *sourceState) succeed(at time.Time, cov model.Coverage) {
+	if st.Open != nil {
+		if at.After(st.Open.Start) {
+			st.Gaps = append(st.Gaps, model.Gap{Start: st.Open.Start, End: at, Reason: st.Open.Reason})
+		}
+		st.Open = nil
+	}
+	if st.FirstSuccess == nil {
+		st.FirstSuccess = &at
+	}
+	if st.LastSuccess == nil || at.After(*st.LastSuccess) {
+		st.LastSuccess = &at
+	}
+	st.unread(cov)
+}
+
+// unread records a read that neither succeeded nor failed (nothing named
+// what to read): only what the collector said it left unknown changes.
+func (st *sourceState) unread(cov model.Coverage) {
+	st.ReadGaps = slices.Clone(cov.Gaps)
+	st.Notes = slices.Clone(cov.Notes)
+}
+
+// fail records a failed read: it opens a gap from the last success,
+// unless one is open. Before any success nothing is known, so there is
+// no gap to open.
+func (st *sourceState) fail(reason string) {
+	if st.Open == nil && st.LastSuccess != nil {
+		st.Open = &openGap{Start: *st.LastSuccess, Reason: reason}
+	}
+}
+
+// restart records that sillage was not collecting from after (zero when
+// unknown) until the next successful read.
+func (st *sourceState) restart(after time.Time, reason string) {
+	if st.Open != nil || st.LastSuccess == nil {
+		return
+	}
+	start := *st.LastSuccess
+	if after.After(start) {
+		start = after
+	}
+	st.Open = &openGap{Start: start, Reason: reason}
+}
+
+// coverage is the source's coverage: the last success, every closed gap
+// and those of the last read, and its notes. An open gap is not in it:
+// after the last success, everything is unknown anyway.
+func (st *sourceState) coverage() model.Coverage {
+	gaps := slices.Concat(st.Gaps, st.ReadGaps)
+	slices.SortFunc(gaps, func(a, b model.Gap) int { return a.Start.Compare(b.Start) })
+	return model.Coverage{
+		Source: st.Source, Instance: st.Instance, LastSuccessfulRead: st.LastSuccess,
+		Gaps: gaps, Notes: slices.Clone(st.Notes),
+	}
+}
