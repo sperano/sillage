@@ -8,7 +8,8 @@ import (
 )
 
 // Store keeps what the loop reads, so that a story outlives its sources'
-// cleanup and sillage's restarts.
+// cleanup and sillage's restarts. Each method returns, with an error,
+// once its context is done: the loop bounds every call with a deadline.
 type Store interface {
 	// Records returns everything committed for root: its events, runs,
 	// pull requests and correlations, and its coverage. A root never

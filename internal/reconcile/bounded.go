@@ -11,7 +11,8 @@ import (
 // of the checkpoints, or a commit. A store that blocks (a lock wait, a
 // connection that hangs) then fails the operation as a store error,
 // instead of holding the collector lock while no cycle progresses. It
-// bounds the store alone: each source read keeps its own readTimeout.
+// bounds the store alone: each source read keeps its own readTimeout. It
+// holds only if the Store returns once its context is done.
 const storeTimeout = time.Minute
 
 // boundedStore runs each operation of s within timeout.

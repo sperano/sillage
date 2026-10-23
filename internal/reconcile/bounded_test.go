@@ -90,19 +90,19 @@ func TestBoundedStoreBoundsEachOperation(t *testing.T) {
 
 func TestHangingStoreDoesNotStallTheCycle(t *testing.T) {
 	for _, tc := range []struct {
-		name      string
-		store     func(*fakeStore) hangingStore
-		operation string
-		want      float64
+		name            string
+		records, commit bool
+		operation       string
+		want            float64
 	}{
-		{"records", func(s *fakeStore) hangingStore { return hangingStore{fakeStore: s, records: true} },
-			operationRead, 1},
-		{"commit", func(s *fakeStore) hangingStore { return hangingStore{fakeStore: s, commit: true} },
-			operationCommit, 1 + 1},
+		{name: "records", records: true, operation: operationRead, want: 1},
+		// The root's commit, and the cycle's.
+		{name: "commit", commit: true, operation: operationCommit, want: 1 + 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newHarness(t, everyCycle)
-			h.loop.store = boundedStore{s: tc.store(h.store), timeout: testStoreTimeout}
+			hanging := hangingStore{fakeStore: h.store, records: tc.records, commit: tc.commit}
+			h.loop.store = boundedStore{s: hanging, timeout: testStoreTimeout}
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
@@ -116,7 +116,7 @@ func TestHangingStoreDoesNotStallTheCycle(t *testing.T) {
 			if got := testutil.ToFloat64(h.loop.metrics.storeErrors.WithLabelValues(tc.operation)); got != tc.want {
 				t.Errorf("%s errors = %v, want %v", tc.operation, got, tc.want)
 			}
-			h.loop.store = boundedStore{s: h.store, timeout: testStoreTimeout}
+			h.loop.store = boundedStore{s: h.store, timeout: storeTimeout}
 			h.loop.cycle(t.Context())
 			if c := h.store.lastCommit(t); written(c) == 0 {
 				t.Error("once the store answers again, the next read wrote nothing")
