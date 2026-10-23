@@ -19,8 +19,9 @@
 	let shown: Route['name'] | undefined;
 
 	// After a navigation, move focus to the new page's heading, so that a
-	// keyboard or screen reader user lands on what replaced the link. A new
-	// search keeps the entry page, and the focus where the reader is.
+	// keyboard or screen reader user lands on what replaced the link. Moving
+	// from one search to another keeps the entry page, and the focus where
+	// the reader is.
 	$effect(() => {
 		const samePage = shown === 'home' && route.name === 'home';
 		shown = route.name;

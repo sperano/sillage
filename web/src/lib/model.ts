@@ -74,10 +74,9 @@ export const EVENT_KIND_SOURCES = {
 	'pr.reopened': ['github']
 } as const satisfies Record<string, readonly Source[]>;
 export type EventKind = keyof typeof EVENT_KIND_SOURCES;
-// Object.keys types its result string[]; these keys are EventKind by definition.
-export const EVENT_KINDS: readonly EventKind[] = Object.freeze(
-	Object.keys(EVENT_KIND_SOURCES) as EventKind[]
-);
+// Object.keys types its result string[]; these keys are EventKind by
+// definition. Frozen, as the decoder checks against it.
+export const EVENT_KINDS = Object.freeze(Object.keys(EVENT_KIND_SOURCES) as EventKind[]);
 
 /** Where an event id comes from: the source, or a fingerprint when it has none. */
 export const ID_KINDS = ['source', 'fingerprint'] as const;

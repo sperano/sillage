@@ -111,7 +111,7 @@ function daysIn(year: number, month: number): number {
 }
 
 // An instant at full precision: whole Unix seconds, and the digits of the
-// fraction of a second, without trailing zeros.
+// fraction of a second as written.
 interface Instant {
 	seconds: number;
 	fraction: string;
@@ -147,7 +147,7 @@ function parseTime(s: string): Instant | undefined {
 	const local = utcMs(year, month, day, hour, minute, second) / MS_PER_SECOND;
 	return {
 		seconds: g.offsetSign === '-' ? local + offset : local - offset,
-		fraction: (g.fraction ?? '').replace(/0+$/, '')
+		fraction: g.fraction ?? ''
 	};
 }
 
@@ -173,7 +173,7 @@ export function compareTimes(a: string, b: string): number {
 		throw new RangeError(`not an RFC 3339 time: ${JSON.stringify(x ? b : a)}`);
 	}
 	if (x.seconds !== y.seconds) return x.seconds - y.seconds;
-	// Fractions of one length compare as their digits do.
+	// Padded to one length, fractions compare as their digits do: .5 is .500.
 	const width = Math.max(x.fraction.length, y.fraction.length);
 	const fx = x.fraction.padEnd(width, '0');
 	const fy = y.fraction.padEnd(width, '0');
