@@ -1,0 +1,182 @@
+{
+  "description": "Agent birch ran on the day before; its pull request was merged and the task marked done that day: nothing of it is in the afternoon's window.",
+  "title": "Old report",
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 207
+    }
+  },
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "tasks/207",
+      "idKind": "source",
+      "kind": "task.created",
+      "sourceTime": "2026-03-09T09:00:00Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "owner",
+        "kind": "person"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 207
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/207",
+        "note": "created, created_by"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "pulls/20",
+      "idKind": "source",
+      "kind": "pr.opened",
+      "sourceTime": "2026-03-09T10:19:00Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 20
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/20",
+        "note": "user owner-gh; label kelos:agent-birch names the executor"
+      },
+      "details": {
+        "branch": "kelos/vikunja-207"
+      },
+      "executor": {
+        "name": "agent-birch",
+        "kind": "agent"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/events/82001",
+      "idKind": "source",
+      "kind": "pr.merged",
+      "sourceTime": "2026-03-09T11:00:00Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 20
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/20/timeline",
+        "note": "event 82001, merged"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:9925ae1a86b90806c9e113c180d027d460ac3ca2056bd0b444936fda4f9b635f",
+      "idKind": "fingerprint",
+      "kind": "task.done",
+      "sourceTime": "2026-03-09T11:02:00Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 207
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/207",
+        "note": "done, done_at"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000000207"
+      },
+      "taskName": "vikunja-widgets-agent-birch-207",
+      "pod": "vikunja-widgets-agent-birch-207-hhhhh",
+      "agent": "agent-birch",
+      "project": "widgets",
+      "role": "implementation",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-09T10:00:00Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-03-09T10:20:00Z"
+        }
+      },
+      "outcome": "succeeded",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/vikunja-widgets-agent-birch-207-00000207",
+          "note": "phase, startTime, completionTime"
+        }
+      ]
+    }
+  ],
+  "pullRequests": [
+    {
+      "key": {
+        "instance": "github.example.com",
+        "repository": "example-org/widgets",
+        "number": 20
+      },
+      "branch": "kelos/vikunja-207",
+      "checks": []
+    }
+  ],
+  "correlations": [],
+  "coverage": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+    },
+    {
+      "source": "kelos",
+      "instance": "cluster-a",
+      "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+    }
+  ]
+}

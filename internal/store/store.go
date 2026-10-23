@@ -43,6 +43,9 @@ type Reader interface {
 	// Freshness returns how recently each source instance was read,
 	// across the stored roots.
 	Freshness(ctx context.Context) ([]SourceFreshness, error)
+	// Activity returns the roots that may have been active in a window,
+	// with the records an overview reads of them, or ErrTooManyRoots.
+	Activity(ctx context.Context, q ActivityQuery) ([]RootActivity, error)
 }
 
 var _ Reader = (*Store)(nil)

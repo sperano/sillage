@@ -1,0 +1,118 @@
+{
+  "description": "A run is announced at 14:02, but the Kelos watch had expired from 13:30 to 14:50 and its Task and TaskRecord were gone before the relist: the run is keyed by pod, its interval and outcome unknown.",
+  "title": "Storage cleanup",
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 205
+    }
+  },
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "tasks/205",
+      "idKind": "source",
+      "kind": "task.created",
+      "sourceTime": "2026-03-10T13:20:00Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "owner",
+        "kind": "person"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 205
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/205",
+        "note": "created, created_by"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/20501",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-03-10T14:02:10Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "kelos-bot",
+        "kind": "service"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 205
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/205/comments",
+        "note": "comment 20501"
+      },
+      "details": {
+        "agent": "agent-maple",
+        "pod": "vikunja-widgets-agent-maple-205-fffff",
+        "taskName": "vikunja-widgets-agent-maple-205"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "pod": "vikunja-widgets-agent-maple-205-fffff"
+      },
+      "taskName": "vikunja-widgets-agent-maple-205",
+      "pod": "vikunja-widgets-agent-maple-205-fffff",
+      "agent": "agent-maple",
+      "role": "implementation",
+      "interval": {
+        "start": {
+          "state": "unknown"
+        },
+        "end": {
+          "state": "unknown"
+        }
+      },
+      "outcome": "unknown",
+      "evidence": [
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "ref": "GET /api/v1/tasks/205/comments",
+          "note": "comment 20501 announces the run; no Task or TaskRecord was ever read"
+        }
+      ]
+    }
+  ],
+  "pullRequests": [],
+  "correlations": [],
+  "coverage": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+    },
+    {
+      "source": "kelos",
+      "instance": "cluster-a",
+      "lastSuccessfulRead": "2026-03-10T15:05:00Z",
+      "gaps": [
+        {
+          "start": "2026-03-10T13:30:00Z",
+          "end": "2026-03-10T14:50:00Z",
+          "reason": "the Kelos watch expired; Tasks deleted before the relist were not read"
+        }
+      ]
+    }
+  ]
+}

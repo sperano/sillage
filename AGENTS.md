@@ -30,8 +30,9 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/source/htmltext/` | Rendered comment HTML to plain text, shared by the sources that parse comments. |
 | `internal/source/kelostext/` | Requests (`/gordon`, `/kelos`) and Kelos start announcements in every form posted, shared by the sources that parse comments. |
 | `internal/store/` | PostgreSQL persistence of `model` records, checkpoints and coverage; `migrations/` holds the numbered SQL files embedded and applied at startup (add one, never edit one that shipped). |
-| `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, search, link resolution, version. No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
-| `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |
+| `internal/overview/` | The multi-task overview of a window: one row per task or page with its runs, pull requests, review waits and state changes in it, and whether its history is missing; filters and cursor pages. Pure: model records in, rows out. |
+| `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, search, link resolution, the overview, version. No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
+| `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests; `overview/`, the overview's set of overlapping stories and its golden overview. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
 | `web/src/lib/` | The story types (`model.ts`), their key strings (`keys.ts`) and their runtime decoder, the read API client, the routes and the router. |
 | `web/src/lib/selection.svelte.ts` | The selected event, run, check or review wait (`ItemRef`, `timeline.ts`), one instance shared by the timeline graph, the event list and the detail panel. |
@@ -148,6 +149,13 @@ story (`web/src/lib/decodeModel.test.ts`, which rejects unknown fields and
 values) and render it (`web/src/pages/StoryPage.svelte.test.ts`), so a
 change to the story JSON also changes `web/src/lib/model.ts` and
 `web/src/lib/decodeModel.ts` in the same PR.
+
+`testdata/fixtures/overview/` is the multi-task overview's set: stories of
+several tasks with overlapping runs over one afternoon and the golden
+overview of its window (`go test ./internal/overview -run
+TestOverviewGolden -update`). The API serves it and the web tests decode
+and render it, so a change to the overview's JSON also changes
+`web/src/lib/overview/` in the same PR.
 
 ## Rules
 

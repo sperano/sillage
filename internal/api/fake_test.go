@@ -19,6 +19,10 @@ import (
 // storiesDir holds the fixture stories and their golden files.
 const storiesDir = "../../testdata/fixtures/stories"
 
+// overviewStoriesDir holds the overview fixture set: one afternoon of
+// seven tasks, one file each.
+const overviewStoriesDir = "../../testdata/fixtures/overview/stories"
+
 // goldenFile is each fixture story's model.BuildStory output.
 const goldenFile = "story.golden.json"
 
@@ -58,15 +62,44 @@ func loadFixtures(t *testing.T) []fixture {
 	return out
 }
 
+// loadOverviewFixtures reads every story of the overview fixture set.
+func loadOverviewFixtures(t *testing.T) []store.RootActivity {
+	t.Helper()
+	paths, err := filepath.Glob(filepath.Join(overviewStoriesDir, "*.json"))
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("no overview fixtures in %s: %v", overviewStoriesDir, err)
+	}
+	var out []store.RootActivity
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var f struct {
+			Title string     `json:"title"`
+			Root  model.Root `json:"root"`
+			model.Records
+		}
+		if err := json.Unmarshal(data, &f); err != nil {
+			t.Fatalf("%s: %v", p, err)
+		}
+		out = append(out, store.RootActivity{RootSummary: store.RootSummary{Root: f.Root, Title: f.Title}, Records: f.Records})
+	}
+	return out
+}
+
 // fakeStore is a store.Reader over the fixture stories, each titled by
-// its fixture's name.
+// its fixture's name, and the overview fixture set.
 type fakeStore struct {
-	stories []fixture
+	stories  []fixture
+	overview []store.RootActivity
 }
 
 var _ store.Reader = (*fakeStore)(nil)
 
-func newFakeStore(t *testing.T) *fakeStore { return &fakeStore{stories: loadFixtures(t)} }
+func newFakeStore(t *testing.T) *fakeStore {
+	return &fakeStore{stories: loadFixtures(t), overview: loadOverviewFixtures(t)}
+}
 
 func rootKey(r model.Root) string {
 	if r.Task != nil {
@@ -198,6 +231,23 @@ func countRead(f *store.SourceFreshness, at *time.Time) {
 	case at.Before(*f.OldestRead):
 		f.OldestRead = at
 	}
+}
+
+// Activity returns every story, the overview set's and the fixture
+// stories, with the project q names when it names one: more than the store
+// would, which the overview narrows to the window.
+func (f *fakeStore) Activity(_ context.Context, q store.ActivityQuery) ([]store.RootActivity, error) {
+	all := slices.Clone(f.overview)
+	for _, s := range f.stories {
+		all = append(all, store.RootActivity{RootSummary: summary(s), Records: s.story.Records})
+	}
+	out := slices.DeleteFunc(all, func(a store.RootActivity) bool {
+		return q.Project != "" && !slices.ContainsFunc(a.Records.Runs, func(r model.Run) bool { return r.Project == q.Project })
+	})
+	if limit := cmp.Or(q.Limit, store.MaxActivityRoots); len(out) > limit {
+		return nil, store.ErrTooManyRoots
+	}
+	return out, nil
 }
 
 // fakeWiki lists fixed pages, or fails with err.

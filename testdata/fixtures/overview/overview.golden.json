@@ -1,0 +1,621 @@
+{
+  "window": {
+    "from": "2026-03-10T14:00:00Z",
+    "to": "2026-03-10T15:00:00Z"
+  },
+  "rows": [
+    {
+      "root": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 201
+        }
+      },
+      "title": "Health check",
+      "projects": [
+        "widgets"
+      ],
+      "runs": [
+        {
+          "key": {
+            "cluster": "cluster-a",
+            "namespace": "agents",
+            "uid": "00000000-0000-4000-8000-000000000201"
+          },
+          "taskName": "vikunja-widgets-agent-cedar-201",
+          "pod": "vikunja-widgets-agent-cedar-201-aaaaa",
+          "agent": "agent-cedar",
+          "project": "widgets",
+          "role": "implementation",
+          "created": "2026-03-10T14:10:30Z",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-03-10T14:11:00Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-03-10T14:34:00Z"
+            }
+          },
+          "outcome": "succeeded",
+          "evidence": [
+            {
+              "source": "kelos",
+              "instance": "cluster-a",
+              "ref": "taskrecords/agents/vikunja-widgets-agent-cedar-201-00000201",
+              "note": "phase, startTime, completionTime"
+            }
+          ]
+        }
+      ],
+      "pullRequests": [
+        {
+          "key": {
+            "instance": "github.example.com",
+            "repository": "example-org/widgets",
+            "number": 21
+          },
+          "branch": "kelos/vikunja-201",
+          "periods": [
+            {
+              "start": {
+                "state": "known",
+                "at": "2026-03-10T14:33:00Z"
+              },
+              "end": {
+                "state": "open"
+              }
+            }
+          ],
+          "state": "open"
+        }
+      ],
+      "reviewWaits": [
+        {
+          "pr": {
+            "instance": "github.example.com",
+            "repository": "example-org/widgets",
+            "number": 21
+          },
+          "reviewer": "owner-gh",
+          "request": "github/github.example.com/issues/events/82101",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-03-10T14:34:00Z"
+            },
+            "end": {
+              "state": "open"
+            }
+          }
+        }
+      ],
+      "marks": [
+        {
+          "kind": "run.announced",
+          "at": "2026-03-10T14:11:05Z",
+          "event": "vikunja/vikunja.example.com/comments/20101",
+          "pod": "vikunja-widgets-agent-cedar-201-aaaaa"
+        },
+        {
+          "kind": "pr.opened",
+          "at": "2026-03-10T14:33:00Z",
+          "event": "github/github.example.com/pulls/21",
+          "pr": {
+            "instance": "github.example.com",
+            "repository": "example-org/widgets",
+            "number": 21
+          }
+        }
+      ],
+      "coverage": [
+        {
+          "source": "github",
+          "instance": "github.example.com",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        },
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        },
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        }
+      ],
+      "missingHistory": false,
+      "lastActivity": "2026-03-10T15:00:00Z"
+    },
+    {
+      "root": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 202
+        }
+      },
+      "title": "Docs navigation",
+      "projects": [
+        "widgets"
+      ],
+      "runs": [
+        {
+          "key": {
+            "cluster": "cluster-a",
+            "namespace": "agents",
+            "uid": "00000000-0000-4000-8000-000000000202"
+          },
+          "taskName": "vikunja-widgets-agent-birch-202",
+          "pod": "vikunja-widgets-agent-birch-202-bbbbb",
+          "agent": "agent-birch",
+          "project": "widgets",
+          "role": "implementation",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-03-10T14:08:00Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-03-10T14:22:00Z"
+            }
+          },
+          "outcome": "succeeded",
+          "evidence": [
+            {
+              "source": "kelos",
+              "instance": "cluster-a",
+              "ref": "taskrecords/agents/vikunja-widgets-agent-birch-202-00000202",
+              "note": "phase, startTime, completionTime"
+            }
+          ]
+        }
+      ],
+      "pullRequests": [
+        {
+          "key": {
+            "instance": "github.example.com",
+            "repository": "example-org/widgets",
+            "number": 22
+          },
+          "branch": "kelos/vikunja-202",
+          "periods": [
+            {
+              "start": {
+                "state": "known",
+                "at": "2026-03-10T14:21:00Z"
+              },
+              "end": {
+                "state": "open"
+              }
+            }
+          ],
+          "state": "open"
+        }
+      ],
+      "reviewWaits": [
+        {
+          "pr": {
+            "instance": "github.example.com",
+            "repository": "example-org/widgets",
+            "number": 22
+          },
+          "reviewer": "owner-gh",
+          "request": "github/github.example.com/issues/events/82201",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-03-10T14:22:00Z"
+            },
+            "end": {
+              "state": "open"
+            }
+          }
+        }
+      ],
+      "marks": [
+        {
+          "kind": "pr.opened",
+          "at": "2026-03-10T14:21:00Z",
+          "event": "github/github.example.com/pulls/22",
+          "pr": {
+            "instance": "github.example.com",
+            "repository": "example-org/widgets",
+            "number": 22
+          }
+        }
+      ],
+      "coverage": [
+        {
+          "source": "github",
+          "instance": "github.example.com",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        },
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        },
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        }
+      ],
+      "missingHistory": false,
+      "lastActivity": "2026-03-10T15:00:00Z"
+    },
+    {
+      "root": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 203
+        }
+      },
+      "title": "Cache metrics",
+      "projects": [
+        "gadgets"
+      ],
+      "runs": [
+        {
+          "key": {
+            "cluster": "cluster-a",
+            "namespace": "agents",
+            "uid": "00000000-0000-4000-8000-000000002031"
+          },
+          "taskName": "vikunja-gadgets-agent-cedar-203",
+          "pod": "vikunja-gadgets-agent-cedar-203-ccccc",
+          "agent": "agent-cedar",
+          "project": "gadgets",
+          "role": "implementation",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-03-10T14:08:00Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-03-10T14:35:00Z"
+            }
+          },
+          "outcome": "failed",
+          "evidence": [
+            {
+              "source": "kelos",
+              "instance": "cluster-a",
+              "ref": "taskrecords/agents/vikunja-gadgets-agent-cedar-203-00002031",
+              "note": "phase, startTime, completionTime"
+            }
+          ]
+        },
+        {
+          "key": {
+            "cluster": "cluster-a",
+            "namespace": "agents",
+            "uid": "00000000-0000-4000-8000-000000002032"
+          },
+          "taskName": "vikunja-gadgets-agent-cedar-203",
+          "pod": "vikunja-gadgets-agent-cedar-203-ddddd",
+          "agent": "agent-cedar",
+          "project": "gadgets",
+          "role": "implementation",
+          "created": "2026-03-10T14:35:30Z",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-03-10T14:40:00Z"
+            },
+            "end": {
+              "state": "open"
+            }
+          },
+          "outcome": "running",
+          "evidence": [
+            {
+              "source": "kelos",
+              "instance": "cluster-a",
+              "ref": "taskrecords/agents/vikunja-gadgets-agent-cedar-203-00002032",
+              "note": "phase, startTime"
+            }
+          ]
+        }
+      ],
+      "pullRequests": [],
+      "reviewWaits": [],
+      "marks": [
+        {
+          "kind": "run.announced",
+          "at": "2026-03-10T14:08:05Z",
+          "event": "vikunja/vikunja.example.com/comments/20301",
+          "pod": "vikunja-gadgets-agent-cedar-203-ccccc"
+        },
+        {
+          "kind": "run.announced",
+          "at": "2026-03-10T14:40:05Z",
+          "event": "vikunja/vikunja.example.com/comments/20302",
+          "pod": "vikunja-gadgets-agent-cedar-203-ddddd"
+        }
+      ],
+      "coverage": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        },
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        }
+      ],
+      "missingHistory": false,
+      "lastActivity": "2026-03-10T15:00:00Z"
+    },
+    {
+      "root": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 204
+        }
+      },
+      "title": "Route rules",
+      "projects": [
+        "widgets"
+      ],
+      "runs": [
+        {
+          "key": {
+            "cluster": "cluster-a",
+            "namespace": "agents",
+            "uid": "00000000-0000-4000-8000-000000000204"
+          },
+          "taskName": "vikunja-widgets-agent-maple-204",
+          "pod": "vikunja-widgets-agent-maple-204-eeeee",
+          "agent": "agent-maple",
+          "project": "widgets",
+          "role": "implementation",
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-03-10T13:58:00Z"
+            },
+            "end": {
+              "state": "known",
+              "at": "2026-03-10T14:28:00Z"
+            }
+          },
+          "outcome": "succeeded",
+          "evidence": [
+            {
+              "source": "kelos",
+              "instance": "cluster-a",
+              "ref": "taskrecords/agents/vikunja-widgets-agent-maple-204-00000204",
+              "note": "phase, startTime, completionTime"
+            }
+          ]
+        }
+      ],
+      "pullRequests": [
+        {
+          "key": {
+            "instance": "github.example.com",
+            "repository": "example-org/widgets",
+            "number": 23
+          },
+          "branch": "kelos/vikunja-204",
+          "periods": [
+            {
+              "start": {
+                "state": "known",
+                "at": "2026-03-10T14:28:00Z"
+              },
+              "end": {
+                "state": "known",
+                "at": "2026-03-10T14:40:00Z"
+              }
+            }
+          ],
+          "state": "closed"
+        }
+      ],
+      "reviewWaits": [],
+      "marks": [
+        {
+          "kind": "pr.opened",
+          "at": "2026-03-10T14:28:00Z",
+          "event": "github/github.example.com/pulls/23",
+          "pr": {
+            "instance": "github.example.com",
+            "repository": "example-org/widgets",
+            "number": 23
+          }
+        },
+        {
+          "kind": "pr.closed",
+          "at": "2026-03-10T14:40:00Z",
+          "event": "github/github.example.com/issues/events/82301",
+          "pr": {
+            "instance": "github.example.com",
+            "repository": "example-org/widgets",
+            "number": 23
+          }
+        }
+      ],
+      "coverage": [
+        {
+          "source": "github",
+          "instance": "github.example.com",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        },
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        },
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        }
+      ],
+      "missingHistory": false,
+      "lastActivity": "2026-03-10T14:40:00Z"
+    },
+    {
+      "root": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 206
+        }
+      },
+      "title": "Login banner",
+      "projects": [
+        "widgets"
+      ],
+      "runs": [],
+      "pullRequests": [
+        {
+          "key": {
+            "instance": "github.example.com",
+            "repository": "example-org/widgets",
+            "number": 24
+          },
+          "branch": "kelos/vikunja-206",
+          "periods": [
+            {
+              "start": {
+                "state": "known",
+                "at": "2026-03-10T13:44:00Z"
+              },
+              "end": {
+                "state": "known",
+                "at": "2026-03-10T14:15:00Z"
+              }
+            }
+          ],
+          "state": "merged"
+        }
+      ],
+      "reviewWaits": [],
+      "marks": [
+        {
+          "kind": "pr.review_submitted",
+          "at": "2026-03-10T14:10:00Z",
+          "event": "github/github.example.com/reviews/82401",
+          "pr": {
+            "instance": "github.example.com",
+            "repository": "example-org/widgets",
+            "number": 24
+          }
+        },
+        {
+          "kind": "pr.merged",
+          "at": "2026-03-10T14:15:00Z",
+          "event": "github/github.example.com/issues/events/82402",
+          "pr": {
+            "instance": "github.example.com",
+            "repository": "example-org/widgets",
+            "number": 24
+          }
+        },
+        {
+          "kind": "task.done",
+          "at": "2026-03-10T14:16:00Z",
+          "event": "vikunja/vikunja.example.com/sha256:d218174fecbce9f2037243922e6306cc72a28cb5260e3fd74214d41a7d726f8e"
+        }
+      ],
+      "coverage": [
+        {
+          "source": "github",
+          "instance": "github.example.com",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        },
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        },
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        }
+      ],
+      "missingHistory": false,
+      "lastActivity": "2026-03-10T14:16:00Z"
+    },
+    {
+      "root": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 205
+        }
+      },
+      "title": "Storage cleanup",
+      "runs": [
+        {
+          "key": {
+            "cluster": "cluster-a",
+            "namespace": "agents",
+            "pod": "vikunja-widgets-agent-maple-205-fffff"
+          },
+          "taskName": "vikunja-widgets-agent-maple-205",
+          "pod": "vikunja-widgets-agent-maple-205-fffff",
+          "agent": "agent-maple",
+          "role": "implementation",
+          "interval": {
+            "start": {
+              "state": "unknown"
+            },
+            "end": {
+              "state": "unknown"
+            }
+          },
+          "outcome": "unknown",
+          "evidence": [
+            {
+              "source": "vikunja",
+              "instance": "vikunja.example.com",
+              "ref": "GET /api/v1/tasks/205/comments",
+              "note": "comment 20501 announces the run; no Task or TaskRecord was ever read"
+            }
+          ]
+        }
+      ],
+      "pullRequests": [],
+      "reviewWaits": [],
+      "marks": [
+        {
+          "kind": "run.announced",
+          "at": "2026-03-10T14:02:10Z",
+          "event": "vikunja/vikunja.example.com/comments/20501",
+          "pod": "vikunja-widgets-agent-maple-205-fffff"
+        }
+      ],
+      "coverage": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z",
+          "gaps": [
+            {
+              "start": "2026-03-10T13:30:00Z",
+              "end": "2026-03-10T14:50:00Z",
+              "reason": "the Kelos watch expired; Tasks deleted before the relist were not read"
+            }
+          ]
+        },
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        }
+      ],
+      "missingHistory": true,
+      "lastActivity": "2026-03-10T14:02:10Z"
+    }
+  ],
+  "total": 6
+}

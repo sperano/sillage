@@ -2,8 +2,10 @@
 // under /api/v1/: the story of a task or wiki page (model.Story as JSON,
 // unchanged: the golden stories under testdata/fixtures/stories are its
 // contract), a root's coverage, how fresh each source's reads are, root
-// search, the resolution of a pasted link to the story it belongs to, and
-// the binary's version.
+// search, the resolution of a pasted link to the story it belongs to, the
+// multi-task overview of a window (internal/overview's rows, paginated:
+// the golden overview under testdata/fixtures/overview is its contract),
+// and the binary's version.
 //
 // The API has no authentication of its own. Authentik forward-auth in
 // front of sillage (Hollingsworth's helm/sillage gateway-auth) is what
