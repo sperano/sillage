@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
+
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/kelos"
 )
@@ -112,6 +114,10 @@ func TestKelosReadThatDoesNotNormalizeOpensAGap(t *testing.T) {
 	open := h.loop.roots[testRoot().Ref()].Sources["kelos/"+testCluster].Open
 	if open == nil || !strings.Contains(open.Reason, "do not normalize") {
 		t.Errorf("open gap = %+v, want one saying the read does not normalize", open)
+	}
+	errs := h.loop.metrics.readErrors.WithLabelValues(string(model.SourceKelos), testCluster, reasonFailed)
+	if got := testutil.ToFloat64(errs); got != 1 {
+		t.Errorf("kelos read errors = %v, want the read that does not normalize", got)
 	}
 }
 

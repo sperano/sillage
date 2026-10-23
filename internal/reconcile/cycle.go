@@ -11,6 +11,7 @@ import (
 
 	"github.com/sperano/sillage/internal/collector"
 	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/source/kelos"
 )
 
 // due is a root a cycle reads, and what says it changed.
@@ -80,31 +81,37 @@ func (l *Loop) meterFor(src model.Source, instance string) meter {
 }
 
 // readKelos reads the namespace once for the cycle, and returns the
-// cycle's collector over that read and the roots it names.
+// cycle's collector over that read and the roots it names. A read whose
+// objects do not normalize serves no root: it fails, as metrics and gaps
+// say.
 func (l *Loop) readKelos(ctx context.Context) (cycleRun, []collector.Discovered, error) {
-	at := l.now()
-	snap, err := timed(ctx, l.meterFor(model.SourceKelos, l.ccfg.Kelos.Cluster), l.src.Kelos.Read)
-	c, cerr := collector.New(l.ccfg, collector.Sources{
+	read := &cycleKelos{}
+	c, err := collector.New(l.ccfg, collector.Sources{
 		Vikunja: meteredVikunja{src: l.src.Vikunja, meter: l.meterFor(model.SourceVikunja, l.ccfg.VikunjaInstance)},
-		Kelos:   cycleKelos{snap: snap, err: err},
+		Kelos:   read,
 		GitHub:  meteredGitHub{src: l.src.GitHub, meter: l.meterFor(model.SourceGitHub, l.ccfg.GitHubInstance)},
 		Wiki:    &cycleWiki{src: l.src.Wiki, meter: l.meterFor(model.SourceWiki, l.ccfg.WikiInstance)},
 	})
-	if cerr != nil {
-		return cycleRun{}, nil, cerr
-	}
-	cr := cycleRun{c: c, kelosAt: at}
 	if err != nil {
+		return cycleRun{}, nil, err
+	}
+	cr := cycleRun{c: c, kelosAt: l.now()}
+	var discovered []collector.Discovered
+	read.snap, read.err = timed(ctx, l.meterFor(model.SourceKelos, l.ccfg.Kelos.Cluster),
+		func(ctx context.Context) (kelos.Snapshot, error) {
+			snap, err := l.src.Kelos.Read(ctx)
+			if err != nil {
+				return snap, err
+			}
+			if discovered, err = c.Discover(snap); err != nil {
+				return snap, fmt.Errorf("its objects do not normalize: %w", err)
+			}
+			return snap, nil
+		})
+	if read.err != nil {
 		if ctx.Err() == nil {
-			l.kelosFailed(ctx, err)
+			l.kelosFailed(ctx, read.err)
 		}
-		return cr, nil, nil
-	}
-	discovered, err := c.Discover(snap)
-	if err != nil {
-		// A read that does not normalize serves no root, as one that
-		// failed.
-		l.kelosFailed(ctx, fmt.Errorf("its objects do not normalize: %w", err))
 		return cr, nil, nil
 	}
 	return cr, discovered, nil

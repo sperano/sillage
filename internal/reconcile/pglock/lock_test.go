@@ -90,26 +90,28 @@ func TestCancelReleases(t *testing.T) {
 }
 
 func TestLost(t *testing.T) {
-	for _, sign := range []int64{1, -1} {
-		locks, url := testLocks(t, 1)
-		l := locks[0]
-		// Both halves of the key range: a negative key's high half is
-		// held as an unsigned classid.
-		l.key = sign * (l.key | 1<<32)
-		err := l.WithLock(t.Context(), func(ctx context.Context) error {
-			if err := terminateHolder(t, url, l.key); err != nil {
-				return err
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(testWait):
-				return errors.New("the lock's context was not canceled")
+	// Both halves of the key range: a negative key's high half is held as
+	// an unsigned classid.
+	for name, sign := range map[string]int64{"positive key": 1, "negative key": -1} {
+		t.Run(name, func(t *testing.T) {
+			locks, url := testLocks(t, 1)
+			l := locks[0]
+			l.key = sign * (l.key | 1<<32)
+			err := l.WithLock(t.Context(), func(ctx context.Context) error {
+				if err := terminateHolder(t, url, l.key); err != nil {
+					return err
+				}
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(testWait):
+					return errors.New("the lock's context was not canceled")
+				}
+			})
+			if !errors.Is(err, reconcile.ErrLockLost) {
+				t.Errorf("key %d: WithLock() = %v, want ErrLockLost", l.key, err)
 			}
 		})
-		if !errors.Is(err, reconcile.ErrLockLost) {
-			t.Errorf("key %d: WithLock() = %v, want ErrLockLost", l.key, err)
-		}
 	}
 }
 
