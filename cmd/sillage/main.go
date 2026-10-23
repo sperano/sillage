@@ -1,5 +1,9 @@
-// Command sillage serves sillage's HTTP endpoints. For now that is a health
-// check and the embedded frontend; the read API comes later.
+// Command sillage serves sillage's HTTP endpoints: a health check, the
+// read API over the store (internal/api, under /api/, which must stay
+// behind the Authentik forward-auth) and the embedded frontend. With
+// SILLAGE_DATABASE_URL set, it migrates and prunes the store at startup;
+// without, the API answers 503 for what it would read. The collector comes
+// later.
 //
 // "sillage story -task <id>" (or "-page <id>") instead prints one story's
 // JSON, assembled from the live sources the environment configures.
@@ -19,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sperano/sillage/internal/api"
 	"github.com/sperano/sillage/web"
 )
 
@@ -30,6 +35,14 @@ const (
 	listenAddrEnv = "SILLAGE_LISTEN_ADDR"
 	// readHeaderTimeout bounds how long a client may take to send headers.
 	readHeaderTimeout = 10 * time.Second
+	// responseWriteTime is how long a response may take to send, once
+	// the handler has it.
+	responseWriteTime = time.Minute
+	// writeTimeout bounds a request from its headers to the end of its
+	// response: the API's own bound on answering (the default: newAPI sets
+	// no other), then responseWriteTime to send it, so that a client that
+	// stops reading cannot hold the connection.
+	writeTimeout = api.DefaultTimeout + responseWriteTime
 	// idleTimeout closes keep-alive connections left idle this long.
 	idleTimeout = 2 * time.Minute
 	// shutdownTimeout bounds how long in-flight requests may take to finish
@@ -87,12 +100,27 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 		return err
 	}
 	slog.Info("starting", "version", version)
+	// Listen first: a bad or busy address fails the start before the store
+	// is migrated or pruned.
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", cfg.listenAddr)
 	if err != nil {
 		return err
 	}
-	return serve(ctx, ln, newHandler(web.FS()))
+	st, err := openStore(ctx, getenv)
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
+	if st != nil {
+		defer st.Close()
+	}
+	apiHandler, err := newAPI(getenv, st)
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
+	return serve(ctx, ln, newHandler(web.FS(), apiHandler))
 }
 
 // parseConfig reads the configuration from the command line and the
@@ -124,11 +152,7 @@ func parseConfig(args []string, getenv func(string) string, output io.Writer) (c
 
 // serve serves h on ln until ctx is done, then shuts down gracefully.
 func serve(ctx context.Context, ln net.Listener, h http.Handler) error {
-	srv := &http.Server{
-		Handler:           h,
-		ReadHeaderTimeout: readHeaderTimeout,
-		IdleTimeout:       idleTimeout,
-	}
+	srv := newServer(h)
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- srv.Serve(ln) }()
 	slog.Info("listening", "addr", ln.Addr().String())
@@ -148,4 +172,14 @@ func serve(ctx context.Context, ln net.Listener, h http.Handler) error {
 		return err
 	}
 	return nil
+}
+
+// newServer returns the server of h, with its timeouts.
+func newServer(h http.Handler) *http.Server {
+	return &http.Server{
+		Handler:           h,
+		ReadHeaderTimeout: readHeaderTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
+	}
 }

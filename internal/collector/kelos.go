@@ -9,18 +9,14 @@ import (
 	"github.com/sperano/sillage/internal/source/kelos"
 )
 
-// The details of the Vikunja events the collector builds, and of the start
-// announcements it reads.
+// The details of the start announcements the collector reads, as the
+// sources set them.
 const (
 	detailTaskName  = "taskName"
 	detailPod       = "pod"
 	detailNamespace = "namespace"
-	detailModel     = "model"
 	detailWorkspace = "workspace"
 	detailRole      = "role"
-	detailBucket    = "bucket"
-	detailView      = "view"
-	detailLabel     = "label"
 )
 
 // kelosView is one read of the namespace: every run in it, whether it

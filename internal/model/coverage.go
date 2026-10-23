@@ -50,7 +50,7 @@ func (c Coverage) Known(t time.Time) bool {
 // Validate reports whether the coverage is complete, each gap has a
 // reason and a positive length, and no note is empty.
 func (c Coverage) Validate() error {
-	if !c.Source.valid() || c.Instance == "" {
+	if !c.Source.Valid() || c.Instance == "" {
 		return fmt.Errorf("coverage %s: source and instance are required", c.Key())
 	}
 	for _, g := range c.Gaps {

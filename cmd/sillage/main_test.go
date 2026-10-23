@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sperano/sillage/internal/api"
 	"github.com/sperano/sillage/web"
 )
 
@@ -96,7 +97,7 @@ func TestServeAndShutdown(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 	served := make(chan error, 1)
-	go func() { served <- serve(ctx, ln, newHandler(web.FS())) }()
+	go func() { served <- serve(ctx, ln, newHandler(web.FS(), api.New(api.Config{}))) }()
 
 	client := &http.Client{Timeout: testTimeout}
 	resp, err := client.Get("http://" + ln.Addr().String() + healthzPath)
@@ -225,4 +226,16 @@ func startLines(ctx context.Context, t *testing.T, bin string) []string {
 		t.Errorf("exit after SIGTERM: %v", err)
 	}
 	return starts
+}
+
+// TestServerBoundsWrites checks that a response's write is bounded, after
+// the API's own bound on answering.
+func TestServerBoundsWrites(t *testing.T) {
+	srv := newServer(http.NotFoundHandler())
+	if srv.WriteTimeout <= api.DefaultTimeout {
+		t.Errorf("WriteTimeout = %v, want more than the API's %v", srv.WriteTimeout, api.DefaultTimeout)
+	}
+	if srv.ReadHeaderTimeout == 0 || srv.IdleTimeout == 0 {
+		t.Error("the server leaves its read-header or idle timeout unset")
+	}
 }
