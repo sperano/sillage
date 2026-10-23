@@ -28,17 +28,59 @@ func mergeRun(base, overlay model.Run) model.Run {
 	if overlay.Created == nil {
 		out.Created = base.Created
 	}
-	if overlay.Usage == nil {
-		out.Usage = base.Usage
-	}
-	// Interval and outcome go together: an open end means waiting or
-	// running. An overlay that knows neither (an announcement) keeps
-	// base's.
-	if overlay.Outcome == model.OutcomeUnknown && base.Outcome != model.OutcomeUnknown {
-		out.Interval, out.Outcome = base.Interval, base.Outcome
-	}
+	out.Usage = mergeUsage(base.Usage, overlay.Usage)
+	out.Interval, out.Outcome = mergeProgress(base, overlay)
 	out.Evidence = mergeEvidence(base.Evidence, overlay.Evidence)
 	return out
+}
+
+// mergeUsage returns overlay's usage with each field it does not report
+// taken from base's.
+func mergeUsage(base, overlay *model.Usage) *model.Usage {
+	if base == nil || overlay == nil {
+		return cmp.Or(overlay, base).Clone()
+	}
+	out, fill := overlay.Clone(), base.Clone()
+	out.CostUSD = cmp.Or(out.CostUSD, fill.CostUSD)
+	out.InputTokens = cmp.Or(out.InputTokens, fill.InputTokens)
+	out.OutputTokens = cmp.Or(out.OutputTokens, fill.OutputTokens)
+	return out
+}
+
+// mergeProgress returns the run's interval and outcome: each bound
+// overlay does not know taken from base, and base's outcome when overlay
+// knows none (an announcement), unless overlay knows that a run base saw
+// waiting or running has ended. An open end means waiting or running, so
+// an end and the outcome are taken together. When the two reads' bounds
+// disagree (an end before the start), the interval and outcome are those
+// of the read whose outcome was kept.
+func mergeProgress(base, overlay model.Run) (model.Interval, model.Outcome) {
+	iv, outcome := overlay.Interval, overlay.Outcome
+	if iv.Start.State == model.BoundUnknown {
+		iv.Start = base.Interval.Start
+	}
+	ended := iv.End.State == model.BoundKnown
+	switch {
+	case outcome == model.OutcomeUnknown && (!ended || finished(base.Outcome)):
+		outcome = base.Outcome
+		if !ended {
+			iv.End = base.Interval.End
+		}
+	case iv.End.State == model.BoundUnknown && base.Interval.End.State == model.BoundKnown:
+		iv.End = base.Interval.End
+	}
+	if iv.Validate() != nil {
+		if outcome != overlay.Outcome {
+			return base.Interval, base.Outcome
+		}
+		return overlay.Interval, overlay.Outcome
+	}
+	return iv, outcome
+}
+
+// finished reports whether the outcome says how the run ended.
+func finished(o model.Outcome) bool {
+	return o == model.OutcomeSucceeded || o == model.OutcomeFailed
 }
 
 // mergeEvidence returns overlay's evidence and base's for the objects

@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"strconv"
@@ -44,6 +45,10 @@ func (DatabaseURL) String() string { return redacted }
 
 // GoString redacts %#v.
 func (DatabaseURL) GoString() string { return redacted }
+
+// Format redacts every fmt verb, including those (%d, %x) that would
+// bypass String.
+func (DatabaseURL) Format(f fmt.State, _ rune) { _, _ = io.WriteString(f, redacted) }
 
 // LogValue redacts slog attributes.
 func (DatabaseURL) LogValue() slog.Value { return slog.StringValue(redacted) }

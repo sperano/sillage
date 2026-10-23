@@ -211,13 +211,30 @@ func TestOpenRefusesNewerSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = s.pool.Exec(t.Context(), "INSERT INTO schema_migrations (version, name) VALUES (9999, 'future.sql')")
+	_, err = s.pool.Exec(t.Context(),
+		"INSERT INTO schema_migrations (version, name, checksum) VALUES (9999, '9999_future.sql', 'future')")
 	s.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := open(t.Context(), pc, Retention{}); err == nil || !strings.Contains(err.Error(), "newer") {
 		t.Errorf("open = %v, want a newer-schema error", err)
+	}
+}
+
+func TestOpenRefusesEditedMigration(t *testing.T) {
+	pc := testPoolConfig(t)
+	s, err := open(t.Context(), pc, Retention{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.pool.Exec(t.Context(), "UPDATE schema_migrations SET checksum = 'edited' WHERE version = 1")
+	s.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := open(t.Context(), pc, Retention{}); err == nil || !strings.Contains(err.Error(), "other SQL") {
+		t.Errorf("open = %v, want an edited-migration error", err)
 	}
 }
 

@@ -32,9 +32,13 @@ type Batch struct {
 //     unchanged since the task's previous read, extends the stored record's
 //     last observed time instead of adding a record.
 //   - Wiki: a live edit named by an archived version's "supersedes" detail
-//     is dropped for the version; of a page's live records only the newest
-//     is kept. The record kept takes the dropped one's place in every
-//     story, and its correlations when the same account made both.
+//     (or read before its render: see supersededLive) is dropped for the
+//     version; of a page's live records only the newest is kept. The
+//     record kept takes the dropped one's place in every story, and its
+//     correlations when the same account made both. A batch's wiki
+//     versions are its page's whole history trail, as wiki.Normalize gives
+//     it: a version archiving a save read before its render must come
+//     before the same author's later versions.
 //   - Coverage is merged per root and source instance (see mergeCoverage).
 //
 // Events keep their kinds: a pull request's pr.closed and pr.merged are
@@ -74,8 +78,8 @@ type saver struct {
 	// re-keyed run, an observation folded into an earlier one, a live wiki
 	// edit an archived version superseded.
 	moved map[model.Ref]model.Ref
-	// dropped are the batch's records not stored, whose correlations are
-	// dropped too: live wiki edits another account's newer one replaced.
+	// dropped are the records not stored, whose correlations are dropped
+	// too: live wiki edits another account's newer one replaced.
 	dropped map[model.Ref]bool
 }
 
@@ -130,10 +134,16 @@ func (w *saver) exec(sql string, args ...any) error {
 	return err
 }
 
-// ref returns where the batch's record r is stored.
+// ref returns where the batch's record r is stored, following each move
+// (a live edit re-rendered, then archived); at most len(moved) of them, so
+// that a cycle cannot loop.
 func (w *saver) ref(r model.Ref) model.Ref {
-	if to, ok := w.moved[r]; ok {
-		return to
+	for range len(w.moved) {
+		to, ok := w.moved[r]
+		if !ok {
+			break
+		}
+		r = to
 	}
 	return r
 }

@@ -1,8 +1,9 @@
 // Command sillage serves sillage's HTTP endpoints: a health check, the
 // read API over the store (internal/api, under /api/, which must stay
 // behind the Authentik forward-auth) and the embedded frontend. With
-// SILLAGE_DATABASE_URL set, it migrates the store at startup; without, the
-// API answers 503 for what it would read. The collector comes later.
+// SILLAGE_DATABASE_URL set, it migrates and prunes the store at startup;
+// without, the API answers 503 for what it would read. The collector comes
+// later.
 //
 // "sillage story -task <id>" (or "-page <id>") instead prints one story's
 // JSON, assembled from the live sources the environment configures.
@@ -90,8 +91,16 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 		return err
 	}
 	slog.Info("starting", "version", version)
+	// Listen first: a bad or busy address fails the start before the store
+	// is migrated or pruned.
+	var lc net.ListenConfig
+	ln, err := lc.Listen(ctx, "tcp", cfg.listenAddr)
+	if err != nil {
+		return err
+	}
 	st, err := openStore(ctx, getenv)
 	if err != nil {
+		_ = ln.Close()
 		return err
 	}
 	if st != nil {
@@ -99,11 +108,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 	}
 	apiHandler, err := newAPI(getenv, st)
 	if err != nil {
-		return err
-	}
-	var lc net.ListenConfig
-	ln, err := lc.Listen(ctx, "tcp", cfg.listenAddr)
-	if err != nil {
+		_ = ln.Close()
 		return err
 	}
 	return serve(ctx, ln, newHandler(web.FS(), apiHandler))

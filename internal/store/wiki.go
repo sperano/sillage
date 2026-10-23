@@ -9,25 +9,54 @@ import (
 	"github.com/sperano/sillage/internal/model"
 )
 
-// supersede drops the stored live record that the archived version e
-// (row id) names in its "supersedes" detail: the same save, now with a
-// version id. The live record's stories and correlations move to the
-// version.
+// supersede drops the stored live record of the save that the archived
+// version e (row id) archives: the same save, now with a version id. The
+// live record's stories and correlations move to the version.
 func (w *saver) supersede(id int64, e model.Event) error {
-	liveID := e.Details[detailSupersedes]
-	live := eventRef(e.Source, e.Instance, liveID)
-	w.moved[live] = e.Ref()
-	old, found, err := w.eventID(e.Source, e.Instance, liveID)
+	w.moved[eventRef(e.Source, e.Instance, e.Details[detailSupersedes])] = e.Ref()
+	live, found, err := w.supersededLive(e)
 	if err != nil || !found {
 		return err
 	}
-	if err := w.moveEventStories(old, id); err != nil {
+	w.moved[live.ref] = e.Ref()
+	if err := w.moveEventStories(live.id, id); err != nil {
 		return err
 	}
-	if err := w.repointCorrelations(live, e.Ref()); err != nil {
+	if err := w.repointCorrelations(live.ref, e.Ref()); err != nil {
 		return err
 	}
-	return w.exec("DELETE FROM events WHERE id = $1", old)
+	return w.exec("DELETE FROM events WHERE id = $1", live.id)
+}
+
+// liveRow is a stored live record's row and reference.
+type liveRow struct {
+	id  int64
+	ref model.Ref
+}
+
+// supersededLive returns the stored live record that the archived version
+// e archives, and false when there is none. It is the record e's
+// "supersedes" detail names, else the page's live record of the same
+// author dated no later than e. Wiki.js dates a version by its state's last
+// write, the save's render seconds later, so a read between the save and
+// its render stored the save under an earlier time than e names; the
+// page's later states are all dated after e.
+func (w *saver) supersededLive(e model.Event) (liveRow, bool, error) {
+	liveID := e.Details[detailSupersedes]
+	row, found, err := w.eventID(e.Source, e.Instance, liveID)
+	if err != nil || found || e.Related.Page == nil {
+		return liveRow{id: row, ref: eventRef(e.Source, e.Instance, liveID)}, found, err
+	}
+	lives, err := w.livesOf(e)
+	if err != nil {
+		return liveRow{}, false, err
+	}
+	for _, l := range lives {
+		if !l.event.Time().After(e.Time()) && sameEdit(l.event, e) {
+			return liveRow{id: l.id, ref: l.event.Ref()}, true, nil
+		}
+	}
+	return liveRow{}, false, nil
 }
 
 // saveLive stores the live record e and returns the row the root's story
@@ -72,8 +101,18 @@ func (w *saver) saveLive(e model.Event) (int64, error) {
 // sameEdit reports whether two live records of a page may be one edit,
 // re-rendered, or the same account's later save: then the newer keeps the
 // older's correlations. Otherwise they are dropped rather than given to
-// someone else's edit.
-func sameEdit(older, newer model.Event) bool { return older.Actor == newer.Actor }
+// someone else's edit. An unknown author (a token that may not read it, a
+// move) matches no one; the author's id, when both name one, is compared
+// rather than the name.
+func sameEdit(older, newer model.Event) bool {
+	if older.Actor.Kind == model.ActorUnknown || newer.Actor.Kind == model.ActorUnknown {
+		return false
+	}
+	if a, b := older.Details[detailAuthorID], newer.Details[detailAuthorID]; a != "" && b != "" {
+		return a == b
+	}
+	return older.Actor == newer.Actor
+}
 
 // replacedBy records that the batch's live record e is stored as newer.
 func (w *saver) replacedBy(e, newer model.Event) {
@@ -86,15 +125,18 @@ func (w *saver) replacedBy(e, newer model.Event) {
 
 // replaceLive deletes the older live record old, which e (row id)
 // replaces, after giving e its stories and, for the same edit, its
-// correlations.
+// correlations. The batch's links to old follow it the same way.
 func (w *saver) replaceLive(old storedEvent, id int64, e model.Event) error {
 	if err := w.moveEventStories(old.id, id); err != nil {
 		return err
 	}
-	if sameEdit(old.event, e) {
-		if err := w.repointCorrelations(old.event.Ref(), e.Ref()); err != nil {
-			return err
-		}
+	if !sameEdit(old.event, e) {
+		w.dropped[old.event.Ref()] = true
+		return w.deleteEvent(old.id, old.event.Ref())
+	}
+	w.moved[old.event.Ref()] = e.Ref()
+	if err := w.repointCorrelations(old.event.Ref(), e.Ref()); err != nil {
+		return err
 	}
 	return w.deleteEvent(old.id, old.event.Ref())
 }

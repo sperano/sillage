@@ -19,14 +19,17 @@ func TestOpenStoreErrors(t *testing.T) {
 	tests := []struct {
 		name string
 		env  map[string]string
+		// want is in the error, so that a failure to connect does not pass
+		// for another.
+		want string
 	}{
 		{"bad retention", map[string]string{
 			store.EnvDatabaseURL: "postgres://sillage:" + password + "@127.0.0.1:1/sillage",
 			store.EnvRetention:   "soon",
-		}},
+		}, store.EnvRetention},
 		{"unreachable", map[string]string{
 			store.EnvDatabaseURL: "postgres://sillage:" + password + "@127.0.0.1:1/sillage?connect_timeout=1",
-		}},
+		}, "store:"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -34,6 +37,9 @@ func TestOpenStoreErrors(t *testing.T) {
 			if err == nil {
 				st.Close()
 				t.Fatal("openStore succeeded")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("error %q, want it to mention %s", err, tt.want)
 			}
 			if strings.Contains(err.Error(), password) {
 				t.Errorf("error %q contains the password", err)

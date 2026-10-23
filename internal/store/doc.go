@@ -2,11 +2,13 @@
 // coverage in PostgreSQL, so that history survives source-side cleanup
 // (Kelos Task TTLs, TaskRecord expiry) and sillage restarts.
 //
-// Open connects through pgx (EnvDatabaseURL, never logged) and applies the
-// migrations embedded in the binary, recorded in schema_migrations. Save
-// stores one read's records about one root (see its rules); the Reader
-// methods (Story, SearchRoots, Coverage) serve the API. Prune applies the
-// retention policy (EnvRetention, by default keep everything).
+// ConfigFromEnv reads a Config from the environment (EnvDatabaseURL, never
+// logged, and EnvRetention); Open connects to the Config's database through
+// pgx and applies the migrations embedded in the binary, recorded in
+// schema_migrations. Save stores one read's records about one root (see
+// its rules); the Reader methods (Story, SearchRoots, Coverage) serve the
+// API. Prune applies the Config's retention policy (by default keep
+// everything).
 //
 // Each record is stored as its model JSON, the source of truth read back
 // into a story, next to the columns that key it (events by source,
@@ -17,13 +19,14 @@
 // (root_events, root_runs, ...), so a run that two stories name is stored
 // once. Coverage is per root and source instance.
 //
-// The migration runner is this package's own (migrate.go, about a hundred
-// lines): embedded, numbered, forward-only SQL files, applied with their
-// version rows in one transaction under an advisory lock, so that two
+// The migration runner is this package's own (migrate.go, under two
+// hundred lines): embedded, numbered, forward-only SQL files, applied with
+// their version rows in one transaction under an advisory lock, so that two
 // replicas starting together migrate once and a failure leaves nothing
-// half-applied. tern (v2.4) does the same and
-// more, but its migrate package templates SQL with sprig, whose dependency
-// tree the image would ship and license for no use; goose (v3.29) runs
-// through database/sql rather than pgx, and its module requires every
-// driver it supports. None of the three needs CGO.
+// half-applied. Each row keeps its file's name and SHA-256, so a database
+// whose applied migration was since edited is refused. tern (v2.4) does
+// the same and more, but its migrate package templates SQL with sprig,
+// whose dependency tree the image would ship and license for no use; goose
+// (v3.29) runs through database/sql rather than pgx, and its module
+// requires every driver it supports. None of the three needs CGO.
 package store

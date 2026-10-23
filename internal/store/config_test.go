@@ -61,7 +61,13 @@ func TestDatabaseURLRedacted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, out := range []string{fmt.Sprint(cfg.DatabaseURL), fmt.Sprintf("%v %+v %#v", cfg, cfg, cfg), string(data)} {
+	url := cfg.DatabaseURL
+	for _, out := range []string{
+		fmt.Sprint(url),
+		fmt.Sprintf("%v %+v %#v", cfg, cfg, cfg),
+		fmt.Sprintf("%d %x %X %q %10.3v", url, url, cfg, url, url),
+		string(data),
+	} {
 		if strings.Contains(out, testPassword) || strings.Contains(out, "db.example.com") {
 			t.Errorf("%q shows the connection string", out)
 		}

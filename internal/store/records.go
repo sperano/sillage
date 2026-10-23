@@ -55,11 +55,8 @@ func (w *saver) savePullRequest(p model.PullRequest) error {
 // dropped is dropped.
 func (w *saver) saveCorrelations(correlations []model.Correlation) error {
 	for _, c := range correlations {
-		if w.dropped[c.From] || w.dropped[c.To] {
-			continue
-		}
 		c.From, c.To = w.ref(c.From), w.ref(c.To)
-		if c.From == c.To {
+		if w.dropped[c.From] || w.dropped[c.To] || c.From == c.To {
 			continue
 		}
 		id, err := w.upsertCorrelation(c)
@@ -84,7 +81,7 @@ func (w *saver) upsertCorrelation(c model.Correlation) (int64, error) {
 		INSERT INTO correlations (pair_key, from_ref, to_ref, body) VALUES ($1, $2, $3, $4)
 		ON CONFLICT (pair_key) DO UPDATE SET from_ref = EXCLUDED.from_ref, to_ref = EXCLUDED.to_ref, body = EXCLUDED.body
 		RETURNING id`,
-		pairKey(c), c.From.String(), c.To.String(), body).Scan(&id)
+		c.Pair().Key(), c.From.String(), c.To.String(), body).Scan(&id)
 	return id, err
 }
 
@@ -132,7 +129,7 @@ func (w *saver) repointCorrelation(id int64, c model.Correlation, from, to model
 	}
 	var existing int64
 	err := w.tx.QueryRow(w.ctx, "SELECT id FROM correlations WHERE pair_key = $1 AND id <> $2",
-		pairKey(c), id).Scan(&existing)
+		c.Pair().Key(), id).Scan(&existing)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		body, err := json.Marshal(c)
@@ -140,7 +137,7 @@ func (w *saver) repointCorrelation(id int64, c model.Correlation, from, to model
 			return err
 		}
 		return w.exec("UPDATE correlations SET pair_key = $2, from_ref = $3, to_ref = $4, body = $5 WHERE id = $1",
-			id, pairKey(c), c.From.String(), c.To.String(), body)
+			id, c.Pair().Key(), c.From.String(), c.To.String(), body)
 	case err != nil:
 		return err
 	}
@@ -150,16 +147,6 @@ func (w *saver) repointCorrelation(id int64, c model.Correlation, from, to model
 		return err
 	}
 	return w.exec("DELETE FROM correlations WHERE id = $1", id)
-}
-
-// pairKey identifies the pair of records c links, either way round, as
-// model.BuildStory does.
-func pairKey(c model.Correlation) string {
-	from, to := c.From.String(), c.To.String()
-	if to < from {
-		from, to = to, from
-	}
-	return from + " <-> " + to
 }
 
 // saveCoverage merges each coverage record with the root's stored one.

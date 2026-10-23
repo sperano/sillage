@@ -16,6 +16,7 @@ import (
 const (
 	detailVersion    = "version"
 	detailSupersedes = "supersedes"
+	detailAuthorID   = "authorId"
 	versionLive      = "live"
 )
 
@@ -62,7 +63,7 @@ func (w *saver) saveEvent(e model.Event) error {
 	var id int64
 	var err error
 	switch {
-	case isObservation(e):
+	case e.Kind.Observed(): // without a source time, on a task: model.Event.Validate
 		id, err = w.saveObservation(e)
 		if err == nil && e.LastObservedAt != nil {
 			// A range already read (a story saved again): it ends there.
@@ -149,8 +150,4 @@ func eventRef(source model.Source, instance, id string) model.Ref {
 
 func isLive(e model.Event) bool {
 	return e.Source == model.SourceWiki && e.Related.Page != nil && e.Details[detailVersion] == versionLive
-}
-
-func isObservation(e model.Event) bool {
-	return e.Kind.Observed() && e.SourceTime == nil && e.Related.Task != nil
 }

@@ -171,13 +171,13 @@ func TestKeyRefs(t *testing.T) {
 
 func TestSourceValid(t *testing.T) {
 	for _, s := range []Source{SourceVikunja, SourceKelos, SourceGitHub, SourceWiki} {
-		if !s.valid() {
-			t.Errorf("Source(%q).valid() = false, want true", s)
+		if !s.Valid() {
+			t.Errorf("Source(%q).Valid() = false, want true", s)
 		}
 	}
 	for _, s := range []Source{"", "gitlab", "Vikunja"} {
-		if s.valid() {
-			t.Errorf("Source(%q).valid() = true, want false", s)
+		if s.Valid() {
+			t.Errorf("Source(%q).Valid() = true, want false", s)
 		}
 	}
 }

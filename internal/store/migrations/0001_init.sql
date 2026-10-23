@@ -71,7 +71,7 @@ CREATE TABLE runs (
     pod       text,
     body      jsonb NOT NULL,
     CHECK ((uid IS NULL) <> (key_pod IS NULL)),
-    CHECK (key_pod IS NULL OR pod = key_pod)
+    CHECK (key_pod IS NULL OR pod IS NOT DISTINCT FROM key_pod)
 );
 CREATE UNIQUE INDEX runs_uid ON runs (cluster, namespace, uid) WHERE uid IS NOT NULL;
 CREATE UNIQUE INDEX runs_key_pod ON runs (cluster, namespace, key_pod) WHERE key_pod IS NOT NULL;
