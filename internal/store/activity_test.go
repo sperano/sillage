@@ -68,3 +68,14 @@ func TestLastActivityFollowsSharedRecords(t *testing.T) {
 		}
 	})
 }
+
+// TestLastActivityNeverFalls saves task 7 again with only older records:
+// its last activity stays the newer save's.
+func TestLastActivityNeverFalls(t *testing.T) {
+	s := newTestStore(t, Retention{})
+	mustSave(t, s, taskRoot(7), model.Records{Events: []model.Event{comment(7, "comments/2", 50)}})
+	mustSave(t, s, taskRoot(7), model.Records{Events: []model.Event{comment(7, "comments/1", 10)}})
+	if got := mustLastActivity(t, s, taskRoot(7)); !got.Equal(at(50)) {
+		t.Errorf("last activity = %v, want minute 50, the newer save's", got)
+	}
+}
