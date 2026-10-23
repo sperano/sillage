@@ -332,6 +332,9 @@ describe('interaction', () => {
 		const firstReason = marks.indexOf('text');
 		expect(firstReason).toBeGreaterThan(-1);
 		expect(marks.lastIndexOf('rect')).toBeLessThan(firstReason);
+		for (const reason of all(band, '[data-reason]')) {
+			expect(getComputedStyle(reason).pointerEvents).toBe('none');
+		}
 	});
 
 	test('groups crowded events under a count that expands', async () => {

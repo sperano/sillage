@@ -61,8 +61,10 @@
 		fill: var(--tl-muted);
 		font-size: 10px;
 	}
+	/* Drawn over the spans: the pointer goes through to the span's whole reason. */
 	.reason {
 		fill: var(--tl-fg);
 		font-size: 10px;
+		pointer-events: none;
 	}
 </style>
