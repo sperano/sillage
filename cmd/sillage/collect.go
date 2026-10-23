@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 
@@ -15,10 +14,6 @@ import (
 	"github.com/sperano/sillage/internal/reconcile/pglock"
 	"github.com/sperano/sillage/internal/store"
 )
-
-// errNoStore is the start of a collector this build cannot write to the
-// store for: the loop's store adapter lands with its own change.
-var errNoStore = errors.New(store.EnvDatabaseURL + " is set, but the collector cannot write to this store yet")
 
 // newMetrics returns the handler of /metrics, which serves the Go
 // runtime's, the process's and the collector's metrics, and the
@@ -60,6 +55,14 @@ func startCollector(ctx context.Context, getenv func(string) string, st *store.S
 	if err != nil {
 		return nil, err
 	}
-	_, _, _ = cfg, lock, clients
-	return nil, errNoStore
+	loop, err := reconcile.New(cfg, env.Collector, reconcile.SourcesOf(clients), loopStore{st}, m, log)
+	if err != nil {
+		return nil, err
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		loop.Run(ctx, lock)
+	}()
+	return func() { <-done }, nil
 }
