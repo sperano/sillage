@@ -121,6 +121,7 @@ func (r Records) clone() Records {
 	}
 	for i := range out.Coverage {
 		out.Coverage[i].Gaps = slices.Clone(out.Coverage[i].Gaps)
+		out.Coverage[i].Notes = slices.Clone(out.Coverage[i].Notes)
 	}
 	return out
 }
