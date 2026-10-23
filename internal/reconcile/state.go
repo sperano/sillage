@@ -152,25 +152,29 @@ func (st *sourceState) unread(cov model.Coverage) {
 }
 
 // fail records a failed read: it opens a gap from the last success,
-// unless one is open. Before any success nothing is known, so there is
-// no gap to open.
-func (st *sourceState) fail(reason string) {
-	if st.Open == nil && st.LastSuccess != nil {
-		st.Open = &openGap{Start: *st.LastSuccess, Reason: reason}
+// unless one is open, and reports whether it did. Before any success
+// nothing is known, so there is no gap to open.
+func (st *sourceState) fail(reason string) bool {
+	if st.Open != nil || st.LastSuccess == nil {
+		return false
 	}
+	st.Open = &openGap{Start: *st.LastSuccess, Reason: reason}
+	return true
 }
 
 // restart records that sillage was not collecting from after (zero when
-// unknown) until the next successful read.
-func (st *sourceState) restart(after time.Time, reason string) {
+// unknown) until the next successful read, and reports whether it opened
+// a gap for it.
+func (st *sourceState) restart(after time.Time, reason string) bool {
 	if st.Open != nil || st.LastSuccess == nil {
-		return
+		return false
 	}
 	start := *st.LastSuccess
 	if after.After(start) {
 		start = after
 	}
 	st.Open = &openGap{Start: start, Reason: reason}
+	return true
 }
 
 // coverage is the source's coverage: the last success, every closed gap

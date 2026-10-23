@@ -28,8 +28,12 @@ type Commit struct {
 	// Records' events, runs and pull requests are upserted by key, and
 	// its correlations by the pair they join: nothing is deleted, except a
 	// run keyed by pod once a run keyed by UID names the pod, which the
-	// store re-keys, its correlations with it. Records' coverage replaces
-	// the root's coverage of the same source instance.
+	// store re-keys, its correlations with it. An observation (an event
+	// with a fingerprint id and no source time: a bucket, label or
+	// assignee seen) has a new key at every read that commits; the store
+	// keeps one per unchanged value, with when it was first and last seen.
+	// Records' coverage replaces the root's coverage of the same source
+	// instance.
 	Records model.Records
 	// Checkpoints are upserted by key.
 	Checkpoints map[string][]byte

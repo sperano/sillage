@@ -2,7 +2,6 @@ package reconcile
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/sperano/sillage/internal/collector"
@@ -103,7 +102,7 @@ func (l *Loop) account(next *rootState, res collector.Result, kelosAt time.Time)
 			reason := reasonOf(f.Err)
 			l.log.Warn("source read failed", "root", next.Root.Ref(), "source", f.Source, "instance", f.Instance,
 				"reason", reason, "error", f.Err)
-			st.fail(fmt.Sprintf("the %s read failed (%s): %v", f.Source, reason, f.Err))
+			st.fail(failureReason(f.Source, f.Err))
 			failed = true
 			vikunjaFailed = vikunjaFailed || f.Source == model.SourceVikunja
 			continue

@@ -1,0 +1,56 @@
+package reconcile
+
+import (
+	"context"
+	"fmt"
+	"maps"
+
+	"github.com/sperano/sillage/internal/model"
+)
+
+// failureReason is the reason of the gap a failed read of src opens.
+func failureReason(src model.Source, err error) string {
+	return fmt.Sprintf("the %s read failed (%s): %v", src, reasonOf(err), err)
+}
+
+// openGaps applies open to a copy of each source state of every root,
+// and commits the root states it changed in one transaction before they
+// replace the loop's. A gap is so in the store as soon as it is open,
+// whether or not its root is read before the next restart.
+func (l *Loop) openGaps(ctx context.Context, open func(*sourceState) bool) error {
+	changed := make(map[model.Ref]*rootState)
+	cps := make(map[string][]byte)
+	for ref, st := range l.roots {
+		next := st.clone()
+		opened := false
+		for _, src := range next.Sources {
+			opened = open(src) || opened
+		}
+		if opened {
+			changed[ref] = next
+			cps[rootKey(next.Root)] = encode(next)
+		}
+	}
+	if len(cps) == 0 {
+		return nil
+	}
+	if err := l.store.Commit(ctx, Commit{Checkpoints: cps}); err != nil {
+		return err
+	}
+	maps.Copy(l.roots, changed)
+	return nil
+}
+
+// kelosFailed opens a gap on the Kelos coverage of every root: the
+// cycle's one read serves them all, read this cycle or not.
+func (l *Loop) kelosFailed(ctx context.Context, err error) {
+	l.log.Warn("source read failed", "source", model.SourceKelos, "instance", l.ccfg.Kelos.Cluster,
+		"reason", reasonOf(err), "error", err)
+	reason := failureReason(model.SourceKelos, err)
+	cerr := l.openGaps(ctx, func(st *sourceState) bool {
+		return st.Source == model.SourceKelos && st.Instance == l.ccfg.Kelos.Cluster && st.fail(reason)
+	})
+	if cerr != nil {
+		l.storeFailed(ctx, operationCommit, model.Ref{}, cerr)
+	}
+}

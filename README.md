@@ -108,7 +108,9 @@ Kelos still names and that was not read for the refresh interval. A story
 whose records did not change writes none; its coverage still advances. A
 failed read leaves a gap, from the source's last successful read to its
 next, with the reason (`timeout`, `rate_limited`, `server_error`,
-`failed`); a restart leaves one for every source of every root. One process
+`failed`): a failed Kelos read, which serves every root, leaves one on
+every root's Kelos coverage. A restart leaves one for every source of
+every root. One process
 collects at a time, under a PostgreSQL advisory lock: another reads
 nothing, says so in its log, and tries again.
 

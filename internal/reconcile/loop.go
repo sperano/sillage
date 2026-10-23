@@ -129,7 +129,6 @@ func (l *Loop) load(ctx context.Context) error {
 			return fmt.Errorf("%s: %w", heartbeatKey, err)
 		}
 	}
-	reason := restartReason(lastCycle, l.now())
 	for key, data := range cps {
 		switch {
 		case strings.HasPrefix(key, rootPrefix):
@@ -137,15 +136,17 @@ func (l *Loop) load(ctx context.Context) error {
 			if err := json.Unmarshal(data, st); err != nil {
 				return fmt.Errorf("%s: %w", key, err)
 			}
-			for _, src := range st.Sources {
-				src.restart(lastCycle, reason)
-			}
 			l.roots[st.Root.Ref()] = st
 		case strings.HasPrefix(key, projectPrefix+l.ccfg.VikunjaInstance+"/"):
 			if err := l.loadMark(key, data); err != nil {
 				return err
 			}
 		}
+	}
+	reason := restartReason(lastCycle, l.now())
+	err = l.openGaps(ctx, func(st *sourceState) bool { return st.restart(lastCycle, reason) })
+	if err != nil {
+		return fmt.Errorf("committing the restart's gaps: %w", err)
 	}
 	l.metrics.roots.Set(float64(len(l.roots)))
 	l.log.Info("collector started", "roots", len(l.roots), "lastCycle", lastCycle)

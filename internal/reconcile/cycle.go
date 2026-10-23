@@ -104,8 +104,7 @@ func (l *Loop) readKelos(ctx context.Context) (cycleRun, []collector.Discovered,
 	cr := cycleRun{c: c, kelosAt: at}
 	if err != nil {
 		if ctx.Err() == nil {
-			l.log.Warn("source read failed", "source", model.SourceKelos, "instance", l.ccfg.Kelos.Cluster,
-				"reason", reasonOf(err), "error", err)
+			l.kelosFailed(ctx, err)
 		}
 		return cr, nil, nil
 	}
