@@ -2,15 +2,11 @@
 // per attempt), automation, pull requests with their checks per commit, and
 // wiki pages. Each event is drawn on exactly one row.
 
+import { eventKey, pageKeyString, prKeyString, runKeyString, taskKeyString } from '../keys';
 import {
 	boundTime,
 	coverageKey,
-	eventKey,
 	eventTime,
-	pageKeyString,
-	prKeyString,
-	runKeyString,
-	taskKeyString,
 	type Event,
 	type PageKey,
 	type PRKey,

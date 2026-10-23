@@ -75,4 +75,10 @@ func TestPairOf(t *testing.T) {
 	if a == b {
 		t.Errorf("PairOf merged %v and %v", a, b)
 	}
+	if a.Key() == b.Key() {
+		t.Errorf("Key() = %q for two different pairs", a.Key())
+	}
+	if PairOf(run, task).Key() != PairOf(task, run).Key() {
+		t.Error("Key depends on the order of the refs")
+	}
 }

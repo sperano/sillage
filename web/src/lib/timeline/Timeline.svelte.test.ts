@@ -2,7 +2,8 @@ import { tick } from 'svelte';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
-import { eventKey, runKeyString, type Story } from '../model';
+import { eventKey, runKeyString } from '../keys';
+import type { Story } from '../model';
 import { Selection } from '../selection.svelte';
 import { event, PR, prEvent, run, story } from '../testing/builders';
 import { golden, goldens } from '../testing/goldens';
@@ -224,7 +225,7 @@ describe('interaction', () => {
 		const { container, selection } = await show(s);
 		const runSpan = container.querySelector<SVGGElement>('[data-span="running"]')!;
 		runSpan.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-		expect(selection.current).toEqual({ kind: 'run', key: runKeyString(s.runs[0]!.key) });
+		expect(selection.current).toEqual({ kind: 'run', id: runKeyString(s.runs[0]!.key) });
 		await tick();
 		expect(runSpan.getAttribute('aria-pressed')).toBe('true');
 
@@ -232,14 +233,14 @@ describe('interaction', () => {
 		await expandAll(container);
 		const mark = container.querySelector<SVGGElement>(`[data-event="${eventKey(merged)}"]`)!;
 		mark.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-		expect(selection.current).toEqual({ kind: 'event', key: eventKey(merged) });
+		expect(selection.current).toEqual({ kind: 'event', id: eventKey(merged) });
 	});
 
 	test('a selection made elsewhere shows on the graph', async () => {
 		const s = golden('discuss-no-pr');
 		const selection = new Selection();
 		const { container } = await show(s, selection);
-		selection.select({ kind: 'run', key: runKeyString(s.runs[0]!.key) });
+		selection.select({ kind: 'run', id: runKeyString(s.runs[0]!.key) });
 		await tick();
 		expect(container.querySelector('[data-span="running"]')!.getAttribute('aria-pressed')).toBe(
 			'true'

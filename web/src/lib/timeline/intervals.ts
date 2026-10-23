@@ -3,19 +3,17 @@
 // review request until its answer. The time between two unrelated records
 // is never one.
 
+import { eventKey, prKeyString, runKeyString } from '../keys';
 import {
 	boundTime,
-	eventKey,
 	eventTime,
-	prKeyString,
-	runKeyString,
 	type BoundState,
 	type CheckRun,
 	type Event,
 	type PRKey,
 	type Run
 } from '../model';
-import type { Selected } from '../selection.svelte';
+import { checkRef, reviewWaitRef, runRef, type ItemRef } from '../timeline';
 import { checkEnd, runExitLabel, type MarkKind } from './marks';
 import { formatDuration, formatFull, type Zone } from './time';
 
@@ -35,7 +33,7 @@ export interface EndMark {
 export interface Span {
 	/** Unique within a story: a run has two spans, its wait and its run. */
 	key: string;
-	selected: Selected;
+	selected: ItemRef;
 	phase: Phase;
 	/** Says what the interval is, whatever its colour. */
 	text: string;
@@ -57,7 +55,7 @@ export interface Span {
 /** The spans of one run: its wait between creation and start, then its run. */
 export function runSpans(run: Run, openUntil: number | undefined): Span[] {
 	const key = runKeyString(run.key);
-	const selected: Selected = { kind: 'run', key };
+	const selected = runRef(run);
 	const created = run.created === undefined ? undefined : Date.parse(run.created);
 	const start = boundTime(run.interval.start);
 	const end = boundTime(run.interval.end);
@@ -100,7 +98,7 @@ export function checkSpan(pr: PRKey, check: CheckRun, openUntil: number | undefi
 	const end = boundTime(check.interval.end);
 	return {
 		key: `check:${prKeyString(pr)}#${check.id}`,
-		selected: { kind: 'check', pr: prKeyString(pr), id: check.id },
+		selected: checkRef(pr, check),
 		phase: 'check',
 		text: `check ${check.name}`,
 		startState: check.interval.start.state,
@@ -154,7 +152,7 @@ export function reviewWaits(events: Event[], openUntil: number | undefined): Spa
 		const who = requestee(request);
 		const span: Span = {
 			key: `review-wait:${eventKey(request)}`,
-			selected: { kind: 'review-wait', key: eventKey(request) },
+			selected: reviewWaitRef(request),
 			phase: 'review-wait',
 			text: who ? `review wait: ${who}` : 'review wait',
 			startState: 'known',

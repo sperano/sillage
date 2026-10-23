@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { eventKey } from '../model';
+import { eventKey } from '../keys';
 import { event } from '../testing/builders';
 import type { Span } from './intervals';
 import type { Row } from './lanes';
@@ -26,7 +26,7 @@ const scale = scaleOf({ start: T0, end: T0 + 100 * MINUTE }, 0, 100);
 function span(over: Partial<Span>): Span {
 	return {
 		key: 'run:r',
-		selected: { kind: 'run', key: 'r' },
+		selected: { kind: 'run', id: 'r' },
 		phase: 'running',
 		text: 'running',
 		startState: 'known',
@@ -89,7 +89,7 @@ function point(x: number): Point {
 		x,
 		mark: 'event',
 		label: 'comment',
-		selected: { kind: 'event', key: eventKey(e) }
+		selected: { kind: 'event', id: eventKey(e) }
 	};
 }
 

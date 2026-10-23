@@ -18,7 +18,7 @@
 	let { point, y, label, zone, selection }: Props = $props();
 
 	const name = $derived(eventName(point.event, zone));
-	const selected = $derived(selection.is(point.selected));
+	const selected = $derived(selection.isSelected(point.selected));
 	const select = () => selection.select(point.selected);
 </script>
 

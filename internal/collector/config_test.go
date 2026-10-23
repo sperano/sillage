@@ -109,6 +109,7 @@ func testEnv() map[string]string {
 		wiki.EnvAgentUsers:       "21",
 		EnvWorkspaces:            "widgets=example-org/widgets",
 		EnvVikunjaAgentUsers:     "agent-opus",
+		github.EnvAnnouncers:     testAgent,
 	}
 }
 
@@ -127,6 +128,9 @@ func TestConfigFromEnv(t *testing.T) {
 	}
 	if c.Workspaces[testWorkspace] != testRepo || c.KelosTaskTTL != DefaultKelosTaskTTL || c.Kelos.Cluster != testCluster {
 		t.Errorf("config = %+v", c)
+	}
+	if !slices.Equal(c.GitHubAnnouncers, []string{testAgent}) {
+		t.Errorf("github announcers = %q", c.GitHubAnnouncers)
 	}
 	if !slices.Equal(c.WikiAgentUsers, []int64{testWikiUser}) || got.Wiki.Token != testToken {
 		t.Errorf("wiki config = %+v", got.Wiki)

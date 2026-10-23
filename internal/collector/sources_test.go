@@ -114,7 +114,7 @@ func announcedTask(id int64, name string, pods map[int]string) vikunja.Snapshot 
 		}
 		s.Comments = append(s.Comments, vikunja.Comment{
 			ID: int64(9000 + minute), Body: body + ".</p>", Created: at(minute), Updated: at(minute),
-			Author: vikunja.User{ID: 23, Username: vikunja.DefaultServiceAccount},
+			Author: vikunja.User{ID: 23, Username: testServiceAccount},
 		})
 	}
 	return s

@@ -41,7 +41,7 @@
 				? `url(#${patterns}-review)`
 				: undefined
 	);
-	const selected = $derived(selection.is(span.selected));
+	const selected = $derived(selection.isSelected(span.selected));
 	const select = () => selection.select(span.selected);
 	// A stub starts at its known or open end and leaves towards the unknown one.
 	const unknownSide = $derived(span.start === undefined ? 'start' : 'end');

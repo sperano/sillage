@@ -136,7 +136,7 @@
 	}
 
 	function onkeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') selection.clear();
+		if (e.key === 'Escape') selection.select(undefined);
 	}
 </script>
 

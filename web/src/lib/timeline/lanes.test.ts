@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { eventKey, runKeyString } from '../model';
+import { eventKey, runKeyString } from '../keys';
 import { event, PR, prEvent, run, story } from '../testing/builders';
 import { golden, goldens } from '../testing/goldens';
 import { buildRows, SECTIONS, type Row } from './lanes';

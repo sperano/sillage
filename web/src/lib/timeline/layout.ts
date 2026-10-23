@@ -2,8 +2,9 @@
 // tracks when they overlap, events grouped when they crowd, and labels shown
 // where they fit.
 
-import { eventKey, eventTime, type Event } from '../model';
-import type { Selected } from '../selection.svelte';
+import { eventKey } from '../keys';
+import { eventTime, type Event } from '../model';
+import { eventRef, type ItemRef } from '../timeline';
 import { drawnEnd, type Span } from './intervals';
 import type { Row } from './lanes';
 import { eventLabel, eventMark, type MarkKind } from './marks';
@@ -51,7 +52,7 @@ export interface Point {
 	x: number;
 	mark: MarkKind;
 	label: string;
-	selected: Selected;
+	selected: ItemRef;
 }
 
 /** Where a mark's label is drawn: its line of labels and its left edge. */
@@ -143,7 +144,7 @@ function pointOf(event: Event, scale: Scale): Point {
 		x: scale.x(at),
 		mark: eventMark(event),
 		label: eventLabel(event),
-		selected: { kind: 'event', key }
+		selected: eventRef(event)
 	};
 }
 

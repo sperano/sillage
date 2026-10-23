@@ -1,37 +1,23 @@
-// The selected event or interval, shared by the timeline graph, the event
-// list and the detail panel: selecting in one selects in all.
+import { sameItem, type ItemRef } from './timeline';
 
-/** What can be selected: an event, a run, a check run, or a review wait. */
-export type Selected =
-	| { kind: 'event'; key: string }
-	| { kind: 'run'; key: string }
-	| { kind: 'check'; pr: string; id: number }
-	| { kind: 'review-wait'; key: string };
-
-/** A string identifying the selected record, equal for equal selections. */
-export function selectedId(s: Selected): string {
-	switch (s.kind) {
-		case 'check':
-			return `check:${s.pr}#${s.id}`;
-		default:
-			return `${s.kind}:${s.key}`;
-	}
-}
-
-/** The current selection; one instance is shared by every view of a story. */
+/**
+ * The selected event, run or check of one story. The graph, the event list
+ * and the detail panel share one instance, so selecting in any of them
+ * selects in all.
+ */
 export class Selection {
-	current = $state<Selected | null>(null);
+	// A ref is replaced, never changed in place: no deep proxy.
+	#current = $state.raw<ItemRef | undefined>();
 
-	select(s: Selected): void {
-		this.current = s;
+	get current(): ItemRef | undefined {
+		return this.#current;
 	}
 
-	clear(): void {
-		this.current = null;
+	select(ref: ItemRef | undefined): void {
+		this.#current = ref;
 	}
 
-	/** Whether s is the current selection. */
-	is(s: Selected): boolean {
-		return this.current !== null && selectedId(this.current) === selectedId(s);
+	isSelected(ref: ItemRef): boolean {
+		return sameItem(this.current, ref);
 	}
 }

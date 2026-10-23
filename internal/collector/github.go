@@ -77,7 +77,7 @@ func (a *assembly) branchRecords(ctx context.Context, repo github.Repository, br
 	var notes []string
 	ref := "GET /repos/" + repo.String() + "/pulls?state=all&head=" + repo.Owner + ":" + branch
 	for _, s := range snaps {
-		recs, err := github.Normalize(s)
+		recs, err := github.Normalize(s, a.cfg.GitHubAnnouncers)
 		if err != nil {
 			return model.Records{}, nil, fmt.Errorf("%s#%d: %w", repo, s.PullRequest.Number, err)
 		}

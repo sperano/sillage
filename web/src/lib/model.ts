@@ -288,31 +288,6 @@ export interface Story {
 	coverage: Coverage[];
 }
 
-// The key strings below are the Go keys' String forms, which correlations'
-// refs carry.
-
-export function eventKey(e: Event): string {
-	return `${e.source}/${e.instance}/${e.id}`;
-}
-
-export function taskKeyString(k: TaskKey): string {
-	return `${k.instance}/tasks/${k.id}`;
-}
-
-export function pageKeyString(k: PageKey): string {
-	return `${k.instance}/pages/${k.id}/${k.locale}`;
-}
-
-export function runKeyString(k: RunKey): string {
-	return k.uid !== undefined
-		? `${k.cluster}/${k.namespace}/uid/${k.uid}`
-		: `${k.cluster}/${k.namespace}/pod/${k.pod}`;
-}
-
-export function prKeyString(k: PRKey): string {
-	return `${k.instance}/${k.repository}/pull/${k.number}`;
-}
-
 /** The coverage key of a source instance: source and instance. */
 export function coverageKey(source: Source, instance: string): string {
 	return `${source}/${instance}`;

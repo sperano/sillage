@@ -1,0 +1,39 @@
+import { describe, expect, test } from 'vitest';
+import { goldenStories } from './testing/stories';
+import { eventKey, pageKeyString, prKeyString, runKeyString, taskKeyString } from './keys';
+import type { Ref, Story } from './model';
+
+function known(story: Story): Set<string> {
+	const refs = new Set<string>();
+	const add = (kind: Ref['kind'], id: string) => refs.add(`${kind}:${id}`);
+	if (story.root.task) add('task', taskKeyString(story.root.task));
+	if (story.root.page) add('page', pageKeyString(story.root.page));
+	for (const e of story.events) {
+		add('event', eventKey(e));
+		if (e.related.task) add('task', taskKeyString(e.related.task));
+		if (e.related.page) add('page', pageKeyString(e.related.page));
+	}
+	for (const r of story.runs) add('run', runKeyString(r.key));
+	for (const p of story.pullRequests) add('pr', prKeyString(p.key));
+	return refs;
+}
+
+test('every golden story is loaded', () => {
+	expect([...goldenStories.keys()].sort()).toEqual([
+		'announced-run-only',
+		'discuss-no-pr',
+		'failed-run-retry',
+		'implementation-merged',
+		'wiki-rooted-request'
+	]);
+});
+
+describe.each([...goldenStories])('%s', (_, story) => {
+	test('every correlation end is a key of the story, as the Go model writes it', () => {
+		const refs = known(story);
+		for (const c of story.correlations) {
+			expect(refs).toContain(`${c.from.kind}:${c.from.id}`);
+			expect(refs).toContain(`${c.to.kind}:${c.to.id}`);
+		}
+	});
+});

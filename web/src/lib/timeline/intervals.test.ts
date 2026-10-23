@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { Bound, StartBound } from '../model';
 import { prEvent, run, PR } from '../testing/builders';
+import { eventRef, sameItem } from '../timeline';
 import {
 	checkSpan,
 	hasExtent,
@@ -142,6 +143,12 @@ describe('reviewWaits', () => {
 			endState: 'known',
 			end: at('2026-03-01T11:00:00Z')
 		});
+	});
+
+	test('is selected apart from the request it starts at', () => {
+		const [wait] = reviewWaits([request], READ);
+		expect(wait!.selected).toEqual({ kind: 'review-wait', id: eventRef(request).id });
+		expect(sameItem(wait!.selected, eventRef(request))).toBe(false);
 	});
 
 	test('ends at the request removal', () => {

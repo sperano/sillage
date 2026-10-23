@@ -54,7 +54,7 @@
 	{#if expanded}
 		{#each members as m, i (m.key)}
 			{@const select = () => selection.select(m.selected)}
-			{@const selected = selection.is(m.selected)}
+			{@const selected = selection.isSelected(m.selected)}
 			{@const lineY = listY + i * LINE_PX}
 			{@const name = eventName(m.event, zone)}
 			<g
