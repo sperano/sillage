@@ -1,9 +1,11 @@
 // Command sillage serves sillage's HTTP endpoints: a health check, the
 // read API over the store (internal/api, under /api/, which must stay
-// behind the Authentik forward-auth) and the embedded frontend. With
-// SILLAGE_DATABASE_URL set, it migrates and prunes the store at startup;
-// without, the API answers 503 for what it would read. The collector comes
-// later.
+// behind the Authentik forward-auth), the webhook ingest paths
+// (internal/ingest, under /ingest/, authenticated by each delivery's
+// signature) and the embedded frontend. With SILLAGE_DATABASE_URL set, it
+// migrates and prunes the store at startup; without, the API answers 503
+// for what it would read. The collector comes later; until it does, the
+// ingest paths answer 503 to every delivery and record nothing.
 //
 // "sillage story -task <id>" (or "-page <id>") instead prints one story's
 // JSON, assembled from the live sources the environment configures.
@@ -120,7 +122,15 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 		_ = ln.Close()
 		return err
 	}
-	return serve(ctx, ln, newHandler(web.FS(), apiHandler))
+	// The collector loop, which would take the reads deliveries ask for
+	// (an ingest.Queue) and serve the metrics, is not in this build yet:
+	// until it is, the ingest paths refuse every delivery.
+	ingestHandler, err := newIngest(getenv, st, nil, nil)
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
+	return serve(ctx, ln, newHandler(web.FS(), apiHandler, ingestHandler))
 }
 
 // parseConfig reads the configuration from the command line and the

@@ -7,7 +7,9 @@
 // pgx and applies the migrations embedded in the binary, recorded in
 // schema_migrations. Save stores one read's records about one root (see
 // its rules); the Reader methods (Story, SearchRoots, Coverage) serve the
-// API. Prune applies the Config's retention policy (by default keep
+// API. RecordDelivery and DeliveryAccepted keep the webhook delivery
+// attempts the ingest paths received, apart from every story's records.
+// Prune applies the Config's retention policy (by default keep
 // everything).
 //
 // Each record is stored as its model JSON, the source of truth read back

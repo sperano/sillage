@@ -19,7 +19,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 
 | Path | What goes there |
 | --- | --- |
-| `cmd/sillage/` | The one binary: today `GET /healthz`, the read API under `/api/` and the embedded frontend (its `index.html` for every other `GET` path without a file extension, so client-side routes deep-link), and `sillage story`, which prints one story assembled from the live sources; later the collector loop too. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s, what the API answers `internal/api`'s. |
+| `cmd/sillage/` | The one binary: today `GET /healthz`, the read API under `/api/`, the webhook ingest paths under `/ingest/` (off, answering 503, until the collector loop drains the reads they ask for) and the embedded frontend (its `index.html` for every other `GET` path without a file extension, so client-side routes deep-link), and `sillage story`, which prints one story assembled from the live sources; later the collector loop too. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s, what the API answers `internal/api`'s, what a delivery does `internal/ingest`'s. |
 | `internal/model/` | Normalized events, runs, entities and links, and coverage. Source-independent. |
 | `internal/model/storytest/` | The invariant each fixture story exists for, asserted by the model's and the collector's tests. |
 | `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage. Read once, nothing kept. |
@@ -31,6 +31,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/source/kelostext/` | Requests (`/gordon`, `/kelos`) and Kelos start announcements in every form posted, shared by the sources that parse comments. |
 | `internal/store/` | PostgreSQL persistence of `model` records, checkpoints and coverage; `migrations/` holds the numbered SQL files embedded and applied at startup (add one, never edit one that shipped). |
 | `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, search, link resolution, version. No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
+| `internal/ingest/` | The webhook receiver: `POST /ingest/vikunja` and `POST /ingest/github`, authenticated by their signatures alone (they bypass the forward-auth). Each authenticated attempt is recorded in the store as evidence that sillage received it (`model.Delivery`), and asks the collector to read the roots it names again; no record comes from a payload. `Queue` is the collector loop's end of those requests. |
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
 | `web/src/lib/` | The story types (`model.ts`), their key strings (`keys.ts`) and their runtime decoder, the read API client, the routes and the router. |

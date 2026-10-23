@@ -14,7 +14,9 @@ page and the read-only JSON API under `/api/v1/`; the normalized model
 (`internal/model`) with fabricated fixture stories
 (`testdata/fixtures/stories/`); a read-only client per source; `sillage
 story`, which assembles one story from the live sources and prints it; and
-a PostgreSQL store (`internal/store`) that nothing writes to yet. The
+a PostgreSQL store (`internal/store`) that nothing writes to yet; and a
+webhook receiver (`internal/ingest`) that stays off, answering 503, until
+the collector loop runs to read what its deliveries name. The
 frontend's single-task timeline graph (`web/src/lib/timeline/`) is
 rendered in tests from the fixture stories but not yet shown on the story
 page. Nothing is deployed.
@@ -29,6 +31,7 @@ page. Nothing is deployed.
 | `internal/collector/` | Joins the sources' records into one story. |
 | `internal/store/` | PostgreSQL persistence, with its migrations embedded. |
 | `internal/api/` | Read-only JSON API over the store. |
+| `internal/ingest/` | Webhook receiver: Vikunja and GitHub deliveries, recorded as evidence, ask the collector for a fresh read. |
 | `testdata/fixtures/` | Fabricated test data, shared by Go and web tests. |
 | `web/` | Svelte 5 + Vite single-page frontend (TypeScript), embedded into the binary. |
 | `web/placeholder/` | Page embedded when the frontend is not built. |
@@ -76,6 +79,20 @@ configured (`SILLAGE_WIKI_URL`, `SILLAGE_WIKI_TOKEN`,
 serves the frontend's `index.html`, so that deep links to its routes work,
 unless its last segment has an extension (`/app.js`): a missing file is a
 404.
+
+`POST /ingest/github` and `POST /ingest/vikunja` (`internal/ingest`) take
+the GitHub repository webhooks' and the Vikunja webhooks' deliveries. They
+bypass the forward-auth, so each delivery's signature is their only
+authentication: `X-Hub-Signature-256` under
+`SILLAGE_GITHUB_WEBHOOK_SECRET`, `X-Vikunja-Signature` under
+`SILLAGE_VIKUNJA_WEBHOOK_SECRET`. A source without a secret refuses every
+delivery. A request that is too large (25 MB), unsigned or badly signed is
+refused before anything is read from it or recorded. Each authenticated
+attempt is recorded as evidence that sillage received it, not that Kelos
+received or acted on its own delivery. It then asks the collector to read
+the task or page it names again; nothing is written from the payload, and
+the periodic reads stay authoritative. Until the collector loop runs in
+this binary, both paths answer 503.
 
 The image builds both (no local `web/dist/` needed) and embeds the
 frontend:

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/sperano/sillage/internal/api"
+	"github.com/sperano/sillage/internal/ingest"
 )
 
 // healthzPath answers 200 while the process can serve HTTP. It checks no
@@ -19,14 +20,17 @@ const healthzPath = "/healthz"
 const indexFile = "index.html"
 
 // newHandler routes sillage's endpoints: the health check, the read API
-// under api.Prefix (all of it, its unknown paths too), and frontend for
-// every other GET path. The frontend's pattern takes every method, as a
+// under api.Prefix (all of it, its unknown paths too), the webhook ingest
+// paths under ingest.Prefix, which bypass the browser's forward-auth and
+// authenticate each delivery's signature instead, and frontend for every
+// other GET path. The frontend's pattern takes every method, as a
 // method-specific "GET /" would conflict with the API's subtree: it
 // refuses the others itself.
-func newHandler(frontend fs.FS, apiHandler http.Handler) http.Handler {
+func newHandler(frontend fs.FS, apiHandler, ingestHandler http.Handler) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+healthzPath, handleHealthz)
 	mux.Handle(api.Prefix, apiHandler)
+	mux.Handle(ingest.Prefix, ingestHandler)
 	mux.Handle("/", frontendHandler(frontend))
 	return mux
 }

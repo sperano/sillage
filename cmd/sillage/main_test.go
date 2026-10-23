@@ -97,7 +97,9 @@ func TestServeAndShutdown(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 	served := make(chan error, 1)
-	go func() { served <- serve(ctx, ln, newHandler(web.FS(), api.New(api.Config{}))) }()
+	go func() {
+		served <- serve(ctx, ln, newHandler(web.FS(), api.New(api.Config{}), ingestUnavailable("test")))
+	}()
 
 	client := &http.Client{Timeout: testTimeout}
 	resp, err := client.Get("http://" + ln.Addr().String() + healthzPath)
