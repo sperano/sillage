@@ -52,6 +52,45 @@ func TestEventValidate(t *testing.T) {
 	runEventCases(t, tests)
 }
 
+func TestEventValidateLastObserved(t *testing.T) {
+	observation := func(e *Event) {
+		e.Kind, e.SourceTime = KindTaskBucketObserved, nil
+	}
+	tests := []eventCase{
+		{"observation seen again", func(e *Event) {
+			observation(e)
+			e.LastObservedAt = timePtr(at(20))
+		}, ""},
+		{"observation seen once at the same time", func(e *Event) {
+			observation(e)
+			e.LastObservedAt = timePtr(e.ObservedAt)
+		}, ""},
+		{"before the first observation", func(e *Event) {
+			observation(e)
+			e.LastObservedAt = timePtr(at(9))
+		}, "before the observed time"},
+		{"on a comment", func(e *Event) {
+			e.SourceTime = nil
+			e.LastObservedAt = timePtr(at(20))
+		}, "only a state seen by polling"},
+		{"with a source time", func(e *Event) {
+			observation(e)
+			e.SourceTime = timePtr(at(5))
+			e.LastObservedAt = timePtr(at(20))
+		}, "only a state seen by polling"},
+	}
+	runEventCases(t, tests)
+}
+
+func TestEventKindObserved(t *testing.T) {
+	for kind := range kindSources {
+		want := kind == KindTaskBucketObserved || kind == KindTaskLabelObserved || kind == KindTaskAssigneeObserved
+		if got := kind.Observed(); got != want {
+			t.Errorf("%s.Observed() = %v, want %v", kind, got, want)
+		}
+	}
+}
+
 func TestEventValidateParts(t *testing.T) {
 	badTask := TaskKey{}
 	badPage := PageKey{}
@@ -169,5 +208,11 @@ func TestEventNormalize(t *testing.T) {
 	e.normalize()
 	if e.SourceTime != nil {
 		t.Errorf("normalize set a nil SourceTime to %v", e.SourceTime)
+	}
+
+	e.LastObservedAt = timePtr(atEST(20))
+	e.normalize()
+	if got := e.LastObservedAt.Location(); got != time.UTC || !e.LastObservedAt.Equal(at(20)) {
+		t.Errorf("LastObservedAt = %v, want %v in UTC", e.LastObservedAt, at(20))
 	}
 }

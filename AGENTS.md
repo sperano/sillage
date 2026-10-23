@@ -27,7 +27,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/source/wiki/` | Read-only Wiki.js client and its normalization into `model`. |
 | `internal/source/htmltext/` | Rendered comment HTML to plain text, shared by the sources that parse comments. |
 | `internal/source/kelostext/` | Requests (`/gordon`, `/kelos`) and Kelos start announcements in every form posted, shared by the sources that parse comments. |
-| `internal/store/` | Persistence of `model` records, checkpoints and coverage. |
+| `internal/store/` | PostgreSQL persistence of `model` records, checkpoints and coverage; `migrations/` holds the numbered SQL files embedded and applied at startup (add one, never edit one that shipped). |
 | `internal/api/` | The read-only HTTP API over `store`. |
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
@@ -83,6 +83,12 @@ go run honnef.co/go/tools/cmd/staticcheck@2026.2.2 ./...
 go test -race ./...
 go build ./...
 ```
+
+The store's tests run against a real PostgreSQL named by
+`SILLAGE_TEST_DATABASE_URL` (each test in its own schema) and skip without
+it. Agent pods have none: say in the PR that they were skipped, or start a
+local one (the zonky `embedded-postgres-binaries` jars on Maven Central
+hold a relocatable PostgreSQL that runs without root).
 
 `gofmt -l .` would walk `web/node_modules` (gofmt ignores `go.mod`'s
 `ignore`), hence the file list from git: tracked plus untracked, not ignored.

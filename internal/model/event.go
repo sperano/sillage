@@ -65,6 +65,18 @@ const (
 	KindPRReopened EventKind = "pr.reopened"
 )
 
+// observedKinds are the kinds of a state seen by polling: they have no
+// source time, and the store keeps one record per unchanged value.
+var observedKinds = map[EventKind]bool{
+	KindTaskBucketObserved:   true,
+	KindTaskLabelObserved:    true,
+	KindTaskAssigneeObserved: true,
+}
+
+// Observed reports whether k is a state seen by polling rather than a
+// recorded action.
+func (k EventKind) Observed() bool { return observedKinds[k] }
+
 // kindSources lists the sources each kind can come from.
 var kindSources = map[EventKind][]Source{
 	KindTaskCreated:          {SourceVikunja},
@@ -171,11 +183,17 @@ type Event struct {
 	// SourceTime is when the source says it happened; nil for a state seen
 	// by polling.
 	SourceTime *time.Time `json:"sourceTime,omitempty"`
-	// ObservedAt is when the collector read it.
+	// ObservedAt is when the collector read it: for a state seen by
+	// polling, when it was first seen.
 	ObservedAt time.Time `json:"observedAt"`
-	Actor      Account   `json:"actor"`
-	Executor   *Executor `json:"executor,omitempty"`
-	Related    Related   `json:"related"`
+	// LastObservedAt is, for a state seen by polling and seen again
+	// unchanged by later reads, the last read that saw it; nil when only
+	// one read did. The state held at every read in between, which says
+	// nothing about when it began or ended.
+	LastObservedAt *time.Time `json:"lastObservedAt,omitempty"`
+	Actor          Account    `json:"actor"`
+	Executor       *Executor  `json:"executor,omitempty"`
+	Related        Related    `json:"related"`
 	// Details holds safe, short attributes: never content, prompts or
 	// secrets.
 	Details  map[string]string `json:"details,omitempty"`
@@ -223,6 +241,9 @@ func (e Event) validate() error {
 	if e.ObservedAt.IsZero() {
 		return errors.New("observed time is required")
 	}
+	if err := e.validateLastObserved(); err != nil {
+		return err
+	}
 	if err := e.Actor.validate(); err != nil {
 		return err
 	}
@@ -246,6 +267,18 @@ func (e Event) validateID() error {
 		return nil
 	}
 	return fmt.Errorf("unknown id kind %q", e.IDKind)
+}
+
+func (e Event) validateLastObserved() error {
+	switch {
+	case e.LastObservedAt == nil:
+		return nil
+	case !e.Kind.Observed() || e.SourceTime != nil:
+		return errors.New("only a state seen by polling, without a source time, has a last observed time")
+	case e.LastObservedAt.Before(e.ObservedAt):
+		return errors.New("last observed time is before the observed time")
+	}
+	return nil
 }
 
 func kindFrom(kind EventKind, source Source) bool {
@@ -275,6 +308,10 @@ func (e *Event) normalize() {
 		e.SourceTime = &t
 	}
 	e.ObservedAt = e.ObservedAt.UTC()
+	if e.LastObservedAt != nil {
+		t := e.LastObservedAt.UTC()
+		e.LastObservedAt = &t
+	}
 }
 
 func validateEvidence(evidence []Evidence) error {
