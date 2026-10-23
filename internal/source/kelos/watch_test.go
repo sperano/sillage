@@ -303,7 +303,12 @@ func TestWatcherBookmarkAdvancesTheCheckpoint(t *testing.T) {
 	recordsBookmark := object("TaskRecord", "", "")
 	recordsBookmark.SetResourceVersion("51")
 	records.Action(watch.Bookmark, recordsBookmark)
+	tasksBookmarked := b.Checkpoint
 	b = h.commit(t)
+	if cp := b.Checkpoint; cp.RecordsVersion != "51" || !cp.RecordsSeenAt.After(tasksBookmarked.TasksSeenAt) ||
+		cp.TasksVersion != "50" || !cp.TasksSeenAt.Equal(tasksBookmarked.TasksSeenAt) {
+		t.Errorf("checkpoint = %+v, want records at version 51 and a later event time, Tasks unchanged", cp)
+	}
 	if read := b.Records.Coverage[0].LastSuccessfulRead; !read.Equal(b.Checkpoint.TasksSeenAt) {
 		t.Errorf("coverage read at %v, want the Task bookmark's %v", read, b.Checkpoint.TasksSeenAt)
 	}
