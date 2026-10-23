@@ -332,8 +332,10 @@ describe('interaction', () => {
 		const firstReason = marks.indexOf('text');
 		expect(firstReason).toBeGreaterThan(-1);
 		expect(marks.lastIndexOf('rect')).toBeLessThan(firstReason);
+		const spans = all(band, '[data-unknown] > title').map((t) => t.textContent);
 		for (const reason of all(band, '[data-reason]')) {
-			expect(getComputedStyle(reason).pointerEvents).toBe('none');
+			const i = Number(reason.getAttribute('data-reason'));
+			expect(reason.querySelector('title')?.textContent).toBe(spans[i]);
 		}
 	});
 

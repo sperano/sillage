@@ -39,8 +39,10 @@
 			</g>
 		{/each}
 		<!-- After every span, so that no span's hatch, overlapping or not, is drawn over a reason.
-		     Written in the span, before it, or not at all: see reasonTexts. -->
-		{#each reasons as reason, i (i)}
+		     Written in the span, before it, or not at all: see reasonTexts. Its title is the
+		     whole reason, wherever it is written and whichever span lies under it. -->
+		{#each band.unknown as u, i (i)}
+			{@const reason = reasons[i]}
 			{#if reason}
 				<text
 					class="reason"
@@ -49,7 +51,7 @@
 					x={reason.x}
 					y={band.y + SOURCE_ROW_PX / 2}
 					dy="0.35em"
-					text-anchor={reason.anchor}>{reason.text}</text
+					text-anchor={reason.anchor}><title>{u.reason}</title>{reason.text}</text
 				>
 			{/if}
 		{/each}
@@ -61,10 +63,8 @@
 		fill: var(--tl-muted);
 		font-size: 10px;
 	}
-	/* Drawn over the spans: the pointer goes through to the span's whole reason. */
 	.reason {
 		fill: var(--tl-fg);
 		font-size: 10px;
-		pointer-events: none;
 	}
 </style>
