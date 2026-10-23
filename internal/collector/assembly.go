@@ -28,6 +28,10 @@ type assembly struct {
 	// announcedOnly holds when each run known only from its announcement
 	// was announced.
 	announcedOnly map[model.RunKey]time.Time
+	// kept is what a store already holds of the story, and keptOnly its
+	// runs the Kelos read does not list.
+	kept     Kept
+	keptOnly []model.Run
 }
 
 // sourceState is what one source instance's reads covered.
@@ -37,17 +41,11 @@ type sourceState struct {
 }
 
 func newAssembly(c *Collector, root model.Root) *assembly {
-	var ref model.Ref
-	if root.Task != nil {
-		ref = root.Task.Ref()
-	} else {
-		ref = root.Page.Ref()
-	}
 	return &assembly{
 		c:       c,
 		cfg:     c.cfg,
 		root:    root,
-		rootRef: ref,
+		rootRef: root.Ref(),
 		events:  make(map[string]model.Event),
 		runs:    make(map[model.RunKey]model.Run),
 		prs:     make(map[model.PRKey]model.PullRequest),

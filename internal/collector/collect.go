@@ -27,6 +27,7 @@ func (a *assembly) collectTask(ctx context.Context, key model.TaskKey, repos []g
 			"the wiki was not read")
 	}
 	a.readKelos(ctx)
+	a.keepRuns()
 	a.announcedRuns()
 	a.taskRuns(id)
 	a.readGitHub(ctx, taskBranch(id), repos)
@@ -49,6 +50,7 @@ func (a *assembly) collectPage(ctx context.Context, key model.PageKey, repos []g
 		return err
 	}
 	a.readKelos(ctx)
+	a.keepRuns()
 	a.announcedRuns()
 	a.pageRuns(key)
 	a.readGitHub(ctx, pageBranch(key.ID), repos)

@@ -181,3 +181,23 @@ func TestSourceValid(t *testing.T) {
 		}
 	}
 }
+
+func TestRootRef(t *testing.T) {
+	task, page := testTaskKey(), testPageKey()
+	tests := []struct {
+		name string
+		root Root
+		want Ref
+	}{
+		{"task", Root{Task: &task}, task.Ref()},
+		{"page", Root{Page: &page}, page.Ref()},
+		{"none", Root{}, Ref{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.root.Ref(); got != tt.want {
+				t.Errorf("Ref() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

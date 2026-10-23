@@ -47,13 +47,18 @@ func (a *assembly) readKelos(ctx context.Context) {
 	a.kelos = &kelosView{runs: recs.Runs, labels: recs.Correlations, placements: kelos.Placements(a.cfg.Kelos, snap)}
 }
 
-// runsWhere returns the namespace's runs that match.
+// runsWhere returns the namespace's runs that match, and the kept runs
+// it no longer lists.
 func (a *assembly) runsWhere(match func(model.Run) bool) []model.Run {
-	if a.kelos == nil {
-		return nil
-	}
 	var out []model.Run
-	for _, r := range a.kelos.runs {
+	if a.kelos != nil {
+		for _, r := range a.kelos.runs {
+			if match(r) {
+				out = append(out, r)
+			}
+		}
+	}
+	for _, r := range a.keptOnly {
 		if match(r) {
 			out = append(out, r)
 		}
