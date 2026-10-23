@@ -37,7 +37,7 @@ func TestCheckpointRoundTrip(t *testing.T) {
 		},
 		tasksVersion: "20", recordsVersion: "21", lastEventAt: testEnd,
 	}
-	data, err := json.Marshal(st.checkpoint(testConfig()))
+	data, err := json.Marshal(st.checkpoint())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,26 +45,32 @@ func TestCheckpointRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(data, &cp); err != nil {
 		t.Fatal(err)
 	}
-	if cp.Cluster != testCluster || cp.Namespace != testNamespace || cp.Tasks[0].Task.UID != uidA {
-		t.Errorf("checkpoint = %+v, want the namespace's, in uid order", cp)
+	if cp.Tasks[0].Task.UID != uidA {
+		t.Errorf("checkpoint = %+v, want its Tasks in uid order", cp)
 	}
 	got, err := stateOf(cp)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got.checkpoint(testConfig()), st.checkpoint(testConfig())) {
-		t.Errorf("restored state differs:\n%+v\nwant\n%+v", got.checkpoint(testConfig()), st.checkpoint(testConfig()))
+	if !reflect.DeepEqual(got.checkpoint(), st.checkpoint()) {
+		t.Errorf("restored state differs:\n%+v\nwant\n%+v", got.checkpoint(), st.checkpoint())
 	}
 }
 
 func TestStateOfRejectsInconsistentCheckpoint(t *testing.T) {
-	for name, cp := range map[string]Checkpoint{
-		"task without uid":    {Tasks: []WatchedTask{{Task: *decodedTask(t, "", PhaseRunning)}}},
-		"record without task": {Records: []TaskRecord{*decodedRecord(t, uidA)}},
-	} {
-		if _, err := stateOf(cp); err == nil || !strings.Contains(err.Error(), "checkpoint") {
-			t.Errorf("%s: stateOf error = %v", name, err)
-		}
+	tests := []struct {
+		name string
+		cp   Checkpoint
+	}{
+		{"task without uid", Checkpoint{Tasks: []WatchedTask{{Task: *decodedTask(t, "", PhaseRunning)}}}},
+		{"record without task", Checkpoint{Records: []TaskRecord{*decodedRecord(t, uidA)}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := stateOf(tt.cp); err == nil || !strings.Contains(err.Error(), "checkpoint") {
+				t.Errorf("stateOf error = %v", err)
+			}
+		})
 	}
 }
 
@@ -93,7 +99,7 @@ func TestCheckpointDropsAnnotations(t *testing.T) {
 	task := decodedTask(t, uidA, PhaseRunning)
 	task.Annotations = map[string]string{"kubectl.kubernetes.io/last-applied-configuration": "{\"spec\":{\"prompt\":\"secret plan\"}}"}
 	st := &state{attempts: map[types.UID]*attempt{uidA: {uid: uidA, task: task}}}
-	data, err := json.Marshal(st.checkpoint(testConfig()))
+	data, err := json.Marshal(st.checkpoint())
 	if err != nil {
 		t.Fatal(err)
 	}

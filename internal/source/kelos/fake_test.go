@@ -118,13 +118,19 @@ func (c *fakeClock) now() time.Time {
 	return t
 }
 
-// fakeSink persists each checkpoint as JSON, as the store would, and hands
-// every committed batch to the test.
+// batch is one Commit to a fakeSink, its checkpoint decoded.
+type batch struct {
+	Records    model.Records
+	Checkpoint Checkpoint
+}
+
+// fakeSink stores each checkpoint as the bytes it is given, as the store
+// would, and hands every committed batch to the test.
 type fakeSink struct {
 	mu      sync.Mutex
-	saved   []byte
+	saved   map[string][]byte
 	err     error
-	commits chan Batch
+	commits chan batch
 }
 
 // sinkBuffer is how many batches a fakeSink holds before Commit blocks.
@@ -132,51 +138,62 @@ const sinkBuffer = 64
 
 func newFakeSink(t *testing.T, cp *Checkpoint) *fakeSink {
 	t.Helper()
-	s := &fakeSink{commits: make(chan Batch, sinkBuffer)}
+	s := &fakeSink{saved: map[string][]byte{}, commits: make(chan batch, sinkBuffer)}
 	if cp != nil {
-		s.save(t, *cp)
+		data, err := json.Marshal(cp)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s.saved[testConfig().checkpointKey()] = data
 	}
 	return s
 }
 
-func (s *fakeSink) save(t *testing.T, cp Checkpoint) {
-	t.Helper()
-	data, err := json.Marshal(cp)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.saved = data
-}
-
-func (s *fakeSink) Checkpoint(_ context.Context, cluster, namespace string) (Checkpoint, bool, error) {
+func (s *fakeSink) Checkpoint(_ context.Context, key string) ([]byte, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.saved == nil {
-		return Checkpoint{}, false, nil
-	}
+	data, ok := s.saved[key]
+	return data, ok, nil
+}
+
+func (s *fakeSink) Commit(ctx context.Context, key string, recs model.Records, checkpoint []byte) error {
 	var cp Checkpoint
-	if err := json.Unmarshal(s.saved, &cp); err != nil {
-		return Checkpoint{}, false, err
-	}
-	if cp.Cluster != cluster || cp.Namespace != namespace {
-		return Checkpoint{}, false, nil
-	}
-	return cp, true, nil
-}
-
-func (s *fakeSink) Commit(_ context.Context, b Batch) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.err != nil {
-		return s.err
-	}
-	data, err := json.Marshal(b.Checkpoint)
-	if err != nil {
+	if err := json.Unmarshal(checkpoint, &cp); err != nil {
 		return err
 	}
-	s.saved = data
-	s.commits <- b
-	return nil
+	s.mu.Lock()
+	if s.err != nil {
+		s.mu.Unlock()
+		return s.err
+	}
+	s.saved[key] = checkpoint
+	s.mu.Unlock()
+	select {
+	case s.commits <- batch{Records: recs, Checkpoint: cp}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (s *fakeSink) setErr(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.err = err
+}
+
+// stored returns the namespace's committed checkpoint.
+func (s *fakeSink) stored(t *testing.T) Checkpoint {
+	t.Helper()
+	data, ok, _ := s.Checkpoint(t.Context(), testConfig().checkpointKey())
+	var cp Checkpoint
+	if !ok {
+		t.Fatal("no checkpoint committed")
+	}
+	if err := json.Unmarshal(data, &cp); err != nil {
+		t.Fatal(err)
+	}
+	return cp
 }
 
 // fakeLists serves each resource's current list at its resourceVersion.
@@ -328,7 +345,9 @@ type harness struct {
 	lists   *fakeLists
 	watches *fakeWatches
 	sink    *fakeSink
-	done    chan error
+	// stop is closed once Run returned err.
+	stop chan struct{}
+	err  error
 }
 
 func newHarness(t *testing.T, cp *Checkpoint) *harness {
@@ -336,24 +355,27 @@ func newHarness(t *testing.T, cp *Checkpoint) *harness {
 	client := newFakeClient()
 	return &harness{
 		client: client, lists: installLists(client), watches: installWatches(client),
-		sink: newFakeSink(t, cp), done: make(chan error, 1),
+		sink: newFakeSink(t, cp), stop: make(chan struct{}),
 	}
 }
 
-// start runs the watcher until the test ends.
-func (h *harness) start(t *testing.T) {
+// start runs the watcher, with a reconnect delay, until the test ends.
+func (h *harness) start(t *testing.T, delay time.Duration) {
 	t.Helper()
 	w, err := NewWatcher(h.client, testConfig(), h.sink)
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.now, w.reconnectDelay = newFakeClock().now, 0
+	w.now, w.reconnectDelay = newFakeClock().now, delay
 	ctx, cancel := context.WithCancel(t.Context())
-	go func() { h.done <- w.Run(ctx) }()
+	go func() {
+		h.err = w.Run(ctx)
+		close(h.stop)
+	}()
 	t.Cleanup(func() {
 		cancel()
 		select {
-		case <-h.done:
+		case <-h.stop:
 		case <-time.After(testTimeout):
 			t.Error("the watcher did not stop")
 		}
@@ -361,7 +383,7 @@ func (h *harness) start(t *testing.T) {
 }
 
 // commit waits for the next batch, which must build into a story.
-func (h *harness) commit(t *testing.T) Batch {
+func (h *harness) commit(t *testing.T) batch {
 	t.Helper()
 	select {
 	case b := <-h.sink.commits:
@@ -370,21 +392,20 @@ func (h *harness) commit(t *testing.T) Batch {
 			t.Fatalf("batch does not build into a story: %v", err)
 		}
 		return b
-	case err := <-h.done:
-		t.Fatalf("the watcher stopped: %v", err)
+	case <-h.stop:
+		t.Fatalf("the watcher stopped: %v", h.err)
 	case <-time.After(testTimeout):
 		t.Fatal("no commit")
 	}
-	return Batch{}
+	return batch{}
 }
 
 // stopped waits for Run to return, and returns its error.
 func (h *harness) stopped(t *testing.T) error {
 	t.Helper()
 	select {
-	case err := <-h.done:
-		h.done <- err // for the cleanup
-		return err
+	case <-h.stop:
+		return h.err
 	case <-time.After(testTimeout):
 		t.Fatal("the watcher did not stop")
 		return nil
@@ -393,16 +414,16 @@ func (h *harness) stopped(t *testing.T) error {
 
 // listed starts the harness over one Task and no record, and returns the
 // list's batch and the two watches.
-func (h *harness) listed(t *testing.T, task *unstructured.Unstructured) (Batch, *watch.FakeWatcher, *watch.FakeWatcher) {
+func (h *harness) listed(t *testing.T, task *unstructured.Unstructured) (batch, *watch.FakeWatcher, *watch.FakeWatcher) {
 	t.Helper()
 	h.lists.set(tasksResource, "10", task)
 	h.lists.set(recordsResource, "11")
-	h.start(t)
+	h.start(t, 0)
 	b := h.commit(t)
 	return b, h.watches.next(t, tasksResource).w, h.watches.next(t, recordsResource).w
 }
 
-func onlyEvent(t *testing.T, b Batch) model.Event {
+func onlyEvent(t *testing.T, b batch) model.Event {
 	t.Helper()
 	if len(b.Records.Events) != 1 {
 		t.Fatalf("batch has %d events, want 1", len(b.Records.Events))

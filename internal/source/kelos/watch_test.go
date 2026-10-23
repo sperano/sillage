@@ -3,6 +3,7 @@ package kelos
 import (
 	"context"
 	"errors"
+	"net/http"
 	"slices"
 	"strings"
 	"testing"
@@ -13,6 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 
 	"github.com/sperano/sillage/internal/model"
 )
@@ -21,7 +24,7 @@ func TestWatcherListsThenWatchesFromTheListVersion(t *testing.T) {
 	h := newHarness(t, nil)
 	h.lists.set(tasksResource, "10", taskObj(taskA, uidA, "5", PhaseRunning, testStart))
 	h.lists.set(recordsResource, "11")
-	h.start(t)
+	h.start(t, 0)
 	b := h.commit(t)
 	if run := onlyRun(t, b.Records); run.Outcome != model.OutcomeRunning || run.Key.UID != uidA {
 		t.Errorf("run = %+v, want %s running", run, uidA)
@@ -41,7 +44,8 @@ func TestWatcherListsThenWatchesFromTheListVersion(t *testing.T) {
 	if cp := b.Checkpoint; cp.TasksVersion != "10" || cp.RecordsVersion != "11" || len(cp.Tasks) != 1 {
 		t.Errorf("checkpoint = %+v", cp)
 	}
-	for resource, want := range map[string]string{tasksResource: "10", recordsResource: "11"} {
+	for _, rw := range []struct{ resource, want string }{{tasksResource, "10"}, {recordsResource, "11"}} {
+		resource, want := rw.resource, rw.want
 		opts := h.watches.next(t, resource).opts
 		if opts.ResourceVersion != want || !opts.AllowWatchBookmarks {
 			t.Errorf("%s watch options = %+v, want from %s with bookmarks", resource, opts, want)
@@ -109,7 +113,7 @@ func checkpointOf(t *testing.T) Checkpoint {
 		t.Fatal(err)
 	}
 	return Checkpoint{
-		Cluster: testCluster, Namespace: testNamespace, TasksVersion: "20", RecordsVersion: "21",
+		TasksVersion: "20", RecordsVersion: "21",
 		LastEventAt: testCreated, Tasks: []WatchedTask{{Task: task}}, Records: []TaskRecord{},
 	}
 }
@@ -119,8 +123,9 @@ func checkpointOf(t *testing.T) Checkpoint {
 func TestWatcherResumesFromCheckpoint(t *testing.T) {
 	cp := checkpointOf(t)
 	h := newHarness(t, &cp)
-	h.start(t)
-	for resource, want := range map[string]string{tasksResource: "20", recordsResource: "21"} {
+	h.start(t, 0)
+	for _, rw := range []struct{ resource, want string }{{tasksResource, "20"}, {recordsResource, "21"}} {
+		resource, want := rw.resource, rw.want
 		call := h.watches.next(t, resource)
 		if call.opts.ResourceVersion != want {
 			t.Errorf("%s watch from %q, want the checkpoint's %s", resource, call.opts.ResourceVersion, want)
@@ -172,15 +177,19 @@ func expiredStatus() *unstructured.Unstructured {
 // time, and the coverage gets a "watch expired" gap from the last event to
 // the relist.
 func TestWatcherRelistsAnExpiredWatch(t *testing.T) {
-	for name, expire := range map[string]func(*harness, *watch.FakeWatcher){
-		"error event": func(_ *harness, w *watch.FakeWatcher) { w.Error(expiredStatus()) },
-		"refused watch": func(h *harness, w *watch.FakeWatcher) {
+	tests := []struct {
+		name   string
+		expire func(*harness, *watch.FakeWatcher)
+	}{
+		{"error event", func(_ *harness, w *watch.FakeWatcher) { w.Error(expiredStatus()) }},
+		{"refused watch", func(h *harness, w *watch.FakeWatcher) {
 			h.watches.fail(tasksResource, apierrors.NewResourceExpired("too old resource version"))
 			w.Stop()
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			testRelist(t, expire)
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testRelist(t, tt.expire)
 		})
 	}
 }
@@ -189,7 +198,7 @@ func testRelist(t *testing.T, expire func(*harness, *watch.FakeWatcher)) {
 	h := newHarness(t, nil)
 	h.lists.set(tasksResource, "10", taskObj(taskA, uidA, "5", PhaseRunning), taskObj(taskB, uidB, "6", PhaseRunning))
 	h.lists.set(recordsResource, "11")
-	h.start(t)
+	h.start(t, 0)
 	h.commit(t)
 	tasks := h.watches.next(t, tasksResource).w
 	h.watches.next(t, recordsResource)
@@ -219,7 +228,8 @@ func testRelist(t *testing.T, expire func(*harness, *watch.FakeWatcher)) {
 	if cp := b.Checkpoint; cp.TasksVersion != "30" || len(cp.Tasks) != 2 || cp.Tasks[1].Deleted == nil || cp.Tasks[1].Deleted.Seen {
 		t.Errorf("checkpoint = %+v, want the relist's version and the deleted Task kept", cp)
 	}
-	for resource, want := range map[string]string{tasksResource: "30", recordsResource: "31"} {
+	for _, rw := range []struct{ resource, want string }{{tasksResource, "30"}, {recordsResource, "31"}} {
+		resource, want := rw.resource, rw.want
 		if call := h.watches.next(t, resource); call.opts.ResourceVersion != want {
 			t.Errorf("%s watch after the relist from %q, want %s", resource, call.opts.ResourceVersion, want)
 		}
@@ -260,7 +270,7 @@ func TestWatcherRecordDeletionKeepsTheRun(t *testing.T) {
 	h := newHarness(t, nil)
 	h.lists.set(tasksResource, "10", taskObj(taskA, uidA, "5", PhaseSucceeded, testStart, testEnd))
 	h.lists.set(recordsResource, "11", recordObj(taskA, uidA, "6"))
-	h.start(t)
+	h.start(t, 0)
 	h.commit(t)
 	h.watches.next(t, tasksResource)
 	h.watches.next(t, recordsResource).w.Delete(recordObj(taskA, uidA, "12"))
@@ -298,54 +308,106 @@ func TestWatcherBookmarkAdvancesTheCheckpoint(t *testing.T) {
 // Any other failure stops the watcher with the committed checkpoint
 // unchanged, for the caller to run it again.
 func TestWatcherStopsOnFailure(t *testing.T) {
-	failures := map[string]struct {
+	tests := []struct {
+		name string
 		fail func(*harness, *watch.FakeWatcher)
 		want string
 	}{
-		"refused watch": {func(h *harness, w *watch.FakeWatcher) {
-			h.watches.fail(tasksResource, apierrors.NewForbidden(schema.GroupResource{Group: apiGroup, Resource: tasksResource}, "", errors.New("no watch verb")))
+		{"refused watch", func(h *harness, w *watch.FakeWatcher) {
+			forbidden := apierrors.NewForbidden(schema.GroupResource{Group: apiGroup, Resource: tasksResource}, "", errors.New("no watch verb"))
+			h.watches.fail(tasksResource, forbidden)
 			w.Stop()
 		}, "watch tasks in agents"},
-		"error event": {func(_ *harness, w *watch.FakeWatcher) {
-			w.Error(&metav1.Status{Status: metav1.StatusFailure, Code: 500, Message: "etcd unavailable"})
+		{"error event", func(_ *harness, w *watch.FakeWatcher) {
+			w.Error(&metav1.Status{Status: metav1.StatusFailure, Code: http.StatusInternalServerError, Message: "etcd unavailable"})
 		}, "etcd unavailable"},
-		"commit": {func(h *harness, w *watch.FakeWatcher) {
-			h.sink.mu.Lock()
-			h.sink.err = errors.New("database down")
-			h.sink.mu.Unlock()
+		{"commit", func(h *harness, w *watch.FakeWatcher) {
+			h.sink.setErr(errors.New("database down"))
 			w.Modify(taskObj(taskA, uidA, "12", PhaseSucceeded))
 		}, "kelos: commit: database down"},
-		"task without uid": {func(_ *harness, w *watch.FakeWatcher) {
+		{"task without uid", func(_ *harness, w *watch.FakeWatcher) {
 			w.Modify(taskObj(taskA, "", "12", PhaseSucceeded))
 		}, "no uid"},
 	}
-	for name, f := range failures {
-		t.Run(name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			h := newHarness(t, nil)
 			_, tasks, _ := h.listed(t, taskObj(taskA, uidA, "5", PhaseRunning))
-			f.fail(h, tasks)
+			tt.fail(h, tasks)
 			err := h.stopped(t)
-			if err == nil || errors.Is(err, errExpired) || !strings.Contains(err.Error(), f.want) {
-				t.Errorf("Run error = %v, want one containing %q", err, f.want)
+			if err == nil || errors.Is(err, errExpired) || !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("Run error = %v, want one containing %q", err, tt.want)
 			}
-			if cp, _, _ := h.sink.Checkpoint(t.Context(), testCluster, testNamespace); cp.TasksVersion != "10" {
+			if cp := h.sink.stored(t); cp.TasksVersion != "10" {
 				t.Errorf("checkpoint at %s, want the list's 10", cp.TasksVersion)
 			}
 		})
 	}
 }
 
+// Cancelling stops the watcher while it waits for events, and while it
+// pauses before reopening a closed watch.
 func TestWatcherStopsWhenCancelled(t *testing.T) {
-	h := newHarness(t, nil)
-	h.lists.set(tasksResource, "10", taskObj(taskA, uidA, "5", PhaseRunning))
-	w, err := NewWatcher(h.client, testConfig(), h.sink)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name  string
+		delay time.Duration
+		close bool
+	}{
+		{"waiting for events", 0, false},
+		{"pausing to reconnect", time.Hour, true},
 	}
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	if err := w.Run(ctx); !errors.Is(err, context.Canceled) {
-		t.Errorf("Run error = %v, want context.Canceled", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarness(t, nil)
+			h.lists.set(tasksResource, "10", taskObj(taskA, uidA, "5", PhaseRunning))
+			h.lists.set(recordsResource, "11")
+			w, err := NewWatcher(h.client, testConfig(), h.sink)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w.reconnectDelay = tt.delay
+			ctx, cancel := context.WithCancel(t.Context())
+			done := make(chan error, 1)
+			go func() { done <- w.Run(ctx) }()
+			h.commit(t)
+			tasks := h.watches.next(t, tasksResource).w
+			h.watches.next(t, recordsResource)
+			if tt.close {
+				tasks.Stop()
+			}
+			cancel()
+			select {
+			case err := <-done:
+				if !errors.Is(err, context.Canceled) {
+					t.Errorf("Run error = %v, want context.Canceled", err)
+				}
+			case <-time.After(testTimeout):
+				t.Fatal("the watcher did not stop")
+			}
+		})
+	}
+}
+
+// A list without a resourceVersion gives nothing to watch from: the
+// watcher stops rather than watch from the current state, which would skip
+// what came between.
+func TestWatcherRefusesAListWithoutVersion(t *testing.T) {
+	h := newHarness(t, nil)
+	h.lists.set(tasksResource, "", taskObj(taskA, uidA, "5", PhaseRunning))
+	h.lists.set(recordsResource, "11")
+	h.start(t, 0)
+	if err := h.stopped(t); err == nil || !strings.Contains(err.Error(), "no resourceVersion") {
+		t.Errorf("Run error = %v, want the list refused", err)
+	}
+}
+
+// An event without a resourceVersion leaves the resume point.
+func TestWatcherKeepsVersionOfAnEventWithoutOne(t *testing.T) {
+	h := newHarness(t, nil)
+	_, tasks, _ := h.listed(t, taskObj(taskA, uidA, "5", PhaseRunning))
+	tasks.Action(watch.Bookmark, object("Task", "", ""))
+	if b := h.commit(t); b.Checkpoint.TasksVersion != "10" {
+		t.Errorf("checkpoint at %q after a bookmark without a version, want the list's 10", b.Checkpoint.TasksVersion)
 	}
 }
 
@@ -353,14 +415,26 @@ func TestNewWatcherRejects(t *testing.T) {
 	sink := newFakeSink(t, nil)
 	bad := testConfig()
 	bad.Cluster = ""
-	for name, f := range map[string]func() (*Watcher, error){
-		"nil client":     func() (*Watcher, error) { return NewWatcher(nil, testConfig(), sink) },
-		"nil sink":       func() (*Watcher, error) { return NewWatcher(newFakeClient(), testConfig(), nil) },
-		"invalid config": func() (*Watcher, error) { return NewWatcher(newFakeClient(), bad, sink) },
-	} {
-		if _, err := f(); err == nil {
-			t.Errorf("%s: NewWatcher accepted it", name)
-		}
+	tests := []struct {
+		name   string
+		client *dynamicfake.FakeDynamicClient
+		cfg    Config
+		sink   Sink
+	}{
+		{"nil client", nil, testConfig(), sink},
+		{"nil sink", newFakeClient(), testConfig(), nil},
+		{"invalid config", newFakeClient(), bad, sink},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var client dynamic.Interface
+			if tt.client != nil {
+				client = tt.client
+			}
+			if _, err := NewWatcher(client, tt.cfg, tt.sink); err == nil {
+				t.Error("NewWatcher accepted it")
+			}
+		})
 	}
 }
 

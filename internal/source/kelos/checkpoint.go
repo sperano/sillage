@@ -23,35 +23,29 @@ import (
 // Task's fields.
 const deletedTaskRetention = 24 * time.Hour
 
-// Sink stores what a Watcher reads: the store implements it.
+// Sink stores what a Watcher reads: the store implements it. It sees
+// only model records and an opaque checkpoint, so it needs no Kubernetes
+// or Kelos type.
 type Sink interface {
-	// Checkpoint returns the last committed checkpoint of the namespace,
-	// with ok false when none was ever committed.
-	Checkpoint(ctx context.Context, cluster, namespace string) (cp Checkpoint, ok bool, err error)
-	// Commit stores a batch atomically: its records and the checkpoint
-	// they bring the watch to. A batch whose commit fails is read again
-	// from the previous checkpoint.
-	Commit(ctx context.Context, b Batch) error
+	// Checkpoint returns the checkpoint last committed under key, with ok
+	// false when none was.
+	Checkpoint(ctx context.Context, key string) (data []byte, ok bool, err error)
+	// Commit stores, atomically, what one list or watch event changed and
+	// the checkpoint it brings the watch to, under key. The records are the
+	// runs and correlations it changed, one run.observed event per object
+	// seen, and the Kelos coverage: read up to the event, with a gap when a
+	// watch expired. A run built from a TaskRecord alone (its Task deleted
+	// before it was read) must complete the stored run, not replace it. A
+	// commit that fails is read again from the previous checkpoint.
+	Commit(ctx context.Context, key string, recs model.Records, checkpoint []byte) error
 }
 
-// Batch is what one list or watch event changed.
-type Batch struct {
-	// Records holds the runs and correlations the batch changed, one
-	// observation event per object it saw, and the Kelos coverage: read up
-	// to Checkpoint.LastEventAt, with a gap when the watch expired.
-	Records model.Records
-	// Checkpoint is where the watch stands once the batch is stored.
-	Checkpoint Checkpoint
-}
-
-// Checkpoint is where a watch of one namespace stands, persisted as one
-// JSON value so that a restarted Watcher resumes the same watches with the
-// objects it held. It holds the live Tasks, the deleted Tasks still
+// Checkpoint is where a watch of one namespace stands, which a Sink stores
+// as opaque JSON so that a restarted Watcher resumes the same watches with
+// the objects it held. It holds the live Tasks, the deleted Tasks still
 // awaiting a TaskRecord, and the TaskRecords of those Tasks: a run whose
 // Task is gone and whose record was read is complete, and leaves it.
 type Checkpoint struct {
-	Cluster   string `json:"cluster"`
-	Namespace string `json:"namespace"`
 	// TasksVersion and RecordsVersion are the resourceVersions the two
 	// watches resume from.
 	TasksVersion   string `json:"tasksVersion"`
@@ -80,6 +74,11 @@ type Deletion struct {
 	// a relist found the Task missing: it was deleted at an unknown time
 	// between the last event and At.
 	Seen bool `json:"seen"`
+}
+
+// checkpointKey is the key a Sink stores the namespace's checkpoint under.
+func (c Config) checkpointKey() string {
+	return string(model.SourceKelos) + "/" + c.Cluster + "/" + c.Namespace
 }
 
 // state is what a watch holds between events.
@@ -114,10 +113,9 @@ func stateOf(cp Checkpoint) (*state, error) {
 	return st, nil
 }
 
-// checkpoint returns the state as cfg's checkpoint, in UID order.
-func (s *state) checkpoint(cfg Config) Checkpoint {
+// checkpoint returns the state as a checkpoint, in UID order.
+func (s *state) checkpoint() Checkpoint {
 	cp := Checkpoint{
-		Cluster: cfg.Cluster, Namespace: cfg.Namespace,
 		TasksVersion: s.tasksVersion, RecordsVersion: s.recordsVersion,
 		LastEventAt: s.lastEventAt,
 		Tasks:       []WatchedTask{}, Records: []TaskRecord{},

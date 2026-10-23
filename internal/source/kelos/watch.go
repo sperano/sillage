@@ -2,6 +2,7 @@ package kelos
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -19,9 +20,10 @@ import (
 )
 
 const (
-	// reconnectDelay is the pause before reopening a watch the API server
-	// closed, so that a server closing every watch at once is not hammered.
-	reconnectDelay = time.Second
+	// defaultReconnectDelay is the pause before reopening a watch the API
+	// server closed, and before relisting after an expired one, so that a
+	// server closing or expiring every watch at once is not hammered.
+	defaultReconnectDelay = time.Second
 	// GapWatchExpired is the reason of the gap a relist records on the
 	// Kelos coverage after a watch expired: the deletions and transient
 	// phases between the last event and the relist are unknown.
@@ -36,7 +38,8 @@ var errExpired = errors.New("kelos: watch expired")
 // then watches both from the lists' resourceVersions, committing what each
 // event changed to a Sink with the checkpoint it brings the watch to. A
 // watch the API server closes is reopened from the checkpoint; a watch that
-// expired is replaced by a relist and a "watch expired" gap.
+// expired is replaced by a relist and a "watch expired" gap. One Watcher
+// runs per namespace, and its Run is not safe for concurrent use.
 type Watcher struct {
 	client         dynamic.Interface
 	cfg            Config
@@ -54,7 +57,7 @@ func NewWatcher(client dynamic.Interface, cfg Config, sink Sink) (*Watcher, erro
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	return &Watcher{client: client, cfg: cfg, sink: sink, now: time.Now, reconnectDelay: reconnectDelay}, nil
+	return &Watcher{client: client, cfg: cfg, sink: sink, now: time.Now, reconnectDelay: defaultReconnectDelay}, nil
 }
 
 // Run watches until ctx is done or a request or a commit fails, and
@@ -72,6 +75,9 @@ func (w *Watcher) Run(ctx context.Context) error {
 		if !errors.Is(err, errExpired) {
 			return err
 		}
+		if err := w.pause(ctx); err != nil {
+			return err
+		}
 		if st, err = w.relist(ctx, st); err != nil {
 			return err
 		}
@@ -80,12 +86,16 @@ func (w *Watcher) Run(ctx context.Context) error {
 
 // start restores the committed checkpoint, or lists when there is none.
 func (w *Watcher) start(ctx context.Context) (*state, error) {
-	cp, ok, err := w.sink.Checkpoint(ctx, w.cfg.Cluster, w.cfg.Namespace)
+	data, ok, err := w.sink.Checkpoint(ctx, w.cfg.checkpointKey())
 	if err != nil {
 		return nil, fmt.Errorf("kelos: load checkpoint: %w", err)
 	}
 	if !ok {
 		return w.relist(ctx, nil)
+	}
+	var cp Checkpoint
+	if err := json.Unmarshal(data, &cp); err != nil {
+		return nil, fmt.Errorf("kelos: decode checkpoint: %w", err)
 	}
 	return stateOf(cp)
 }
@@ -98,6 +108,9 @@ func (w *Watcher) relist(ctx context.Context, prev *state) (*state, error) {
 	s, err := readSnapshot(ctx, w.client, w.cfg, w.now)
 	if err != nil {
 		return nil, err
+	}
+	if s.TasksVersion == "" || s.RecordsVersion == "" {
+		return nil, errors.New("kelos: a list has no resourceVersion to watch from")
 	}
 	changed, err := pair(w.cfg, s)
 	if err != nil {
@@ -122,8 +135,11 @@ func (w *Watcher) relist(ctx context.Context, prev *state) (*state, error) {
 func (s *state) carryOver(prev *state, at time.Time) []*attempt {
 	var changed []*attempt
 	for uid, old := range prev.attempts {
-		if a := s.attempts[uid]; old.task == nil || (a != nil && a.task != nil) {
+		if old.task == nil {
 			continue
+		}
+		if cur := s.attempts[uid]; cur != nil && cur.task != nil {
+			continue // still listed
 		}
 		a := s.attempt(uid)
 		if a.record == nil {
@@ -151,7 +167,7 @@ type stream struct {
 	gvr schema.GroupVersionResource
 	// version points to the state's resourceVersion of gvr.
 	version *string
-	w       watch.Interface
+	watcher watch.Interface
 }
 
 // watch follows both resources' watches until ctx is done, one expires
@@ -159,21 +175,31 @@ type stream struct {
 func (w *Watcher) watch(ctx context.Context, st *state) error {
 	tasks := &stream{gvr: taskGVR, version: &st.tasksVersion}
 	records := &stream{gvr: recordGVR, version: &st.recordsVersion}
-	for _, s := range []*stream{tasks, records} {
-		var err error
-		if s.w, err = w.open(ctx, s); err != nil {
+	streams := []*stream{tasks, records}
+	// Stop is idempotent, so a watch next already stopped can be stopped
+	// again here.
+	defer func() {
+		for _, s := range streams {
+			if s.watcher != nil {
+				s.watcher.Stop()
+			}
+		}
+	}()
+	for _, s := range streams {
+		wi, err := w.open(ctx, s)
+		if err != nil {
 			return err
 		}
-		defer func() { s.w.Stop() }()
+		s.watcher = wi
 	}
 	for {
 		var err error
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case ev, ok := <-tasks.w.ResultChan():
+		case ev, ok := <-tasks.watcher.ResultChan():
 			err = w.next(ctx, st, tasks, ev, ok)
-		case ev, ok := <-records.w.ResultChan():
+		case ev, ok := <-records.watcher.ResultChan():
 			err = w.next(ctx, st, records, ev, ok)
 		}
 		if err != nil {
@@ -188,18 +214,28 @@ func (w *Watcher) next(ctx context.Context, st *state, s *stream, ev watch.Event
 	if ok {
 		return w.handle(ctx, st, s, ev)
 	}
-	s.w.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(w.reconnectDelay):
+	s.watcher.Stop()
+	if err := w.pause(ctx); err != nil {
+		return err
 	}
 	wi, err := w.open(ctx, s)
 	if err != nil {
 		return err
 	}
-	s.w = wi
+	s.watcher = wi
 	return nil
+}
+
+// pause waits reconnectDelay, or until ctx is done.
+func (w *Watcher) pause(ctx context.Context) error {
+	t := time.NewTimer(w.reconnectDelay)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }
 
 // open starts a watch of s's resource from its resourceVersion, with
@@ -231,7 +267,8 @@ func (w *Watcher) handle(ctx context.Context, st *state, s *stream, ev watch.Eve
 		if err != nil {
 			return err
 		}
-		*s.version, st.lastEventAt = u.GetResourceVersion(), w.now()
+		s.advance(u)
+		st.lastEventAt = w.now()
 		return w.commit(ctx, st, nil, nil, nil)
 	case watch.Added, watch.Modified, watch.Deleted:
 		u, err := asUnstructured(s.gvr, ev.Object)
@@ -243,12 +280,24 @@ func (w *Watcher) handle(ctx context.Context, st *state, s *stream, ev watch.Eve
 		if err != nil {
 			return err
 		}
-		*s.version, st.lastEventAt = u.GetResourceVersion(), at
+		s.advance(u)
+		st.lastEventAt = at
 		return w.commit(ctx, st, changed, []model.Event{obs}, nil)
 	}
 	return fmt.Errorf("kelos: watch %s: unexpected event type %q", s.gvr.Resource, ev.Type)
 }
 
+// advance moves the stream's resume point to the object's
+// resourceVersion. An object without one leaves it: an empty version would
+// restart the watch at the current state, skipping what came between.
+func (s *stream) advance(u *unstructured.Unstructured) {
+	if rv := u.GetResourceVersion(); rv != "" {
+		*s.version = rv
+	}
+}
+
+// asUnstructured returns a watch event's object, which the dynamic client
+// decodes as unstructured.
 func asUnstructured(gvr schema.GroupVersionResource, obj runtime.Object) (*unstructured.Unstructured, error) {
 	u, ok := obj.(*unstructured.Unstructured)
 	if !ok {
@@ -273,7 +322,11 @@ func (w *Watcher) commit(ctx context.Context, st *state, changed []*attempt, obs
 		return err
 	}
 	st.prune(read)
-	if err := w.sink.Commit(ctx, Batch{Records: recs, Checkpoint: st.checkpoint(w.cfg)}); err != nil {
+	data, err := json.Marshal(st.checkpoint())
+	if err != nil {
+		return fmt.Errorf("kelos: encode checkpoint: %w", err)
+	}
+	if err := w.sink.Commit(ctx, w.cfg.checkpointKey(), recs, data); err != nil {
 		return fmt.Errorf("kelos: commit: %w", err)
 	}
 	return nil
