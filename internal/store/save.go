@@ -60,7 +60,8 @@ func (s *Store) Save(ctx context.Context, b Batch) error {
 	return nil
 }
 
-// saver writes one batch inside one transaction.
+// saver writes one batch inside one transaction. It lives for one Save
+// call, whose context it carries.
 type saver struct {
 	ctx  context.Context
 	tx   pgx.Tx

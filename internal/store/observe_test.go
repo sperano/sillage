@@ -59,13 +59,23 @@ func TestObservationsStoredOncePerValue(t *testing.T) {
 		{"Done", at(20), at(20)},
 		{"Doing", at(30), at(30)},
 	}
-	got := ranges(mustStory(t, s, root))
+	story := mustStory(t, s, root)
+	got := ranges(story)
 	if len(got) != len(want) {
 		t.Fatalf("observations = %+v, want %+v", got, want)
 	}
 	for i := range want {
 		if got[i].value != want[i].value || !got[i].first.Equal(want[i].first) || !got[i].last.Equal(want[i].last) {
 			t.Errorf("observation %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+
+	// The story read back, ranges included, saved into an empty store or
+	// again into this one, reads back unchanged.
+	for _, into := range []*Store{newTestStore(t, Retention{}), s} {
+		mustSave(t, into, root, story.Records)
+		if again := marshalStory(t, mustStory(t, into, root)); string(again) != string(marshalStory(t, story)) {
+			t.Errorf("story saved again differs:\n%s", again)
 		}
 	}
 }

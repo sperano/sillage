@@ -55,6 +55,7 @@ func TestCheckpointValidate(t *testing.T) {
 		name string
 		c    Checkpoint
 	}{
+		{"no source", Checkpoint{Instance: testCluster, Scope: "tasks"}},
 		{"no instance", Checkpoint{Source: model.SourceKelos, Scope: "tasks"}},
 		{"no scope", Checkpoint{Source: model.SourceKelos, Instance: testCluster}},
 		{"invalid root", Checkpoint{Source: model.SourceKelos, Instance: testCluster, Scope: "x", Root: &model.Root{}}},

@@ -3,6 +3,7 @@ package store
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -51,7 +52,7 @@ func (w *saver) saveEvents(events []model.Event) error {
 			}
 		}
 		if err := w.saveEvent(e); err != nil {
-			return errors.Join(errors.New("event "+e.Key()), err)
+			return fmt.Errorf("event %s: %w", e.Key(), err)
 		}
 	}
 	return nil
@@ -63,6 +64,11 @@ func (w *saver) saveEvent(e model.Event) error {
 	switch {
 	case isObservation(e):
 		id, err = w.saveObservation(e)
+		if err == nil && e.LastObservedAt != nil {
+			// A range already read (a story saved again): it ends there.
+			err = w.exec("UPDATE events SET last_observed_at = GREATEST(last_observed_at, $2) WHERE id = $1",
+				id, *e.LastObservedAt)
+		}
 	case isLive(e):
 		var keep bool
 		if keep, err = w.keepLive(e); err != nil || !keep {
@@ -82,8 +88,10 @@ func (w *saver) saveEvent(e model.Event) error {
 }
 
 // upsertEvent stores e under its key and returns its row. A stored read
-// newer than e's is kept.
+// newer than e's is kept. The last observed time is the column's, never
+// the body's.
 func (w *saver) upsertEvent(e model.Event, row eventRow) (int64, error) {
+	e.LastObservedAt = nil
 	body, err := json.Marshal(e)
 	if err != nil {
 		return 0, err
@@ -99,7 +107,8 @@ func (w *saver) upsertEvent(e model.Event, row eventRow) (int64, error) {
 	if e.Source == model.SourceWiki {
 		supersedes = nullable(e.Details[detailSupersedes])
 	}
-	rows, err := w.tx.Query(w.ctx, `
+	var id int64
+	err = w.tx.QueryRow(w.ctx, `
 		INSERT INTO events (source, instance, event_id, kind, at, observed_at, last_observed_at,
 			observed_subject, series, run_ref, supersedes, live_page, body)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
@@ -111,11 +120,7 @@ func (w *saver) upsertEvent(e model.Event, row eventRow) (int64, error) {
 		WHERE EXCLUDED.observed_at >= events.observed_at
 		RETURNING id`,
 		string(e.Source), e.Instance, e.ID, string(e.Kind), e.Time(), e.ObservedAt, row.lastObserved,
-		row.subject, row.series, runRef, supersedes, livePage, body)
-	if err != nil {
-		return 0, err
-	}
-	id, err := pgx.CollectExactlyOneRow(rows, pgx.RowTo[int64])
+		row.subject, row.series, runRef, supersedes, livePage, body).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		id, _, err = w.eventID(e.Source, e.Instance, e.ID)
 	}

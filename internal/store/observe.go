@@ -27,7 +27,7 @@ func (w *saver) saveObservation(e model.Event) (int64, error) {
 	// Within a stored record's range: the same read saved again, or an
 	// older read arriving late.
 	s, found, err := w.seriesRow(`SELECT id, source, instance, event_id FROM events
-		WHERE series = $1 AND observed_at <= $2 AND last_observed_at >= $2 LIMIT 1`, series, at)
+		WHERE series = $1 AND observed_at <= $2 AND last_observed_at >= $2 ORDER BY id LIMIT 1`, series, at)
 	if err == nil && !found {
 		s, found, err = w.continueSeries(subject, series, at)
 	}
@@ -50,7 +50,7 @@ func (w *saver) continueSeries(subject, series string, at time.Time) (seriesRow,
 		return seriesRow{}, false, err
 	}
 	s, found, err := w.seriesRow(`SELECT id, source, instance, event_id FROM events
-		WHERE series = $1 AND last_observed_at = $2 LIMIT 1`, series, *prev)
+		WHERE series = $1 AND last_observed_at = $2 ORDER BY id LIMIT 1`, series, *prev)
 	if err != nil || !found {
 		return s, false, err
 	}

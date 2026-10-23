@@ -80,9 +80,9 @@ func (s *Store) write(ctx context.Context, fn func(pgx.Tx) error) error {
 }
 
 // rootID returns the id of a stored root, or ErrNotFound.
-func rootID(ctx context.Context, q pgx.Tx, root model.Root) (int64, error) {
+func rootID(ctx context.Context, tx pgx.Tx, root model.Root) (int64, error) {
 	var id int64
-	err := q.QueryRow(ctx, "SELECT id FROM roots WHERE ref = $1", rootRef(root).String()).Scan(&id)
+	err := tx.QueryRow(ctx, "SELECT id FROM roots WHERE ref = $1", rootRef(root).String()).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, ErrNotFound
 	}

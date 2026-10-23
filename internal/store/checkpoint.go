@@ -31,11 +31,18 @@ type Checkpoint struct {
 }
 
 func (c Checkpoint) validate() error {
+	switch c.Source {
+	case model.SourceVikunja, model.SourceKelos, model.SourceGitHub, model.SourceWiki:
+	default:
+		return fmt.Errorf("store: checkpoint: unknown source %q", c.Source)
+	}
 	if c.Instance == "" || c.Scope == "" {
-		return errors.New("store: a checkpoint needs an instance and a scope")
+		return errors.New("store: checkpoint: an instance and a scope are required")
 	}
 	if c.Root != nil {
-		return c.Root.Validate()
+		if err := c.Root.Validate(); err != nil {
+			return fmt.Errorf("store: checkpoint: %w", err)
+		}
 	}
 	return nil
 }

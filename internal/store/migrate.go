@@ -1,6 +1,7 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"embed"
 	"fmt"
@@ -21,8 +22,8 @@ var migrationFiles embed.FS
 
 const (
 	migrationsDir = "migrations"
-	// migrateLockID is the session advisory lock that keeps two sillage
-	// processes from migrating the same database at once.
+	// migrateLockID is the transaction advisory lock that keeps two
+	// sillage processes from migrating the same database at once.
 	migrateLockID int64 = 0x5111a6e0001
 )
 
@@ -60,7 +61,7 @@ func loadMigrations(fsys fs.FS) ([]migration, error) {
 		}
 		out = append(out, migration{version: version, name: e.Name(), sql: string(sql)})
 	}
-	slices.SortFunc(out, func(a, b migration) int { return a.version - b.version })
+	slices.SortFunc(out, func(a, b migration) int { return cmp.Compare(a.version, b.version) })
 	for i, m := range out {
 		if m.version != i+1 {
 			return nil, fmt.Errorf("store: migration %s: version %d, want %d", m.name, m.version, i+1)
@@ -69,8 +70,9 @@ func loadMigrations(fsys fs.FS) ([]migration, error) {
 	return out, nil
 }
 
-// migrate applies the embedded migrations the database lacks, each in its
-// own transaction with its row in schema_migrations. It refuses a database
+// migrate applies the embedded migrations the database lacks, with their
+// rows in schema_migrations, in one transaction holding an advisory lock:
+// all of them or none, and one process at a time. It refuses a database
 // that has a version this binary does not know: it was migrated by a newer
 // sillage, and this one would misread it.
 func migrate(ctx context.Context, pool *pgxpool.Pool) error {
@@ -78,38 +80,32 @@ func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	conn, err := pool.Acquire(ctx)
-	if err != nil {
-		return fmt.Errorf("store: migrate: %w", err)
-	}
-	defer conn.Release()
-	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock($1)", migrateLockID); err != nil {
-		return fmt.Errorf("store: migrate: lock: %w", err)
-	}
-	defer func() {
-		_, _ = conn.Exec(context.WithoutCancel(ctx), "SELECT pg_advisory_unlock($1)", migrateLockID)
-	}()
-	applied, err := appliedVersions(ctx, conn.Conn())
-	if err != nil {
-		return err
-	}
-	if n := len(applied); n > 0 && applied[n-1] > len(migrations) {
-		return fmt.Errorf("store: the database is at schema version %d, newer than this binary's %d",
-			applied[n-1], len(migrations))
-	}
-	for _, m := range migrations {
-		if slices.Contains(applied, m.version) {
-			continue
+	return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", migrateLockID); err != nil {
+			return fmt.Errorf("store: migrate: lock: %w", err)
 		}
-		if err := apply(ctx, conn.Conn(), m); err != nil {
+		applied, err := appliedVersions(ctx, tx)
+		if err != nil {
 			return err
 		}
-	}
-	return nil
+		if n := len(applied); n > 0 && applied[n-1] > len(migrations) {
+			return fmt.Errorf("store: the database is at schema version %d, newer than this binary's %d",
+				applied[n-1], len(migrations))
+		}
+		for _, m := range migrations {
+			if slices.Contains(applied, m.version) {
+				continue
+			}
+			if err := apply(ctx, tx, m); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
-func appliedVersions(ctx context.Context, conn *pgx.Conn) ([]int, error) {
-	_, err := conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+func appliedVersions(ctx context.Context, tx pgx.Tx) ([]int, error) {
+	_, err := tx.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version    integer PRIMARY KEY,
 		name       text NOT NULL,
 		applied_at timestamptz NOT NULL DEFAULT now()
@@ -117,7 +113,7 @@ func appliedVersions(ctx context.Context, conn *pgx.Conn) ([]int, error) {
 	if err != nil {
 		return nil, fmt.Errorf("store: migrate: version table: %w", err)
 	}
-	rows, err := conn.Query(ctx, "SELECT version FROM schema_migrations ORDER BY version")
+	rows, err := tx.Query(ctx, "SELECT version FROM schema_migrations ORDER BY version")
 	if err != nil {
 		return nil, fmt.Errorf("store: migrate: %w", err)
 	}
@@ -128,18 +124,14 @@ func appliedVersions(ctx context.Context, conn *pgx.Conn) ([]int, error) {
 	return versions, nil
 }
 
-// apply runs one migration and records it, or neither.
-func apply(ctx context.Context, conn *pgx.Conn, m migration) error {
-	err := pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
-		// Without arguments, Exec uses the simple protocol, which runs a
-		// file of several statements.
-		if _, err := tx.Exec(ctx, m.sql); err != nil {
-			return err
-		}
-		_, err := tx.Exec(ctx, "INSERT INTO schema_migrations (version, name) VALUES ($1, $2)", m.version, m.name)
-		return err
-	})
-	if err != nil {
+// apply runs one migration and records it.
+func apply(ctx context.Context, tx pgx.Tx, m migration) error {
+	// Without arguments, Exec uses the simple protocol, which runs a file
+	// of several statements.
+	if _, err := tx.Exec(ctx, m.sql); err != nil {
+		return fmt.Errorf("store: migration %s: %w", m.name, err)
+	}
+	if _, err := tx.Exec(ctx, "INSERT INTO schema_migrations (version, name) VALUES ($1, $2)", m.version, m.name); err != nil {
 		return fmt.Errorf("store: migration %s: %w", m.name, err)
 	}
 	return nil

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -117,7 +118,7 @@ func parseKeep(s string) (time.Duration, error) {
 		return time.ParseDuration(s)
 	}
 	n, err := strconv.ParseInt(days, 10, 64)
-	if err != nil || n <= 0 || n > int64(time.Duration(1<<63-1)/day) {
+	if err != nil || n <= 0 || n > math.MaxInt64/int64(day) {
 		return 0, errors.New("not a positive number of days")
 	}
 	return time.Duration(n) * day, nil

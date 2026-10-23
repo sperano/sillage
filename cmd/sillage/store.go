@@ -9,6 +9,10 @@ import (
 	"github.com/sperano/sillage/internal/store"
 )
 
+// storeOpenTimeout bounds connecting, migrating and pruning at startup, so
+// that an unreachable database fails the start instead of hanging it.
+const storeOpenTimeout = 5 * time.Minute
+
 // openStore opens the store, applying its migrations and its retention
 // policy, when store.EnvDatabaseURL is set. Without it, it returns nil:
 // nothing reads or writes the store yet, so sillage still serves.
@@ -21,6 +25,8 @@ func openStore(ctx context.Context, getenv func(string) string) (*store.Store, e
 	if err != nil {
 		return nil, err
 	}
+	ctx, cancel := context.WithTimeout(ctx, storeOpenTimeout)
+	defer cancel()
 	st, err := store.Open(ctx, cfg)
 	if err != nil {
 		return nil, err

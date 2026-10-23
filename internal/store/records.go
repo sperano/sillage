@@ -3,6 +3,7 @@ package store
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 
@@ -14,35 +15,39 @@ import (
 // earlier commit's checks stay when a read lists only the latest's.
 func (w *saver) savePullRequests(prs []model.PullRequest) error {
 	for _, p := range prs {
-		var id int64
-		err := w.tx.QueryRow(w.ctx, `
-			INSERT INTO pull_requests (instance, repository, number, ref, branch) VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT (ref) DO UPDATE SET branch = EXCLUDED.branch
-			RETURNING id`,
-			p.Key.Instance, p.Key.Repository, p.Key.Number, p.Key.Ref().String(), p.Branch).Scan(&id)
-		if err != nil {
-			return err
-		}
-		for _, c := range p.Checks {
-			body, err := json.Marshal(c)
-			if err != nil {
-				return err
-			}
-			if err := w.exec(`
-				INSERT INTO check_runs (pull_request_id, check_id, sha, name, conclusion, body)
-				VALUES ($1, $2, $3, $4, $5, $6)
-				ON CONFLICT (pull_request_id, check_id) DO UPDATE SET
-					sha = EXCLUDED.sha, name = EXCLUDED.name, conclusion = EXCLUDED.conclusion, body = EXCLUDED.body`,
-				id, c.ID, c.SHA, c.Name, string(c.Conclusion), body); err != nil {
-				return err
-			}
-		}
-		if err := w.exec(`INSERT INTO root_pull_requests (root_id, pull_request_id) VALUES ($1, $2)
-			ON CONFLICT DO NOTHING`, w.root, id); err != nil {
-			return err
+		if err := w.savePullRequest(p); err != nil {
+			return fmt.Errorf("pull request %s: %w", p.Key, err)
 		}
 	}
 	return nil
+}
+
+func (w *saver) savePullRequest(p model.PullRequest) error {
+	var id int64
+	err := w.tx.QueryRow(w.ctx, `
+		INSERT INTO pull_requests (instance, repository, number, ref, branch) VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (ref) DO UPDATE SET branch = EXCLUDED.branch
+		RETURNING id`,
+		p.Key.Instance, p.Key.Repository, p.Key.Number, p.Key.Ref().String(), p.Branch).Scan(&id)
+	if err != nil {
+		return err
+	}
+	for _, c := range p.Checks {
+		body, err := json.Marshal(c)
+		if err != nil {
+			return err
+		}
+		if err := w.exec(`
+			INSERT INTO check_runs (pull_request_id, check_id, sha, name, conclusion, body)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (pull_request_id, check_id) DO UPDATE SET
+				sha = EXCLUDED.sha, name = EXCLUDED.name, conclusion = EXCLUDED.conclusion, body = EXCLUDED.body`,
+			id, c.ID, c.SHA, c.Name, string(c.Conclusion), body); err != nil {
+			return fmt.Errorf("check %d: %w", c.ID, err)
+		}
+	}
+	return w.exec(`INSERT INTO root_pull_requests (root_id, pull_request_id) VALUES ($1, $2)
+		ON CONFLICT DO NOTHING`, w.root, id)
 }
 
 // saveCorrelations upserts each correlation by the pair it links, after
@@ -58,12 +63,12 @@ func (w *saver) saveCorrelations(correlations []model.Correlation) error {
 			continue
 		}
 		id, err := w.upsertCorrelation(c)
-		if err != nil {
-			return err
+		if err == nil {
+			err = w.exec(`INSERT INTO root_correlations (root_id, correlation_id) VALUES ($1, $2)
+				ON CONFLICT DO NOTHING`, w.root, id)
 		}
-		if err := w.exec(`INSERT INTO root_correlations (root_id, correlation_id) VALUES ($1, $2)
-			ON CONFLICT DO NOTHING`, w.root, id); err != nil {
-			return err
+		if err != nil {
+			return fmt.Errorf("correlation %s: %w", c, err)
 		}
 	}
 	return nil
@@ -160,29 +165,33 @@ func pairKey(c model.Correlation) string {
 // saveCoverage merges each coverage record with the root's stored one.
 func (w *saver) saveCoverage(coverage []model.Coverage) error {
 	for _, c := range coverage {
-		var body []byte
-		err := w.tx.QueryRow(w.ctx, "SELECT body FROM coverage WHERE root_id = $1 AND source = $2 AND instance = $3",
-			w.root, string(c.Source), c.Instance).Scan(&body)
-		switch {
-		case err == nil:
-			var stored model.Coverage
-			if err := json.Unmarshal(body, &stored); err != nil {
-				return err
-			}
-			c = mergeCoverage(stored, c)
-		case !errors.Is(err, pgx.ErrNoRows):
-			return err
-		}
-		if body, err = json.Marshal(c); err != nil {
-			return err
-		}
-		if err := w.exec(`
-			INSERT INTO coverage (root_id, source, instance, last_successful_read, body) VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT (root_id, source, instance) DO UPDATE SET
-				last_successful_read = EXCLUDED.last_successful_read, body = EXCLUDED.body`,
-			w.root, string(c.Source), c.Instance, c.LastSuccessfulRead, body); err != nil {
-			return err
+		if err := w.mergeCoverage(c); err != nil {
+			return fmt.Errorf("coverage %s: %w", c.Key(), err)
 		}
 	}
 	return nil
+}
+
+func (w *saver) mergeCoverage(c model.Coverage) error {
+	var body []byte
+	err := w.tx.QueryRow(w.ctx, "SELECT body FROM coverage WHERE root_id = $1 AND source = $2 AND instance = $3",
+		w.root, string(c.Source), c.Instance).Scan(&body)
+	switch {
+	case err == nil:
+		var stored model.Coverage
+		if err := json.Unmarshal(body, &stored); err != nil {
+			return err
+		}
+		c = mergeCoverage(stored, c)
+	case !errors.Is(err, pgx.ErrNoRows):
+		return err
+	}
+	if body, err = json.Marshal(c); err != nil {
+		return err
+	}
+	return w.exec(`
+		INSERT INTO coverage (root_id, source, instance, last_successful_read, body) VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (root_id, source, instance) DO UPDATE SET
+			last_successful_read = EXCLUDED.last_successful_read, body = EXCLUDED.body`,
+		w.root, string(c.Source), c.Instance, c.LastSuccessfulRead, body)
 }

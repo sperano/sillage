@@ -37,7 +37,7 @@ func (w *saver) supersede(id int64, e model.Event) error {
 func (w *saver) keepLive(e model.Event) (bool, error) {
 	var version string
 	err := w.tx.QueryRow(w.ctx, `SELECT event_id FROM events
-		WHERE source = $1 AND instance = $2 AND supersedes = $3 LIMIT 1`,
+		WHERE source = $1 AND instance = $2 AND supersedes = $3 ORDER BY id LIMIT 1`,
 		string(e.Source), e.Instance, e.ID).Scan(&version)
 	switch {
 	case err == nil:

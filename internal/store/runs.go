@@ -131,13 +131,14 @@ func (w *saver) repointRun(from, to model.RunKey) error {
 }
 
 func (w *saver) runByRef(ref model.Ref) (storedRun, bool, error) {
-	rows, err := w.tx.Query(w.ctx, "SELECT id, body FROM runs WHERE ref = $1", ref.String())
-	if err != nil {
-		return storedRun{}, false, err
-	}
-	r, err := pgx.CollectExactlyOneRow(rows, scanRun)
+	var r storedRun
+	var body []byte
+	err := w.tx.QueryRow(w.ctx, "SELECT id, body FROM runs WHERE ref = $1", ref.String()).Scan(&r.id, &body)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return storedRun{}, false, nil
+	}
+	if err == nil {
+		err = json.Unmarshal(body, &r.run)
 	}
 	return r, err == nil, err
 }

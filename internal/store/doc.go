@@ -18,9 +18,10 @@
 // once. Coverage is per root and source instance.
 //
 // The migration runner is this package's own (migrate.go, about a hundred
-// lines): embedded, numbered, forward-only SQL files, each applied in a
-// transaction with its version row, under an advisory lock so that two
-// replicas starting together migrate once. tern (v2.4) does the same and
+// lines): embedded, numbered, forward-only SQL files, applied with their
+// version rows in one transaction under an advisory lock, so that two
+// replicas starting together migrate once and a failure leaves nothing
+// half-applied. tern (v2.4) does the same and
 // more, but its migrate package templates SQL with sprig, whose dependency
 // tree the image would ship and license for no use; goose (v3.29) runs
 // through database/sql rather than pgx, and its module requires every

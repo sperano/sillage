@@ -66,7 +66,8 @@ func marshalStory(t *testing.T, s model.Story) []byte {
 
 // TestFixtureRoundTrip saves every fixture story into one store, twice,
 // and reads each back: the stored story is its golden file, so saving is
-// idempotent and stories do not leak into each other.
+// idempotent and stories do not leak into each other. Saving the story
+// read back changes nothing either.
 func TestFixtureRoundTrip(t *testing.T) {
 	s := newTestStore(t, Retention{})
 	names := fixtureNames(t)
@@ -79,9 +80,13 @@ func TestFixtureRoundTrip(t *testing.T) {
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
 			f, golden := loadFixture(t, name)
-			got := marshalStory(t, mustStory(t, s, f.Root))
-			if !bytes.Equal(got, golden) {
+			story := mustStory(t, s, f.Root)
+			if got := marshalStory(t, story); !bytes.Equal(got, golden) {
 				t.Errorf("stored story differs from its golden file:\n%s", got)
+			}
+			mustSave(t, s, f.Root, story.Records)
+			if got := marshalStory(t, mustStory(t, s, f.Root)); !bytes.Equal(got, golden) {
+				t.Errorf("story saved back differs from its golden file:\n%s", got)
 			}
 		})
 	}

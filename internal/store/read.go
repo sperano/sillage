@@ -117,29 +117,55 @@ func loadEvents(ctx context.Context, tx pgx.Tx, root int64) ([]model.Event, erro
 }
 
 func loadPullRequests(ctx context.Context, tx pgx.Tx, root int64) ([]model.PullRequest, error) {
+	type row struct {
+		id int64
+		pr model.PullRequest
+	}
 	rows, err := tx.Query(ctx, `SELECT p.id, p.instance, p.repository, p.number, p.branch FROM pull_requests p
 		JOIN root_pull_requests m ON m.pull_request_id = p.id WHERE m.root_id = $1`, root)
 	if err != nil {
 		return nil, err
 	}
-	var ids []int64
-	prs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (model.PullRequest, error) {
-		var id int64
-		var p model.PullRequest
-		err := row.Scan(&id, &p.Key.Instance, &p.Key.Repository, &p.Key.Number, &p.Branch)
-		ids = append(ids, id)
+	found, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (row, error) {
+		var p row
+		err := r.Scan(&p.id, &p.pr.Key.Instance, &p.pr.Key.Repository, &p.pr.Key.Number, &p.pr.Branch)
 		return p, err
 	})
 	if err != nil {
 		return nil, err
 	}
-	for i, id := range ids {
-		if prs[i].Checks, err = queryJSON[model.CheckRun](ctx, tx,
-			"SELECT body FROM check_runs WHERE pull_request_id = $1", id); err != nil {
-			return nil, err
-		}
+	checks, err := loadChecks(ctx, tx, root)
+	if err != nil {
+		return nil, err
+	}
+	prs := make([]model.PullRequest, 0, len(found))
+	for _, p := range found {
+		p.pr.Checks = checks[p.id]
+		prs = append(prs, p.pr)
 	}
 	return prs, nil
+}
+
+// loadChecks reads the check runs of the root's pull requests, by pull
+// request row.
+func loadChecks(ctx context.Context, tx pgx.Tx, root int64) (map[int64][]model.CheckRun, error) {
+	rows, err := tx.Query(ctx, `SELECT c.pull_request_id, c.body FROM check_runs c
+		JOIN root_pull_requests m ON m.pull_request_id = c.pull_request_id WHERE m.root_id = $1`, root)
+	if err != nil {
+		return nil, err
+	}
+	checks := make(map[int64][]model.CheckRun)
+	var pr int64
+	var body []byte
+	_, err = pgx.ForEachRow(rows, []any{&pr, &body}, func() error {
+		var c model.CheckRun
+		if err := json.Unmarshal(body, &c); err != nil {
+			return err
+		}
+		checks[pr] = append(checks[pr], c)
+		return nil
+	})
+	return checks, err
 }
 
 // queryJSON reads rows of one JSON column into T.
