@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -20,6 +21,9 @@ type attempt struct {
 	// deleted is set once a watch found the Task gone; task then holds its
 	// last observed state.
 	deleted *Deletion
+	// awaitingTaskSince is set when a watch received the record before
+	// any state of its Task: the Task may still arrive.
+	awaitingTaskSince time.Time
 }
 
 // Normalize turns one read into model records: one run per Task UID, with

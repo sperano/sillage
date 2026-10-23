@@ -140,9 +140,11 @@ func (c Config) applyTask(st *state, ch change, u unstructured.Unstructured, at 
 	return []*attempt{a}, c.observeTask(&t, ch, at), nil
 }
 
-// applyRecord sets the attempt's TaskRecord. A deleted record leaves its
-// run as it was: the run keeps the record's values. Only the observation
-// says it is gone.
+// applyRecord sets the attempt's TaskRecord. A record whose Task the
+// state does not hold is held for that Task, which a backlog replayed
+// after a restart can deliver after it. A deleted record leaves its run as
+// it was: the run keeps the record's values. Only the observation says it
+// is gone.
 func (c Config) applyRecord(st *state, ch change, u unstructured.Unstructured, at time.Time) ([]*attempt, model.Event, error) {
 	r, err := decode[TaskRecord](u)
 	if err != nil {
@@ -157,6 +159,9 @@ func (c Config) applyRecord(st *state, ch change, u unstructured.Unstructured, a
 		return nil, obs, nil
 	}
 	a := st.attempt(uid)
+	if a.task == nil && a.awaitingTaskSince.IsZero() {
+		a.awaitingTaskSince = at
+	}
 	a.record = &r
 	return []*attempt{a}, obs, nil
 }

@@ -17,6 +17,9 @@ const (
 	recordTimesNote = "times are the controller's lifecycle times (start and completion), not CPU or phase timings"
 	// noTaskNote explains a run read from its TaskRecord alone.
 	noTaskNote = "Task not found (deleted after its TTL): created, pod, job and message unknown"
+	// awaitingTaskNote explains a run a watch read from its TaskRecord
+	// before any state of its Task.
+	awaitingTaskNote = "Task not seen yet (the watch delivered its record first): created, pod, job and message unknown"
 	// noRecordNote explains a run read from its Task alone.
 	noRecordNote = "no TaskRecord found (Kelos writes one only for a completed Task that reported usage)"
 	// deletedSeenNote and deletedRelistNote explain a run whose Task a
@@ -269,7 +272,7 @@ func (b *runBuilder) evidence() []model.Evidence {
 	if r := b.a.record; r != nil {
 		out = append(out, b.evidenceOf(b.cfg.recordRef(r.Name), objectNote{
 			fields: b.recordFields, times: b.timesFromRecord, timesNote: recordTimesNote,
-			alone: b.a.task == nil, aloneNote: noTaskNote,
+			alone: b.a.task == nil, aloneNote: b.noTaskNote(),
 		}))
 	}
 	return out
@@ -315,4 +318,12 @@ func deletedNote(d *Deletion) string {
 		how = deletedSeenNote
 	}
 	return how + d.At.UTC().Format(time.RFC3339Nano) + lastValuesNote
+}
+
+// noTaskNote explains why a run built from its TaskRecord has no Task.
+func (b *runBuilder) noTaskNote() string {
+	if !b.a.awaitingTaskSince.IsZero() {
+		return awaitingTaskNote
+	}
+	return noTaskNote
 }

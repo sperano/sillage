@@ -114,7 +114,7 @@ func checkpointOf(t *testing.T) Checkpoint {
 	}
 	return Checkpoint{
 		TasksVersion: "20", RecordsVersion: "21",
-		LastEventAt: testCreated, Tasks: []WatchedTask{{Task: task}}, Records: []TaskRecord{},
+		LastEventAt: testCreated, Tasks: []WatchedTask{{Task: task}}, Records: []WatchedRecord{},
 	}
 }
 
@@ -262,6 +262,54 @@ func TestWatcherKeepsADeletedTasksRun(t *testing.T) {
 	}
 	if cp := b.Checkpoint; len(cp.Tasks) != 0 || len(cp.Records) != 0 {
 		t.Errorf("checkpoint = %+v, want the complete run released", cp)
+	}
+}
+
+// A record the watch delivers before its Task, as a backlog replayed after
+// a restart does, is held until the Task arrives, then joins it.
+func TestWatcherJoinsARecordBeforeItsTask(t *testing.T) {
+	h := newHarness(t, nil)
+	h.lists.set(tasksResource, "10")
+	h.lists.set(recordsResource, "11")
+	h.start(t, 0)
+	h.commit(t)
+	tasks, records := h.watches.next(t, tasksResource).w, h.watches.next(t, recordsResource).w
+	records.Add(recordObj(taskA, uidA, "12"))
+	b := h.commit(t)
+	if run := onlyRun(t, b.Records); !strings.Contains(run.Evidence[0].Note, awaitingTaskNote) {
+		t.Errorf("record-only run evidence = %q, want the Task not seen yet", run.Evidence[0].Note)
+	}
+	if cp := b.Checkpoint; len(cp.Records) != 1 || cp.Records[0].AwaitingTaskSince == nil {
+		t.Errorf("checkpoint = %+v, want the record held for its Task", cp)
+	}
+	tasks.Add(taskObj(taskA, uidA, "13", PhaseRunning, testStart))
+	assertJoined(t, h.commit(t))
+	tasks.Delete(taskObj(taskA, uidA, "14", PhaseSucceeded, testStart, testEnd))
+	b = h.commit(t)
+	assertJoined(t, b)
+	if cp := b.Checkpoint; len(cp.Tasks)+len(cp.Records) != 0 {
+		t.Errorf("checkpoint = %+v, want the complete run released", cp)
+	}
+}
+
+// The held record survives a restart.
+func TestWatcherJoinsAHeldRecordAfterARestart(t *testing.T) {
+	since := testCreated
+	cp := Checkpoint{TasksVersion: "20", RecordsVersion: "21", LastEventAt: testCreated, Tasks: []WatchedTask{},
+		Records: []WatchedRecord{{Record: *decodedRecord(t, uidA), AwaitingTaskSince: &since}}}
+	h := newHarness(t, &cp)
+	h.start(t, 0)
+	h.watches.next(t, tasksResource).w.Add(taskObj(taskA, uidA, "22", PhaseRunning, testStart))
+	h.watches.next(t, recordsResource)
+	assertJoined(t, h.commit(t))
+}
+
+// assertJoined checks the batch's run merges the Task and its record.
+func assertJoined(t *testing.T, b batch) {
+	t.Helper()
+	run := onlyRun(t, b.Records)
+	if run.Outcome != model.OutcomeSucceeded || run.Usage == nil || run.Created == nil || len(run.Evidence) != 2 {
+		t.Errorf("run = %+v, want the Task and its record joined", run)
 	}
 }
 

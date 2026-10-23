@@ -58,9 +58,11 @@ func restConfig() (*rest.Config, error) {
 	return cfg, nil
 }
 
-// Snapshot is one read of a namespace's Tasks and TaskRecords. The Tasks
-// are listed first, then the TaskRecords: the two lists are not one atomic
-// view, so a Task that completes in between can appear in both.
+// Snapshot is one read of a namespace's Tasks and TaskRecords. The
+// TaskRecords are listed first, then the Tasks: the two lists are not one
+// atomic view. A Task that completes in between appears without its
+// record, which a watch from the records list delivers; a record whose
+// Task is missing from the later Tasks list shows the Task was deleted.
 type Snapshot struct {
 	Tasks   []Task
 	Records []TaskRecord
@@ -102,10 +104,10 @@ func (r *Reader) Read(ctx context.Context) (Snapshot, error) {
 func readSnapshot(ctx context.Context, client dynamic.Interface, cfg Config, now func() time.Time) (Snapshot, error) {
 	s := Snapshot{ObservedAt: now()}
 	var err error
-	if s.Tasks, s.TasksVersion, err = listAll[Task](ctx, lister(client, cfg, taskGVR)); err != nil {
+	if s.Records, s.RecordsVersion, err = listAll[TaskRecord](ctx, lister(client, cfg, recordGVR)); err != nil {
 		return Snapshot{}, err
 	}
-	if s.Records, s.RecordsVersion, err = listAll[TaskRecord](ctx, lister(client, cfg, recordGVR)); err != nil {
+	if s.Tasks, s.TasksVersion, err = listAll[Task](ctx, lister(client, cfg, taskGVR)); err != nil {
 		return Snapshot{}, err
 	}
 	return s, nil

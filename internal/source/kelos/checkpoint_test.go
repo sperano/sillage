@@ -34,6 +34,7 @@ func TestCheckpointRoundTrip(t *testing.T) {
 		attempts: map[types.UID]*attempt{
 			uidA: {uid: uidA, task: decodedTask(t, uidA, PhaseSucceeded), record: decodedRecord(t, uidA)},
 			uidB: {uid: uidB, task: decodedTask(t, uidB, PhaseRunning), deleted: &Deletion{At: testEnd, Seen: true}},
+			"c":  {uid: "c", record: decodedRecord(t, "c"), awaitingTaskSince: testEnd},
 		},
 		tasksVersion: "20", recordsVersion: "21", lastEventAt: testEnd,
 	}
@@ -63,7 +64,7 @@ func TestStateOfRejectsInconsistentCheckpoint(t *testing.T) {
 		cp   Checkpoint
 	}{
 		{"task without uid", Checkpoint{Tasks: []WatchedTask{{Task: *decodedTask(t, "", PhaseRunning)}}}},
-		{"record without task", Checkpoint{Records: []TaskRecord{*decodedRecord(t, uidA)}}},
+		{"record without task", Checkpoint{Records: []WatchedRecord{{Record: *decodedRecord(t, uidA)}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -83,14 +84,15 @@ func TestStatePrune(t *testing.T) {
 		"record-only":    {record: decodedRecord(t, "record-only")},
 		"deleted":        {task: decodedTask(t, "deleted", PhaseRunning), deleted: &Deletion{At: deletedAt}},
 		"deleted-record": {task: decodedTask(t, "deleted-record", PhaseSucceeded), record: decodedRecord(t, "deleted-record"), deleted: &Deletion{At: deletedAt}},
+		"awaiting":       {record: decodedRecord(t, "awaiting"), awaitingTaskSince: deletedAt},
 	}}
-	st.prune(deletedAt.Add(deletedTaskRetention))
-	if got := len(st.attempts); got != 2 || st.attempts["live"] == nil || st.attempts["deleted"] == nil {
-		t.Errorf("kept %v, want the live and the recently deleted Task", st.attempts)
+	st.prune(deletedAt.Add(joinRetention))
+	if got := len(st.attempts); got != 3 || st.attempts["live"] == nil || st.attempts["deleted"] == nil || st.attempts["awaiting"] == nil {
+		t.Errorf("kept %v, want the live Task and the two recent halves", st.attempts)
 	}
-	st.prune(deletedAt.Add(deletedTaskRetention + time.Nanosecond))
-	if st.attempts["deleted"] != nil {
-		t.Error("kept a deleted Task past the retention")
+	st.prune(deletedAt.Add(joinRetention + time.Nanosecond))
+	if st.attempts["deleted"] != nil || st.attempts["awaiting"] != nil {
+		t.Error("kept a half past the retention")
 	}
 }
 

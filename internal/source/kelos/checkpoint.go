@@ -14,14 +14,15 @@ import (
 	"github.com/sperano/sillage/internal/model"
 )
 
-// deletedTaskRetention is how long a watch keeps a deleted Task that has
-// no TaskRecord, so that a record arriving after the deletion still joins
-// it by UID. Kelos writes the record when the Task completes, long before
-// the Task's TTL deletes it, so a record arrives later only when the two
-// watches deliver out of order or the controller lags; a day covers both.
-// Past it, a record joins nothing here, and the store's run keeps the
-// Task's fields.
-const deletedTaskRetention = 24 * time.Hour
+// joinRetention is how long a watch holds one half of a run for the other
+// to join it by UID: a deleted Task for its TaskRecord, and a record whose
+// Task it has not seen yet for that Task. Kelos writes the record when the
+// Task completes, long before the Task's TTL deletes it, so the halves
+// arrive apart only when the two watches deliver out of order (replaying a
+// backlog after a restart above all) or the controller lags; a day covers
+// both. Past it, a half joins nothing here, and the store completes the
+// run.
+const joinRetention = 24 * time.Hour
 
 // Sink stores what a Watcher reads: the store implements it. It sees
 // only model records and an opaque checkpoint, so it needs no Kubernetes
@@ -43,8 +44,9 @@ type Sink interface {
 // Checkpoint is where a watch of one namespace stands, which a Sink stores
 // as opaque JSON so that a restarted Watcher resumes the same watches with
 // the objects it held. It holds the live Tasks, the deleted Tasks still
-// awaiting a TaskRecord, and the TaskRecords of those Tasks: a run whose
-// Task is gone and whose record was read is complete, and leaves it.
+// awaiting a TaskRecord, the TaskRecords of those Tasks, and the records
+// still awaiting their Task: a run whose Task is gone and whose record was
+// read is complete, and leaves it.
 type Checkpoint struct {
 	// TasksVersion and RecordsVersion are the resourceVersions the two
 	// watches resume from.
@@ -52,9 +54,9 @@ type Checkpoint struct {
 	RecordsVersion string `json:"recordsVersion"`
 	// LastEventAt is when the last event or bookmark was received, or the
 	// last list started: the namespace is known up to it.
-	LastEventAt time.Time     `json:"lastEventAt"`
-	Tasks       []WatchedTask `json:"tasks"`
-	Records     []TaskRecord  `json:"records"`
+	LastEventAt time.Time       `json:"lastEventAt"`
+	Tasks       []WatchedTask   `json:"tasks"`
+	Records     []WatchedRecord `json:"records"`
 }
 
 // WatchedTask is a Task a watch holds, live or deleted.
@@ -63,6 +65,14 @@ type WatchedTask struct {
 	// Deleted is set once the Task was found gone; Task is then its last
 	// observed state.
 	Deleted *Deletion `json:"deleted,omitempty"`
+}
+
+// WatchedRecord is a TaskRecord a watch holds.
+type WatchedRecord struct {
+	Record TaskRecord `json:"record"`
+	// AwaitingTaskSince is set while the record's Task has not been seen:
+	// when the watch received the record.
+	AwaitingTaskSince *time.Time `json:"awaitingTaskSince,omitempty"`
 }
 
 // Deletion is how a watch found a Task gone.
@@ -103,12 +113,19 @@ func stateOf(cp Checkpoint) (*state, error) {
 		st.attempts[t.Task.UID] = &attempt{uid: t.Task.UID, task: &t.Task, deleted: t.Deleted}
 	}
 	for i := range cp.Records {
-		r := &cp.Records[i]
-		a := st.attempts[r.Spec.TaskRef.UID]
-		if a == nil {
-			return nil, fmt.Errorf("kelos: checkpoint: taskrecord %s without its task", r.Name)
+		w := &cp.Records[i]
+		uid := w.Record.Spec.TaskRef.UID
+		a := st.attempts[uid]
+		switch {
+		case uid == "":
+			return nil, fmt.Errorf("kelos: checkpoint: taskrecord %s without a task uid", w.Record.Name)
+		case a == nil && w.AwaitingTaskSince == nil:
+			return nil, fmt.Errorf("kelos: checkpoint: taskrecord %s without its task", w.Record.Name)
+		case a == nil:
+			a = st.attempt(uid)
+			a.awaitingTaskSince = *w.AwaitingTaskSince
 		}
-		a.record = r
+		a.record = &w.Record
 	}
 	return st, nil
 }
@@ -118,20 +135,24 @@ func (s *state) checkpoint() Checkpoint {
 	cp := Checkpoint{
 		TasksVersion: s.tasksVersion, RecordsVersion: s.recordsVersion,
 		LastEventAt: s.lastEventAt,
-		Tasks:       []WatchedTask{}, Records: []TaskRecord{},
+		Tasks:       []WatchedTask{}, Records: []WatchedRecord{},
 	}
 	for _, uid := range slices.Sorted(maps.Keys(s.attempts)) {
 		a := s.attempts[uid]
-		if a.task == nil { // pruned before every checkpoint
-			continue
+		if a.task != nil {
+			task := *a.task
+			task.ObjectMeta = persistedMeta(task.ObjectMeta)
+			cp.Tasks = append(cp.Tasks, WatchedTask{Task: task, Deleted: a.deleted})
 		}
-		task := *a.task
-		task.ObjectMeta = persistedMeta(task.ObjectMeta)
-		cp.Tasks = append(cp.Tasks, WatchedTask{Task: task, Deleted: a.deleted})
 		if a.record != nil {
 			record := *a.record
 			record.ObjectMeta = persistedMeta(record.ObjectMeta)
-			cp.Records = append(cp.Records, record)
+			w := WatchedRecord{Record: record}
+			if a.task == nil {
+				since := a.awaitingTaskSince
+				w.AwaitingTaskSince = &since
+			}
+			cp.Records = append(cp.Records, w)
 		}
 	}
 	return cp
@@ -157,16 +178,17 @@ func (s *state) attempt(uid types.UID) *attempt {
 	return a
 }
 
-// prune drops the attempts no later event can change: those without a
-// Task (their Task is gone, so their record joins nothing), those whose
-// deleted Task has its record, and deleted Tasks past the retention.
-// Their runs were committed; the store keeps them.
+// prune drops the attempts no later event can change: a listed record
+// without its Task (the Task was gone from the list taken after it), a
+// deleted Task with its record, and a half past the retention. Their runs
+// were committed; the store keeps them.
 func (s *state) prune(now time.Time) {
+	expired := func(since time.Time) bool { return now.Sub(since) > joinRetention }
 	maps.DeleteFunc(s.attempts, func(_ types.UID, a *attempt) bool {
 		if a.task == nil {
-			return true
+			return a.awaitingTaskSince.IsZero() || expired(a.awaitingTaskSince)
 		}
-		return a.deleted != nil && (a.record != nil || now.Sub(a.deleted.At) > deletedTaskRetention)
+		return a.deleted != nil && (a.record != nil || expired(a.deleted.At))
 	})
 }
 

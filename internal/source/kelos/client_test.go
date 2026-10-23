@@ -51,7 +51,7 @@ func TestReadOnlyListsItsNamespace(t *testing.T) {
 	for _, a := range client.Actions() {
 		got = append(got, a.GetVerb()+" "+a.GetResource().Resource+" "+a.GetNamespace())
 	}
-	want := []string{"list tasks agents", "list taskrecords agents"}
+	want := []string{"list taskrecords agents", "list tasks agents"}
 	if !slices.Equal(got, want) {
 		t.Errorf("actions = %v, want %v", got, want)
 	}
