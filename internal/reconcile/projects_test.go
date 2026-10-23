@@ -53,3 +53,31 @@ func TestProjectMarkWaitsForTheTasksRead(t *testing.T) {
 		t.Errorf("task read %d times, want again after the failure", n)
 	}
 }
+
+func TestEmptyListingLeavesNoMark(t *testing.T) {
+	h := projectHarness(t)
+	h.loop.cycle(t.Context())
+	h.loop.cycle(t.Context())
+	if _, ok := h.loop.marks[testProject]; ok {
+		t.Errorf("mark = %v after empty listings, want none", h.loop.marks[testProject])
+	}
+	for i, since := range h.projects.since {
+		if !since.IsZero() {
+			t.Errorf("listing %d since %v, want every task while nothing was listed", i, since)
+		}
+	}
+}
+
+func TestTaskListedByTwoProjectsKeepsTheLatestUpdate(t *testing.T) {
+	h := newHarness(t, Config{
+		Interval: time.Millisecond, RefreshInterval: time.Hour, LockRetryInterval: time.Millisecond,
+		VikunjaProjects: []int64{testProject, testProject + 1},
+	})
+	later := time.Date(2026, 3, 6, 9, 0, 0, 0, time.UTC)
+	h.projects.set(testProject, vikunja.TaskChange{ID: testTaskID, Updated: later})
+	h.projects.set(testProject+1, vikunja.TaskChange{ID: testTaskID, Updated: later.Add(-time.Hour)})
+	h.loop.cycle(t.Context())
+	if got := h.loop.roots[testRoot().Ref()].Updated; got == nil || !got.Equal(later) {
+		t.Errorf("updated = %v, want the latest listing's %v", got, later)
+	}
+}

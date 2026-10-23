@@ -2,6 +2,7 @@ package reconcile
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -70,5 +71,30 @@ func TestRunCollectsWhileItHoldsTheLock(t *testing.T) {
 	<-done
 	if lock.count() != 1 {
 		t.Errorf("lock taken %d times, want once", lock.count())
+	}
+}
+
+func TestRunSaysTheLockWasLost(t *testing.T) {
+	h := newHarness(t, everyCycle)
+	runFor(t, h, &fakeLocker{lose: true}, 3)
+	if got := strings.Count(h.logs.String(), "lock lost"); got < 2 {
+		t.Errorf("logs say %d times the lock was lost, want each time it was:\n%s", got, h.logs)
+	}
+}
+
+func TestRunRetriesAFailedLoadAndSaysSoOnce(t *testing.T) {
+	h := newHarness(t, everyCycle)
+	h.store.mu.Lock()
+	h.store.checkpointsErr = errors.New("fabricated database outage")
+	h.store.mu.Unlock()
+	runFor(t, h, &fakeLocker{}, 3)
+	if got := strings.Count(h.logs.String(), "fabricated database outage"); got != 1 {
+		t.Errorf("logs name the outage %d times, want once:\n%s", got, h.logs)
+	}
+	if n := h.vikunja.count(); n != 0 {
+		t.Errorf("read Vikunja %d times without the store's checkpoints, want never", n)
+	}
+	if got := testutil.ToFloat64(h.loop.metrics.storeErrors.WithLabelValues(operationLoad)); got < 2 {
+		t.Errorf("load errors = %v, want one per attempt", got)
 	}
 }

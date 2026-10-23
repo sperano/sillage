@@ -99,7 +99,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 	metrics, m := newMetrics()
 	collectCtx, stopCollecting := context.WithCancel(ctx)
 	defer stopCollecting()
-	wait, err := startCollector(collectCtx, getenv, m)
+	wait, err := startCollector(collectCtx, getenv, m, slog.Default())
 	if err != nil {
 		_ = ln.Close()
 		return err

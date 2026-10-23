@@ -209,8 +209,10 @@ type fakeStore struct {
 	roots   map[model.Ref]*storedRoot
 	cps     map[string][]byte
 	commits []Commit
-	// commitErr fails every commit while set.
-	commitErr error
+	// commitErr fails every commit, and checkpointsErr every checkpoint
+	// read, while set.
+	commitErr      error
+	checkpointsErr error
 }
 
 type storedRoot struct {
@@ -242,6 +244,9 @@ func (s *fakeStore) Records(_ context.Context, root model.Root) (model.Records, 
 func (s *fakeStore) Checkpoints(_ context.Context, prefix string) (map[string][]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.checkpointsErr != nil {
+		return nil, s.checkpointsErr
+	}
 	out := make(map[string][]byte)
 	for k, v := range s.cps {
 		if strings.HasPrefix(k, prefix) {
@@ -384,20 +389,28 @@ func (h *harness) newLoop(t *testing.T, cfg Config) *Loop {
 	return l
 }
 
-// fakeLocker runs f unless held, and counts the attempts.
+// fakeLocker runs f unless held, and counts the attempts. While lose is
+// set, it loses the lock as soon as it is taken.
 type fakeLocker struct {
 	mu       sync.Mutex
 	held     bool
+	lose     bool
 	attempts int
 }
 
 func (f *fakeLocker) WithLock(ctx context.Context, fn func(context.Context) error) error {
 	f.mu.Lock()
 	f.attempts++
-	held := f.held
+	held, lose := f.held, f.lose
 	f.mu.Unlock()
-	if held {
+	switch {
+	case held:
 		return ErrLockHeld
+	case lose:
+		lost, cancel := context.WithCancel(ctx)
+		cancel()
+		_ = fn(lost)
+		return ErrLockLost
 	}
 	return fn(ctx)
 }

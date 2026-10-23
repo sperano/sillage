@@ -1,7 +1,6 @@
 package reconcile
 
 import (
-	"encoding/json"
 	"maps"
 	"slices"
 	"time"
@@ -75,18 +74,27 @@ func rootKey(root model.Root) string { return rootPrefix + root.Ref().String() }
 // clone returns a deep copy of s, to change and commit while s stays what
 // the store holds.
 func (s *rootState) clone() *rootState {
-	data, err := json.Marshal(s)
-	if err != nil {
-		panic("reconcile: a root state does not marshal: " + err.Error())
-	}
-	var out rootState
-	if err := json.Unmarshal(data, &out); err != nil {
-		panic("reconcile: a root state does not unmarshal: " + err.Error())
-	}
-	if out.Sources == nil {
-		out.Sources = make(map[string]*sourceState)
+	out := *s
+	out.Updated = clonePointer(s.Updated)
+	out.Sources = make(map[string]*sourceState, len(s.Sources))
+	for key, st := range s.Sources {
+		c := *st
+		c.FirstSuccess, c.LastSuccess = clonePointer(st.FirstSuccess), clonePointer(st.LastSuccess)
+		c.Open = clonePointer(st.Open)
+		c.Gaps, c.ReadGaps, c.Notes = slices.Clone(st.Gaps), slices.Clone(st.ReadGaps), slices.Clone(st.Notes)
+		out.Sources[key] = &c
 	}
 	return &out
+}
+
+// clonePointer returns a pointer to a copy of what p points to; nil for
+// nil.
+func clonePointer[T any](p *T) *T {
+	if p == nil {
+		return nil
+	}
+	v := *p
+	return &v
 }
 
 // source returns the state of the source instance cov covers, adding it.

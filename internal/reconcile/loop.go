@@ -64,29 +64,32 @@ func sleep(ctx context.Context, d time.Duration) bool {
 }
 
 // Run collects until ctx is done, while it holds lock. While another
-// process holds it, Run reads nothing, says so once, and tries again
-// every LockRetryInterval; so it does after losing the lock or failing to
-// load the store.
+// process holds it, Run reads nothing, says so, and tries again every
+// LockRetryInterval; so it does after losing the lock or failing to take
+// it or to load the store. It says each reason once, until it changes.
 func (l *Loop) Run(ctx context.Context, lock Locker) {
-	standby := false
+	said := ""
+	say := func(level slog.Level, msg string, args ...any) {
+		if msg != said {
+			l.log.Log(ctx, level, msg, append(args, "retry", l.cfg.LockRetryInterval)...)
+			said = msg
+		}
+	}
 	for {
-		err := lock.WithLock(ctx, l.collect)
+		err := lock.WithLock(ctx, func(ctx context.Context) error {
+			return l.collect(ctx, func() { said = "" })
+		})
 		l.metrics.lockHeld.Set(0)
 		switch {
 		case ctx.Err() != nil:
 			return
 		case errors.Is(err, ErrLockHeld):
-			if !standby {
-				l.log.Info("collector standing by: another sillage process holds the collector lock, "+
-					"so this one reads nothing", "retry", l.cfg.LockRetryInterval)
-			}
-			standby = true
+			say(slog.LevelInfo, "collector standing by: another sillage process holds the collector lock, "+
+				"so this one reads nothing")
 		case errors.Is(err, ErrLockLost):
-			l.log.Warn("collector lock lost: collection stops until the lock is taken again")
-			standby = false
+			say(slog.LevelWarn, "collector lock lost: collection stops until the lock is taken again")
 		case err != nil:
-			l.log.Error("collector stopped", "error", err, "retry", l.cfg.LockRetryInterval)
-			standby = false
+			say(slog.LevelError, "collector stopped: "+err.Error())
 		}
 		if !sleep(ctx, l.jitter(l.cfg.LockRetryInterval)) {
 			return
@@ -94,13 +97,15 @@ func (l *Loop) Run(ctx context.Context, lock Locker) {
 	}
 }
 
-// collect loads the store's state and runs cycles until ctx is done.
-func (l *Loop) collect(ctx context.Context) error {
+// collect loads the store's state, calls started, and runs cycles until
+// ctx is done.
+func (l *Loop) collect(ctx context.Context, started func()) error {
 	l.metrics.lockHeld.Set(1)
 	if err := l.load(ctx); err != nil {
 		l.metrics.storeErrors.WithLabelValues(operationLoad).Inc()
 		return fmt.Errorf("reconcile: loading the collector's checkpoints: %w", err)
 	}
+	started()
 	for {
 		l.cycle(ctx)
 		if !sleep(ctx, l.jitter(l.cfg.Interval)) {

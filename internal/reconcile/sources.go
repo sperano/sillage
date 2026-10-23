@@ -74,13 +74,16 @@ func (g meteredGitHub) FetchBranch(ctx context.Context, base github.Repository, 
 }
 
 // cycleWiki meters page reads and lists the pages once per cycle: every
-// root the cycle reads resolves its links against the same listing.
+// root the cycle reads resolves its links against the same listing. A
+// listing that failed is kept for the cycle, unless its root's context
+// ended it: that says nothing of the wiki, and the next root lists again.
 type cycleWiki struct {
 	src collector.WikiSource
 	meter
-	once  sync.Once
-	pages []wiki.Page
-	err   error
+	mu     sync.Mutex
+	listed bool
+	pages  []wiki.Page
+	err    error
 }
 
 func (w *cycleWiki) Fetch(ctx context.Context, id int64) (wiki.Snapshot, error) {
@@ -88,10 +91,17 @@ func (w *cycleWiki) Fetch(ctx context.Context, id int64) (wiki.Snapshot, error) 
 }
 
 func (w *cycleWiki) Pages(ctx context.Context) ([]wiki.Page, error) {
-	w.once.Do(func() {
-		w.pages, w.err = timed(w.meter, func() ([]wiki.Page, error) { return w.src.Pages(ctx) })
-	})
-	return w.pages, w.err
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.listed {
+		return w.pages, w.err
+	}
+	pages, err := timed(w.meter, func() ([]wiki.Page, error) { return w.src.Pages(ctx) })
+	if err != nil && ctx.Err() != nil {
+		return nil, err
+	}
+	w.listed, w.pages, w.err = true, pages, err
+	return pages, err
 }
 
 // cycleKelos answers every root of a cycle with the cycle's one read of

@@ -44,7 +44,11 @@ type cycleRun struct {
 // two roots or inside one, which then commits nothing.
 func (l *Loop) cycle(ctx context.Context) {
 	start := l.now()
-	cr, discovered := l.readKelos(ctx)
+	cr, discovered, err := l.readKelos(ctx)
+	if err != nil {
+		l.log.Error("no cycle: the collector refused its sources", "error", err)
+		return
+	}
 	dues := l.kelosDue(discovered)
 	marks := l.listProjects(ctx, dues)
 	incomplete := make(map[int64]bool)
@@ -76,27 +80,26 @@ func compareRefs(a, b model.Ref) int {
 	return cmp.Or(cmp.Compare(a.Kind, b.Kind), cmp.Compare(a.ID, b.ID))
 }
 
-// meter returns the meter of one source instance.
-func (l *Loop) meter(src model.Source, instance string) meter {
+// meterFor returns the meter of one source instance.
+func (l *Loop) meterFor(src model.Source, instance string) meter {
 	return meter{m: l.metrics, now: l.now, source: src, instance: instance}
 }
 
 // readKelos reads the namespace once for the cycle, and returns the
 // cycle's collector over that read and the roots it names.
-func (l *Loop) readKelos(ctx context.Context) (cycleRun, []collector.Discovered) {
+func (l *Loop) readKelos(ctx context.Context) (cycleRun, []collector.Discovered, error) {
 	at := l.now()
-	snap, err := timed(l.meter(model.SourceKelos, l.ccfg.Kelos.Cluster), func() (kelos.Snapshot, error) {
+	snap, err := timed(l.meterFor(model.SourceKelos, l.ccfg.Kelos.Cluster), func() (kelos.Snapshot, error) {
 		return l.src.Kelos.Read(ctx)
 	})
 	c, cerr := collector.New(l.ccfg, collector.Sources{
-		Vikunja: meteredVikunja{l.src.Vikunja, l.meter(model.SourceVikunja, l.ccfg.VikunjaInstance)},
+		Vikunja: meteredVikunja{src: l.src.Vikunja, meter: l.meterFor(model.SourceVikunja, l.ccfg.VikunjaInstance)},
 		Kelos:   cycleKelos{snap: snap, err: err},
-		GitHub:  meteredGitHub{l.src.GitHub, l.meter(model.SourceGitHub, l.ccfg.GitHubInstance)},
-		Wiki:    &cycleWiki{src: l.src.Wiki, meter: l.meter(model.SourceWiki, l.ccfg.WikiInstance)},
+		GitHub:  meteredGitHub{src: l.src.GitHub, meter: l.meterFor(model.SourceGitHub, l.ccfg.GitHubInstance)},
+		Wiki:    &cycleWiki{src: l.src.Wiki, meter: l.meterFor(model.SourceWiki, l.ccfg.WikiInstance)},
 	})
 	if cerr != nil {
-		// New accepted the same configuration and sources.
-		panic("reconcile: the collector refused a configuration it accepted: " + cerr.Error())
+		return cycleRun{}, nil, cerr
 	}
 	cr := cycleRun{c: c, kelosAt: at}
 	if err != nil {
@@ -104,14 +107,14 @@ func (l *Loop) readKelos(ctx context.Context) (cycleRun, []collector.Discovered)
 			l.log.Warn("source read failed", "source", model.SourceKelos, "instance", l.ccfg.Kelos.Cluster,
 				"reason", reasonOf(err), "error", err)
 		}
-		return cr, nil
+		return cr, nil, nil
 	}
 	discovered, err := c.Discover(snap)
 	if err != nil {
 		l.log.Warn("the Kelos read names no root: its objects do not normalize", "error", err)
-		return cr, nil
+		return cr, nil, nil
 	}
-	return cr, discovered
+	return cr, discovered, nil
 }
 
 // kelosDue returns the roots Kelos names that are due: never read, named

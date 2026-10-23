@@ -26,11 +26,11 @@ func markKey(instance string, project int64) string {
 // last read. It returns each listed project's new mark.
 func (l *Loop) listProjects(ctx context.Context, dues map[model.Ref]*due) map[int64]time.Time {
 	marks := make(map[int64]time.Time)
-	m := l.meter(model.SourceVikunja, l.ccfg.VikunjaInstance)
+	m := l.meterFor(model.SourceVikunja, l.ccfg.VikunjaInstance)
 	for _, p := range l.cfg.VikunjaProjects {
 		var since time.Time
-		mark, marked := l.marks[p]
-		if marked {
+		mark := l.marks[p]
+		if !mark.IsZero() {
 			since = mark.Add(-listingOverlap)
 		}
 		changes, err := timed(m, func() ([]vikunja.TaskChange, error) { return l.src.Projects.ChangedTasks(ctx, p, since) })
@@ -48,7 +48,9 @@ func (l *Loop) listProjects(ctx context.Context, dues map[model.Ref]*due) map[in
 			}
 			l.addChanged(dues, p, ch)
 		}
-		marks[p] = mark
+		if !mark.IsZero() {
+			marks[p] = mark
+		}
 	}
 	return marks
 }
@@ -66,8 +68,10 @@ func (l *Loop) addChanged(dues map[model.Ref]*due, project int64, ch vikunja.Tas
 		d = &due{root: root}
 		dues[ref] = d
 	}
-	updated := ch.Updated
-	d.updated = &updated
+	if d.updated == nil || ch.Updated.After(*d.updated) {
+		updated := ch.Updated
+		d.updated = &updated
+	}
 	d.projects = append(d.projects, project)
 }
 

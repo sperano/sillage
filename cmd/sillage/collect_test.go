@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/sperano/sillage/internal/reconcile"
+	"github.com/sperano/sillage/internal/source/vikunja"
 )
 
 // testDatabaseURL is a fabricated database no test connects to.
@@ -26,30 +29,33 @@ func TestMetricsServed(t *testing.T) {
 	}
 }
 
+func TestOpenStoreNotBuilt(t *testing.T) {
+	if _, _, err := openStore(t.Context(), testDatabaseURL); !errors.Is(err, errNoStore) {
+		t.Errorf("openStore() error = %v, want %v", err, errNoStore)
+	}
+}
+
 func TestStartCollector(t *testing.T) {
 	tests := []struct {
-		name    string
-		env     map[string]string
-		wantErr error
-		inErr   string
+		name  string
+		env   map[string]string
+		inErr string
 	}{
 		{name: "off without a database", env: nil},
-		{name: "no store in this build", env: map[string]string{databaseURLEnv: testDatabaseURL}, wantErr: errNoStore},
 		{
 			name:  "bad interval",
 			env:   map[string]string{databaseURLEnv: testDatabaseURL, reconcile.EnvInterval: "often"},
 			inErr: reconcile.EnvInterval,
 		},
+		{name: "no source configured", env: map[string]string{databaseURLEnv: testDatabaseURL}, inErr: vikunja.EnvURL},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, m := newMetrics()
-			wait, err := startCollector(t.Context(), func(k string) string { return tt.env[k] }, m)
+			var logs bytes.Buffer
+			wait, err := startCollector(t.Context(), func(k string) string { return tt.env[k] }, m,
+				slog.New(slog.NewTextHandler(&logs, nil)))
 			switch {
-			case tt.wantErr != nil:
-				if !errors.Is(err, tt.wantErr) {
-					t.Errorf("startCollector() error = %v, want %v", err, tt.wantErr)
-				}
 			case tt.inErr != "":
 				if err == nil || !strings.Contains(err.Error(), tt.inErr) {
 					t.Errorf("startCollector() error = %v, want one naming %s", err, tt.inErr)
@@ -58,6 +64,9 @@ func TestStartCollector(t *testing.T) {
 				t.Fatalf("startCollector() error = %v", err)
 			default:
 				wait()
+				if !strings.Contains(logs.String(), "collector off") {
+					t.Errorf("logs = %q, want them to say the collector is off", logs.String())
+				}
 			}
 		})
 	}

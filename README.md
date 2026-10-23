@@ -25,8 +25,8 @@ stored yet.
 | `internal/model/` | Normalized events, runs, entities and coverage. |
 | `internal/source/{vikunja,github,kelos,wiki}/` | One read-only source each. |
 | `internal/collector/` | Joins the sources' records into one story. |
-| `internal/reconcile/` | The collection loop: reads the sources periodically into the store, with freshness and gaps. |
-| `internal/store/` | Persistence, and the collector's PostgreSQL lock. |
+| `internal/reconcile/` | The collection loop: reads the sources periodically into the store, with freshness and gaps; `pglock/`, its PostgreSQL lock. |
+| `internal/store/` | Persistence. |
 | `internal/api/` | Read-only HTTP API. |
 | `testdata/fixtures/` | Fabricated test data, shared by Go and web tests. |
 | `web/` | Svelte 5 + Vite single-page frontend (TypeScript), embedded into the binary. |
