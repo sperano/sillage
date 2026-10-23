@@ -58,10 +58,24 @@ func (c *Client) ChangedTasks(ctx context.Context, project int64, since time.Tim
 				all = append(all, t)
 			}
 		}
-		if (len(batch) > 0 && len(all) == before) || (len(batch) < c.perPage && page >= totalPages(header)) {
+		if lastPage(len(batch), len(all) == before, page, c.perPage, totalPages(header)) {
 			break
 		}
 	}
 	slices.SortFunc(all, func(a, b TaskChange) int { return cmp.Compare(a.ID, b.ID) })
 	return all, nil
+}
+
+// lastPage reports whether page, which held n tasks, the first one seen
+// already when repeated, is the listing's last: it is empty or repeats
+// one before; else it reaches a total-pages header, when one is set (a
+// page can be full and last); else it is short.
+func lastPage(n int, repeated bool, page, perPage, total int) bool {
+	switch {
+	case n == 0 || repeated:
+		return true
+	case total > 0:
+		return page >= total
+	}
+	return n < perPage
 }

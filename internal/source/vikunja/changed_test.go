@@ -82,6 +82,7 @@ func TestChangedTasksPagination(t *testing.T) {
 		{"full last page", map[int][]TaskChange{1: changes(1, 2), 2: changes(3, 4)}, 0, []int64{1, 2, 3, 4}, 3},
 		// A server capping per_page below the page size asked for.
 		{"capped page size", map[int][]TaskChange{1: changes(1), 2: changes(2), 3: changes(3)}, 3, []int64{1, 2, 3}, 3},
+		{"full last page, total pages", map[int][]TaskChange{1: changes(1, 2), 2: changes(3, 4)}, 2, []int64{1, 2, 3, 4}, 2},
 		{"repeated page", map[int][]TaskChange{1: changes(1, 2), 2: changes(1, 2)}, 0, []int64{1, 2}, 2},
 		{"duplicate across pages", map[int][]TaskChange{1: changes(2, 1), 2: changes(1)}, 0, []int64{1, 2}, 2},
 	}
