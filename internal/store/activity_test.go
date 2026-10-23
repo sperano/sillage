@@ -72,10 +72,24 @@ func TestLastActivityFollowsSharedRecords(t *testing.T) {
 // TestLastActivityNeverFalls saves task 7 again with only older records:
 // its last activity stays the newer save's.
 func TestLastActivityNeverFalls(t *testing.T) {
-	s := newTestStore(t, Retention{})
-	mustSave(t, s, taskRoot(7), model.Records{Events: []model.Event{comment(7, "comments/2", 50)}})
-	mustSave(t, s, taskRoot(7), model.Records{Events: []model.Event{comment(7, "comments/1", 10)}})
-	if got := mustLastActivity(t, s, taskRoot(7)); !got.Equal(at(50)) {
-		t.Errorf("last activity = %v, want minute 50, the newer save's", got)
+	for _, tc := range []struct {
+		name         string
+		newer, older model.Records
+	}{
+		{"events",
+			model.Records{Events: []model.Event{comment(7, "comments/2", 50)}},
+			model.Records{Events: []model.Event{comment(7, "comments/1", 10)}}},
+		{"runs",
+			model.Records{Runs: []model.Run{finishedRun("uid-2", 40, 50, model.OutcomeSucceeded)}},
+			model.Records{Runs: []model.Run{finishedRun("uid-1", 0, 10, model.OutcomeSucceeded)}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newTestStore(t, Retention{})
+			mustSave(t, s, taskRoot(7), tc.newer)
+			mustSave(t, s, taskRoot(7), tc.older)
+			if got := mustLastActivity(t, s, taskRoot(7)); !got.Equal(at(50)) {
+				t.Errorf("last activity = %v, want minute 50, the newer save's", got)
+			}
+		})
 	}
 }
