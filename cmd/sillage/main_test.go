@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sperano/sillage/internal/api"
 	"github.com/sperano/sillage/web"
 )
 
@@ -96,7 +97,7 @@ func TestServeAndShutdown(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 	served := make(chan error, 1)
-	go func() { served <- serve(ctx, ln, newHandler(web.FS())) }()
+	go func() { served <- serve(ctx, ln, newHandler(web.FS(), api.New(api.Config{}))) }()
 
 	client := &http.Client{Timeout: testTimeout}
 	resp, err := client.Get("http://" + ln.Addr().String() + healthzPath)

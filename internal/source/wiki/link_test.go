@@ -33,6 +33,14 @@ func TestParseLink(t *testing.T) {
 	}
 }
 
+func TestIsLocale(t *testing.T) {
+	for s, want := range map[string]bool{"en": true, "pt-br": true, "zh-hans": true, "EN": false, "english": false, "": false} {
+		if got := IsLocale(s); got != want {
+			t.Errorf("IsLocale(%q) = %v, want %v", s, got, want)
+		}
+	}
+}
+
 func TestLinkString(t *testing.T) {
 	for link, want := range map[Link]string{
 		{ID: 41}:                          "i/41",

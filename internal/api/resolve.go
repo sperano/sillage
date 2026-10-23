@@ -1,0 +1,217 @@
+package api
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/source/wiki"
+	"github.com/sperano/sillage/internal/store"
+)
+
+// LinkKind names what a resolved link points to.
+type LinkKind string
+
+// The kinds of link resolve reads.
+const (
+	LinkVikunjaTask LinkKind = "vikunja-task"
+	LinkPullRequest LinkKind = "github-pull-request"
+	LinkWikiPage    LinkKind = "wiki-page"
+	LinkKelosTask   LinkKind = "kelos-task"
+)
+
+const (
+	// MaxResolveURL bounds the link resolve reads, in bytes.
+	MaxResolveURL = 2048
+	// vikunjaTaskRoute starts a Vikunja task's URL: /tasks/<id>.
+	vikunjaTaskRoute = "tasks"
+	// pullRoute is a GitHub pull request URL's third segment:
+	// /<owner>/<repo>/pull/<number>.
+	pullRoute = "pull"
+	// maxTaskName bounds a Kubernetes object name (a DNS subdomain).
+	maxTaskName = 253
+)
+
+var (
+	// taskNamePattern matches a Kubernetes object name.
+	taskNamePattern = regexp.MustCompile(`^[a-z0-9](?:[-a-z0-9.]*[a-z0-9])?$`)
+	// namespacePattern matches a Kubernetes namespace (a DNS label).
+	namespacePattern = regexp.MustCompile(`^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$`)
+	// uidPattern matches a Kubernetes UID.
+	uidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+)
+
+// ResolveResponse names the roots whose stories hold what a link points
+// to, most recently active first, and what kind of link it was read as.
+type ResolveResponse struct {
+	Kind  LinkKind            `json:"kind"`
+	Roots []store.RootSummary `json:"roots"`
+}
+
+// lookup is one reading of a link: what it would point to, and how to
+// find the stored stories that hold it.
+type lookup struct {
+	kind LinkKind
+	find func(ctx context.Context) ([]store.RootSummary, error)
+}
+
+// resolve answers with the first reading of the link that a stored story
+// holds, or 404.
+func (a *api) resolve(r *http.Request) (any, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get(paramURL))
+	switch {
+	case raw == "":
+		return nil, badRequest("%s is required: a Vikunja task, GitHub pull request or wiki page URL, "+
+			"or a Kelos Task reference", paramURL)
+	case len(raw) > MaxResolveURL:
+		return nil, badRequest("%s has %d bytes, more than the %d allowed", paramURL, len(raw), MaxResolveURL)
+	}
+	lookups, link := a.lookups(raw)
+	if len(lookups) == 0 && !link {
+		return nil, badRequest("%s is neither a link nor a Kelos Task reference ([<namespace>/]<name> or a UID)",
+			paramURL)
+	}
+	for _, l := range lookups {
+		roots, err := l.find(r.Context())
+		if err != nil {
+			return nil, err
+		}
+		if len(roots) > 0 {
+			return ResolveResponse{Kind: l.kind, Roots: roots}, nil
+		}
+	}
+	return nil, problem(http.StatusNotFound, "no stored story holds what the link points to")
+}
+
+// lookups are the readings of raw, in the order they are tried, and
+// whether raw is a link: an http or https URL by its host and path, then
+// its last path segment as a Kelos Task (the console has no documented
+// deep link); anything else as a Kelos Task reference.
+func (a *api) lookups(raw string) ([]lookup, bool) {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return a.kelosLookups(raw), false
+	}
+	parts := strings.FieldsFunc(u.Path, func(r rune) bool { return r == '/' })
+	var out []lookup
+	for _, host := range hostsOf(u) {
+		out = append(out, a.urlLookups(host, raw, parts)...)
+	}
+	if len(parts) > 0 {
+		out = append(out, a.kelosLookups(parts[len(parts)-1])...)
+	}
+	return out, true
+}
+
+// hostsOf are the instance names u's host may be stored under: the host
+// in lower case, with its port as the wiki and GitHub sources name an
+// instance, and without, as the collector names Vikunja's.
+func hostsOf(u *url.URL) []string {
+	hosts := []string{strings.ToLower(u.Host)}
+	if name := strings.ToLower(u.Hostname()); name != hosts[0] {
+		hosts = append(hosts, name)
+	}
+	return hosts
+}
+
+// urlLookups are the readings of a URL at host with path parts: a Vikunja
+// task, a GitHub pull request, a wiki page by id or by path.
+func (a *api) urlLookups(host, raw string, parts []string) []lookup {
+	var out []lookup
+	if len(parts) == 2 && parts[0] == vikunjaTaskRoute {
+		if id, ok := positive(parts[1]); ok {
+			out = append(out, a.rootLookup(LinkVikunjaTask, model.Root{Task: &model.TaskKey{Instance: host, ID: id}}))
+		}
+	}
+	if len(parts) >= 4 && parts[2] == pullRoute {
+		if n, ok := positive(parts[3]); ok {
+			key := model.PRKey{Instance: host, Repository: parts[0] + "/" + parts[1], Number: int(n)}
+			out = append(out, lookup{LinkPullRequest, func(ctx context.Context) ([]store.RootSummary, error) {
+				return a.cfg.Store.RootsOfPullRequest(ctx, key)
+			}})
+		}
+	}
+	link, ok := wiki.ParseLink(raw)
+	switch {
+	case !ok:
+	case link.Path == "":
+		out = append(out, lookup{LinkWikiPage, func(ctx context.Context) ([]store.RootSummary, error) {
+			return a.cfg.Store.PageRoots(ctx, host, link.ID)
+		}})
+	case a.cfg.Wiki != nil && host == a.cfg.WikiInstance:
+		out = append(out, lookup{LinkWikiPage, func(ctx context.Context) ([]store.RootSummary, error) {
+			return a.pageByPath(ctx, host, link)
+		}})
+	}
+	return out
+}
+
+// rootLookup finds root itself.
+func (a *api) rootLookup(kind LinkKind, root model.Root) lookup {
+	return lookup{kind, func(ctx context.Context) ([]store.RootSummary, error) {
+		found, err := a.cfg.Store.Root(ctx, root)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return []store.RootSummary{found}, nil
+	}}
+}
+
+// pageByPath finds the page a link by path names in the wiki's listing,
+// as written, then as a default-locale path, and returns its stored root.
+func (a *api) pageByPath(ctx context.Context, host string, link wiki.Link) ([]store.RootSummary, error) {
+	pages, err := a.cfg.Wiki.Pages(ctx)
+	if err != nil {
+		slog.Error("api: listing the wiki's pages failed", "error", err)
+		return nil, problem(http.StatusBadGateway, "listing the wiki's pages, to find the page by its path, failed")
+	}
+	for _, try := range link.Lookups() {
+		i := slices.IndexFunc(pages, func(p wiki.Page) bool { return p.Locale == try.Locale && p.Path == try.Path })
+		if i < 0 {
+			continue
+		}
+		key := model.PageKey{Instance: host, ID: pages[i].ID, Locale: pages[i].Locale}
+		return a.rootLookup(LinkWikiPage, model.Root{Page: &key}).find(ctx)
+	}
+	return nil, nil
+}
+
+// kelosLookups are the readings of a Kelos Task reference:
+// [<namespace>/]<name>, or a UID, which is also a valid name.
+func (a *api) kelosLookups(ref string) []lookup {
+	namespace, name, found := strings.Cut(ref, "/")
+	if !found {
+		namespace, name = "", ref
+	}
+	if len(name) > maxTaskName || !taskNamePattern.MatchString(name) ||
+		(found && !namespacePattern.MatchString(namespace)) {
+		return nil
+	}
+	queries := []store.RunQuery{{Namespace: namespace, Name: name}}
+	if uidPattern.MatchString(name) {
+		queries = slices.Insert(queries, 0, store.RunQuery{Namespace: namespace, UID: name})
+	}
+	out := make([]lookup, 0, len(queries))
+	for _, q := range queries {
+		out = append(out, lookup{LinkKelosTask, func(ctx context.Context) ([]store.RootSummary, error) {
+			return a.cfg.Store.RootsOfRuns(ctx, q)
+		}})
+	}
+	return out
+}
+
+// positive parses a positive decimal id.
+func positive(s string) (int64, bool) {
+	n, err := strconv.ParseInt(s, 10, 64)
+	return n, err == nil && n > 0
+}

@@ -56,7 +56,7 @@ func ParseLink(raw string) (Link, bool) {
 		parts = parts[1:]
 	}
 	locale := DefaultLocale
-	if len(parts) > 1 && localePattern.MatchString(parts[0]) {
+	if len(parts) > 1 && IsLocale(parts[0]) {
 		locale, parts = parts[0], parts[1:]
 	}
 	if len(parts) == 0 {
@@ -64,6 +64,9 @@ func ParseLink(raw string) (Link, bool) {
 	}
 	return Link{Locale: locale, Path: strings.Join(parts, "/")}, true
 }
+
+// IsLocale reports whether s reads as a Wiki.js locale code.
+func IsLocale(s string) bool { return localePattern.MatchString(s) }
 
 // String names the page a link points to, as written.
 func (l Link) String() string {

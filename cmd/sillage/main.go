@@ -1,6 +1,8 @@
-// Command sillage serves sillage's HTTP endpoints. For now that is a health
-// check and the embedded frontend; with SILLAGE_DATABASE_URL set, it also
-// migrates the store at startup. The collector and the read API come later.
+// Command sillage serves sillage's HTTP endpoints: a health check, the
+// read API over the store (internal/api, under /api/, which must stay
+// behind the Authentik forward-auth) and the embedded frontend. With
+// SILLAGE_DATABASE_URL set, it migrates the store at startup; without, the
+// API answers 503 for what it would read. The collector comes later.
 //
 // "sillage story -task <id>" (or "-page <id>") instead prints one story's
 // JSON, assembled from the live sources the environment configures.
@@ -95,12 +97,16 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 	if st != nil {
 		defer st.Close()
 	}
+	apiHandler, err := newAPI(getenv, st)
+	if err != nil {
+		return err
+	}
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", cfg.listenAddr)
 	if err != nil {
 		return err
 	}
-	return serve(ctx, ln, newHandler(web.FS()))
+	return serve(ctx, ln, newHandler(web.FS(), apiHandler))
 }
 
 // parseConfig reads the configuration from the command line and the
