@@ -33,6 +33,10 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/api/` | The read-only HTTP API over `store`. |
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
+| `web/src/lib/model.ts` | The story JSON's types, mirroring `internal/model`'s `Story`. |
+| `web/src/lib/selection.svelte.ts` | The selected event or interval, shared by the graph, the event list and the detail panel. |
+| `web/src/lib/timeline/` | The single-task timeline graph (SVG): lanes, intervals, coverage shading, zoom and pan. Layout is pure TypeScript; the components only draw it. |
+| `web/src/lib/testing/` | Web test helpers: the golden stories, record builders. |
 | `web/placeholder/` | The committed page embedded by default, so Go builds without Node. |
 | `Dockerfile`, `.dockerignore` | The one image: the `webdist` binary on `scratch`, `linux/amd64` and `linux/arm64`. See "The image" below. |
 | `scripts/collect-licenses.sh` | Copies the licenses of what the binary links into the image's `/licenses`. |
@@ -113,7 +117,8 @@ matches the one in the agent image; upgrade both together.
 
 `testdata/fixtures/stories/` holds fabricated stories: normalized records
 in `input.json`, and `story.golden.json`, the `model.BuildStory` output the
-Go tests check and the web tests are to render. To add one, follow "Adding a story" in
+Go tests check and the web tests render (`web/src/lib/testing/goldens.ts`).
+To add one, follow "Adding a story" in
 `testdata/fixtures/README.md`: write `input.json`, register an explicit
 invariant check in `internal/model/storytest/invariants.go` (a test fails
 until you do), then `go test ./internal/model -run TestStoryGolden -update`

@@ -1,0 +1,79 @@
+<script lang="ts">
+	import { formatDate, formatMinute, zoneName, type Zone } from './time';
+	import type { TimeWindow } from './view';
+
+	interface Props {
+		zone: Zone;
+		window: TimeWindow;
+		canZoomIn: boolean;
+		canZoomOut: boolean;
+		canPan: boolean;
+		onzoom: (direction: 'in' | 'out') => void;
+		onpan: (direction: 'earlier' | 'later') => void;
+		onreset: () => void;
+	}
+
+	let {
+		zone = $bindable(),
+		window,
+		canZoomIn,
+		canZoomOut,
+		canPan,
+		onzoom,
+		onpan,
+		onreset
+	}: Props = $props();
+
+	const range = $derived(
+		`${formatDate(window.start, zone)} ${formatMinute(window.start, zone)} – ` +
+			`${formatDate(window.end, zone)} ${formatMinute(window.end, zone)} ${zoneName(zone)}`
+	);
+</script>
+
+<div class="toolbar">
+	<label>
+		Time zone
+		<select bind:value={zone}>
+			<option value="local">Local ({zoneName('local')})</option>
+			<option value="utc">UTC</option>
+		</select>
+	</label>
+	<div class="buttons" role="group" aria-label="Zoom and pan">
+		<button type="button" onclick={onreset}>Whole story</button>
+		<button type="button" onclick={() => onzoom('in')} disabled={!canZoomIn}>Zoom in</button>
+		<button type="button" onclick={() => onzoom('out')} disabled={!canZoomOut}>Zoom out</button>
+		<button type="button" onclick={() => onpan('earlier')} disabled={!canPan}>Earlier</button>
+		<button type="button" onclick={() => onpan('later')} disabled={!canPan}>Later</button>
+	</div>
+	<output class="range" aria-live="polite">{range}</output>
+</div>
+
+<style>
+	.toolbar {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 1rem;
+		align-items: center;
+		padding: 0.5rem 0;
+		font-size: 0.85rem;
+	}
+	.buttons {
+		display: flex;
+		gap: 0.25rem;
+	}
+	button,
+	select {
+		font: inherit;
+		color: var(--tl-fg);
+		background: var(--tl-bg);
+		border: 1px solid var(--tl-grid);
+		border-radius: 4px;
+		padding: 0.2rem 0.5rem;
+	}
+	button:disabled {
+		color: var(--tl-muted);
+	}
+	.range {
+		color: var(--tl-muted);
+	}
+</style>

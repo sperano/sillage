@@ -1,0 +1,297 @@
+// The timeline's rows: the root task or page, people, agent runs (one row
+// per attempt), automation, pull requests with their checks per commit, and
+// wiki pages. Each event is drawn on exactly one row.
+
+import {
+	boundTime,
+	coverageKey,
+	eventKey,
+	eventTime,
+	pageKeyString,
+	prKeyString,
+	runKeyString,
+	taskKeyString,
+	type Event,
+	type PageKey,
+	type PRKey,
+	type Run,
+	type Story,
+	type TaskKey
+} from '../model';
+import { checkSpan, reviewWaits, runSpans, type Span } from './intervals';
+
+/** The lanes, in the order they are drawn after the root's lane. */
+export const SECTIONS = ['task', 'people', 'runs', 'automation', 'pulls', 'pages'] as const;
+export type Section = (typeof SECTIONS)[number];
+
+export const SECTION_TITLES: Record<Section, string> = {
+	task: 'Task',
+	people: 'People',
+	runs: 'Agent runs',
+	automation: 'Automation',
+	pulls: 'Pull requests',
+	pages: 'Wiki'
+};
+
+/** The number of a commit's leading hex digits a check row shows. */
+const SHORT_SHA_LENGTH = 7;
+
+export interface Row {
+	id: string;
+	section: Section;
+	title: string;
+	subtitle: string;
+	/** The coverage keys of the sources the row's records come from. */
+	sources: string[];
+	events: Event[];
+	spans: Span[];
+	/** Said on the row when it has nothing to draw, or nothing known to. */
+	note?: string;
+	/** Where the row sorts within its section. */
+	order: number;
+	/** The row this one is drawn under: a pull request's, for its checks. */
+	parent?: string;
+}
+
+/** The kinds of event a conversation posts, drawn on their author's row. */
+const CONVERSATION = new Set<Event['kind']>([
+	'comment.created',
+	'request.created',
+	'run.announced'
+]);
+
+/** Builds the rows of a story, in drawing order. */
+export function buildRows(story: Story): Row[] {
+	const rows = new Map<string, Row>();
+	const lastRead = lastReads(story);
+	const ensure = (id: string, init: () => Omit<Row, 'id' | 'events' | 'spans' | 'order'>) => {
+		let row = rows.get(id);
+		if (!row) {
+			row = { id, events: [], spans: [], order: Number.POSITIVE_INFINITY, ...init() };
+			rows.set(id, row);
+		}
+		return row;
+	};
+	const ctx: Context = {
+		story,
+		ensure,
+		find: (id) => rows.get(id),
+		lastRead,
+		runOfEvent: runOfEvent(story)
+	};
+	addRoot(ctx);
+	addRuns(ctx);
+	addPullRequests(ctx);
+	for (const e of story.events) placeEvent(ctx, e);
+	addReviewWaits(ctx, [...rows.values()]);
+	return sortRows([...rows.values()], story.root.task ? 'task' : 'pages');
+}
+
+interface Context {
+	story: Story;
+	ensure: (id: string, init: () => Omit<Row, 'id' | 'events' | 'spans' | 'order'>) => Row;
+	find: (id: string) => Row | undefined;
+	lastRead: (source: string) => number | undefined;
+	runOfEvent: Map<string, string>;
+}
+
+function lastReads(story: Story): (key: string) => number | undefined {
+	const reads = new Map<string, number>();
+	for (const c of story.coverage) {
+		if (c.lastSuccessfulRead) {
+			reads.set(coverageKey(c.source, c.instance), Date.parse(c.lastSuccessfulRead));
+		}
+	}
+	return (key) => reads.get(key);
+}
+
+/**
+ * The run each event belongs to, when an identifier correlation links it
+ * to exactly one run. A heuristic or ambiguous link never moves an event.
+ */
+function runOfEvent(story: Story): Map<string, string> {
+	const runs = new Map<string, Set<string>>();
+	for (const c of story.correlations) {
+		if (c.confidence !== 'identifier' || c.ambiguous) continue;
+		const [event, run] =
+			c.from.kind === 'event' && c.to.kind === 'run'
+				? [c.from.id, c.to.id]
+				: c.to.kind === 'event' && c.from.kind === 'run'
+					? [c.to.id, c.from.id]
+					: [];
+		if (event === undefined || run === undefined) continue;
+		runs.set(event, (runs.get(event) ?? new Set()).add(run));
+	}
+	const out = new Map<string, string>();
+	for (const [event, set] of runs) {
+		if (set.size === 1) out.set(event, [...set][0]!);
+	}
+	return out;
+}
+
+function taskRow(ctx: Context, key: TaskKey): Row {
+	return ctx.ensure(`task:${taskKeyString(key)}`, () => ({
+		section: 'task',
+		title: `Task ${key.id}`,
+		subtitle: key.instance,
+		sources: [coverageKey('vikunja', key.instance)]
+	}));
+}
+
+function pageRow(ctx: Context, key: PageKey): Row {
+	return ctx.ensure(`page:${pageKeyString(key)}`, () => ({
+		section: 'pages',
+		title: `Page ${key.id}`,
+		subtitle: `${key.instance} · ${key.locale}`,
+		sources: [coverageKey('wiki', key.instance)]
+	}));
+}
+
+function prRow(ctx: Context, key: PRKey): Row {
+	return ctx.ensure(`pr:${prKeyString(key)}`, () => ({
+		section: 'pulls',
+		title: `#${key.number} ${key.repository}`,
+		subtitle: 'pull request',
+		sources: [coverageKey('github', key.instance)]
+	}));
+}
+
+function addRoot(ctx: Context): void {
+	const { task, page } = ctx.story.root;
+	if (task) taskRow(ctx, task).order = Number.NEGATIVE_INFINITY;
+	if (page) pageRow(ctx, page).order = Number.NEGATIVE_INFINITY;
+}
+
+/** One row per run: a retry is a separate attempt, never merged. */
+function addRuns(ctx: Context): void {
+	const byName = new Map<string, Run[]>();
+	for (const run of ctx.story.runs) {
+		const name = run.taskName ?? run.pod ?? runKeyString(run.key);
+		byName.set(name, [...(byName.get(name) ?? []), run]);
+	}
+	for (const [name, attempts] of byName) {
+		attempts.sort((a, b) => runAnchor(a) - runAnchor(b));
+		attempts.forEach((run, i) => addRun(ctx, run, name, attempts.length > 1 ? i + 1 : 0));
+	}
+}
+
+/** The run's first known time, to order attempts. */
+function runAnchor(run: Run): number {
+	const times = [run.created, run.interval.start.at, run.interval.end.at];
+	const known = times.filter((t) => t !== undefined).map((t) => Date.parse(t));
+	return known.length > 0 ? Math.min(...known) : Number.POSITIVE_INFINITY;
+}
+
+function addRun(ctx: Context, run: Run, name: string, attempt: number): void {
+	const source = coverageKey('kelos', run.key.cluster);
+	const row = ctx.ensure(`run:${runKeyString(run.key)}`, () => ({
+		section: run.role === 'automation' ? 'automation' : 'runs',
+		title: name,
+		subtitle: [run.role, attempt > 0 ? `attempt ${attempt}` : '', run.outcome]
+			.filter(Boolean)
+			.join(' · '),
+		sources: [source]
+	}));
+	row.order = runAnchor(run);
+	row.spans.push(...runSpans(run, ctx.lastRead(source)));
+	if (run.interval.start.state === 'unknown' && run.interval.end.state === 'unknown') {
+		row.note = 'start and end unknown: no bar';
+	}
+}
+
+/** One row per pull request, and one row of checks per commit. */
+function addPullRequests(ctx: Context): void {
+	for (const pr of ctx.story.pullRequests) {
+		const row = prRow(ctx, pr.key);
+		row.subtitle = pr.branch;
+		const lastRead = ctx.lastRead(row.sources[0]!);
+		for (const check of pr.checks) {
+			const checks = ctx.ensure(`checks:${prKeyString(pr.key)}:${check.sha}`, () => ({
+				section: 'pulls',
+				title: `checks ${check.sha.slice(0, SHORT_SHA_LENGTH)}`,
+				subtitle: `#${pr.key.number}, commit ${check.sha.slice(0, SHORT_SHA_LENGTH)}`,
+				sources: row.sources,
+				parent: row.id
+			}));
+			checks.spans.push(checkSpan(pr.key, check, lastRead));
+			checks.order = Math.min(
+				checks.order,
+				boundTime(check.interval.start) ?? Number.POSITIVE_INFINITY
+			);
+		}
+	}
+}
+
+/** Draws an event on its row, creating the row on first use. */
+function placeEvent(ctx: Context, e: Event): void {
+	const row = rowOf(ctx, e);
+	row.events.push(e);
+	row.order = Math.min(row.order, eventTime(e));
+	const source = coverageKey(e.source, e.instance);
+	if (!row.sources.includes(source)) row.sources.push(source);
+	if (e.kind === 'page.created' || e.kind === 'page.moved') {
+		const path = e.kind === 'page.moved' ? e.details?.to : e.details?.path;
+		if (path && row.section === 'pages') row.title = path;
+	}
+}
+
+function rowOf(ctx: Context, e: Event): Row {
+	if (CONVERSATION.has(e.kind)) {
+		const run = ctx.runOfEvent.get(eventKey(e));
+		const runRow = run === undefined ? undefined : ctx.find(`run:${run}`);
+		if (runRow && e.actor.kind !== 'person') return runRow;
+		if (e.actor.kind !== 'unknown' && e.actor.login) return accountRow(ctx, e);
+	}
+	return entityRow(ctx, e);
+}
+
+/** The row of the account that posted a conversation event. */
+function accountRow(ctx: Context, e: Event): Row {
+	const login = e.actor.login!;
+	const section =
+		e.actor.kind === 'person' ? 'people' : e.actor.kind === 'agent' ? 'runs' : 'automation';
+	return ctx.ensure(`account:${e.actor.kind}:${e.source}/${e.instance}:${login}`, () => ({
+		section,
+		title: login,
+		subtitle:
+			e.actor.kind === 'agent'
+				? `agent account on ${e.instance}; run not established`
+				: `${e.actor.kind} on ${e.instance}`,
+		sources: []
+	}));
+}
+
+/** The row of the task, page or pull request the event is about. */
+function entityRow(ctx: Context, e: Event): Row {
+	const { task, page, pr } = e.related;
+	if (pr) return prRow(ctx, pr);
+	if (page && (e.source === 'wiki' || !task)) return pageRow(ctx, page);
+	if (task) return taskRow(ctx, task);
+	const root = ctx.story.root;
+	return root.task ? taskRow(ctx, root.task) : pageRow(ctx, root.page!);
+}
+
+function addReviewWaits(ctx: Context, rows: Row[]): void {
+	for (const row of rows) {
+		if (!row.id.startsWith('pr:')) continue;
+		row.spans.push(...reviewWaits(row.events, ctx.lastRead(row.sources[0]!)));
+	}
+}
+
+/** Compares rows by order, then id; two infinite orders compare equal. */
+function byOrder(a: Row, b: Row): number {
+	return (a.order === b.order ? 0 : a.order < b.order ? -1 : 1) || a.id.localeCompare(b.id);
+}
+
+/**
+ * Sorts rows by section, the root's first, then by order, each child right
+ * under its parent.
+ */
+function sortRows(rows: Row[], rootSection: Section): Row[] {
+	const section = (r: Row) => (r.section === rootSection ? -1 : SECTIONS.indexOf(r.section));
+	const children = rows.filter((r) => r.parent !== undefined).sort(byOrder);
+	return rows
+		.filter((r) => r.parent === undefined)
+		.sort((a, b) => section(a) - section(b) || byOrder(a, b))
+		.flatMap((r) => [r, ...children.filter((c) => c.parent === r.id)]);
+}
