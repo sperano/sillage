@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/model/storytest"
@@ -74,6 +75,10 @@ func TestStoryBadRequest(t *testing.T) {
 		"/api/v1/stories/task/vikunja.example.com/0",
 		"/api/v1/stories/task/vikunja.example.com/-1",
 		"/api/v1/stories/task/vikunja.example.com/+101",
+		"/api/v1/stories/task/vikunja.example.com/0101",
+		"/api/v1/stories/task/vikunja%00.example.com/101",
+		"/api/v1/stories/task/vikunja%ff.example.com/101",
+		"/api/v1/stories/task/vikunja%20example.com/101",
 		"/api/v1/stories/task/vikunja.example.com/99999999999999999999",
 		"/api/v1/stories/task/" + strings.Repeat("a", maxInstance+1) + "/101",
 		"/api/v1/stories/page/wiki.example.com/57/english",
@@ -109,7 +114,8 @@ func TestCoverageGapIsData(t *testing.T) {
 }
 
 func TestFreshness(t *testing.T) {
-	h := New(Config{Store: newFakeStore(t)})
+	fixtures := newFakeStore(t)
+	h := New(Config{Store: fixtures})
 	var got FreshnessResponse
 	decode(t, get(t, h, "/api/v1/coverage"), &got)
 	var keys []string
@@ -120,6 +126,25 @@ func TestFreshness(t *testing.T) {
 	if !slices.Equal(keys, want) {
 		t.Errorf("sources = %q, want %q", keys, want)
 	}
+	stored, err := fixtures.Freshness(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, s := range got.Sources {
+		if i < len(stored) && !sameFreshness(s, stored[i]) {
+			t.Errorf("source %d = %+v, want the store's %+v", i, s, stored[i])
+		}
+	}
+	if !slices.ContainsFunc(got.Sources, func(s store.SourceFreshness) bool { return s.NewestRead != nil }) {
+		t.Error("no source was read: the fixtures check no read times")
+	}
+}
+
+// sameFreshness compares two freshness records, their reads by instant.
+func sameFreshness(a, b store.SourceFreshness) bool {
+	sameTime := func(x, y *time.Time) bool { return (x == nil) == (y == nil) && (x == nil || x.Equal(*y)) }
+	return a.Source == b.Source && a.Instance == b.Instance && a.Roots == b.Roots && a.NeverRead == b.NeverRead &&
+		sameTime(a.NewestRead, b.NewestRead) && sameTime(a.OldestRead, b.OldestRead)
 }
 
 func TestSearch(t *testing.T) {

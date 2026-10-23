@@ -31,7 +31,12 @@ const (
 	// DefaultMaxResponseBytes bounds a response's body when
 	// Config.MaxResponseBytes is zero.
 	DefaultMaxResponseBytes = 16 * mebibyte
-	mebibyte                = 1 << 20
+	// MinResponseBytes is the lowest bound Config.MaxResponseBytes takes:
+	// every problem body fits in it, the one saying a response exceeds
+	// the bound included.
+	MinResponseBytes = kibibyte
+	kibibyte         = 1 << 10
+	mebibyte         = 1 << 20
 )
 
 // PageLister lists a wiki's pages with their locale and path: the wiki
@@ -55,7 +60,7 @@ type Config struct {
 	// Timeout bounds each request; DefaultTimeout when zero.
 	Timeout time.Duration
 	// MaxResponseBytes bounds each response's body;
-	// DefaultMaxResponseBytes when zero.
+	// DefaultMaxResponseBytes when zero, MinResponseBytes when lower.
 	MaxResponseBytes int
 }
 
@@ -69,8 +74,11 @@ func New(cfg Config) http.Handler {
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = DefaultTimeout
 	}
-	if cfg.MaxResponseBytes <= 0 {
+	switch {
+	case cfg.MaxResponseBytes == 0:
 		cfg.MaxResponseBytes = DefaultMaxResponseBytes
+	case cfg.MaxResponseBytes < MinResponseBytes:
+		cfg.MaxResponseBytes = MinResponseBytes
 	}
 	a := &api{cfg: cfg}
 	mux := http.NewServeMux()
@@ -120,7 +128,7 @@ func unrouted(r *http.Request) (any, error) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		return nil, errMethod
 	}
-	return nil, problem(http.StatusNotFound, "no API route serves "+r.URL.Path)
+	return nil, problem(http.StatusNotFound, "no API route serves "+echo(r.URL.Path))
 }
 
 // noStore keeps every API response out of caches: a story changes as the

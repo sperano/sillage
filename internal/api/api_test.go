@@ -159,6 +159,25 @@ func TestResponseBound(t *testing.T) {
 	wantProblem(t, get(t, short, path), http.StatusInternalServerError)
 }
 
+// TestProblemsFitTheLowestBound answers problems that quote long input,
+// and the one for a story past the bound, under the lowest bound.
+func TestProblemsFitTheLowestBound(t *testing.T) {
+	h := New(Config{Store: newFakeStore(t), MaxResponseBytes: 1})
+	long := strings.Repeat("a", 2*MinResponseBytes)
+	for path, status := range map[string]int{
+		"/api/v1/stories/task/vikunja.example.com/101": http.StatusInternalServerError,
+		"/api/v1/" + long: http.StatusNotFound,
+		"/api/v1/stories/task/vikunja.example.com/" + long: http.StatusBadRequest,
+		"/api/v1/stories/page/wiki.example.com/57/" + long: http.StatusBadRequest,
+	} {
+		rec := get(t, h, path)
+		wantProblem(t, rec, status)
+		if rec.Body.Len() > MinResponseBytes {
+			t.Errorf("%.40s...: problem of %d bytes, more than %d", path, rec.Body.Len(), MinResponseBytes)
+		}
+	}
+}
+
 func TestClientGoneWritesNothing(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

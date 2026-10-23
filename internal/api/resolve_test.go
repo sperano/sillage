@@ -109,6 +109,9 @@ func TestResolveBadRequest(t *testing.T) {
 		resolvePath("a/b/c"),
 		resolvePath("Agents/task"),
 		resolvePath(strings.Repeat("a", maxTaskName+1)),
+		resolvePath("agents/task..name"),
+		resolvePath("agents/task.-name"),
+		resolvePath("agents/" + strings.Repeat("a", 64) + ".name"),
 	} {
 		wantProblem(t, get(t, h, path), http.StatusBadRequest)
 	}

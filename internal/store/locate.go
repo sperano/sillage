@@ -21,7 +21,9 @@ const rootColumns = "o.body, COALESCE(o.title, ''), o.last_activity"
 
 // RunQuery names the runs of a Kelos Task: one attempt by its UID, or
 // every attempt by its name, which a retry reuses. Namespace, when set,
-// narrows a name to one namespace. Exactly one of Name and UID is set.
+// narrows it to one namespace. Exactly one of Name and UID is set. It
+// matches runs in every cluster: a Task reference ([<namespace>/]<name>,
+// a UID) names none, so the same name in two clusters matches both.
 type RunQuery struct {
 	Namespace string
 	Name      string

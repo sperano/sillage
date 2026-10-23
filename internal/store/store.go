@@ -37,7 +37,8 @@ type Reader interface {
 	// RootsOfPullRequest returns the roots whose stories hold the pull
 	// request.
 	RootsOfPullRequest(ctx context.Context, key model.PRKey) ([]RootSummary, error)
-	// RootsOfRuns returns the roots whose stories hold a run q names.
+	// RootsOfRuns returns the roots whose stories hold a run q names, in
+	// any cluster.
 	RootsOfRuns(ctx context.Context, q RunQuery) ([]RootSummary, error)
 	// Freshness returns how recently each source instance was read,
 	// across the stored roots.

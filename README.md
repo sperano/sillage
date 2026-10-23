@@ -71,7 +71,9 @@ A wiki URL by path (`/<locale>/<path>`) resolves only with the wiki source
 configured (`SILLAGE_WIKI_URL`, `SILLAGE_WIKI_TOKEN`,
 `SILLAGE_WIKI_AGENT_USERS`), whose page listing maps it to a page id; by id
 (`/i/<id>`) it always does. Every other `GET` path that is no frontend file
-serves the frontend's `index.html`, so that deep links to its routes work.
+serves the frontend's `index.html`, so that deep links to its routes work,
+unless its last segment has an extension (`/app.js`): a missing file is a
+404.
 
 The image builds both (no local `web/dist/` needed) and embeds the
 frontend:

@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -19,6 +20,11 @@ const (
 	// apiVersion is the version of the routes under /api/v1/.
 	apiVersion = "v1"
 )
+
+// instancePattern matches the characters of a host in lower case, with its
+// port or as a bracketed IPv6 address: no space, slash or control
+// character, nothing the store would refuse.
+var instancePattern = regexp.MustCompile(`^[a-z0-9.:\[\]-]+$`)
 
 // The query parameters.
 const (
@@ -161,7 +167,7 @@ func pageRoot(r *http.Request) (model.Root, error) {
 	}
 	locale := r.PathValue("locale")
 	if !wiki.IsLocale(locale) {
-		return model.Root{}, badRequest("%q is not a wiki locale", locale)
+		return model.Root{}, badRequest("%s is not a wiki locale", echo(locale))
 	}
 	return model.Root{Page: &model.PageKey{Instance: instance, ID: id, Locale: locale}}, nil
 }
@@ -170,8 +176,9 @@ func pageRoot(r *http.Request) (model.Root, error) {
 // model's keys name it.
 func instanceParam(r *http.Request) (string, error) {
 	instance := strings.ToLower(r.PathValue("instance"))
-	if instance == "" || len(instance) > maxInstance {
-		return "", badRequest("the instance must be a host of at most %d characters", maxInstance)
+	if len(instance) > maxInstance || !instancePattern.MatchString(instance) {
+		return "", badRequest("the instance must be a host, with or without its port, of at most %d characters",
+			maxInstance)
 	}
 	return instance, nil
 }
@@ -181,7 +188,7 @@ func idParam(r *http.Request) (int64, error) {
 	raw := r.PathValue("id")
 	id, ok := positive(raw)
 	if !ok {
-		return 0, badRequest("%q is not a positive id", raw)
+		return 0, badRequest("%s is not a positive id", echo(raw))
 	}
 	return id, nil
 }

@@ -227,3 +227,15 @@ func startLines(ctx context.Context, t *testing.T, bin string) []string {
 	}
 	return starts
 }
+
+// TestServerBoundsWrites checks that a response's write is bounded, after
+// the API's own bound on answering.
+func TestServerBoundsWrites(t *testing.T) {
+	srv := newServer(http.NotFoundHandler())
+	if srv.WriteTimeout <= api.DefaultTimeout {
+		t.Errorf("WriteTimeout = %v, want more than the API's %v", srv.WriteTimeout, api.DefaultTimeout)
+	}
+	if srv.ReadHeaderTimeout == 0 || srv.IdleTimeout == 0 {
+		t.Error("the server leaves its read-header or idle timeout unset")
+	}
+}

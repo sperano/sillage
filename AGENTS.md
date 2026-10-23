@@ -19,7 +19,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 
 | Path | What goes there |
 | --- | --- |
-| `cmd/sillage/` | The one binary: today `GET /healthz`, the read API under `/api/` and the embedded frontend (its `index.html` for every other `GET` path, so client-side routes deep-link), and `sillage story`, which prints one story assembled from the live sources; later the collector loop too. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s, what the API answers `internal/api`'s. |
+| `cmd/sillage/` | The one binary: today `GET /healthz`, the read API under `/api/` and the embedded frontend (its `index.html` for every other `GET` path without a file extension, so client-side routes deep-link), and `sillage story`, which prints one story assembled from the live sources; later the collector loop too. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s, what the API answers `internal/api`'s. |
 | `internal/model/` | Normalized events, runs, entities and links, and coverage. Source-independent. |
 | `internal/model/storytest/` | The invariant each fixture story exists for, asserted by the model's and the collector's tests. |
 | `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage. Read once, nothing kept. |

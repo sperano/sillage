@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/wiki"
@@ -121,13 +122,14 @@ func (f *fakeStore) Root(_ context.Context, root model.Root) (store.RootSummary,
 	return summary(s), nil
 }
 
-// SearchRoots matches q against the stories' keys and titles, as the
-// store does, in fixture order.
+// SearchRoots matches q against the stories' keys and titles in any case,
+// as the store does, in fixture order.
 func (f *fakeStore) SearchRoots(_ context.Context, q store.RootQuery) ([]store.RootSummary, error) {
 	text := strings.ToLower(q.Text)
 	var out []store.RootSummary
 	for _, s := range f.stories {
-		if strings.Contains(strings.ToLower(rootKey(s.story.Root)), text) || strings.Contains(s.name, text) {
+		if strings.Contains(strings.ToLower(rootKey(s.story.Root)), text) ||
+			strings.Contains(strings.ToLower(s.name), text) {
 			out = append(out, summary(s))
 		}
 	}
@@ -170,6 +172,7 @@ func (f *fakeStore) Freshness(context.Context) ([]store.SourceFreshness, error) 
 				by[key] = &store.SourceFreshness{Source: c.Source, Instance: c.Instance}
 			}
 			by[key].Roots++
+			read(by[key], c.LastSuccessfulRead)
 		}
 	}
 	var out []store.SourceFreshness
@@ -180,6 +183,21 @@ func (f *fakeStore) Freshness(context.Context) ([]store.SourceFreshness, error) 
 		return cmp.Or(cmp.Compare(a.Source, b.Source), cmp.Compare(a.Instance, b.Instance))
 	})
 	return out, nil
+}
+
+// read counts a root's last successful read into f, as the store does.
+func read(f *store.SourceFreshness, at *time.Time) {
+	switch {
+	case at == nil:
+		f.NeverRead++
+		return
+	case f.NewestRead == nil:
+		f.NewestRead, f.OldestRead = at, at
+	case at.After(*f.NewestRead):
+		f.NewestRead = at
+	case at.Before(*f.OldestRead):
+		f.OldestRead = at
+	}
 }
 
 // fakeWiki lists fixed pages, or fails with err.

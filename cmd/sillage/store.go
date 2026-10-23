@@ -15,7 +15,7 @@ const storeOpenTimeout = 5 * time.Minute
 
 // openStore opens the store, applying its migrations and its retention
 // policy, when store.EnvDatabaseURL is set. Without it, it returns nil:
-// nothing reads or writes the store yet, so sillage still serves.
+// sillage still serves, and the API answers 503 for what it would read.
 func openStore(ctx context.Context, getenv func(string) string) (*store.Store, error) {
 	cfg, err := store.ConfigFromEnv(getenv)
 	if errors.Is(err, store.ErrNotConfigured) {

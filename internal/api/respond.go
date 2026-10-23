@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/sperano/sillage/internal/store"
 )
@@ -19,6 +20,9 @@ const (
 	problemType = "about:blank"
 	// allowedMethods are the only methods the API serves.
 	allowedMethods = "GET, HEAD"
+	// maxEchoed bounds the request input a problem's detail quotes, in
+	// bytes, so that every problem body fits in MinResponseBytes.
+	maxEchoed = 128
 )
 
 // Problem is the body of every error response (RFC 9457).
@@ -41,6 +45,15 @@ func problem(status int, detail string) error { return &problemError{status: sta
 
 func badRequest(format string, args ...any) error {
 	return problem(http.StatusBadRequest, fmt.Sprintf(format, args...))
+}
+
+// echo quotes request input for a problem's detail, cut to maxEchoed
+// bytes.
+func echo(s string) string {
+	if len(s) > maxEchoed {
+		return strconv.Quote(strings.ToValidUTF8(s[:maxEchoed], "")) + "..."
+	}
+	return strconv.Quote(s)
 }
 
 // errMethod answers a method the API never serves.

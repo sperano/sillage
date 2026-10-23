@@ -40,10 +40,9 @@ const (
 )
 
 var (
-	// taskNamePattern matches a Kubernetes object name.
-	taskNamePattern = regexp.MustCompile(`^[a-z0-9](?:[-a-z0-9.]*[a-z0-9])?$`)
-	// namespacePattern matches a Kubernetes namespace (a DNS label).
-	namespacePattern = regexp.MustCompile(`^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$`)
+	// dnsLabelPattern matches a DNS label: a Kubernetes namespace, and
+	// each dot-separated label of an object name (a DNS subdomain).
+	dnsLabelPattern = regexp.MustCompile(`^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$`)
 	// uidPattern matches a Kubernetes UID.
 	uidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 )
@@ -201,8 +200,7 @@ func (a *api) kelosLookups(ref string) []lookup {
 	if !found {
 		namespace, name = "", ref
 	}
-	if len(name) > maxTaskName || !taskNamePattern.MatchString(name) ||
-		(found && !namespacePattern.MatchString(namespace)) {
+	if !isTaskName(name) || (found && !dnsLabelPattern.MatchString(namespace)) {
 		return nil
 	}
 	queries := []store.RunQuery{{Namespace: namespace, Name: name}}
@@ -218,10 +216,25 @@ func (a *api) kelosLookups(ref string) []lookup {
 	return out
 }
 
-// positive parses a positive id written in decimal digits only, so that
-// one resource has one spelling ("+5" is none).
+// isTaskName reports whether name is a Kubernetes object name: a DNS
+// subdomain, of DNS labels joined by dots.
+func isTaskName(name string) bool {
+	if len(name) > maxTaskName {
+		return false
+	}
+	for label := range strings.SplitSeq(name, ".") {
+		if !dnsLabelPattern.MatchString(label) {
+			return false
+		}
+	}
+	return true
+}
+
+// positive parses a positive id written in decimal digits only, without
+// leading zeroes, so that one resource has one spelling ("+5" and "05"
+// are none).
 func positive(s string) (int64, bool) {
-	if s == "" || strings.ContainsFunc(s, func(r rune) bool { return r < '0' || r > '9' }) {
+	if s == "" || s[0] == '0' || strings.ContainsFunc(s, func(r rune) bool { return r < '0' || r > '9' }) {
 		return 0, false
 	}
 	n, err := strconv.ParseInt(s, 10, 64)
