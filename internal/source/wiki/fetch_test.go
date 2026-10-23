@@ -169,3 +169,38 @@ func TestFetchRestrictedPageNotListed(t *testing.T) {
 		t.Errorf("Fetch error = %v, want the page not listed", err)
 	}
 }
+
+func TestFindPage(t *testing.T) {
+	fake := storyFake(t, "announcement-no-reply")
+	c := newTestClient(t, fake)
+	tests := []struct {
+		locale, path string
+		want         int64
+		found        bool
+	}{
+		{"en", "widgets/notes/capacity", 59, true},
+		{"en", "widgets/home", 12, true},
+		{"fr", "widgets/home", 0, false},
+		{"en", "widgets/missing", 0, false},
+	}
+	for _, tt := range tests {
+		id, found, err := c.FindPage(t.Context(), tt.locale, tt.path)
+		if err != nil || id != tt.want || found != tt.found {
+			t.Errorf("FindPage(%s, %s) = %d, %v, %v; want %d, %v", tt.locale, tt.path, id, found, err, tt.want, tt.found)
+		}
+	}
+	for _, op := range fake.log.seen() {
+		if op != opPageList {
+			t.Errorf("FindPage sent %s, want only %s", op, opPageList)
+		}
+	}
+}
+
+func TestFindPageReportsFailure(t *testing.T) {
+	c := newTestClient(t, graphQLHandler(func(_ string, w http.ResponseWriter) {
+		http.Error(w, "down", http.StatusBadGateway)
+	}))
+	if _, _, err := c.FindPage(t.Context(), "en", "widgets/home"); err == nil {
+		t.Error("FindPage() error = nil, want the reply's status")
+	}
+}

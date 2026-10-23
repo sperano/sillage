@@ -110,19 +110,42 @@ func (c *Client) fetchPage(ctx context.Context, pageID int64) (page Page, restri
 
 // listPage finds page pageID in pages.list, which has no id filter.
 func (c *Client) listPage(ctx context.Context, pageID int64) (Page, error) {
+	pages, err := c.listPages(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	i := slices.IndexFunc(pages, func(p Page) bool { return p.ID == pageID })
+	if i < 0 {
+		return Page{}, fmt.Errorf("wiki: %s: page %d is not listed", opPageList, pageID)
+	}
+	return pages[i], nil
+}
+
+// FindPage returns the id of the page at path in locale, and whether one
+// is listed there. It reads pages.list, which needs only read:pages. The
+// path has no leading slash and no locale, as Wiki.js stores it.
+func (c *Client) FindPage(ctx context.Context, locale, path string) (int64, bool, error) {
+	pages, err := c.listPages(ctx)
+	if err != nil {
+		return 0, false, err
+	}
+	i := slices.IndexFunc(pages, func(p Page) bool { return p.Locale == locale && p.Path == path })
+	if i < 0 {
+		return 0, false, nil
+	}
+	return pages[i].ID, true, nil
+}
+
+func (c *Client) listPages(ctx context.Context) ([]Page, error) {
 	var data struct {
 		Pages struct {
 			List []Page `json:"list"`
 		} `json:"pages"`
 	}
 	if err := c.query(ctx, opPageList, queryPageList, nil, &data); err != nil {
-		return Page{}, err
+		return nil, err
 	}
-	i := slices.IndexFunc(data.Pages.List, func(p Page) bool { return p.ID == pageID })
-	if i < 0 {
-		return Page{}, fmt.Errorf("wiki: %s: page %d is not listed", opPageList, pageID)
-	}
-	return data.Pages.List[i], nil
+	return data.Pages.List, nil
 }
 
 // fetchTrail reads the trail page by page until it holds the reported
