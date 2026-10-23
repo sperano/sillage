@@ -324,6 +324,37 @@ func TestNormalizeObservationIDsChangeAcrossReads(t *testing.T) {
 	}
 }
 
+func TestNormalizeSameNamedObservationsHaveDistinctIDs(t *testing.T) {
+	snapshot := Snapshot{
+		Instance: "vikunja.example.com",
+		Task: Task{
+			ID:      4211,
+			Created: testObservedAt.Add(-time.Hour),
+			Buckets: []Bucket{
+				{ID: 1, Title: "Doing", ProjectViewID: 10},
+				{ID: 2, Title: "Doing", ProjectViewID: 20},
+			},
+			Labels: []Label{{ID: 3, Title: "review"}, {ID: 4, Title: "review"}},
+		},
+		ObservedAt: testObservedAt,
+	}
+	records, err := Normalize(snapshot, serviceAccount)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := make(map[string]bool)
+	for _, event := range records.Events {
+		if seen[event.ID] {
+			t.Errorf("duplicate event id %s", event.ID)
+		}
+		seen[event.ID] = true
+	}
+	root := model.Root{Task: &model.TaskKey{Instance: snapshot.Instance, ID: snapshot.Task.ID}}
+	if _, err := model.BuildStory(root, records); err != nil {
+		t.Fatalf("BuildStory: %v", err)
+	}
+}
+
 func TestNormalizeRejectsInvalidTask(t *testing.T) {
 	_, err := Normalize(Snapshot{Task: Task{ID: 4201}, ObservedAt: testObservedAt}, serviceAccount)
 	if err == nil || !strings.Contains(err.Error(), "source, instance and id") {

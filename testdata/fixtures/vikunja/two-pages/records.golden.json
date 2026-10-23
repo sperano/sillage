@@ -138,7 +138,7 @@
     {
       "source": "vikunja",
       "instance": "vikunja.example.com",
-      "id": "sha256:e8a053472227e46cca023524cba078023084399c75aaaf4f640c758b435e84f9",
+      "id": "sha256:1a2ee43a4029ee9e8960f18402b1411455e77b748398e89015733f076c144964",
       "idKind": "fingerprint",
       "kind": "task.bucket_observed",
       "observedAt": "2026-03-06T12:00:00Z",
@@ -164,7 +164,7 @@
     {
       "source": "vikunja",
       "instance": "vikunja.example.com",
-      "id": "sha256:4fa5d8d610647560180faf1bdc4dfed1a9dddc5e9863c50a17c3c84a1f3803d5",
+      "id": "sha256:2f8da1a7a61812450e918cb639babf2d6d98c94331e682ca325f8a5611c075eb",
       "idKind": "fingerprint",
       "kind": "task.label_observed",
       "observedAt": "2026-03-06T12:00:00Z",
@@ -190,7 +190,7 @@
     {
       "source": "vikunja",
       "instance": "vikunja.example.com",
-      "id": "sha256:629c30d209eeeef8901f6f01c7d0760c329224765b8126e0a39505d40047b23a",
+      "id": "sha256:e5d5d68ee2da0adc1c4794c4e7b7cd0c39779348a754f35cabd4873976f4dcd3",
       "idKind": "fingerprint",
       "kind": "task.assignee_observed",
       "observedAt": "2026-03-06T12:00:00Z",

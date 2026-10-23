@@ -183,20 +183,36 @@ func (n *normalizer) observeState() {
 			value = strconv.FormatInt(bucket.ID, 10)
 		}
 		n.events = append(n.events, n.observation(
-			model.KindTaskBucketObserved, actionBucketObserved, value, "bucket", value, "buckets, bucket_id"))
+			model.KindTaskBucketObserved, actionBucketObserved, bucketIdentity(bucket), "bucket", value,
+			"buckets, bucket_id"))
 	}
 	for _, label := range n.s.Task.Labels {
 		n.events = append(n.events, n.observation(
-			model.KindTaskLabelObserved, actionLabelObserved, label.Title, "label", label.Title, "labels"))
+			model.KindTaskLabelObserved, actionLabelObserved, objectIdentity(label.ID, label.Title),
+			"label", label.Title, "labels"))
 	}
 	for _, assignee := range n.s.Task.Assignees {
 		e := n.observation(model.KindTaskAssigneeObserved, actionAssigneeObserved,
-			assignee.Username, "assignee", assignee.Username, "assignees")
+			objectIdentity(assignee.ID, assignee.Username), "assignee", assignee.Username, "assignees")
 		if assignee.ID > 0 {
 			setDetail(&e, "assigneeId", strconv.FormatInt(assignee.ID, 10))
 		}
 		n.events = append(n.events, e)
 	}
+}
+
+func bucketIdentity(bucket Bucket) string {
+	if bucket.ID <= 0 {
+		return bucket.Title
+	}
+	return strconv.FormatInt(bucket.ProjectViewID, 10) + "/" + strconv.FormatInt(bucket.ID, 10)
+}
+
+func objectIdentity(id int64, fallback string) string {
+	if id > 0 {
+		return strconv.FormatInt(id, 10)
+	}
+	return fallback
 }
 
 func (n *normalizer) observation(

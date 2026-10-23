@@ -53,7 +53,7 @@
     {
       "source": "vikunja",
       "instance": "vikunja.example.com",
-      "id": "sha256:1d5d56b2d6843ba319b779e2742158350c15ac5fba69ce20c491f921ee18fb05",
+      "id": "sha256:2e50aa35c43ea13ab8aed4f8bb947d9f7c74a05cbaa0bd17d981686d0197141c",
       "idKind": "fingerprint",
       "kind": "task.assignee_observed",
       "observedAt": "2026-03-06T12:00:00Z",
