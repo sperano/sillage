@@ -49,6 +49,13 @@ const (
 	// account, the agent's own account, or on GitHub the Workspace's
 	// account (details: "taskName", "pod").
 	KindRunAnnounced EventKind = "run.announced"
+	// KindRunObserved: a Kubernetes list or watch of one of a run's Kelos
+	// objects, its Task or its TaskRecord (details: "object", "change",
+	// "phase" when the object has one, "resourceVersion"). The API server
+	// gives no time for a change, so it has no source time: its observed
+	// time is when the collector received it, and the run's own times stay
+	// the controller's lifecycle times.
+	KindRunObserved EventKind = "run.observed"
 
 	KindPROpened EventKind = "pr.opened"
 	// KindReviewRequested: a review was asked of a user (details:
@@ -78,6 +85,7 @@ var kindSources = map[EventKind][]Source{
 	KindComment:              {SourceVikunja, SourceWiki, SourceGitHub},
 	KindRequest:              {SourceVikunja, SourceWiki, SourceGitHub},
 	KindRunAnnounced:         {SourceVikunja, SourceWiki, SourceGitHub},
+	KindRunObserved:          {SourceKelos},
 	KindPROpened:             {SourceGitHub},
 	KindReviewRequested:      {SourceGitHub},
 	KindReviewRequestRemoved: {SourceGitHub},

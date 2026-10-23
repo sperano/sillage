@@ -107,7 +107,7 @@ func TestNewReaderRejectsNilClient(t *testing.T) {
 
 func TestListAllFollowsContinue(t *testing.T) {
 	f := &fakePages{pages: [][]string{{"a", "b"}, {"c"}, {"d"}}}
-	tasks, err := listAll[Task](t.Context(), f.list)
+	tasks, _, err := listAll[Task](t.Context(), f.list)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestListAllReportsUndecodable(t *testing.T) {
 		bad.Object["status"] = map[string]any{"startTime": "not a time"}
 		return &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*bad}}, nil
 	}
-	_, err := listAll[Task](t.Context(), list)
+	_, _, err := listAll[Task](t.Context(), list)
 	if err == nil || !strings.Contains(err.Error(), "decode Task agents/bad") {
 		t.Errorf("error = %v, want one naming the object", err)
 	}

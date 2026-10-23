@@ -23,7 +23,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/model/` | Normalized events, runs, entities and links, and coverage. Source-independent. |
 | `internal/source/vikunja/` | Read-only Vikunja client and its normalization into `model`. |
 | `internal/source/github/` | Read-only GitHub client and its normalization into `model`. |
-| `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and its normalization into `model`. |
+| `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and watcher (list, then watch with persisted checkpoints), and their normalization into `model`. |
 | `internal/source/wiki/` | Read-only Wiki.js client and its normalization into `model`. |
 | `internal/source/htmltext/` | Rendered comment HTML to plain text, shared by the sources that parse comments. |
 | `internal/source/kelostext/` | Requests (`/gordon`, `/kelos`) and Kelos start announcements in every form posted, shared by the sources that parse comments. |

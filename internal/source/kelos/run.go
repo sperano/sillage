@@ -2,6 +2,7 @@ package kelos
 
 import (
 	"strings"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -18,6 +19,12 @@ const (
 	noTaskNote = "Task not found (deleted after its TTL): created, pod, job and message unknown"
 	// noRecordNote explains a run read from its Task alone.
 	noRecordNote = "no TaskRecord found (Kelos writes one only for a completed Task that reported usage)"
+	// deletedSeenNote and deletedRelistNote explain a run whose Task a
+	// watch found gone, each followed by a time.
+	deletedSeenNote   = "Task deleted, watch event received at "
+	deletedRelistNote = "Task deleted at an unknown time, missing from the relist started at "
+	// lastValuesNote follows either: the Task's fields are its last state.
+	lastValuesNote = ": its fields are its last observed values"
 )
 
 // runBuilder fills a run field by field from an attempt's objects, noting
@@ -153,7 +160,8 @@ func (b *runBuilder) lifecycle() {
 		return
 	}
 	s := b.a.task.Status
-	if b.setLifecycle(lifecycleOf{s.Phase, s.StartTime, s.CompletionTime, false}, "status.", b.fromTask) {
+	gone := b.a.deleted != nil
+	if b.setLifecycle(lifecycleOf{s.Phase, s.StartTime, s.CompletionTime, gone}, "status.", b.fromTask) {
 		b.timesFromTask = true
 	}
 }
@@ -162,16 +170,16 @@ func (b *runBuilder) lifecycle() {
 type lifecycleOf struct {
 	phase      Phase
 	start, end *metav1.Time
-	// completed is set for a TaskRecord, which Kelos writes only once its
-	// Task completed.
-	completed bool
+	// final is set when no later state will come: for a TaskRecord, which
+	// Kelos writes only once its Task completed, and for a deleted Task.
+	final bool
 }
 
 // setLifecycle sets the interval and outcome from a phase and its times,
 // and reports whether it took a time. A Task's phase not yet terminal
-// leaves the end open. A phase it does not know, or a TaskRecord's phase
-// that is not terminal, makes the outcome unknown: neither says whether
-// the run ended.
+// leaves the end open. A phase it does not know, or a non-terminal phase
+// that is final (a TaskRecord's, a deleted Task's), makes the outcome
+// unknown: neither says whether or how the run ended.
 func (b *runBuilder) setLifecycle(l lifecycleOf, prefix string, from func(field, path string)) bool {
 	iv := model.Interval{Start: bound(l.start), End: bound(l.end)}
 	outcome := model.OutcomeUnknown
@@ -181,11 +189,11 @@ func (b *runBuilder) setLifecycle(l lifecycleOf, prefix string, from func(field,
 	case PhaseFailed:
 		outcome = model.OutcomeFailed
 	case PhasePending, PhaseWaiting:
-		if !l.completed {
+		if !l.final {
 			outcome, iv.End = model.OutcomeWaiting, model.OpenEnd()
 		}
 	case "", PhaseRunning:
-		if !l.completed {
+		if !l.final {
 			outcome, iv.End = model.OutcomeRunning, model.OpenEnd()
 		}
 	}
@@ -254,6 +262,7 @@ func (b *runBuilder) evidence() []model.Evidence {
 	if t := b.a.task; t != nil {
 		out = append(out, b.evidenceOf(b.cfg.taskRef(t.Name), objectNote{
 			fields: b.taskFields, times: b.timesFromTask, timesNote: taskTimesNote,
+			gone:  deletedNote(b.a.deleted),
 			alone: b.a.record == nil, aloneNote: noRecordNote,
 		}))
 	}
@@ -273,6 +282,9 @@ type objectNote struct {
 	// times is set when it supplied a time, which timesNote labels.
 	times     bool
 	timesNote string
+	// gone says how a watch found the object deleted; empty while it
+	// exists.
+	gone string
 	// alone is set when it is the attempt's only object, which aloneNote
 	// explains.
 	alone     bool
@@ -284,8 +296,23 @@ func (b *runBuilder) evidenceOf(ref string, n objectNote) model.Evidence {
 	if n.times {
 		parts = append(parts, n.timesNote)
 	}
+	if n.gone != "" {
+		parts = append(parts, n.gone)
+	}
 	if n.alone {
 		parts = append(parts, n.aloneNote)
 	}
 	return model.Evidence{Source: model.SourceKelos, Instance: b.cfg.Cluster, Ref: ref, Note: strings.Join(parts, "; ")}
+}
+
+// deletedNote says how and when a Task was found deleted; empty for nil.
+func deletedNote(d *Deletion) string {
+	if d == nil {
+		return ""
+	}
+	how := deletedRelistNote
+	if d.Seen {
+		how = deletedSeenNote
+	}
+	return how + d.At.UTC().Format(time.RFC3339Nano) + lastValuesNote
 }

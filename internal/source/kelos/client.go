@@ -25,8 +25,8 @@ const (
 
 // NewDynamicClient returns a client for the cluster sillage runs in, or,
 // outside a cluster, for the kubeconfig's current context ($KUBECONFIG, else
-// ~/.kube/config). Its credentials need only get and list on Kelos's tasks
-// and taskrecords.
+// ~/.kube/config). Its credentials need get and list on Kelos's tasks and
+// taskrecords, and watch for a Watcher.
 func NewDynamicClient() (dynamic.Interface, error) {
 	cfg, err := restConfig()
 	if err != nil {
@@ -67,6 +67,9 @@ type Snapshot struct {
 	// ObservedAt is when the read started, before the first list: the time
 	// a coverage record can claim the namespace was read up to.
 	ObservedAt time.Time
+	// TasksVersion and RecordsVersion are the resourceVersions of the two
+	// lists, from which a watch of each resource starts.
+	TasksVersion, RecordsVersion string
 }
 
 // Reader lists the Tasks and TaskRecords of the configured namespace.
@@ -91,12 +94,18 @@ func NewReader(client dynamic.Interface, cfg Config) (*Reader, error) {
 // failed request fails the read, including a continue token that expired
 // between two pages (410 Gone); the caller reads again later.
 func (r *Reader) Read(ctx context.Context) (Snapshot, error) {
-	s := Snapshot{ObservedAt: r.now()}
+	return readSnapshot(ctx, r.client, r.cfg, r.now)
+}
+
+// readSnapshot lists both resources and notes the resourceVersion of each
+// list, from which a watch can start.
+func readSnapshot(ctx context.Context, client dynamic.Interface, cfg Config, now func() time.Time) (Snapshot, error) {
+	s := Snapshot{ObservedAt: now()}
 	var err error
-	if s.Tasks, err = listAll[Task](ctx, r.lister(taskGVR)); err != nil {
+	if s.Tasks, s.TasksVersion, err = listAll[Task](ctx, lister(client, cfg, taskGVR)); err != nil {
 		return Snapshot{}, err
 	}
-	if s.Records, err = listAll[TaskRecord](ctx, r.lister(recordGVR)); err != nil {
+	if s.Records, s.RecordsVersion, err = listAll[TaskRecord](ctx, lister(client, cfg, recordGVR)); err != nil {
 		return Snapshot{}, err
 	}
 	return s, nil
@@ -105,36 +114,37 @@ func (r *Reader) Read(ctx context.Context) (Snapshot, error) {
 // listPage lists one page of one resource.
 type listPage func(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error)
 
-func (r *Reader) lister(gvr schema.GroupVersionResource) listPage {
-	res := r.client.Resource(gvr).Namespace(r.cfg.Namespace)
+func lister(client dynamic.Interface, cfg Config, gvr schema.GroupVersionResource) listPage {
+	res := client.Resource(gvr).Namespace(cfg.Namespace)
 	return func(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 		list, err := res.List(ctx, opts)
 		if err != nil {
-			return nil, fmt.Errorf("kelos: list %s in %s: %w", gvr.Resource, r.cfg.Namespace, err)
+			return nil, fmt.Errorf("kelos: list %s in %s: %w", gvr.Resource, cfg.Namespace, err)
 		}
 		return list, nil
 	}
 }
 
 // listAll follows the continue token until the last page and decodes every
-// object into T.
-func listAll[T any](ctx context.Context, list listPage) ([]T, error) {
+// object into T. It also returns the list's resourceVersion: every page of
+// a paginated list is served from one snapshot, which the last page names.
+func listAll[T any](ctx context.Context, list listPage) ([]T, string, error) {
 	var out []T
 	opts := metav1.ListOptions{Limit: listPageSize}
 	for {
 		page, err := list(ctx, opts)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		for _, item := range page.Items {
 			v, err := decode[T](item)
 			if err != nil {
-				return nil, err
+				return nil, "", err
 			}
 			out = append(out, v)
 		}
 		if opts.Continue = page.GetContinue(); opts.Continue == "" {
-			return out, nil
+			return out, page.GetResourceVersion(), nil
 		}
 	}
 }

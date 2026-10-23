@@ -1,0 +1,296 @@
+package kelos
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
+
+	"github.com/sperano/sillage/internal/model"
+)
+
+const (
+	// reconnectDelay is the pause before reopening a watch the API server
+	// closed, so that a server closing every watch at once is not hammered.
+	reconnectDelay = time.Second
+	// GapWatchExpired is the reason of the gap a relist records on the
+	// Kelos coverage after a watch expired: the deletions and transient
+	// phases between the last event and the relist are unknown.
+	GapWatchExpired = "watch expired"
+)
+
+// errExpired marks a watch whose resourceVersion the API server no longer
+// serves (410 Gone): only a relist can resume.
+var errExpired = errors.New("kelos: watch expired")
+
+// Watcher lists the configured namespace's Tasks and TaskRecords once,
+// then watches both from the lists' resourceVersions, committing what each
+// event changed to a Sink with the checkpoint it brings the watch to. A
+// watch the API server closes is reopened from the checkpoint; a watch that
+// expired is replaced by a relist and a "watch expired" gap.
+type Watcher struct {
+	client         dynamic.Interface
+	cfg            Config
+	sink           Sink
+	now            func() time.Time
+	reconnectDelay time.Duration
+}
+
+// NewWatcher returns a watcher of cfg's namespace through client,
+// committing to sink.
+func NewWatcher(client dynamic.Interface, cfg Config, sink Sink) (*Watcher, error) {
+	if client == nil || sink == nil {
+		return nil, errors.New("kelos: watcher without a client or a sink")
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return &Watcher{client: client, cfg: cfg, sink: sink, now: time.Now, reconnectDelay: reconnectDelay}, nil
+}
+
+// Run watches until ctx is done or a request or a commit fails, and
+// returns why. It resumes from the sink's checkpoint when there is one,
+// and lists first otherwise. A failure leaves the last committed
+// checkpoint, so running it again loses nothing unless that checkpoint
+// expired meanwhile, which then shows as a gap.
+func (w *Watcher) Run(ctx context.Context) error {
+	st, err := w.start(ctx)
+	if err != nil {
+		return err
+	}
+	for {
+		err := w.watch(ctx, st)
+		if !errors.Is(err, errExpired) {
+			return err
+		}
+		if st, err = w.relist(ctx, st); err != nil {
+			return err
+		}
+	}
+}
+
+// start restores the committed checkpoint, or lists when there is none.
+func (w *Watcher) start(ctx context.Context) (*state, error) {
+	cp, ok, err := w.sink.Checkpoint(ctx, w.cfg.Cluster, w.cfg.Namespace)
+	if err != nil {
+		return nil, fmt.Errorf("kelos: load checkpoint: %w", err)
+	}
+	if !ok {
+		return w.relist(ctx, nil)
+	}
+	return stateOf(cp)
+}
+
+// relist lists both resources into a new state and commits every run and
+// an observation of every object listed. After an expired watch (prev not
+// nil), it keeps prev's Tasks the list no longer has as deleted at an
+// unknown time, and records a gap from prev's last event to the relist.
+func (w *Watcher) relist(ctx context.Context, prev *state) (*state, error) {
+	s, err := readSnapshot(ctx, w.client, w.cfg, w.now)
+	if err != nil {
+		return nil, err
+	}
+	changed, err := pair(w.cfg, s)
+	if err != nil {
+		return nil, err
+	}
+	st := &state{attempts: make(map[types.UID]*attempt, len(changed)),
+		tasksVersion: s.TasksVersion, recordsVersion: s.RecordsVersion, lastEventAt: s.ObservedAt}
+	for _, a := range changed {
+		st.attempts[a.uid] = a
+	}
+	var gaps []model.Gap
+	if prev != nil {
+		changed = append(changed, st.carryOver(prev, s.ObservedAt)...)
+		gaps = expiredGap(prev.lastEventAt, s.ObservedAt)
+	}
+	return st, w.commit(ctx, st, changed, w.cfg.listed(s), gaps)
+}
+
+// carryOver keeps prev's Tasks that are missing from the relisted state:
+// each was deleted at an unknown time, so it keeps its run with its last
+// observed values. It returns the attempts newly found deleted.
+func (s *state) carryOver(prev *state, at time.Time) []*attempt {
+	var changed []*attempt
+	for uid, old := range prev.attempts {
+		if a := s.attempts[uid]; old.task == nil || (a != nil && a.task != nil) {
+			continue
+		}
+		a := s.attempt(uid)
+		if a.record == nil {
+			a.record = old.record
+		}
+		a.task, a.deleted = old.task, old.deleted
+		if a.deleted == nil {
+			a.deleted = &Deletion{At: at}
+			changed = append(changed, a)
+		}
+	}
+	return changed
+}
+
+// expiredGap is the span a relist cannot recover, when it has a length.
+func expiredGap(lastEvent, relist time.Time) []model.Gap {
+	if !relist.After(lastEvent) {
+		return nil
+	}
+	return []model.Gap{{Start: lastEvent, End: relist, Reason: GapWatchExpired}}
+}
+
+// stream is one resource's watch.
+type stream struct {
+	gvr schema.GroupVersionResource
+	// version points to the state's resourceVersion of gvr.
+	version *string
+	w       watch.Interface
+}
+
+// watch follows both resources' watches until ctx is done, one expires
+// (errExpired), or an event fails.
+func (w *Watcher) watch(ctx context.Context, st *state) error {
+	tasks := &stream{gvr: taskGVR, version: &st.tasksVersion}
+	records := &stream{gvr: recordGVR, version: &st.recordsVersion}
+	for _, s := range []*stream{tasks, records} {
+		var err error
+		if s.w, err = w.open(ctx, s); err != nil {
+			return err
+		}
+		defer func() { s.w.Stop() }()
+	}
+	for {
+		var err error
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case ev, ok := <-tasks.w.ResultChan():
+			err = w.next(ctx, st, tasks, ev, ok)
+		case ev, ok := <-records.w.ResultChan():
+			err = w.next(ctx, st, records, ev, ok)
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
+// next handles one receive from s: an event, or the server closing the
+// watch, which is reopened from the checkpoint after a pause.
+func (w *Watcher) next(ctx context.Context, st *state, s *stream, ev watch.Event, ok bool) error {
+	if ok {
+		return w.handle(ctx, st, s, ev)
+	}
+	s.w.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(w.reconnectDelay):
+	}
+	wi, err := w.open(ctx, s)
+	if err != nil {
+		return err
+	}
+	s.w = wi
+	return nil
+}
+
+// open starts a watch of s's resource from its resourceVersion, with
+// bookmarks, so that a quiet namespace still advances the checkpoint.
+func (w *Watcher) open(ctx context.Context, s *stream) (watch.Interface, error) {
+	opts := metav1.ListOptions{ResourceVersion: *s.version, AllowWatchBookmarks: true}
+	wi, err := w.client.Resource(s.gvr).Namespace(w.cfg.Namespace).Watch(ctx, opts)
+	if err != nil {
+		return nil, w.watchError(s.gvr, err)
+	}
+	return wi, nil
+}
+
+// watchError wraps a watch's error, marking an expired one errExpired.
+func (w *Watcher) watchError(gvr schema.GroupVersionResource, err error) error {
+	if apierrors.IsResourceExpired(err) || apierrors.IsGone(err) {
+		return fmt.Errorf("%w: %s in %s: %w", errExpired, gvr.Resource, w.cfg.Namespace, err)
+	}
+	return fmt.Errorf("kelos: watch %s in %s: %w", gvr.Resource, w.cfg.Namespace, err)
+}
+
+// handle applies one event to the state and commits what it changed.
+func (w *Watcher) handle(ctx context.Context, st *state, s *stream, ev watch.Event) error {
+	switch ev.Type {
+	case watch.Error:
+		return w.watchError(s.gvr, apierrors.FromObject(ev.Object))
+	case watch.Bookmark:
+		u, err := asUnstructured(s.gvr, ev.Object)
+		if err != nil {
+			return err
+		}
+		*s.version, st.lastEventAt = u.GetResourceVersion(), w.now()
+		return w.commit(ctx, st, nil, nil, nil)
+	case watch.Added, watch.Modified, watch.Deleted:
+		u, err := asUnstructured(s.gvr, ev.Object)
+		if err != nil {
+			return err
+		}
+		at := w.now()
+		changed, obs, err := w.cfg.apply(st, s.gvr, changeOf[ev.Type], *u, at)
+		if err != nil {
+			return err
+		}
+		*s.version, st.lastEventAt = u.GetResourceVersion(), at
+		return w.commit(ctx, st, changed, []model.Event{obs}, nil)
+	}
+	return fmt.Errorf("kelos: watch %s: unexpected event type %q", s.gvr.Resource, ev.Type)
+}
+
+func asUnstructured(gvr schema.GroupVersionResource, obj runtime.Object) (*unstructured.Unstructured, error) {
+	u, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		return nil, fmt.Errorf("kelos: watch %s: unexpected object %T", gvr.Resource, obj)
+	}
+	return u, nil
+}
+
+// commit builds the runs of the changed attempts, prunes the state and
+// commits them with the observations, the coverage and the checkpoint.
+func (w *Watcher) commit(ctx context.Context, st *state, changed []*attempt, obs []model.Event, gaps []model.Gap) error {
+	recs, err := w.cfg.records(sortedAttempts(changed))
+	if err != nil {
+		return err
+	}
+	read := st.lastEventAt
+	recs.Events = append([]model.Event{}, obs...)
+	recs.Coverage = []model.Coverage{{
+		Source: model.SourceKelos, Instance: w.cfg.Cluster, LastSuccessfulRead: &read, Gaps: gaps,
+	}}
+	if err := validateBatch(recs); err != nil {
+		return err
+	}
+	st.prune(read)
+	if err := w.sink.Commit(ctx, Batch{Records: recs, Checkpoint: st.checkpoint(w.cfg)}); err != nil {
+		return fmt.Errorf("kelos: commit: %w", err)
+	}
+	return nil
+}
+
+// validateBatch validates the events and coverage a batch adds to its
+// runs and correlations, which records validated.
+func validateBatch(recs model.Records) error {
+	var errs []error
+	for _, e := range recs.Events {
+		errs = append(errs, e.Validate())
+	}
+	for _, c := range recs.Coverage {
+		errs = append(errs, c.Validate())
+	}
+	if err := errors.Join(errs...); err != nil {
+		return fmt.Errorf("kelos: %w", err)
+	}
+	return nil
+}
