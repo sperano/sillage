@@ -35,9 +35,17 @@ func TestAgentCommentsHaveAnAgentActor(t *testing.T) {
 	src := emptySources()
 	src.Vikunja = fixedVikunja{snap}
 	s := collectWith(t, testConfig(), src, taskRoot(104)).Story
+	found := false
 	for _, e := range s.Events {
-		if e.ID == commentObject(9001) && e.Actor != (model.Account{Login: testAgent, Kind: model.ActorAgent}) {
+		if e.ID != commentObject(9001) {
+			continue
+		}
+		found = true
+		if e.Actor != (model.Account{Login: testAgent, Kind: model.ActorAgent}) {
 			t.Errorf("comment actor = %+v, want the agent %s", e.Actor, testAgent)
 		}
+	}
+	if !found {
+		t.Error("the agent's comment is not in the story")
 	}
 }

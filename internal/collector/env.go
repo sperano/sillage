@@ -86,9 +86,24 @@ type Clients struct {
 	Wiki    *wiki.Client
 }
 
-// Sources returns the clients as a collector reads them.
+// Sources returns the clients as a collector reads them. A client that
+// is not set stays nil, rather than become a non-nil interface holding a
+// nil pointer, so that New refuses it.
 func (c Clients) Sources() Sources {
-	return Sources{Vikunja: c.Vikunja, Kelos: c.Kelos, GitHub: c.GitHub, Wiki: c.Wiki}
+	var s Sources
+	if c.Vikunja != nil {
+		s.Vikunja = c.Vikunja
+	}
+	if c.Kelos != nil {
+		s.Kelos = c.Kelos
+	}
+	if c.GitHub != nil {
+		s.GitHub = c.GitHub
+	}
+	if c.Wiki != nil {
+		s.Wiki = c.Wiki
+	}
+	return s
 }
 
 // OpenClients returns the clients of the sources e configures. The

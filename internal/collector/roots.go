@@ -57,19 +57,22 @@ func (c *Collector) Discover(snap kelos.Snapshot) ([]Discovered, error) {
 }
 
 // labelledTasks returns the task id each run's task label names, from
-// its Task or, once the Task is gone, the TaskRecord's copy of its labels.
+// its Task or, once the Task is gone, the TaskRecord's copy of its
+// labels, as kelos.Normalize reads them: a Task's labels win whenever it
+// exists, even without a task label, over a record's stale copy.
 func (c *Collector) labelledTasks(snap kelos.Snapshot) map[model.RunKey]int64 {
-	out := make(map[model.RunKey]int64)
-	add := func(uid string, labels map[string]string) {
-		if id, ok := c.cfg.Kelos.TaskID(labels); ok && uid != "" {
-			out[model.RunKey{Cluster: c.cfg.Kelos.Cluster, Namespace: c.cfg.Kelos.Namespace, UID: uid}] = id
-		}
-	}
+	labels := make(map[string]map[string]string)
 	for _, r := range snap.Records {
-		add(string(r.Spec.TaskRef.UID), r.Labels)
+		labels[string(r.Spec.TaskRef.UID)] = r.Labels
 	}
 	for _, t := range snap.Tasks {
-		add(string(t.UID), t.Labels)
+		labels[string(t.UID)] = t.Labels
+	}
+	out := make(map[model.RunKey]int64)
+	for uid, l := range labels {
+		if id, ok := c.cfg.Kelos.TaskID(l); ok && uid != "" {
+			out[model.RunKey{Cluster: c.cfg.Kelos.Cluster, Namespace: c.cfg.Kelos.Namespace, UID: uid}] = id
+		}
 	}
 	return out
 }

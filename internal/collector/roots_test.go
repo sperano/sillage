@@ -51,6 +51,24 @@ func TestDiscover(t *testing.T) {
 	}
 }
 
+func TestDiscoverReadsTheTasksLabelsOverItsRecords(t *testing.T) {
+	c, err := New(testConfig(), emptySources())
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap := kelos.Snapshot{
+		Tasks:   []kelos.Task{task("unrelated", "uid-relabelled", "main", nil, 0, 5)},
+		Records: []kelos.TaskRecord{record("unrelated", "uid-relabelled", taskLabels("11"), 0, 5)},
+	}
+	got, err := c.Discover(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Errorf("Discover() = %v, want no root: the Task has no task label, whatever its record kept", refsOf(got))
+	}
+}
+
 func TestDiscoverRejectsAnInvalidRead(t *testing.T) {
 	c, err := New(testConfig(), emptySources())
 	if err != nil {

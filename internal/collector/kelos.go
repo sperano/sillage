@@ -149,10 +149,14 @@ func (a *assembly) includeRun(ref model.Ref) {
 // heuristic: a Task gone leaves a TaskRecord, which names no pod); else a
 // run keyed by that pod, built from the announcement alone. An
 // announcement naming no pod is joined to the runs of its Task name, a
-// heuristic: a retry reuses the name.
+// heuristic: a retry reuses the name. Each announcement is joined once,
+// however often it is called: again once more of them are read.
 func (a *assembly) announcedRuns() {
-	claimed := make(map[model.RunKey]bool)
 	for _, e := range a.eventsOf(model.KindRunAnnounced) {
+		if a.joined[e.Ref()] {
+			continue
+		}
+		a.joined[e.Ref()] = true
 		name, pod := e.Details[detailTaskName], e.Details[detailPod]
 		if pod == "" {
 			candidates := a.sameNameRuns(e.Ref(), name, func(model.Run) model.Evidence {
@@ -179,8 +183,8 @@ func (a *assembly) announcedRuns() {
 		if len(matches) > 0 {
 			continue
 		}
-		if r, ok := a.announcedAttempt(e, ns, name, claimed); ok {
-			claimed[r.Key] = true
+		if r, ok := a.announcedAttempt(e, ns, name); ok {
+			a.claimed[r.Key] = true
 			a.addRun(r)
 			a.links.heuristic(e.Ref(), r.Key.Ref(), false, a.announcementEvidence(e, "names pod "+pod+
 				", which no Task read names; it was posted inside this attempt of "+name+" and no other, "+
@@ -209,14 +213,14 @@ func (a *assembly) relatedOf(e model.Event) (model.Ref, model.Evidence, bool) {
 // its Task name was running then, and that run's pod is unknown (its Task
 // is gone). A run another announcement was joined to this way is not
 // joined again.
-func (a *assembly) announcedAttempt(e model.Event, ns, name string, claimed map[model.RunKey]bool) (model.Run, bool) {
+func (a *assembly) announcedAttempt(e model.Event, ns, name string) (model.Run, bool) {
 	if name == "" || e.SourceTime == nil {
 		return model.Run{}, false
 	}
 	running := a.runsWhere(func(r model.Run) bool {
 		return r.TaskName == name && r.Key.Namespace == ns && during(r, *e.SourceTime)
 	})
-	if len(running) != 1 || running[0].Pod != "" || claimed[running[0].Key] {
+	if len(running) != 1 || running[0].Pod != "" || a.claimed[running[0].Key] {
 		return model.Run{}, false
 	}
 	return running[0], true

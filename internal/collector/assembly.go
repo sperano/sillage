@@ -28,6 +28,10 @@ type assembly struct {
 	// announcedOnly holds when each run known only from its announcement
 	// was announced.
 	announcedOnly map[model.RunKey]time.Time
+	// joined are the announcements announcedRuns has joined, and claimed
+	// the runs of a Task gone that one of them was joined to by its time.
+	joined  map[model.Ref]bool
+	claimed map[model.RunKey]bool
 	// kept is what a store already holds of the story, and keptOnly its
 	// runs the Kelos read does not list.
 	kept     Kept
@@ -53,6 +57,8 @@ func newAssembly(c *Collector, root model.Root) *assembly {
 		sources: make(map[model.Source]*sourceState),
 		// announcedOnly is filled as announcements are read.
 		announcedOnly: make(map[model.RunKey]time.Time),
+		joined:        make(map[model.Ref]bool),
+		claimed:       make(map[model.RunKey]bool),
 	}
 }
 

@@ -31,6 +31,8 @@ func (a *assembly) collectTask(ctx context.Context, key model.TaskKey, repos []g
 	a.announcedRuns()
 	a.taskRuns(id)
 	a.readGitHub(ctx, taskBranch(id), repos)
+	// The pull requests' announcements are read only now.
+	a.announcedRuns()
 	a.prRuns()
 	a.actorRuns()
 	return nil
@@ -54,6 +56,8 @@ func (a *assembly) collectPage(ctx context.Context, key model.PageKey, repos []g
 	a.announcedRuns()
 	a.pageRuns(key)
 	a.readGitHub(ctx, pageBranch(key.ID), repos)
+	// The pull requests' announcements are read only now.
+	a.announcedRuns()
 	a.prRuns()
 	a.actorRuns()
 	return nil
