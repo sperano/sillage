@@ -7,18 +7,32 @@ export interface Link {
 	/** The end that is not the record looked at. */
 	other: Ref;
 	/**
-	 * For an ambiguous correlation, every candidate the evidence fits: the
-	 * other ends of the ambiguous correlations from the same record. None
-	 * was chosen.
+	 * For an ambiguous correlation, each set of alternatives it is one of,
+	 * of two or more records, none chosen: the records of one kind one
+	 * record is ambiguously linked to, from it (an edit two runs could have
+	 * made) or to it (two runs an announcement could be from, each linked
+	 * to the task). Empty when the other candidates are not in the story:
+	 * the collector drops a correlation whose other end is outside it.
 	 */
-	candidates: Ref[];
+	candidateSets: Ref[][];
 }
 
-function candidatesOf(story: Story, c: Correlation): Ref[] {
+function ambiguousGroup(story: Story, c: Correlation, shared: 'from' | 'to'): Ref[] {
+	const varied = shared === 'from' ? 'to' : 'from';
+	return story.correlations
+		.filter(
+			(x) => x.ambiguous && sameRef(x[shared], c[shared]) && x[varied].kind === c[varied].kind
+		)
+		.map((x) => x[varied]);
+}
+
+function candidateSetsOf(story: Story, c: Correlation): Ref[][] {
 	if (!c.ambiguous) {
 		return [];
 	}
-	return story.correlations.filter((x) => x.ambiguous && sameRef(x.from, c.from)).map((x) => x.to);
+	return [ambiguousGroup(story, c, 'from'), ambiguousGroup(story, c, 'to')].filter(
+		(set) => set.length > 1
+	);
 }
 
 /** The correlations with ref at either end, in the story's order. */
@@ -30,7 +44,7 @@ export function linksOf(story: Story, ref: Ref): Link[] {
 			links.push({
 				correlation: c,
 				other: from ? c.to : c.from,
-				candidates: candidatesOf(story, c)
+				candidateSets: candidateSetsOf(story, c)
 			});
 		}
 	}

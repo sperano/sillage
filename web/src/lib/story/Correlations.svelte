@@ -66,12 +66,16 @@
 				</span>
 				{#if l.correlation.ambiguous}
 					<div class="ambiguous">
-						Ambiguous: {l.candidates.length} candidates fit the evidence, none was chosen:
-						<ul>
-							{#each l.candidates as c (refKey(c))}
-								<li>{@render other(c)}</li>
-							{/each}
-						</ul>
+						{#each l.candidateSets as set, i (i)}
+							Ambiguous: {set.length} candidates fit the evidence, none was chosen:
+							<ul>
+								{#each set as c (refKey(c))}
+									<li>{@render other(c)}</li>
+								{/each}
+							</ul>
+						{:else}
+							Ambiguous: one of several candidates, none chosen; the others are not in this story.
+						{/each}
 					</div>
 				{/if}
 				<EvidenceList evidence={l.correlation.evidence} />
