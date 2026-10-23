@@ -13,7 +13,7 @@ func TestNewMetrics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const series = 2 * 5 // two sources, five outcomes
+	const series = 2 * 6 // two sources, six outcomes
 	if got := testutil.CollectAndCount(m.deliveries); got != series {
 		t.Errorf("%d series, want %d from the start", got, series)
 	}

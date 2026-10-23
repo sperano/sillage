@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -47,6 +48,9 @@ func TestAcceptedGitHubDelivery(t *testing.T) {
 	hs.checkLog(t, testGitHubSecret, "PAYLOAD-MARKER")
 }
 
+// TestReplayedDeliveryIsIgnored replays a body under its own delivery id.
+// GitHub does not sign the id, so a body replayed under a fresh one is
+// accepted again (see the package documentation): it only asks for a read.
 func TestReplayedDeliveryIsIgnored(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -284,9 +288,19 @@ func TestBodiesInFlightAreBounded(t *testing.T) {
 	if got := hs.store.recorded(); len(got) != 0 {
 		t.Errorf("recorded %+v, want nothing", got)
 	}
-	<-hs.h.bodies
-	if w := hs.serve(githubRequest("d-1", "pull_request", testGitHubSecret, []byte(githubPRBody))); w.Code != http.StatusAccepted {
-		t.Errorf("status = %d (%s) with a slot free, want 202", w.Code, w.Body)
+	if got := testutil.ToFloat64(hs.metrics.deliveries.WithLabelValues("github", string(outcomeBusy))); got != 1 {
+		t.Errorf("busy deliveries = %v, want 1", got)
+	}
+	if got := testutil.ToFloat64(hs.metrics.deliveries.WithLabelValues("github", string(outcomeRefused))); got != 0 {
+		t.Errorf("refused deliveries = %v, want 0: busy says nothing of authenticity", got)
+	}
+	// A request waits for a slot freed meanwhile.
+	go func() {
+		time.Sleep(slotWait / 4)
+		<-hs.h.bodies
+	}()
+	if w := hs.serve(githubRequest("d-2", "pull_request", testGitHubSecret, []byte(githubPRBody))); w.Code != http.StatusAccepted {
+		t.Errorf("status = %d (%s) once a slot frees, want 202", w.Code, w.Body)
 	}
 	if len(hs.h.bodies) != maxBodiesInFlight-1 {
 		t.Errorf("%d slots held after the request, want %d", len(hs.h.bodies), maxBodiesInFlight-1)

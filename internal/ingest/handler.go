@@ -147,10 +147,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // refuse answers a request that is no authenticated delivery: nothing is
 // recorded of it. Anyone can send one, so it is logged at debug level
-// only; the metrics count it.
+// only; the metrics count it, as refused or busy.
 func (h *Handler) refuse(ctx context.Context, w http.ResponseWriter, ep endpoint, err error) {
 	rf := asRefusal(err)
-	h.metrics.count(ep.source, outcomeRefused)
+	outcome := outcomeRefused
+	if rf.busy {
+		outcome = outcomeBusy
+	}
+	h.metrics.count(ep.source, outcome)
 	h.log.DebugContext(ctx, "webhook request refused: nothing recorded", "source", ep.source,
 		"instance", ep.instance, "status", rf.status, "reason", rf.err)
 	http.Error(w, rf.err.Error(), rf.status)

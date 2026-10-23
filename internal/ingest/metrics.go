@@ -9,11 +9,17 @@ import (
 	"github.com/sperano/sillage/internal/model"
 )
 
-// outcomeRefused counts the requests refused before they were known to be
-// deliveries: no secret, too large, unsigned, badly signed, or with no
-// delivery id. Nothing is recorded of them: it is a label of the metrics,
-// never a recorded outcome.
-const outcomeRefused model.DeliveryOutcome = "refused"
+// The outcomes of requests refused before they were known to be
+// deliveries. Nothing is recorded of them: they are labels of the
+// metrics, never recorded outcomes.
+const (
+	// outcomeRefused: not authenticated (no secret, too large, unsigned,
+	// badly signed) or with no delivery id.
+	outcomeRefused model.DeliveryOutcome = "refused"
+	// outcomeBusy: refused unread, while every slot for reading a body was
+	// held; nothing is known of its authenticity.
+	outcomeBusy model.DeliveryOutcome = "busy"
+)
 
 // Metrics count the deliveries sillage received.
 type Metrics struct {
@@ -29,8 +35,9 @@ func NewMetrics(reg prometheus.Registerer) (*Metrics, error) {
 		Namespace: "sillage",
 		Name:      "webhook_deliveries_total",
 		Help: "Webhook delivery attempts sillage received, by source and outcome: accepted (their roots' reads " +
-			"were asked for), ignored, rejected, failed, or refused (not authenticated; not recorded). They count " +
-			"what sillage received, not what any other subscriber received or did.",
+			"were asked for), ignored, rejected, failed; refused (not authenticated) or busy (not read, every " +
+			"body slot held), neither recorded. They count what sillage received, not what any other " +
+			"subscriber received or did.",
 	}, []string{"source", "outcome"})}
 	if err := reg.Register(m.deliveries); err != nil {
 		return nil, fmt.Errorf("ingest: registering the metrics: %w", err)
@@ -39,7 +46,7 @@ func NewMetrics(reg prometheus.Registerer) (*Metrics, error) {
 	// defined before the first delivery.
 	for _, s := range []model.Source{model.SourceVikunja, model.SourceGitHub} {
 		for _, o := range []model.DeliveryOutcome{model.DeliveryAccepted, model.DeliveryIgnored,
-			model.DeliveryRejected, model.DeliveryFailed, outcomeRefused} {
+			model.DeliveryRejected, model.DeliveryFailed, outcomeRefused, outcomeBusy} {
 			m.deliveries.WithLabelValues(string(s), string(o))
 		}
 	}

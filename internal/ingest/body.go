@@ -17,11 +17,15 @@ const (
 	MaxVikunjaBodyBytes = 5 << 20
 	// maxBodiesInFlight bounds how many bodies are read at once, so that
 	// requests nobody authenticated yet hold at most this many bodies in
-	// memory. A request past it is refused, as busy.
+	// memory.
 	maxBodiesInFlight = 4
+	// slotWait is how long a request waits for a body to be read before it
+	// is refused as busy: a burst of deliveries waits, a flood does not.
+	slotWait = 2 * time.Second
 	// bodyReadTimeout bounds reading a body, so that a client sending it
-	// slowly cannot hold a slot.
-	bodyReadTimeout = time.Minute
+	// slowly holds a slot no longer: GitHub gives up on a delivery after
+	// 10 seconds, so reading longer only serves a slow client.
+	bodyReadTimeout = 10 * time.Second
 )
 
 var (
@@ -36,6 +40,9 @@ var (
 type refusal struct {
 	status int
 	err    error
+	// busy is a refusal for want of a slot, before the request was read:
+	// it says nothing of the request's authenticity.
+	busy bool
 }
 
 func (r *refusal) Error() string { return r.err.Error() }
@@ -67,11 +74,15 @@ func (h *Handler) authenticate(w http.ResponseWriter, r *http.Request, ep endpoi
 	if ep.secret == "" {
 		return nil, &refusal{status: http.StatusForbidden, err: errNoSecret}
 	}
+	wait := time.NewTimer(slotWait)
+	defer wait.Stop()
 	select {
 	case h.bodies <- struct{}{}:
 		defer func() { <-h.bodies }()
-	default:
-		return nil, &refusal{status: http.StatusServiceUnavailable, err: errBusy}
+	case <-wait.C:
+		return nil, &refusal{status: http.StatusServiceUnavailable, err: errBusy, busy: true}
+	case <-r.Context().Done():
+		return nil, &refusal{status: http.StatusServiceUnavailable, err: errBusy, busy: true}
 	}
 	body, err := readBody(w, r, ep.maxBody)
 	if err != nil {
