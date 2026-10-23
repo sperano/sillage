@@ -161,15 +161,16 @@ func (s *fakeSink) Commit(ctx context.Context, key string, recs model.Records, c
 	if err := json.Unmarshal(checkpoint, &cp); err != nil {
 		return err
 	}
+	// The lock is held until the batch is published, and the checkpoint
+	// saved only then, so that a failed commit stores nothing.
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.err != nil {
-		s.mu.Unlock()
 		return s.err
 	}
-	s.saved[key] = checkpoint
-	s.mu.Unlock()
 	select {
 	case s.commits <- batch{Records: recs, Checkpoint: cp}:
+		s.saved[key] = checkpoint
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()

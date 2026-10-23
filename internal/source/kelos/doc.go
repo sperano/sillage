@@ -13,8 +13,9 @@
 //
 // A Reader lists both resources on every read. A Watcher lists them once,
 // then watches both from the lists' resourceVersions, so that it sees the
-// phases a Task passes through between two reads (each event becomes a
-// run.observed event at the time it was received) and the deletions. It
+// phases a Task passes through between two reads (each added, modified or
+// deleted object becomes a run.observed event at the time it was received;
+// a bookmark only advances the checkpoint) and the deletions. It
 // commits each change with its checkpoint to a Sink, the store, resumes
 // from the checkpoint after a reconnect or a restart, and relists when the
 // checkpoint expired, recording the span it cannot recover as a "watch

@@ -165,7 +165,11 @@ func (b *runBuilder) lifecycle() {
 	}
 	s := b.a.task.Status
 	gone := b.a.deleted != nil
-	if b.setLifecycle(lifecycleOf{s.Phase, s.StartTime, s.CompletionTime, gone}, "status.", b.fromTask) {
+	end := s.CompletionTime
+	if gone && s.Phase.ongoing() {
+		end = nil // the Task never reported ending: its end is unknown
+	}
+	if b.setLifecycle(lifecycleOf{s.Phase, s.StartTime, end, gone}, "status.", b.fromTask) {
 		b.timesFromTask = true
 	}
 }

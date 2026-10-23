@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 
@@ -46,6 +45,8 @@ type Watcher struct {
 	sink           Sink
 	now            func() time.Time
 	reconnectDelay time.Duration
+	// sleep waits a delay, or until ctx is done.
+	sleep func(ctx context.Context, d time.Duration) error
 }
 
 // NewWatcher returns a watcher of cfg's namespace through client,
@@ -57,7 +58,10 @@ func NewWatcher(client dynamic.Interface, cfg Config, sink Sink) (*Watcher, erro
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	return &Watcher{client: client, cfg: cfg, sink: sink, now: time.Now, reconnectDelay: defaultReconnectDelay}, nil
+	return &Watcher{
+		client: client, cfg: cfg, sink: sink,
+		now: time.Now, reconnectDelay: defaultReconnectDelay, sleep: sleep,
+	}, nil
 }
 
 // Run watches until ctx is done or a request or a commit fails, and
@@ -100,81 +104,21 @@ func (w *Watcher) start(ctx context.Context) (*state, error) {
 	return stateOf(cp)
 }
 
-// relist lists both resources into a new state and commits every run and
-// an observation of every object listed. After an expired watch (prev not
-// nil), it keeps prev's Tasks the list no longer has as deleted at an
-// unknown time, and records a gap from prev's last event to the relist.
-func (w *Watcher) relist(ctx context.Context, prev *state) (*state, error) {
-	s, err := readSnapshot(ctx, w.client, w.cfg, w.now)
-	if err != nil {
-		return nil, err
-	}
-	if s.TasksVersion == "" || s.RecordsVersion == "" {
-		return nil, errors.New("kelos: a list has no resourceVersion to watch from")
-	}
-	changed, err := pair(w.cfg, s)
-	if err != nil {
-		return nil, err
-	}
-	st := &state{attempts: make(map[types.UID]*attempt, len(changed)),
-		tasksVersion: s.TasksVersion, recordsVersion: s.RecordsVersion, lastEventAt: s.ObservedAt}
-	for _, a := range changed {
-		st.attempts[a.uid] = a
-	}
-	var gaps []model.Gap
-	if prev != nil {
-		changed = append(changed, st.carryOver(prev, s.ObservedAt)...)
-		gaps = expiredGap(prev.lastEventAt, s.ObservedAt)
-	}
-	return st, w.commit(ctx, st, changed, w.cfg.listed(s), gaps)
-}
-
-// carryOver keeps prev's Tasks that are missing from the relisted state:
-// each was deleted at an unknown time, so it keeps its run with its last
-// observed values. It returns the attempts newly found deleted.
-func (s *state) carryOver(prev *state, at time.Time) []*attempt {
-	var changed []*attempt
-	for uid, old := range prev.attempts {
-		if old.task == nil {
-			continue
-		}
-		if cur := s.attempts[uid]; cur != nil && cur.task != nil {
-			continue // still listed
-		}
-		a := s.attempt(uid)
-		if a.record == nil {
-			a.record = old.record
-		}
-		a.task, a.deleted = old.task, old.deleted
-		if a.deleted == nil {
-			a.deleted = &Deletion{At: at}
-			changed = append(changed, a)
-		}
-	}
-	return changed
-}
-
-// expiredGap is the span a relist cannot recover, when it has a length.
-func expiredGap(lastEvent, relist time.Time) []model.Gap {
-	if !relist.After(lastEvent) {
-		return nil
-	}
-	return []model.Gap{{Start: lastEvent, End: relist, Reason: GapWatchExpired}}
-}
-
 // stream is one resource's watch.
 type stream struct {
 	gvr schema.GroupVersionResource
-	// version points to the state's resourceVersion of gvr.
+	// version and seenAt point to the state's resourceVersion of gvr and
+	// the time its watch last received something.
 	version *string
+	seenAt  *time.Time
 	watcher watch.Interface
 }
 
 // watch follows both resources' watches until ctx is done, one expires
 // (errExpired), or an event fails.
 func (w *Watcher) watch(ctx context.Context, st *state) error {
-	tasks := &stream{gvr: taskGVR, version: &st.tasksVersion}
-	records := &stream{gvr: recordGVR, version: &st.recordsVersion}
+	tasks := &stream{gvr: taskGVR, version: &st.tasksVersion, seenAt: &st.tasksSeenAt}
+	records := &stream{gvr: recordGVR, version: &st.recordsVersion, seenAt: &st.recordsSeenAt}
 	streams := []*stream{tasks, records}
 	// Stop is idempotent, so a watch next already stopped can be stopped
 	// again here.
@@ -228,7 +172,12 @@ func (w *Watcher) next(ctx context.Context, st *state, s *stream, ev watch.Event
 
 // pause waits reconnectDelay, or until ctx is done.
 func (w *Watcher) pause(ctx context.Context) error {
-	t := time.NewTimer(w.reconnectDelay)
+	return w.sleep(ctx, w.reconnectDelay)
+}
+
+// sleep waits d, or until ctx is done.
+func sleep(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
 	defer t.Stop()
 	select {
 	case <-ctx.Done():
@@ -267,8 +216,7 @@ func (w *Watcher) handle(ctx context.Context, st *state, s *stream, ev watch.Eve
 		if err != nil {
 			return err
 		}
-		s.advance(u)
-		st.lastEventAt = w.now()
+		s.advance(u, w.now())
 		return w.commit(ctx, st, nil, nil, nil)
 	case watch.Added, watch.Modified, watch.Deleted:
 		u, err := asUnstructured(s.gvr, ev.Object)
@@ -276,21 +224,25 @@ func (w *Watcher) handle(ctx context.Context, st *state, s *stream, ev watch.Eve
 			return err
 		}
 		at := w.now()
+		// A half held past the retention joins nothing, however long
+		// since the last commit pruned it.
+		st.prune(at)
 		changed, obs, err := w.cfg.apply(st, s.gvr, changeOf[ev.Type], *u, at)
 		if err != nil {
 			return err
 		}
-		s.advance(u)
-		st.lastEventAt = at
+		s.advance(u, at)
 		return w.commit(ctx, st, changed, []model.Event{obs}, nil)
 	}
 	return fmt.Errorf("kelos: watch %s: unexpected event type %q", s.gvr.Resource, ev.Type)
 }
 
-// advance moves the stream's resume point to the object's
-// resourceVersion. An object without one leaves it: an empty version would
-// restart the watch at the current state, skipping what came between.
-func (s *stream) advance(u *unstructured.Unstructured) {
+// advance records that the stream received the object at at, and moves
+// its resume point to the object's resourceVersion. An object without one
+// leaves the resume point: an empty version would restart the watch at the
+// current state, skipping what came between.
+func (s *stream) advance(u *unstructured.Unstructured, at time.Time) {
+	*s.seenAt = at
 	if rv := u.GetResourceVersion(); rv != "" {
 		*s.version = rv
 	}
@@ -313,7 +265,7 @@ func (w *Watcher) commit(ctx context.Context, st *state, changed []*attempt, obs
 	if err != nil {
 		return err
 	}
-	read := st.lastEventAt
+	read := st.knownUntil()
 	recs.Events = append([]model.Event{}, obs...)
 	recs.Coverage = []model.Coverage{{
 		Source: model.SourceKelos, Instance: w.cfg.Cluster, LastSuccessfulRead: &read, Gaps: gaps,
@@ -321,7 +273,7 @@ func (w *Watcher) commit(ctx context.Context, st *state, changed []*attempt, obs
 	if err := validateBatch(recs); err != nil {
 		return err
 	}
-	st.prune(read)
+	st.prune(st.lastSeen())
 	data, err := json.Marshal(st.checkpoint())
 	if err != nil {
 		return fmt.Errorf("kelos: encode checkpoint: %w", err)

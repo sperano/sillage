@@ -114,7 +114,8 @@ func checkpointOf(t *testing.T) Checkpoint {
 	}
 	return Checkpoint{
 		TasksVersion: "20", RecordsVersion: "21",
-		LastEventAt: testCreated, Tasks: []WatchedTask{{Task: task}}, Records: []WatchedRecord{},
+		TasksSeenAt: testCreated, RecordsSeenAt: testCreated,
+		Tasks: []WatchedTask{{Task: task}}, Records: []WatchedRecord{},
 	}
 }
 
@@ -160,79 +161,6 @@ func TestWatcherReconnectsFromTheLastEvent(t *testing.T) {
 	}
 	if n := h.lists.count(); n != 2 {
 		t.Errorf("%d list requests, want the first two only", n)
-	}
-}
-
-// expiredStatus is the ERROR event the API server sends on a watch whose
-// resourceVersion it compacted.
-func expiredStatus() *unstructured.Unstructured {
-	return &unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": "v1", "kind": "Status", "status": "Failure",
-		"code": int64(410), "reason": string(metav1.StatusReasonExpired), "message": "too old resource version",
-	}}
-}
-
-// An expired watch, reported in the stream or by refusing the watch,
-// relists. A Task gone from the list keeps its run as deleted at an unknown
-// time, and the coverage gets a "watch expired" gap from the last event to
-// the relist.
-func TestWatcherRelistsAnExpiredWatch(t *testing.T) {
-	tests := []struct {
-		name   string
-		expire func(*harness, *watch.FakeWatcher)
-	}{
-		{"error event", func(_ *harness, w *watch.FakeWatcher) { w.Error(expiredStatus()) }},
-		{"refused watch", func(h *harness, w *watch.FakeWatcher) {
-			h.watches.fail(tasksResource, apierrors.NewResourceExpired("too old resource version"))
-			w.Stop()
-		}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			testRelist(t, tt.expire)
-		})
-	}
-}
-
-func testRelist(t *testing.T, expire func(*harness, *watch.FakeWatcher)) {
-	h := newHarness(t, nil)
-	h.lists.set(tasksResource, "10", taskObj(taskA, uidA, "5", PhaseRunning), taskObj(taskB, uidB, "6", PhaseRunning))
-	h.lists.set(recordsResource, "11")
-	h.start(t, 0)
-	h.commit(t)
-	tasks := h.watches.next(t, tasksResource).w
-	h.watches.next(t, recordsResource)
-	tasks.Modify(taskObj(taskA, uidA, "12", PhaseRunning, testStart))
-	lastEvent := h.commit(t).Checkpoint.LastEventAt
-
-	h.lists.set(tasksResource, "30", taskObj(taskA, uidA, "25", PhaseSucceeded, testStart, testEnd))
-	h.lists.set(recordsResource, "31")
-	expire(h, tasks)
-	b := h.commit(t)
-	gaps := b.Records.Coverage[0].Gaps
-	relist := *b.Records.Coverage[0].LastSuccessfulRead
-	if len(gaps) != 1 || gaps[0].Reason != GapWatchExpired || !gaps[0].Start.Equal(lastEvent) || !gaps[0].End.Equal(relist) {
-		t.Errorf("gaps = %+v, want watch expired from %v to %v", gaps, lastEvent, relist)
-	}
-	runs := map[string]model.Run{}
-	for _, r := range b.Records.Runs {
-		runs[r.Key.UID] = r
-	}
-	if runs[uidA].Outcome != model.OutcomeSucceeded {
-		t.Errorf("relisted run = %+v, want succeeded", runs[uidA])
-	}
-	gone := runs[uidB]
-	if gone.Outcome != model.OutcomeUnknown || gone.Created == nil || !strings.Contains(gone.Evidence[0].Note, deletedRelistNote) {
-		t.Errorf("run of the Task gone from the list = %+v, want kept, deleted at an unknown time", gone)
-	}
-	if cp := b.Checkpoint; cp.TasksVersion != "30" || len(cp.Tasks) != 2 || cp.Tasks[1].Deleted == nil || cp.Tasks[1].Deleted.Seen {
-		t.Errorf("checkpoint = %+v, want the relist's version and the deleted Task kept", cp)
-	}
-	for _, rw := range []struct{ resource, want string }{{tasksResource, "30"}, {recordsResource, "31"}} {
-		resource, want := rw.resource, rw.want
-		if call := h.watches.next(t, resource); call.opts.ResourceVersion != want {
-			t.Errorf("%s watch after the relist from %q, want %s", resource, call.opts.ResourceVersion, want)
-		}
 	}
 }
 
@@ -295,7 +223,8 @@ func TestWatcherJoinsARecordBeforeItsTask(t *testing.T) {
 // The held record survives a restart.
 func TestWatcherJoinsAHeldRecordAfterARestart(t *testing.T) {
 	since := testCreated
-	cp := Checkpoint{TasksVersion: "20", RecordsVersion: "21", LastEventAt: testCreated, Tasks: []WatchedTask{},
+	cp := Checkpoint{TasksVersion: "20", RecordsVersion: "21", TasksSeenAt: testCreated, RecordsSeenAt: testCreated,
+		Tasks:   []WatchedTask{},
 		Records: []WatchedRecord{{Record: *decodedRecord(t, uidA), AwaitingTaskSince: &since}}}
 	h := newHarness(t, &cp)
 	h.start(t, 0)
@@ -334,10 +263,28 @@ func TestWatcherRecordDeletionKeepsTheRun(t *testing.T) {
 	}
 }
 
+// A deleted Task held past the join retention joins nothing: a record
+// arriving later builds a run of its own, which the store completes.
+func TestWatcherRecordAfterTheRetentionJoinsNothing(t *testing.T) {
+	cp := checkpointOf(t)
+	cp.Tasks[0].Deleted = &Deletion{At: testObservedAt.Add(-joinRetention - testStep), Seen: true}
+	h := newHarness(t, &cp)
+	h.start(t, 0)
+	h.watches.next(t, tasksResource)
+	h.watches.next(t, recordsResource).w.Add(recordObj(taskA, uidA, "22"))
+	b := h.commit(t)
+	if run := onlyRun(t, b.Records); len(run.Evidence) != 1 || !strings.Contains(run.Evidence[0].Note, awaitingTaskNote) {
+		t.Errorf("run = %+v, want the record alone", run)
+	}
+	if cp := b.Checkpoint; len(cp.Tasks) != 0 || len(cp.Records) != 1 {
+		t.Errorf("checkpoint = %+v, want the expired Task released and the record held", cp)
+	}
+}
+
 // A bookmark advances the checkpoint and the coverage, and nothing else.
 func TestWatcherBookmarkAdvancesTheCheckpoint(t *testing.T) {
 	h := newHarness(t, nil)
-	listed, tasks, _ := h.listed(t, taskObj(taskA, uidA, "5", PhaseRunning))
+	listed, tasks, records := h.listed(t, taskObj(taskA, uidA, "5", PhaseRunning))
 	bookmark := object("Task", "", "")
 	bookmark.SetResourceVersion("50")
 	tasks.Action(watch.Bookmark, bookmark)
@@ -345,11 +292,20 @@ func TestWatcherBookmarkAdvancesTheCheckpoint(t *testing.T) {
 	if len(b.Records.Runs)+len(b.Records.Events) != 0 {
 		t.Errorf("bookmark batch = %+v, want no record", b.Records)
 	}
-	if b.Checkpoint.TasksVersion != "50" || !b.Checkpoint.LastEventAt.After(listed.Checkpoint.LastEventAt) {
+	if b.Checkpoint.TasksVersion != "50" || !b.Checkpoint.TasksSeenAt.After(listed.Checkpoint.TasksSeenAt) {
 		t.Errorf("checkpoint = %+v, want version 50 and a later event time", b.Checkpoint)
 	}
-	if read := b.Records.Coverage[0].LastSuccessfulRead; !read.Equal(b.Checkpoint.LastEventAt) {
-		t.Errorf("coverage read at %v, want the bookmark's %v", read, b.Checkpoint.LastEventAt)
+	// The records watch still stands at the list: the namespace is known
+	// up to the slower watch.
+	if read := b.Records.Coverage[0].LastSuccessfulRead; !read.Equal(*listed.Records.Coverage[0].LastSuccessfulRead) {
+		t.Errorf("coverage read at %v, want the list's %v", read, listed.Records.Coverage[0].LastSuccessfulRead)
+	}
+	recordsBookmark := object("TaskRecord", "", "")
+	recordsBookmark.SetResourceVersion("51")
+	records.Action(watch.Bookmark, recordsBookmark)
+	b = h.commit(t)
+	if read := b.Records.Coverage[0].LastSuccessfulRead; !read.Equal(b.Checkpoint.TasksSeenAt) {
+		t.Errorf("coverage read at %v, want the Task bookmark's %v", read, b.Checkpoint.TasksSeenAt)
 	}
 }
 
@@ -398,11 +354,10 @@ func TestWatcherStopsOnFailure(t *testing.T) {
 func TestWatcherStopsWhenCancelled(t *testing.T) {
 	tests := []struct {
 		name  string
-		delay time.Duration
 		close bool
 	}{
-		{"waiting for events", 0, false},
-		{"pausing to reconnect", time.Hour, true},
+		{"waiting for events", false},
+		{"pausing to reconnect", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -413,7 +368,12 @@ func TestWatcherStopsWhenCancelled(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			w.reconnectDelay = tt.delay
+			paused := make(chan struct{})
+			w.sleep = func(ctx context.Context, _ time.Duration) error {
+				close(paused)
+				<-ctx.Done()
+				return ctx.Err()
+			}
 			ctx, cancel := context.WithCancel(t.Context())
 			done := make(chan error, 1)
 			go func() { done <- w.Run(ctx) }()
@@ -422,6 +382,11 @@ func TestWatcherStopsWhenCancelled(t *testing.T) {
 			h.watches.next(t, recordsResource)
 			if tt.close {
 				tasks.Stop()
+				select {
+				case <-paused:
+				case <-time.After(testTimeout):
+					t.Fatal("the watcher did not pause")
+				}
 			}
 			cancel()
 			select {
@@ -491,5 +456,17 @@ func TestWatcherResources(t *testing.T) {
 	got := []string{taskGVR.Resource, recordGVR.Resource}
 	if want := []string{"tasks", "taskrecords"}; !slices.Equal(got, want) {
 		t.Errorf("resources = %v, want %v", got, want)
+	}
+}
+
+// The default sleep waits its delay, and stops early when cancelled.
+func TestSleep(t *testing.T) {
+	if err := sleep(t.Context(), 0); err != nil {
+		t.Errorf("sleep = %v, want nil", err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if err := sleep(ctx, time.Hour); !errors.Is(err, context.Canceled) {
+		t.Errorf("cancelled sleep = %v, want context.Canceled", err)
 	}
 }

@@ -34,8 +34,8 @@ type Sink interface {
 	// Commit stores, atomically, what one list or watch event changed and
 	// the checkpoint it brings the watch to, under key. The records are the
 	// runs and correlations it changed, one run.observed event per object
-	// seen, and the Kelos coverage: read up to the event, with a gap when a
-	// watch expired. A run built from a TaskRecord alone (its Task deleted
+	// seen, and the Kelos coverage: read up to where the slower of the two
+	// watches stands, with a gap when a watch expired. A run built from a TaskRecord alone (its Task deleted
 	// before it was read) must complete the stored run, not replace it. A
 	// commit that fails is read again from the previous checkpoint.
 	Commit(ctx context.Context, key string, recs model.Records, checkpoint []byte) error
@@ -52,11 +52,13 @@ type Checkpoint struct {
 	// watches resume from.
 	TasksVersion   string `json:"tasksVersion"`
 	RecordsVersion string `json:"recordsVersion"`
-	// LastEventAt is when the last event or bookmark was received, or the
-	// last list started: the namespace is known up to it.
-	LastEventAt time.Time       `json:"lastEventAt"`
-	Tasks       []WatchedTask   `json:"tasks"`
-	Records     []WatchedRecord `json:"records"`
+	// TasksSeenAt and RecordsSeenAt are when each watch last received an
+	// event or a bookmark, or the last list started: each resource is known
+	// up to its time, and the namespace up to the earlier of the two.
+	TasksSeenAt   time.Time       `json:"tasksSeenAt"`
+	RecordsSeenAt time.Time       `json:"recordsSeenAt"`
+	Tasks         []WatchedTask   `json:"tasks"`
+	Records       []WatchedRecord `json:"records"`
 }
 
 // WatchedTask is a Task a watch holds, live or deleted.
@@ -95,7 +97,29 @@ func (c Config) checkpointKey() string {
 type state struct {
 	attempts                     map[types.UID]*attempt
 	tasksVersion, recordsVersion string
-	lastEventAt                  time.Time
+	tasksSeenAt, recordsSeenAt   time.Time
+}
+
+// knownUntil is when the slower watch last received something: the
+// namespace is known up to it, and a watch that expires loses what came
+// after it.
+func (s *state) knownUntil() time.Time {
+	return earliest(s.tasksSeenAt, s.recordsSeenAt)
+}
+
+// lastSeen is when either watch last received something.
+func (s *state) lastSeen() time.Time {
+	if s.tasksSeenAt.After(s.recordsSeenAt) {
+		return s.tasksSeenAt
+	}
+	return s.recordsSeenAt
+}
+
+func earliest(a, b time.Time) time.Time {
+	if a.Before(b) {
+		return a
+	}
+	return b
 }
 
 // stateOf restores the state a checkpoint holds.
@@ -103,7 +127,7 @@ func stateOf(cp Checkpoint) (*state, error) {
 	st := &state{
 		attempts:     make(map[types.UID]*attempt),
 		tasksVersion: cp.TasksVersion, recordsVersion: cp.RecordsVersion,
-		lastEventAt: cp.LastEventAt,
+		tasksSeenAt: cp.TasksSeenAt, recordsSeenAt: cp.RecordsSeenAt,
 	}
 	for i := range cp.Tasks {
 		t := cp.Tasks[i]
@@ -134,8 +158,8 @@ func stateOf(cp Checkpoint) (*state, error) {
 func (s *state) checkpoint() Checkpoint {
 	cp := Checkpoint{
 		TasksVersion: s.tasksVersion, RecordsVersion: s.recordsVersion,
-		LastEventAt: s.lastEventAt,
-		Tasks:       []WatchedTask{}, Records: []WatchedRecord{},
+		TasksSeenAt: s.tasksSeenAt, RecordsSeenAt: s.recordsSeenAt,
+		Tasks: []WatchedTask{}, Records: []WatchedRecord{},
 	}
 	for _, uid := range slices.Sorted(maps.Keys(s.attempts)) {
 		a := s.attempts[uid]

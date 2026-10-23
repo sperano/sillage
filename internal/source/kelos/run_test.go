@@ -217,11 +217,15 @@ func TestModelSources(t *testing.T) {
 }
 
 // A Task deleted before it finished says nothing of how it ended: the
-// outcome is unknown, not waiting or running, and the evidence says the
-// fields are its last observed values.
+// outcome and end are unknown, even with a completion time, and the
+// evidence says the fields are its last observed values.
 func TestBuildDeletedUnfinishedTask(t *testing.T) {
 	for _, phase := range []Phase{PhasePending, PhaseWaiting, PhaseRunning, ""} {
-		a := &attempt{uid: uidA, task: decodedTask(t, uidA, phase), deleted: &Deletion{At: testEnd, Seen: true}}
+		task, err := decode[Task](*taskObj(taskA, uidA, "5", phase, testStart, testEnd))
+		if err != nil {
+			t.Fatal(err)
+		}
+		a := &attempt{uid: uidA, task: &task, deleted: &Deletion{At: testEnd, Seen: true}}
 		run, _ := testConfig().build(a)
 		if run.Outcome != model.OutcomeUnknown || run.Interval.End.State != model.BoundUnknown {
 			t.Errorf("phase %q: outcome %s, end %s, want both unknown", phase, run.Outcome, run.Interval.End.State)

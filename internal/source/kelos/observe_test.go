@@ -1,7 +1,6 @@
 package kelos
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/sperano/sillage/internal/model"
@@ -28,7 +27,7 @@ func TestObservationIDsTheChange(t *testing.T) {
 // A record's observation is on its Task's run, under the record's own id.
 func TestRecordObservationIsOnItsTasksRun(t *testing.T) {
 	e := testConfig().observeRecord(decodedRecord(t, uidA), changeAdded, testObservedAt)
-	if e.Related.Run.UID != uidA || !strings.HasPrefix(e.ID, "taskrecords/record-"+uidA+"@6/") ||
+	if e.Related.Run.UID != uidA || e.ID != "taskrecords/record-"+uidA+"@6/added" ||
 		e.Details["object"] != objectRecord || e.Details["phase"] != string(PhaseSucceeded) {
 		t.Errorf("observation = %+v", e)
 	}

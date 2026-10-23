@@ -36,7 +36,7 @@ func TestCheckpointRoundTrip(t *testing.T) {
 			uidB: {uid: uidB, task: decodedTask(t, uidB, PhaseRunning), deleted: &Deletion{At: testEnd, Seen: true}},
 			"c":  {uid: "c", record: decodedRecord(t, "c"), awaitingTaskSince: testEnd},
 		},
-		tasksVersion: "20", recordsVersion: "21", lastEventAt: testEnd,
+		tasksVersion: "20", recordsVersion: "21", tasksSeenAt: testEnd, recordsSeenAt: testStart,
 	}
 	data, err := json.Marshal(st.checkpoint())
 	if err != nil {

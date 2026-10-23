@@ -38,6 +38,16 @@ const (
 	PhaseWaiting Phase = "Waiting"
 )
 
+// ongoing reports whether p is a phase a Task passes through before it
+// ends; the empty phase is a Task the controller has not reported on yet.
+func (p Phase) ongoing() bool {
+	switch p {
+	case "", PhasePending, PhaseWaiting, PhaseRunning:
+		return true
+	}
+	return false
+}
+
 // Task is a Kelos Task: one attempt, with its own UID.
 type Task struct {
 	metav1.ObjectMeta `json:"metadata"`
