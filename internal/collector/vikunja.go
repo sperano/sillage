@@ -127,8 +127,8 @@ func (a *assembly) announcement(key model.TaskKey, e vikunja.Event) model.Event 
 // each have a bucket of the same title.
 func (a *assembly) observed(key model.TaskKey, e vikunja.Event) []model.Event {
 	var out []model.Event
-	add := func(kind model.EventKind, action, value string, details map[string]string) {
-		ev := a.vikunjaEvent(key, e, kind, model.Fingerprint(e.ObservedAt, taskObject(key), action, value),
+	add := func(kind model.EventKind, object, action, value string, details map[string]string) {
+		ev := a.vikunjaEvent(key, e, kind, model.Fingerprint(e.ObservedAt, object, action, value),
 			model.IDFingerprint)
 		ev.Actor, ev.SourceTime = model.Account{Kind: model.ActorUnknown}, nil
 		ev.Details = details
@@ -138,16 +138,16 @@ func (a *assembly) observed(key model.TaskKey, e vikunja.Event) []model.Event {
 		if b.Title == "" {
 			continue
 		}
-		value, details := b.Title, map[string]string{detailBucket: b.Title}
+		object, details := taskObject(key), map[string]string{detailBucket: b.Title}
 		if b.ProjectViewID != 0 {
 			view := strconv.FormatInt(b.ProjectViewID, 10)
 			details[detailView] = view
-			value = viewObject(view) + "/" + b.Title
+			object += "/" + viewObject(view)
 		}
-		add(model.KindTaskBucketObserved, "bucket_observed", value, details)
+		add(model.KindTaskBucketObserved, object, "bucket_observed", b.Title, details)
 	}
 	for _, l := range e.State.Labels {
-		add(model.KindTaskLabelObserved, "label_observed", l, map[string]string{detailLabel: l})
+		add(model.KindTaskLabelObserved, taskObject(key), "label_observed", l, map[string]string{detailLabel: l})
 	}
 	return out
 }

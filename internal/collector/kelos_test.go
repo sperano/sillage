@@ -177,6 +177,22 @@ func TestAnnouncedRunJoinsWhatItIsACommentOn(t *testing.T) {
 	}
 }
 
+func TestPodlessAnnouncementJoinsEachSameNameRunToTheTask(t *testing.T) {
+	src := emptySources()
+	src.Vikunja = fixedVikunja{announcedTask(104, customName, map[int]string{3: ""})}
+	src.Kelos = fixedKelos{kelos.Snapshot{Records: []kelos.TaskRecord{
+		record(customName, "uid-a", nil, 2, 9),
+		record(customName, "uid-b", nil, 62, 80),
+	}}}
+	s := collectWith(t, testConfig(), src, taskRoot(104)).Story
+	for _, uid := range []string{"uid-a", "uid-b"} {
+		c, ok := linkBetween(s, runRef(uid), taskRoot(104).Task.Ref())
+		if !ok || c.Confidence != model.ConfidenceHeuristic || !c.Ambiguous {
+			t.Errorf("run %s joined to the task by %+v (%v), want an ambiguous heuristic", uid, c, ok)
+		}
+	}
+}
+
 func TestAnnouncedRunTakesTheWordingsRole(t *testing.T) {
 	src := emptySources()
 	src.Vikunja = fixedVikunja{announcedTask(104, customName, map[int]string{3: "p-custom"})}
