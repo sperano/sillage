@@ -125,9 +125,15 @@ func TestMergeRunProgress(t *testing.T) {
 			interval(model.KnownAt(at(1)), model.KnownAt(at(9))), model.OutcomeUnknown,
 		},
 		{
-			"bounds that disagree are overlay's",
+			"bounds that disagree are overlay's with its outcome",
 			run(interval(model.KnownAt(at(10)), unknown), model.OutcomeSucceeded),
 			run(interval(unknown, model.KnownAt(at(9))), model.OutcomeSucceeded),
+			interval(unknown, model.KnownAt(at(9))), model.OutcomeSucceeded,
+		},
+		{
+			"bounds that disagree are base's with its outcome",
+			run(interval(unknown, model.KnownAt(at(9))), model.OutcomeSucceeded),
+			run(interval(model.KnownAt(at(10)), unknown), model.OutcomeUnknown),
 			interval(unknown, model.KnownAt(at(9))), model.OutcomeSucceeded,
 		},
 	}

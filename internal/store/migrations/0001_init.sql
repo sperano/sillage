@@ -57,18 +57,6 @@ CREATE INDEX events_run_ref ON events (run_ref) WHERE run_ref IS NOT NULL;
 CREATE INDEX events_supersedes ON events (source, instance, supersedes) WHERE supersedes IS NOT NULL;
 CREATE INDEX events_live_page ON events (live_page) WHERE live_page IS NOT NULL;
 
--- Live wiki records that a newer live record of the same edit replaced (a
--- re-render, or the same account's later save): an archived version whose
--- supersedes detail names one supersedes the record that replaced it.
-CREATE TABLE live_aliases (
-    source   text NOT NULL,
-    instance text NOT NULL,
-    event_id text NOT NULL,
-    live_id  bigint NOT NULL REFERENCES events (id) ON DELETE CASCADE,
-    PRIMARY KEY (source, instance, event_id)
-);
-CREATE INDEX live_aliases_live ON live_aliases (live_id);
-
 -- Runs, keyed by cluster + namespace + Task UID, or by pod for a run known
 -- only from its start announcement until its UID is read.
 CREATE TABLE runs (

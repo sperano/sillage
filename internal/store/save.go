@@ -32,9 +32,10 @@ type Batch struct {
 //     unchanged since the task's previous read, extends the stored record's
 //     last observed time instead of adding a record.
 //   - Wiki: a live edit named by an archived version's "supersedes" detail
-//     is dropped for the version; of a page's live records only the newest
-//     is kept. The record kept takes the dropped one's place in every
-//     story, and its correlations when the same account made both.
+//     (or read before its render: see supersededLive) is dropped for the
+//     version; of a page's live records only the newest is kept. The
+//     record kept takes the dropped one's place in every story, and its
+//     correlations when the same account made both.
 //   - Coverage is merged per root and source instance (see mergeCoverage).
 //
 // Events keep their kinds: a pull request's pr.closed and pr.merged are

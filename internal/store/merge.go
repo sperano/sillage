@@ -51,8 +51,9 @@ func mergeUsage(base, overlay *model.Usage) *model.Usage {
 // overlay does not know taken from base, and base's outcome when overlay
 // knows none (an announcement), unless overlay knows that a run base saw
 // waiting or running has ended. An open end means waiting or running, so
-// an end and the outcome are taken together. An interval the two reads
-// cannot agree on (an end before the start) is overlay's.
+// an end and the outcome are taken together. When the two reads' bounds
+// disagree (an end before the start), the interval and outcome are those
+// of the read whose outcome was kept.
 func mergeProgress(base, overlay model.Run) (model.Interval, model.Outcome) {
 	iv, outcome := overlay.Interval, overlay.Outcome
 	if iv.Start.State == model.BoundUnknown {
@@ -69,6 +70,9 @@ func mergeProgress(base, overlay model.Run) (model.Interval, model.Outcome) {
 		iv.End = base.Interval.End
 	}
 	if iv.Validate() != nil {
+		if outcome != overlay.Outcome {
+			return base.Interval, base.Outcome
+		}
 		return overlay.Interval, overlay.Outcome
 	}
 	return iv, outcome

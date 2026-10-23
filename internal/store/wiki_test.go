@@ -184,33 +184,56 @@ func TestSupersededLiveEditJoinsStoryAsVersion(t *testing.T) {
 	}
 }
 
-// TestVersionSupersedesReplacedLiveEdit stores a live edit in a task's
-// story, then its re-render in the page's, then the version that archives
-// the first: the version takes the re-render's place in both stories.
-func TestVersionSupersedesReplacedLiveEdit(t *testing.T) {
-	s := newTestStore(t, Retention{})
-	task, page := taskRoot(7), pageRoot(57)
-	first, rerender := liveEdit(0), liveEdit(1)
-	run := finishedRun("uid-1", 0, 5, model.OutcomeSucceeded)
-	mustSave(t, s, task, model.Records{
-		Events:       []model.Event{first},
-		Runs:         []model.Run{run},
-		Correlations: []model.Correlation{link(first.Ref(), run.Key.Ref())},
-	})
-	mustSave(t, s, page, model.Records{Events: []model.Event{rerender}})
-	version, newer := archived(121, 0), liveEdit(10)
-	mustSave(t, s, page, model.Records{Events: []model.Event{version, newer}})
+// TestVersionSupersedesLiveEditReadBeforeRender stores, in a task's
+// story, a live edit read between its save (minute 0) and its render
+// (minute 1). The version archiving it names the render, which the store
+// never saw; it still takes the live edit's place and link, whoever saved
+// next, and only that save's live record is added beside it.
+func TestVersionSupersedesLiveEditReadBeforeRender(t *testing.T) {
+	for _, nextAccount := range []string{"agent", "owner"} {
+		t.Run("next save by "+nextAccount, func(t *testing.T) {
+			s := newTestStore(t, Retention{})
+			task, page := taskRoot(7), pageRoot(57)
+			beforeRender := liveEdit(0)
+			run := finishedRun("uid-1", 0, 5, model.OutcomeSucceeded)
+			mustSave(t, s, task, model.Records{
+				Events:       []model.Event{beforeRender},
+				Runs:         []model.Run{run},
+				Correlations: []model.Correlation{link(beforeRender.Ref(), run.Key.Ref())},
+			})
+			version, next := archived(121, 1), liveEdit(10)
+			next.Actor.Login = nextAccount
+			mustSave(t, s, page, model.Records{Events: []model.Event{version, next}})
 
-	story := mustStory(t, s, task)
-	if got := eventIDs(story); len(got) != 1 || got[0] != version.ID {
-		t.Errorf("task events = %v, want version 121", got)
+			story := mustStory(t, s, task)
+			if got := eventIDs(story); len(got) != 1 || got[0] != version.ID {
+				t.Errorf("task events = %v, want version 121", got)
+			}
+			if len(story.Correlations) != 1 || story.Correlations[0].From != version.Ref() {
+				t.Errorf("task correlations = %+v, want the run linked to version 121", story.Correlations)
+			}
+			want := []string{version.ID, next.ID}
+			if got := eventIDs(mustStory(t, s, page)); len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+				t.Errorf("page events = %v, want %v", got, want)
+			}
+		})
 	}
-	if len(story.Correlations) != 1 || story.Correlations[0].From != version.Ref() {
-		t.Errorf("task correlations = %+v, want the run linked to version 121", story.Correlations)
-	}
-	want := []string{version.ID, newer.ID}
-	if got := eventIDs(mustStory(t, s, page)); len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
-		t.Errorf("page events = %v, want %v", got, want)
+}
+
+// TestVersionOfAnotherAuthorLeavesLiveEdit archives a save of another
+// author than the stored live edit's: it is not that edit, which the next
+// save's live record replaces as before.
+func TestVersionOfAnotherAuthorLeavesLiveEdit(t *testing.T) {
+	s := newTestStore(t, Retention{})
+	root := pageRoot(57)
+	live := liveEdit(0)
+	mustSave(t, s, root, model.Records{Events: []model.Event{live}})
+	version := archived(121, 1)
+	version.Actor = model.Account{Login: "owner", Kind: model.ActorPerson}
+	mustSave(t, s, root, model.Records{Events: []model.Event{version}})
+	want := []string{live.ID, version.ID}
+	if got := eventIDs(mustStory(t, s, root)); len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("events = %v, want %v", got, want)
 	}
 }
 
