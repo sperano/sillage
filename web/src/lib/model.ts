@@ -5,7 +5,8 @@
 // (decodeModel.test.ts loads every golden story) instead of rendering wrong.
 //
 // Every time is an RFC 3339 string, in UTC in a story: kept as sent, never
-// parsed into a Date here. Optional fields are those Go omits when empty.
+// stored as a Date; eventTime and boundTime read one as milliseconds.
+// Optional fields are those Go omits when empty.
 
 /** The kinds of system a record comes from. */
 export const SOURCES = ['vikunja', 'kelos', 'github', 'wiki'] as const;
