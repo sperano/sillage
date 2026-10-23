@@ -49,7 +49,7 @@ type Task struct {
 type TaskSpec struct {
 	// Branch is the branch the agent works on; a TaskRecord does not copy
 	// it.
-	Branch string `json:"branch,omitempty"`
+	Branch string      `json:"branch,omitempty"`
 	Worker *WorkerSpec `json:"worker,omitempty"`
 	// WorkerPoolRef, when set, makes the pool's worker the effective one.
 	WorkerPoolRef *WorkerPoolReference `json:"workerPoolRef,omitempty"`
