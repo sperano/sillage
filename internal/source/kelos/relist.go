@@ -72,10 +72,11 @@ func (s *state) carryOver(prev *state, at time.Time) []*attempt {
 	return changed
 }
 
-// expiredGap is the span a relist cannot recover, when it has a length.
-func expiredGap(lastEvent, relist time.Time) []model.Gap {
-	if !relist.After(lastEvent) {
+// expiredGap is the span a relist cannot recover, from where the slower
+// watch stood to the relist, when it has a length.
+func expiredGap(knownUntil, relistedAt time.Time) []model.Gap {
+	if !relistedAt.After(knownUntil) {
 		return nil
 	}
-	return []model.Gap{{Start: lastEvent, End: relist, Reason: GapWatchExpired}}
+	return []model.Gap{{Start: knownUntil, End: relistedAt, Reason: GapWatchExpired}}
 }

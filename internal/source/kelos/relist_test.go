@@ -23,8 +23,8 @@ func expiredStatus() *unstructured.Unstructured {
 
 // An expired watch, reported in the stream or by refusing the watch,
 // relists. A Task gone from the list keeps its run as deleted at an unknown
-// time, and the coverage gets a "watch expired" gap from the last event to
-// the relist.
+// time, and the coverage gets a "watch expired" gap from where the slower
+// watch stood to the relist.
 func TestWatcherRelistsAnExpiredWatch(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -54,7 +54,7 @@ func testRelist(t *testing.T, expire func(*harness, *watch.FakeWatcher)) {
 	tasks.Modify(taskObj(taskA, uidA, "12", PhaseRunning, testStart))
 	// The records watch has received nothing since the list: the gap
 	// starts there, not at the later Task event.
-	lastEvent := h.commit(t).Checkpoint.RecordsSeenAt
+	recordsSeen := h.commit(t).Checkpoint.RecordsSeenAt
 
 	h.lists.set(tasksResource, "30", taskObj(taskA, uidA, "25", PhaseSucceeded, testStart, testEnd))
 	h.lists.set(recordsResource, "31")
@@ -62,8 +62,8 @@ func testRelist(t *testing.T, expire func(*harness, *watch.FakeWatcher)) {
 	b := h.commit(t)
 	gaps := b.Records.Coverage[0].Gaps
 	relist := *b.Records.Coverage[0].LastSuccessfulRead
-	if len(gaps) != 1 || gaps[0].Reason != GapWatchExpired || !gaps[0].Start.Equal(lastEvent) || !gaps[0].End.Equal(relist) {
-		t.Errorf("gaps = %+v, want watch expired from %v to %v", gaps, lastEvent, relist)
+	if len(gaps) != 1 || gaps[0].Reason != GapWatchExpired || !gaps[0].Start.Equal(recordsSeen) || !gaps[0].End.Equal(relist) {
+		t.Errorf("gaps = %+v, want watch expired from %v to %v", gaps, recordsSeen, relist)
 	}
 	runs := map[string]model.Run{}
 	for _, r := range b.Records.Runs {

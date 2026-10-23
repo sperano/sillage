@@ -3,6 +3,7 @@ package kelos
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -35,9 +36,10 @@ type Sink interface {
 	// the checkpoint it brings the watch to, under key. The records are the
 	// runs and correlations it changed, one run.observed event per object
 	// seen, and the Kelos coverage: read up to where the slower of the two
-	// watches stands, with a gap when a watch expired. A run built from a TaskRecord alone (its Task deleted
-	// before it was read) must complete the stored run, not replace it. A
-	// commit that fails is read again from the previous checkpoint.
+	// watches stands, with a gap when a watch expired. A run built from a
+	// TaskRecord alone (its Task deleted before it was read) must complete
+	// the stored run, not replace it. A commit that fails is read again
+	// from the previous checkpoint.
 	Commit(ctx context.Context, key string, recs model.Records, checkpoint []byte) error
 }
 
@@ -109,10 +111,7 @@ func (s *state) knownUntil() time.Time {
 
 // lastSeen is when either watch last received something.
 func (s *state) lastSeen() time.Time {
-	if s.tasksSeenAt.After(s.recordsSeenAt) {
-		return s.tasksSeenAt
-	}
-	return s.recordsSeenAt
+	return latest(s.tasksSeenAt, s.recordsSeenAt)
 }
 
 func earliest(a, b time.Time) time.Time {
@@ -122,8 +121,20 @@ func earliest(a, b time.Time) time.Time {
 	return b
 }
 
+func latest(a, b time.Time) time.Time {
+	if a.After(b) {
+		return a
+	}
+	return b
+}
+
 // stateOf restores the state a checkpoint holds.
 func stateOf(cp Checkpoint) (*state, error) {
+	if cp.TasksSeenAt.IsZero() || cp.RecordsSeenAt.IsZero() {
+		// Without them, the coverage and an expired watch's gap would
+		// start at the zero time.
+		return nil, errors.New("kelos: checkpoint: no time a watch last received something")
+	}
 	st := &state{
 		attempts:     make(map[types.UID]*attempt),
 		tasksVersion: cp.TasksVersion, recordsVersion: cp.RecordsVersion,

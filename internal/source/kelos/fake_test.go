@@ -162,7 +162,9 @@ func (s *fakeSink) Commit(ctx context.Context, key string, recs model.Records, c
 		return err
 	}
 	// The lock is held until the batch is published, and the checkpoint
-	// saved only then, so that a failed commit stores nothing.
+	// saved only then, so that a failed commit stores nothing. A test that
+	// leaves sinkBuffer batches unread blocks Checkpoint and setErr until
+	// ctx is done.
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.err != nil {

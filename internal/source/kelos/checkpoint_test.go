@@ -59,12 +59,17 @@ func TestCheckpointRoundTrip(t *testing.T) {
 }
 
 func TestStateOfRejectsInconsistentCheckpoint(t *testing.T) {
+	seen := func(cp Checkpoint) Checkpoint {
+		cp.TasksSeenAt, cp.RecordsSeenAt = testStart, testStart
+		return cp
+	}
 	tests := []struct {
 		name string
 		cp   Checkpoint
 	}{
-		{"task without uid", Checkpoint{Tasks: []WatchedTask{{Task: *decodedTask(t, "", PhaseRunning)}}}},
-		{"record without task", Checkpoint{Records: []WatchedRecord{{Record: *decodedRecord(t, uidA)}}}},
+		{"task without uid", seen(Checkpoint{Tasks: []WatchedTask{{Task: *decodedTask(t, "", PhaseRunning)}}})},
+		{"record without task", seen(Checkpoint{Records: []WatchedRecord{{Record: *decodedRecord(t, uidA)}}})},
+		{"no watch times", Checkpoint{RecordsSeenAt: testStart}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

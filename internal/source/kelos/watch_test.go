@@ -368,9 +368,12 @@ func TestWatcherStopsWhenCancelled(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			paused := make(chan struct{})
+			paused := make(chan struct{}, 1)
 			w.sleep = func(ctx context.Context, _ time.Duration) error {
-				close(paused)
+				select {
+				case paused <- struct{}{}:
+				default:
+				}
 				<-ctx.Done()
 				return ctx.Err()
 			}
@@ -459,6 +462,9 @@ func TestWatcherResources(t *testing.T) {
 	}
 }
 
+// neverElapses is a delay no test waits out.
+const neverElapses = time.Hour
+
 // The default sleep waits its delay, and stops early when cancelled.
 func TestSleep(t *testing.T) {
 	if err := sleep(t.Context(), 0); err != nil {
@@ -466,7 +472,7 @@ func TestSleep(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := sleep(ctx, time.Hour); !errors.Is(err, context.Canceled) {
+	if err := sleep(ctx, neverElapses); !errors.Is(err, context.Canceled) {
 		t.Errorf("cancelled sleep = %v, want context.Canceled", err)
 	}
 }
