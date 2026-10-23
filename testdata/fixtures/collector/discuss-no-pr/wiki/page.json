@@ -1,0 +1,17 @@
+{
+  "data": {
+    "pages": {
+      "single": {
+        "id": 41,
+        "path": "widgets/reports/caching-options",
+        "locale": "en",
+        "createdAt": "2026-03-02T14:07:16.000Z",
+        "updatedAt": "2026-03-02T14:07:18.400Z",
+        "authorId": 21,
+        "authorName": "Agent Opus",
+        "creatorId": 21,
+        "creatorName": "Agent Opus"
+      }
+    }
+  }
+}

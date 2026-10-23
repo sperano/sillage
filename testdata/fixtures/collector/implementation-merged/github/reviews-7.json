@@ -1,0 +1,11 @@
+[
+  {
+    "id": 3001,
+    "user": {
+      "login": "owner-gh",
+      "type": "User"
+    },
+    "state": "APPROVED",
+    "submitted_at": "2026-03-03T18:58:00Z"
+  }
+]

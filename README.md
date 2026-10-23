@@ -10,9 +10,10 @@ being down never blocks anything.
 ## Status
 
 Pre-alpha. A Go binary that answers `GET /healthz` and serves a placeholder
-page, and the normalized model (`internal/model`) with fabricated fixture
-stories (`testdata/fixtures/stories/`). No source is read, nothing is
-stored, nothing is deployed.
+page; the normalized model (`internal/model`) with fabricated fixture
+stories (`testdata/fixtures/stories/`); a read-only client per source; and
+`sillage story`, which assembles one story from the live sources and prints
+it. Nothing is stored, nothing is deployed.
 
 ## Layout
 
@@ -21,6 +22,7 @@ stored, nothing is deployed.
 | `cmd/sillage/` | The binary (collector, read API and embedded frontend, eventually). |
 | `internal/model/` | Normalized events, runs, entities and coverage. |
 | `internal/source/{vikunja,github,kelos,wiki}/` | One read-only source each. |
+| `internal/collector/` | Joins the sources' records into one story. |
 | `internal/store/` | Persistence. |
 | `internal/api/` | Read-only HTTP API. |
 | `testdata/fixtures/` | Fabricated test data, shared by Go and web tests. |
@@ -57,6 +59,35 @@ curl localhost:8080/healthz                # ok
 It runs as a non-root user on `scratch`, logs its version at startup (`dev`
 without `VERSION`), and carries the licenses of everything it ships under
 `/licenses`.
+
+## Print one story
+
+`sillage story` reads one task's or wiki page's records from the live
+sources, joins them, and prints the story as JSON: the format of
+`testdata/fixtures/stories/*/story.golden.json`. It writes nothing anywhere.
+
+```sh
+./sillage story -task <id>                 # a Vikunja task
+./sillage story -page <id> [-locale en]    # a wiki page, for work requested there
+./sillage story -task <id> -repo owner/name   # also read the task's branch there
+```
+
+A source that cannot be read is reported on stderr and leaves a coverage
+record without a read; the story is still printed, and the exit status is 3.
+Every setting comes from the environment; each source reads with a
+read-only credential:
+
+| Variable | Meaning |
+| --- | --- |
+| `SILLAGE_VIKUNJA_URL`, `SILLAGE_VIKUNJA_TOKEN` | Vikunja base URL and a read-only API token. |
+| `SILLAGE_VIKUNJA_SERVICE_ACCOUNT` | Username that posts Kelos start announcements (default `kelos`). |
+| `SILLAGE_VIKUNJA_AGENT_USERS` | Agents' Vikunja usernames, comma-separated (optional). |
+| `SILLAGE_KELOS_CLUSTER`, `SILLAGE_KELOS_NAMESPACE` | Name given to the cluster, and the namespace read; the Kubernetes credentials are the in-cluster ones, else the kubeconfig's current context. |
+| `SILLAGE_KELOS_LABEL_DOMAIN`, `SILLAGE_KELOS_VIKUNJA_INSTANCE` | The spawners' label prefix, and the Vikunja host the task label names (must be `SILLAGE_VIKUNJA_URL`'s). |
+| `SILLAGE_KELOS_TASK_TTL` | How long Kelos keeps a finished Task (default `72h`); before it, runs may be missing. |
+| `SILLAGE_GITHUB_TOKEN`, `SILLAGE_GITHUB_API_URL` | A read-only token, and the API (default `https://api.github.com`). |
+| `SILLAGE_WIKI_URL`, `SILLAGE_WIKI_TOKEN`, `SILLAGE_WIKI_AGENT_USERS` | Wiki.js base URL, a read-only key, and the agents' wiki user ids. |
+| `SILLAGE_WORKSPACES` | `<workspace>=<owner>/<repository>` pairs, comma-separated: where a run's workspace (or Vikunja project) works. Without a match, GitHub is not read. |
 
 ## Test
 

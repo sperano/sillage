@@ -19,8 +19,10 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 
 | Path | What goes there |
 | --- | --- |
-| `cmd/sillage/` | The one binary: today a `GET /healthz` server that also serves the embedded frontend; later the collector, the read API and the frontend together. Flags, configuration and wiring only. |
+| `cmd/sillage/` | The one binary: today a `GET /healthz` server that also serves the embedded frontend, and `sillage story`, which prints one story assembled from the live sources; later the collector loop, the read API and the frontend together. Flags, configuration and wiring only. |
 | `internal/model/` | Normalized events, runs, entities and links, and coverage. Source-independent. |
+| `internal/model/storytest/` | The invariant each fixture story exists for, asserted by the model's and the collector's tests. |
+| `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage. Read once, nothing kept. |
 | `internal/source/vikunja/` | Read-only Vikunja client and its normalization into `model`. |
 | `internal/source/github/` | Read-only GitHub client and its normalization into `model`. |
 | `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and its normalization into `model`. |
@@ -112,10 +114,13 @@ matches the one in the agent image; upgrade both together.
 in `input.json`, and `story.golden.json`, the `model.BuildStory` output the
 Go tests check and the web tests are to render. To add one, follow "Adding a story" in
 `testdata/fixtures/README.md`: write `input.json`, register an explicit
-invariant check in `internal/model/invariants_test.go` (a test fails until
-you do), then `go test ./internal/model -run TestStoryGolden -update` and
-review the generated golden file. A model change that alters a golden file
-is a contract change: regenerate, read the diff, and say so in the PR.
+invariant check in `internal/model/storytest/invariants.go` (a test fails
+until you do), then `go test ./internal/model -run TestStoryGolden -update`
+and review the generated golden file. The collector must assemble the same
+story from fabricated source responses (`testdata/fixtures/collector/`) and
+keep its invariant; `TestEveryStoryIsAssembled` fails until it does. A
+model change that alters a golden file is a contract change: regenerate,
+read the diff, and say so in the PR.
 
 ## Rules
 

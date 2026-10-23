@@ -1,0 +1,24 @@
+[
+  {
+    "id": 5001,
+    "comment": "<p>Agent <code>agent-opus</code> (model <code>example-model-2[1m]</code>) has started working on this task: Kelos Task <a href=\"https://kelos.example.com/api/resources/tasks/agents/vikunja-discuss-widgets-agent-opus-101/logs\"><code>vikunja-discuss-widgets-agent-opus-101</code></a>, pod <code>vikunja-discuss-widgets-agent-opus-101-abcde</code>.</p><p>The link shows its latest log lines once you are logged in to the <a href=\"https://kelos.example.com\">Kelos Console</a> (namespace <code>agents</code>).</p>",
+    "author": {
+      "id": 23,
+      "username": "kelos",
+      "name": "Kelos"
+    },
+    "created": "2026-03-02T14:01:05Z",
+    "updated": "2026-03-02T14:01:05Z"
+  },
+  {
+    "id": 5002,
+    "comment": "<p>The options are compared on <a href=\"https://wiki.example.com/en/widgets/reports/caching-options\">the wiki</a>.</p>",
+    "author": {
+      "id": 21,
+      "username": "agent-opus",
+      "name": "Agent Opus"
+    },
+    "created": "2026-03-02T14:07:29Z",
+    "updated": "2026-03-02T14:07:29Z"
+  }
+]
