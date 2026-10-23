@@ -25,13 +25,12 @@ type Commit struct {
 // with it, as the caller computed the whole of it. The root's coverage of
 // the instances the batch does not carry is kept.
 func (s *Store) Commit(ctx context.Context, c Commit) error {
-	var story *model.Story
+	var story model.Story
 	if c.Batch != nil {
-		built, err := model.BuildStory(c.Batch.Root, c.Batch.Records)
-		if err != nil {
+		var err error
+		if story, err = model.BuildStory(c.Batch.Root, c.Batch.Records); err != nil {
 			return fmt.Errorf("store: %w", err)
 		}
-		story = &built
 	}
 	for _, cp := range c.Checkpoints {
 		if err := cp.validate(); err != nil {
@@ -39,8 +38,8 @@ func (s *Store) Commit(ctx context.Context, c Commit) error {
 		}
 	}
 	err := s.write(ctx, func(tx pgx.Tx) error {
-		if story != nil {
-			if err := newSaver(ctx, tx, coverageReplace).save(c.Batch.Title, *story); err != nil {
+		if c.Batch != nil {
+			if err := newSaver(ctx, tx, coverageReplace).save(c.Batch.Title, story); err != nil {
 				return err
 			}
 		}

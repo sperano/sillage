@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -95,6 +96,14 @@ func TestLoopStoreRefusesAScopeOfTwoInstances(t *testing.T) {
 	}
 }
 
+func TestLoopStoreRefusesRecordsWithoutARoot(t *testing.T) {
+	// The store is never reached: the commit is refused first.
+	err := loopStore{}.Commit(t.Context(), reconcile.Commit{Records: model.Records{Events: []model.Event{{}}}})
+	if err == nil {
+		t.Error("Commit accepted records without a root")
+	}
+}
+
 // The fabricated task the loop tests read, and how long they wait for a
 // cycle.
 const (
@@ -103,8 +112,13 @@ const (
 	loopNamespace   = "agents"
 	loopAgent       = "agent-opus"
 	loopTaskID      = 42
+	loopProjectID   = 3
+	loopOwnerID     = 7
+	loopServiceID   = 23
+	loopCommentID   = 900
 	loopTaskName    = "vikunja-widgets-agent-opus-42"
 	loopPod         = loopTaskName + "-pod00"
+	loopUID         = "uid-42"
 	cycleTimeout    = 30 * time.Second
 	cyclePoll       = 20 * time.Millisecond
 	// cyclesMetric counts the loop's completed cycles.
@@ -127,10 +141,13 @@ func (loopVikunja) Fetch(_ context.Context, id int64) (vikunja.Snapshot, error) 
 	}
 	announced, now := loopStart.Add(time.Minute), time.Now()
 	return vikunja.Snapshot{
-		Task: vikunja.Task{ID: id, ProjectID: 3, Created: loopStart, CreatedBy: &vikunja.User{ID: 7, Username: "owner"}},
+		Task: vikunja.Task{
+			ID: id, ProjectID: loopProjectID, Created: loopStart,
+			CreatedBy: &vikunja.User{ID: loopOwnerID, Username: "owner"},
+		},
 		Comments: []vikunja.Comment{{
-			ID: 900, Created: announced, Updated: announced,
-			Author: vikunja.User{ID: 23, Username: vikunja.DefaultServiceAccount},
+			ID: loopCommentID, Created: announced, Updated: announced,
+			Author: vikunja.User{ID: loopServiceID, Username: vikunja.DefaultServiceAccount},
 			Body: "<p>Agent <code>" + loopAgent + "</code> has started working on this task: Kelos Task <code>" +
 				loopTaskName + "</code>, pod <code>" + loopPod + "</code>.</p>",
 		}},
@@ -145,10 +162,10 @@ func (loopKelos) Read(context.Context) (kelos.Snapshot, error) {
 	start := metav1.NewTime(loopStart.Add(time.Minute))
 	return kelos.Snapshot{ObservedAt: time.Now(), Tasks: []kelos.Task{{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: loopTaskName, UID: types.UID("uid-42"), CreationTimestamp: start,
+			Name: loopTaskName, UID: types.UID(loopUID), CreationTimestamp: start,
 			Labels: map[string]string{
 				loopVikunjaHost + "/project": "widgets", loopVikunjaHost + "/variant": loopAgent,
-				loopVikunjaHost + "/task": "42",
+				loopVikunjaHost + "/task": strconv.Itoa(loopTaskID),
 			},
 		},
 		Status: kelos.TaskStatus{Phase: kelos.PhaseRunning, PodName: loopPod, StartTime: &start},

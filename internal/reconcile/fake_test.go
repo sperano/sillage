@@ -282,7 +282,7 @@ func (s *fakeStore) Commit(ctx context.Context, c Commit) error {
 	}
 	s.commits = append(s.commits, c)
 	for key, cp := range c.Checkpoints {
-		s.cps[key] = cp.Value
+		s.cps[key] = slices.Clone(cp.Value)
 	}
 	if c.Root != nil {
 		s.root(*c.Root).upsert(c.Records)

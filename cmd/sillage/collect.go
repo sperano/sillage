@@ -17,7 +17,7 @@ import (
 
 // newMetrics returns the handler of /metrics, which serves the Go
 // runtime's, the process's and the collector's metrics, and the
-// collector's metrics.
+// collector's metrics to record into.
 func newMetrics() (http.Handler, *reconcile.Metrics) {
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))

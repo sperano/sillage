@@ -50,11 +50,15 @@ func (s loopStore) Checkpoints(ctx context.Context, prefix string) (map[string][
 
 // Commit writes c as one store commit: the root's read, whose coverage
 // replaces the stored coverage of its instances, and the checkpoints,
-// each scoped by its key.
+// each scoped by its key. Records without a root belong to no story: an
+// error, not records to drop.
 func (s loopStore) Commit(ctx context.Context, c reconcile.Commit) error {
 	var sc store.Commit
-	if c.Root != nil {
+	switch {
+	case c.Root != nil:
 		sc.Batch = &store.Batch{Root: *c.Root, Records: c.Records}
+	case hasRecords(c.Records):
+		return errors.New("a commit of records names no root")
 	}
 	for _, key := range slices.Sorted(maps.Keys(c.Checkpoints)) {
 		cp := c.Checkpoints[key]
@@ -63,4 +67,9 @@ func (s loopStore) Commit(ctx context.Context, c reconcile.Commit) error {
 		})
 	}
 	return s.st.Commit(ctx, sc)
+}
+
+// hasRecords reports whether recs holds any record or coverage.
+func hasRecords(recs model.Records) bool {
+	return len(recs.Events)+len(recs.Runs)+len(recs.PullRequests)+len(recs.Correlations)+len(recs.Coverage) > 0
 }

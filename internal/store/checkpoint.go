@@ -21,7 +21,8 @@ type Checkpoint struct {
 	// resource for a Kelos resourceVersion ("tasks"), the request path for
 	// a GitHub ETag, the root's ref for the last read of one root.
 	Scope string
-	// Value is the resourceVersion, ETag or RFC 3339 time.
+	// Value is opaque text: a resourceVersion, an ETag, an RFC 3339 time,
+	// or the collection loop's JSON state.
 	Value string
 	// Root, when set, ties the checkpoint to a stored root: pruning the
 	// root deletes it.
@@ -82,14 +83,7 @@ const checkpointColumns = "c.source, c.instance, c.scope, c.value, c.updated_at,
 
 // Checkpoint returns the checkpoint of a scope, or ErrNotFound.
 func (s *Store) Checkpoint(ctx context.Context, source model.Source, instance, scope string) (Checkpoint, error) {
-	rows, err := s.pool.Query(ctx, "SELECT "+checkpointColumns+` FROM checkpoints c
-		LEFT JOIN roots r ON r.id = c.root_id
-		WHERE c.source = $1 AND c.instance = $2 AND c.scope = $3`,
-		string(source), instance, scope)
-	var c Checkpoint
-	if err == nil {
-		c, err = pgx.CollectExactlyOneRow(rows, scanCheckpoint)
-	}
+	c, err := s.checkpoint(ctx, source, instance, scope)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = ErrNotFound
 	}
@@ -99,22 +93,34 @@ func (s *Store) Checkpoint(ctx context.Context, source model.Source, instance, s
 	return c, nil
 }
 
+func (s *Store) checkpoint(ctx context.Context, source model.Source, instance, scope string) (Checkpoint, error) {
+	rows, err := s.pool.Query(ctx, "SELECT "+checkpointColumns+` FROM checkpoints c
+		LEFT JOIN roots r ON r.id = c.root_id
+		WHERE c.source = $1 AND c.instance = $2 AND c.scope = $3`,
+		string(source), instance, scope)
+	if err != nil {
+		return Checkpoint{}, err
+	}
+	return pgx.CollectExactlyOneRow(rows, scanCheckpoint)
+}
+
 // Checkpoints returns the checkpoints whose scope starts with prefix, of
 // every source instance, in scope order.
 func (s *Store) Checkpoints(ctx context.Context, prefix string) ([]Checkpoint, error) {
 	rows, err := s.pool.Query(ctx, "SELECT "+checkpointColumns+` FROM checkpoints c
 		LEFT JOIN roots r ON r.id = c.root_id
 		WHERE starts_with(c.scope, $1) ORDER BY c.scope, c.source, c.instance`, prefix)
-	var out []Checkpoint
-	if err == nil {
-		out, err = pgx.CollectRows(rows, scanCheckpoint)
+	if err != nil {
+		return nil, fmt.Errorf("store: checkpoints %q: %w", prefix, err)
 	}
+	out, err := pgx.CollectRows(rows, scanCheckpoint)
 	if err != nil {
 		return nil, fmt.Errorf("store: checkpoints %q: %w", prefix, err)
 	}
 	return out, nil
 }
 
+// scanCheckpoint reads a row of checkpointColumns.
 func scanCheckpoint(row pgx.CollectableRow) (Checkpoint, error) {
 	var c Checkpoint
 	var source string
