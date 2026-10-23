@@ -185,6 +185,28 @@ describe('agent requests', () => {
 		expect(nextActions(s)).toEqual([]);
 	});
 
+	test.each(['announcement', 'request'])(
+		'an announcement whose order is unknown because the %s has no time may answer it',
+		(which) => {
+			const s = announcedAs('vikunja-widgets-agent-opus-104');
+			const r = request(which === 'request' ? 'not a time' : '2026-03-05T15:00:00Z');
+			s.events.push(r);
+			if (which === 'announcement') {
+				const a = s.events.find((e) => e.kind === 'run.announced');
+				if (!a) throw new Error('no announcement');
+				a.sourceTime = 'not a time';
+			}
+			expect(nextActions(s)).toEqual([]);
+		}
+	);
+
+	test('an announcement known to be before it leaves it waiting', () => {
+		const s = announcedAs('vikunja-widgets-agent-opus-104');
+		const r = request('2026-03-05T15:00:00Z');
+		s.events.push(r);
+		expect(nextActions(s)).toEqual([{ kind: 'agent', request: r }]);
+	});
+
 	test('a request a correlation links to a run is answered', () => {
 		const s = goldenStory('wiki-rooted-request');
 		s.events = s.events.filter((e) => e.kind !== 'run.announced');

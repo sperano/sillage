@@ -1,5 +1,6 @@
 import type { Event, PRKey, Related, Story } from './model';
 import { eventKey, pageKeyString, prKeyString, taskKeyString } from './keys';
+import { parseTime } from './time';
 
 /**
  * Who or what has the next move, from explicit evidence only: a review
@@ -11,8 +12,19 @@ export type NextAction =
 	| { kind: 'review'; reviewer: string; team: boolean; pr: PRKey; requested: Event }
 	| { kind: 'agent'; request: Event };
 
-function eventTime(e: Event): number {
-	return Date.parse(e.sourceTime ?? e.observedAt);
+/** The event's time in milliseconds, or undefined when it is not a time. */
+function eventTime(e: Event): number | undefined {
+	return parseTime(e.sourceTime ?? e.observedAt);
+}
+
+/**
+ * Whether a is known to be before b. When either time is not one, the order
+ * is unknown, and an unknown order is not taken for "before".
+ */
+function knownBefore(a: Event, b: Event): boolean {
+	const at = eventTime(a);
+	const bt = eventTime(b);
+	return at !== undefined && bt !== undefined && at < bt;
 }
 
 /** The record a comment is on: its pull request, else its page, else its task. */
@@ -102,16 +114,19 @@ function requestID(request: Event): string | undefined {
 
 /**
  * Whether the announcement can be the answer to the request: posted on the
- * same record at or after it, and naming it, or naming no request at all,
- * which leaves it unknown which earlier request it answers. One naming
- * another request is not this one's answer.
+ * same record, not known to be before it, and naming it, or naming no
+ * request at all, which leaves it unknown which earlier request it answers.
+ * One naming another request is not this one's answer. Like one naming no
+ * request, one whose order is unknown may be the answer: that only hides a
+ * request, where ruling it out would say an agent has the next move on
+ * evidence that does not establish it.
  */
 function mayAnswer(announcement: Event, request: Event): boolean {
 	const where = thread(request.related);
 	if (where === undefined || thread(announcement.related) !== where) {
 		return false;
 	}
-	if (eventTime(announcement) < eventTime(request)) {
+	if (knownBefore(announcement, request)) {
 		return false;
 	}
 	const answeredRequestID = answeredID(announcement);
