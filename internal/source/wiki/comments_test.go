@@ -1,6 +1,7 @@
 package wiki
 
 import (
+	"maps"
 	"strings"
 	"testing"
 	"time"
@@ -9,7 +10,7 @@ import (
 )
 
 func TestCommentKinds(t *testing.T) {
-	announcement := announcementHTML("agent-opus", "m", "wiki-fu-widgets-60-c1", "wiki-fu-widgets-60-c1-abcde")
+	announcement := gordonAnnouncementHTML("agent-opus", "m", "wiki-fu-widgets-60-c1", "wiki-fu-widgets-60-c1-abcde")
 	tests := []struct {
 		name     string
 		author   user
@@ -17,10 +18,14 @@ func TestCommentKinds(t *testing.T) {
 		want     model.EventKind
 		wantNote string
 	}{
-		{"request", testOwner, "<p>/kelos split it</p>", model.KindRequest, ""},
+		{"request", testOwner, "<p>/gordon split it</p>", model.KindRequest, ""},
+		{"request, former command", testOwner, "<p>/kelos split it</p>", model.KindRequest, ""},
 		{"reply", testOpus, "<p>Done.</p>", model.KindComment, ""},
 		{"announcement by an agent", testOpus, announcement, model.KindRunAnnounced,
 			"and the Kelos Task, pod and namespace it names"},
+		{"lowercase announcement by an agent", testOpus,
+			announcementHTML("agent-opus", "m", "wiki-fu-widgets-60-c1", "wiki-fu-widgets-60-c1-abcde"),
+			model.KindRunAnnounced, "and the Kelos Task, pod and namespace it names"},
 		{"announcement quoted by a person", testOwner, announcement, model.KindComment, ""},
 		{"announcement of another page", testOpus,
 			announcementHTML("agent-opus", "m", "wiki-fu-widgets-61-c1", "wiki-fu-widgets-61-c1-abcde"),
@@ -46,6 +51,28 @@ func TestCommentKinds(t *testing.T) {
 				t.Errorf("executor = %+v", e.Executor)
 			}
 		})
+	}
+}
+
+// A request's "command" detail is the command it starts with.
+func TestRequestDetails(t *testing.T) {
+	tests := []struct {
+		render string
+		want   map[string]string
+	}{
+		{"<p>/gordon @agent-sol split it</p>", map[string]string{"authorId": "7", "command": "/gordon", "agent": "agent-sol"}},
+		{"<p>/kelos split it</p>", map[string]string{"authorId": "7", "command": "/kelos"}},
+	}
+	for _, tt := range tests {
+		n := normalizer{
+			s:      Snapshot{Instance: testInstance, Page: handPage(t0, testOwner), ObservedAt: testObservedAt},
+			agents: testAgents,
+			key:    model.PageKey{Instance: testInstance, ID: 60, Locale: "en"},
+		}
+		e := n.comment(Comment{ID: 1, Render: tt.render, AuthorID: testOwner.ID, AuthorName: testOwner.Name, CreatedAt: t0})
+		if !maps.Equal(e.Details, tt.want) {
+			t.Errorf("%s: details %v, want %v", tt.render, e.Details, tt.want)
+		}
 	}
 }
 

@@ -215,6 +215,7 @@ var storyPages = map[string]int64{
 	"live-edit-not-in-trail": 57,
 	"two-agents":             58,
 	"announcement-no-reply":  59,
+	"gordon-voice":           62,
 }
 
 // graphQLHandler answers every request with reply, whatever it asks.

@@ -5,6 +5,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/sperano/sillage/internal/source/kelostext"
 )
 
 // serviceAccount is the fixtures' Kelos account.
@@ -152,6 +154,66 @@ func TestNormalizeUnparseableAnnouncement(t *testing.T) {
 	c := events[1]
 	if c.Run != nil || c.CommentID != 9020 || !slices.Equal(c.Flags, []Flag{FlagUnparsedAnnouncement}) {
 		t.Errorf("comment = %+v", c)
+	}
+}
+
+// The current announcement forms link their runs as the lowercase one
+// does, and requests with either command are requests.
+func TestNormalizeGordonVoice(t *testing.T) {
+	snap, _ := fetchStory(t, "gordon-voice", 4220)
+	events := Normalize(snap, serviceAccount)
+	want := []Kind{
+		KindTaskCreated, KindRunAnnounced, KindRequest, KindRunAnnounced, KindRequest, KindRunAnnounced,
+		KindStateObserved,
+	}
+	if got := kinds(events); !slices.Equal(got, want) {
+		t.Fatalf("kinds = %v, want %v", got, want)
+	}
+	wantRuns := []Announcement{
+		{
+			Role: RoleImplementation, Agent: "agent-opus", Model: "example-model-2[1m]", Namespace: "agents",
+			TaskName: "vikunja-demo-agent-opus-4220", Pod: "vikunja-demo-agent-opus-4220-q8w4e",
+		},
+		{
+			Role: RoleTaskFollowUp, Agent: "agent-sol", Model: "example-model-3", Namespace: "agents",
+			TaskName: "vikunja-fu-demo-4220-c9102", Pod: "vikunja-fu-demo-4220-c9102-mn3bv",
+		},
+		{
+			Role: RoleTaskFollowUp, Namespace: "agents",
+			TaskName: "vikunja-fu-demo-4220-c9104", Pod: "vikunja-fu-demo-4220-c9104-t5r6y",
+		},
+	}
+	for i, e := range []Event{events[1], events[3], events[5]} {
+		if e.Run == nil || *e.Run != wantRuns[i] {
+			t.Errorf("%s: run = %+v, want %+v", e.SourceID, e.Run, wantRuns[i])
+		}
+	}
+	wantRequests := []kelostext.Request{
+		{Command: kelostext.CommandGordon, Agent: "agent-sol"},
+		{Command: kelostext.CommandKelos},
+	}
+	for i, e := range []Event{events[2], events[4]} {
+		if e.Request == nil || *e.Request != wantRequests[i] || !reflect.DeepEqual(e.Actor, &fixtureOwner) {
+			t.Errorf("%s: request = %+v by %+v, want %+v by the owner", e.SourceID, e.Request, e.Actor, wantRequests[i])
+		}
+	}
+}
+
+// A request is a request whoever posts it; the service account's
+// announcements never start with a command.
+func TestNormalizeRequestAnyAuthor(t *testing.T) {
+	created := at(time.March, 11, 9, 0, 0)
+	snap := Snapshot{
+		Task: Task{ID: 4208, Created: created},
+		Comments: []Comment{
+			{ID: 9060, Author: fixtureAgent, Created: created.Add(time.Minute), Body: "<p>/gordon @agent-sol take over</p>"},
+			{ID: 9061, Author: fixtureOwner, Created: created.Add(2 * time.Minute), Body: "<p>Not /gordon at the start.</p>"},
+		},
+		ObservedAt: testObservedAt,
+	}
+	got := kinds(Normalize(snap, serviceAccount))
+	if want := []Kind{KindTaskCreated, KindRequest, KindComment, KindStateObserved}; !slices.Equal(got, want) {
+		t.Errorf("kinds = %v, want %v", got, want)
 	}
 }
 

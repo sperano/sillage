@@ -5,15 +5,19 @@ import (
 	"slices"
 	"strconv"
 	"time"
+
+	"github.com/sperano/sillage/internal/source/htmltext"
+	"github.com/sperano/sillage/internal/source/kelostext"
 )
 
 // sourceTimeLayout formats times inside SourceIDs.
 const sourceTimeLayout = time.RFC3339Nano
 
 // Normalize turns one read of a task into events: its creation, each
-// comment (a parsed start announcement when serviceAccount posted one), its
-// done mark when it is done, and a snapshot of its current state. Events
-// with a source time come in time order; the state snapshot comes last.
+// comment (a request when it starts with one of kelostext.Commands, a
+// parsed start announcement when serviceAccount posted one), its done mark
+// when it is done, and a snapshot of its current state. Events with a
+// source time come in time order; the state snapshot comes last.
 func Normalize(s Snapshot, serviceAccount string) []Event {
 	events := []Event{taskCreated(s)}
 	for _, c := range s.Comments {
@@ -76,16 +80,23 @@ func commentEvent(s Snapshot, c Comment, serviceAccount string) Event {
 	if !c.Created.IsZero() && c.Updated.After(c.Created) {
 		e.Flags = append(e.Flags, FlagEdited)
 	}
+	text := htmltext.Plain(c.Body)
+	if r, ok := kelostext.ParseRequest(text); ok {
+		e.Kind = KindRequest
+		e.Request = &r
+		e.Evidence.Field = "created, author, comment"
+		return e
+	}
 	if serviceAccount == "" || c.Author.Username != serviceAccount {
 		return e
 	}
-	a, err := parseAnnouncement(c.Body)
+	a, err := parseAnnouncement(text)
 	switch {
 	case err == nil:
 		e.Kind = KindRunAnnounced
 		e.Run = &a
 		e.Evidence.Field = "created, author, comment"
-	case errors.Is(err, errUnparsedAnnouncement):
+	case errors.Is(err, kelostext.ErrUnparsedAnnouncement):
 		e.Flags = append(e.Flags, FlagUnparsedAnnouncement)
 	}
 	return e

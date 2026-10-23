@@ -327,6 +327,9 @@
           "number": 22
         }
       },
+      "details": {
+        "command": "/kelos"
+      },
       "evidence": {
         "source": "github",
         "instance": "github.example.com",
@@ -381,6 +384,9 @@
           "repository": "example-org/widgets",
           "number": 22
         }
+      },
+      "details": {
+        "command": "/kelos"
       },
       "evidence": {
         "source": "github",

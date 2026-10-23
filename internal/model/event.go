@@ -38,10 +38,13 @@ const (
 
 	// KindComment: a comment on a task, a page or a pull request.
 	KindComment EventKind = "comment.created"
-	// KindRequest: a comment asking an agent to act (/kelos).
+	// KindRequest: a comment asking an agent to act, /gordon or, until
+	// 2026-10-21, /kelos (details: "command", and "agent" when it names
+	// one).
 	KindRequest EventKind = "request.created"
 	// KindRunAnnounced: a run's start announcement, posted by the service
-	// account or by the agent's own account (details: "taskName", "pod").
+	// account, the agent's own account, or on GitHub the Workspace's
+	// account (details: "taskName", "pod").
 	KindRunAnnounced EventKind = "run.announced"
 
 	KindPROpened EventKind = "pr.opened"

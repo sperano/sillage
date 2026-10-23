@@ -1,0 +1,13 @@
+[
+  {
+    "id": 9105,
+    "comment": "<p>THE AGENT IS ON THE FOLLOW-UP REQUEST: KELOS TASK <code>vikunja-fu-demo-4220-c9104</code>, POD <code>vikunja-fu-demo-4220-c9104-t5r6y</code>.</p><p>OPEN THE <a href=\"https://kelos.example.com\">KELOS CONSOLE</a>. SIGN IN, SELECT NAMESPACE <code>agents</code>, AND FIND TASK <code>vikunja-fu-demo-4220-c9104</code> IN RESOURCES.</p>",
+    "author": {
+      "id": 23,
+      "username": "kelos",
+      "name": "Kelos"
+    },
+    "created": "2026-03-10T11:15:25-05:00",
+    "updated": "2026-03-10T11:15:25-05:00"
+  }
+]

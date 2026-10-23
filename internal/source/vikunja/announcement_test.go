@@ -3,6 +3,9 @@ package vikunja
 import (
 	"errors"
 	"testing"
+
+	"github.com/sperano/sillage/internal/source/htmltext"
+	"github.com/sperano/sillage/internal/source/kelostext"
 )
 
 func TestParseAnnouncement(t *testing.T) {
@@ -13,6 +16,41 @@ func TestParseAnnouncement(t *testing.T) {
 	}{
 		{
 			name: "implementation",
+			body: `<p>AGENT <code>agent-opus</code> (MODEL <code>example-model-2[1m]</code>) IS ON THE CASE. THIS ONE HAS ` +
+				`THE STUFF. KELOS TASK <code>vikunja-demo-agent-opus-4220</code>, POD <code>vikunja-demo-agent-opus-4220-q8w4e</code>.</p>` +
+				`<p>WANT TO WATCH? OPEN THE <a href="https://kelos.example.com">KELOS CONSOLE</a>. SIGN IN, SELECT NAMESPACE ` +
+				`<code>agents</code>, AND FIND TASK <code>vikunja-demo-agent-opus-4220</code> IN RESOURCES.</p>` +
+				`<p>COFFEE TIME! REPORT TO FOLLOW.</p>`,
+			want: Announcement{
+				Role: RoleImplementation, Agent: "agent-opus", Model: "example-model-2[1m]",
+				Namespace: "agents", TaskName: "vikunja-demo-agent-opus-4220",
+				Pod: "vikunja-demo-agent-opus-4220-q8w4e",
+			},
+		},
+		{
+			name: "follow-up",
+			body: `<p>AGENT <code>agent-sol</code> (MODEL <code>example-model-3</code>) IS ON YOUR FOLLOW-UP REQUEST. ` +
+				`HEARD YOU LOUD AND CLEAR. KELOS TASK <code>vikunja-fu-demo-4220-c9102</code>, POD ` +
+				`<code>vikunja-fu-demo-4220-c9102-mn3bv</code>.</p><p>COFFEE TIME! CATCH YOU LATER.</p>`,
+			want: Announcement{
+				Role: RoleTaskFollowUp, Agent: "agent-sol", Model: "example-model-3",
+				TaskName: "vikunja-fu-demo-4220-c9102", Pod: "vikunja-fu-demo-4220-c9102-mn3bv",
+			},
+		},
+		{
+			name: "colon, follow-up",
+			body: `<p>THE AGENT IS ON THE FOLLOW-UP REQUEST: KELOS TASK <code>vikunja-fu-demo-4220-c9104</code>.</p>` +
+				`<p>OPEN THE <a href="https://kelos.example.com">KELOS CONSOLE</a>. SIGN IN, SELECT NAMESPACE ` +
+				`<code>agents</code>, AND FIND TASK <code>vikunja-fu-demo-4220-c9104</code> IN RESOURCES.</p>`,
+			want: Announcement{Role: RoleTaskFollowUp, Namespace: "agents", TaskName: "vikunja-fu-demo-4220-c9104"},
+		},
+		{
+			name: "colon, implementation",
+			body: `<p>AGENT <code>agent-opus</code> IS ON THE CASE: KELOS TASK <code>vikunja-demo-4221</code>.</p>`,
+			want: Announcement{Role: RoleImplementation, Agent: "agent-opus", TaskName: "vikunja-demo-4221"},
+		},
+		{
+			name: "lowercase implementation",
 			body: `<p>Agent <code>agent-opus</code> (model <code>example-model-2[1m]</code>) has started ` +
 				`working on this task: Kelos Task <a href="https://kelos.example.com/x"><code>vikunja-demo-agent-opus-4201</code></a>, ` +
 				`pod <code>vikunja-demo-agent-opus-4201-x7k2p</code>.</p><p>The link shows its latest log lines once you are ` +
@@ -24,7 +62,7 @@ func TestParseAnnouncement(t *testing.T) {
 			},
 		},
 		{
-			name: "follow-up",
+			name: "lowercase follow-up",
 			body: `<p>Agent <code>agent-sol</code> (model <code>example-model-3</code>) has started on the follow-up ` +
 				`request: Kelos Task <a href="https://kelos.example.com/y"><code>vikunja-fu-demo-4201-c9003</code></a>, ` +
 				`pod <code>vikunja-fu-demo-4201-c9003-ab12c</code>.</p><p>(namespace <code>agents</code>)</p>`,
@@ -42,8 +80,8 @@ func TestParseAnnouncement(t *testing.T) {
 		},
 		{
 			name: "line breaks inside the paragraph",
-			body: "<p>Agent <code>agent-opus</code>\nhas started working on this task:\nKelos Task " +
-				"<code>vikunja-demo-4203</code>, pod <code>vikunja-demo-4203-zz9yy</code>.</p>",
+			body: "<p>AGENT <code>agent-opus</code>\nIS ON THE CASE.\nTHIS ONE HAS THE STUFF. KELOS TASK " +
+				"<code>vikunja-demo-4203</code>, POD <code>vikunja-demo-4203-zz9yy</code>.</p>",
 			want: Announcement{
 				Role: RoleImplementation, Agent: "agent-opus",
 				TaskName: "vikunja-demo-4203", Pod: "vikunja-demo-4203-zz9yy",
@@ -52,7 +90,7 @@ func TestParseAnnouncement(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseAnnouncement(tt.body)
+			got, err := parseAnnouncement(htmltext.Plain(tt.body))
 			if err != nil {
 				t.Fatalf("parseAnnouncement: %v", err)
 			}
@@ -69,17 +107,23 @@ func TestParseAnnouncementRejects(t *testing.T) {
 		body string
 		want error
 	}{
-		{"plain comment", `<p>Merged: <a href="https://github.example.com/acme/demo/pull/12">#12</a></p>`, errNotAnnouncement},
-		{"empty", "", errNotAnnouncement},
-		{"no Kelos Task", "<p>Agent <code>agent-opus</code> has started working on this task.</p>", errUnparsedAnnouncement},
-		{"phrase not in the first paragraph", "<p>Hello.</p><p>The agent has started working on this task: " +
-			"Kelos Task <code>vikunja-demo-4204</code>.</p>", errUnparsedAnnouncement},
+		{"plain comment", `<p>Merged: <a href="https://github.example.com/acme/demo/pull/12">#12</a></p>`,
+			kelostext.ErrNotAnnouncement},
+		{"empty", "", kelostext.ErrNotAnnouncement},
+		{"a wiki phrase", "<p>AGENT <code>agent-opus</code> IS ON THIS FOLLOW-UP REQUEST: KELOS TASK " +
+			"<code>wiki-fu-widgets-57-c1</code>.</p>", kelostext.ErrNotAnnouncement},
+		{"no Kelos Task", "<p>AGENT <code>agent-opus</code> IS ON THE CASE. THIS ONE HAS THE STUFF.</p>",
+			kelostext.ErrUnparsedAnnouncement},
+		{"lowercase, no Kelos Task", "<p>Agent <code>agent-opus</code> has started working on this task.</p>",
+			kelostext.ErrUnparsedAnnouncement},
+		{"phrase not in the first paragraph", "<p>Hello.</p><p>THE AGENT IS ON THE CASE. THIS ONE HAS THE STUFF. " +
+			"KELOS TASK <code>vikunja-demo-4204</code>.</p>", kelostext.ErrUnparsedAnnouncement},
 		{"invalid Task name", "<p>The agent has started working on this task: Kelos Task <code>Not_A_Name</code>.</p>",
-			errUnparsedAnnouncement},
+			kelostext.ErrUnparsedAnnouncement},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseAnnouncement(tt.body)
+			got, err := parseAnnouncement(htmltext.Plain(tt.body))
 			if !errors.Is(err, tt.want) {
 				t.Errorf("parseAnnouncement = %+v, %v; want error %v", got, err, tt.want)
 			}

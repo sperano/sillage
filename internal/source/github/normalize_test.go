@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -38,6 +39,8 @@ func storyRecords(t *testing.T, story string) model.Records {
 		snaps = []Snapshot{fetchPR(t, story, 31)}
 	case "checks-two-shas":
 		snaps = []Snapshot{fetchPR(t, story, 41)}
+	case "follow-up-announced":
+		snaps = []Snapshot{fetchPR(t, story, 51)}
 	default:
 		t.Fatalf("story %s: add how to read it", story)
 	}
@@ -227,19 +230,48 @@ func TestChecksTwoSHAsStory(t *testing.T) {
 	}
 }
 
-func TestIsRequest(t *testing.T) {
-	for body, want := range map[string]bool{
-		"/kelos rebase":        true,
-		"\n  /kelos\tplease":   true,
-		"/kelos":               true,
-		"/kelos @agent-a fix":  true,
-		"/kelosx":              false,
-		"please /kelos rebase": false,
-		"":                     false,
-	} {
-		if got := isRequest(body); got != want {
-			t.Errorf("isRequest(%q) = %v, want %v", body, got, want)
+// Start announcements in every form, posted by the owner's account or the
+// App's bot, name their runs; /gordon and /kelos requests are requests.
+func TestNormalizeFollowUpAnnounced(t *testing.T) {
+	recs := storyRecords(t, "follow-up-announced")
+	tests := []struct {
+		id       string
+		kind     model.EventKind
+		details  map[string]string
+		executor string
+	}{
+		{"issues/comments/5301", model.KindRequest, map[string]string{"command": "/gordon", "agent": "agent-sol"}, ""},
+		{"pulls/comments/6501", model.KindRequest, map[string]string{"command": "/gordon"}, ""},
+		{"issues/comments/5302", model.KindRunAnnounced, map[string]string{
+			"taskName": "pr-followup-widgets-51-c5301", "pod": "pr-followup-widgets-51-c5301-x2c4v",
+			"model": "example-model-3", "role": "pr-follow-up",
+		}, "agent-sol"},
+		{"issues/comments/5303", model.KindRunAnnounced, map[string]string{
+			"taskName": testConflictTask, "pod": testConflictTask + "-k9l8m",
+			"model": "example-model-2[1m]", "role": "conflict-fix",
+		}, "agent-opus"},
+		{"issues/comments/5304", model.KindRequest, map[string]string{"command": "/kelos"}, ""},
+		{"issues/comments/5305", model.KindRunAnnounced, map[string]string{
+			"taskName": "pr-followup-widgets-51-c5304", "pod": "pr-followup-widgets-51-c5304-fghij",
+			"namespace": "agents", "model": "example-model-2[1m]", "role": "pr-follow-up",
+		}, "agent-opus"},
+		{"issues/comments/5306", model.KindRunAnnounced, map[string]string{
+			"taskName": "pr-followup-widgets-51-r3501", "pod": "pr-followup-widgets-51-r3501-abcde",
+			"namespace": "agents", "role": "pr-follow-up",
+		}, ""},
+		{"issues/comments/5307", model.KindComment, nil, ""},
+	}
+	for _, tt := range tests {
+		e := eventByID(t, recs, tt.id)
+		if e.Kind != tt.kind || !maps.Equal(e.Details, tt.details) {
+			t.Errorf("%s: %s %v, want %s %v", tt.id, e.Kind, e.Details, tt.kind, tt.details)
 		}
+		if got := e.Executor; (got == nil) != (tt.executor == "") || (got != nil && got.Name != tt.executor) {
+			t.Errorf("%s: executor %+v, want %q", tt.id, got, tt.executor)
+		}
+	}
+	if note := eventByID(t, recs, "issues/comments/5307").Evidence.Note; !strings.Contains(note, "names no Kelos Task of this pull request") {
+		t.Errorf("announcement of another pull request: note %q", note)
 	}
 }
 

@@ -1,74 +1,58 @@
 package vikunja
 
 import (
-	"errors"
-	"regexp"
-	"strings"
+	"maps"
+	"slices"
 
-	"github.com/sperano/sillage/internal/source/htmltext"
+	"github.com/sperano/sillage/internal/source/kelostext"
 )
 
-// The start announcement Kelos posts on a Vikunja task is HTML of the form
+// The start announcement Kelos posts on a Vikunja task, as the service
+// account, is HTML. Its first paragraph is the lead sentence kelostext
+// parses; a later one names the namespace. Since 2026-10-22 it reads
 //
-//	<p>Agent <code>AGENT</code> (model <code>MODEL</code>) has started working
-//	on this task: Kelos Task <a href="..."><code>NAME</code></a>, pod
-//	<code>POD</code>.</p><p>... (namespace <code>NAMESPACE</code>).</p>
+//	<p>AGENT <code>AGENT</code> (MODEL <code>MODEL</code>) IS ON THE CASE.
+//	THIS ONE HAS THE STUFF. KELOS TASK <code>NAME</code>, POD
+//	<code>POD</code>.</p><p>... SELECT NAMESPACE <code>NAMESPACE</code>
+//	...</p>...<p>COFFEE TIME! REPORT TO FOLLOW.</p>
 //
-// "Agent <code>AGENT</code>" reads "The agent" when the variant is unknown,
-// and the model and pod parts are left out when unknown. A follow-up run
-// says "has started on the follow-up request" instead.
+// and before, from 2026-10-05,
+//
+//	<p>Agent <code>AGENT</code> (model <code>MODEL</code>) has started
+//	working on this task: Kelos Task <a href="..."><code>NAME</code></a>,
+//	pod <code>POD</code>.</p><p>... (namespace <code>NAMESPACE</code>).</p>
+//
+// A follow-up run's phrase is the follow-up one of the same form.
 
-const (
-	// phraseImplementation and phraseFollowUp are the announcement verbs.
-	phraseImplementation = "has started working on this task"
-	phraseFollowUp       = "has started on the follow-up request"
-	// k8sName matches a Kubernetes object name (DNS subdomain).
-	k8sName = `[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?`
-	// k8sLabel matches a namespace name (DNS label).
-	k8sLabel = `[a-z0-9](?:[a-z0-9-]*[a-z0-9])?`
-)
-
-var (
-	// errNotAnnouncement reports a comment with neither start phrase.
-	errNotAnnouncement = errors.New("not a start announcement")
-	// errUnparsedAnnouncement reports a comment with a start phrase whose
-	// first paragraph does not have the expected form.
-	errUnparsedAnnouncement = errors.New("start announcement not in the expected form")
-
-	leadSentence = regexp.MustCompile(`^(?:Agent (\S+)|The agent)(?: \(model (\S+)\))? (` +
-		regexp.QuoteMeta(phraseImplementation) + `|` + regexp.QuoteMeta(phraseFollowUp) +
-		`): Kelos Task (` + k8sName + `)(?:, pod (` + k8sName + `))?\.$`)
-	namespaceNote = regexp.MustCompile(`\(namespace (` + k8sLabel + `)\)`)
-)
-
-// rolesByPhrase maps each start phrase to the run role it announces.
+// rolesByPhrase maps each start phrase posted on Vikunja to the run role
+// it announces.
 var rolesByPhrase = map[string]Role{
-	phraseImplementation: RoleImplementation,
-	phraseFollowUp:       RoleTaskFollowUp,
+	kelostext.PhraseTaskStartedLowercase: RoleImplementation,
+	kelostext.PhraseTaskStartedColon:     RoleImplementation,
+	kelostext.PhraseTaskStarted:          RoleImplementation,
+	kelostext.PhraseFollowUpLowercase:    RoleTaskFollowUp,
+	kelostext.PhraseFollowUpColon:        RoleTaskFollowUp,
+	kelostext.PhraseFollowUp:             RoleTaskFollowUp,
 }
 
-// parseAnnouncement parses a comment body. It returns errNotAnnouncement
-// when the body has no start phrase and errUnparsedAnnouncement when it has
-// one but the rest does not match.
-func parseAnnouncement(body string) (Announcement, error) {
-	text := htmltext.Plain(body)
-	if !strings.Contains(text, phraseImplementation) && !strings.Contains(text, phraseFollowUp) {
-		return Announcement{}, errNotAnnouncement
+// grammar parses the announcements of rolesByPhrase.
+var grammar = kelostext.NewGrammar(slices.Collect(maps.Keys(rolesByPhrase))...)
+
+// parseAnnouncement parses a comment's plain text. It returns
+// kelostext.ErrNotAnnouncement when the text has no start phrase and
+// kelostext.ErrUnparsedAnnouncement when it has one but the rest does not
+// match.
+func parseAnnouncement(text string) (Announcement, error) {
+	s, err := grammar.Parse(text)
+	if err != nil {
+		return Announcement{}, err
 	}
-	first, _, _ := strings.Cut(strings.TrimSpace(text), "\n")
-	m := leadSentence.FindStringSubmatch(strings.TrimSpace(first))
-	if m == nil {
-		return Announcement{}, errUnparsedAnnouncement
-	}
-	a := Announcement{
-		Role:     rolesByPhrase[m[3]],
-		Agent:    m[1],
-		Model:    m[2],
-		TaskName: m[4],
-		Pod:      m[5],
-	}
-	if ns := namespaceNote.FindStringSubmatch(text); ns != nil {
-		a.Namespace = ns[1]
-	}
-	return a, nil
+	return Announcement{
+		Role:      rolesByPhrase[s.Phrase],
+		Agent:     s.Agent,
+		Model:     s.Model,
+		Namespace: s.Namespace,
+		TaskName:  s.TaskName,
+		Pod:       s.Pod,
+	}, nil
 }

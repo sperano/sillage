@@ -1,6 +1,10 @@
 package vikunja
 
-import "time"
+import (
+	"time"
+
+	"github.com/sperano/sillage/internal/source/kelostext"
+)
 
 // Event is one normalized record read from Vikunja. It carries the fields
 // the source-independent model needs (source instance and id, kind, source
@@ -25,8 +29,10 @@ type Event struct {
 	Actor *User
 	// Title is the task title, on KindTaskCreated only.
 	Title string
-	// CommentID is set on KindComment and KindRunAnnounced.
+	// CommentID is set on KindComment, KindRequest and KindRunAnnounced.
 	CommentID int64
+	// Request is set on KindRequest.
+	Request *kelostext.Request
 	// Run is set on KindRunAnnounced.
 	Run *Announcement
 	// State is set on KindStateObserved.
@@ -44,6 +50,9 @@ const (
 	KindTaskCreated Kind = "vikunja.task.created"
 	// KindComment is a comment, with its author and time.
 	KindComment Kind = "vikunja.comment"
+	// KindRequest is a comment asking an agent to act: one that starts
+	// with one of kelostext.Commands, whoever wrote it.
+	KindRequest Kind = "vikunja.request"
 	// KindRunAnnounced is the service account's comment announcing that a
 	// Kelos Task started on the task.
 	KindRunAnnounced Kind = "vikunja.run.announced"

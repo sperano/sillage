@@ -1,0 +1,24 @@
+[
+  {
+    "id": 9103,
+    "comment": "<p>AGENT <code>agent-sol</code> (MODEL <code>example-model-3</code>) IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR. KELOS TASK <code>vikunja-fu-demo-4220-c9102</code>, POD <code>vikunja-fu-demo-4220-c9102-mn3bv</code>.</p><p>WANT TO WATCH? OPEN THE <a href=\"https://kelos.example.com\">KELOS CONSOLE</a>. SIGN IN, SELECT NAMESPACE <code>agents</code>, AND FIND TASK <code>vikunja-fu-demo-4220-c9102</code> IN RESOURCES.</p><p>FOLLOW-UPS, LABELS AND AGENT USERS: THE <a href=\"https://vikunja.example.com/tasks/4000\">KELOS CHEATSHEET</a>.</p><p>COFFEE TIME! REPORT TO FOLLOW.</p>",
+    "author": {
+      "id": 23,
+      "username": "kelos",
+      "name": "Kelos"
+    },
+    "created": "2026-03-10T10:30:20-05:00",
+    "updated": "2026-03-10T10:30:20-05:00"
+  },
+  {
+    "id": 9104,
+    "comment": "<p>/kelos add a regression test</p>",
+    "author": {
+      "id": 7,
+      "username": "owner",
+      "name": "Robin Owner"
+    },
+    "created": "2026-03-10T11:15:00-05:00",
+    "updated": "2026-03-10T11:15:00-05:00"
+  }
+]
