@@ -26,10 +26,15 @@ function thread(r: Related): string | undefined {
 	return r.task && `task:${taskKeyString(r.task)}`;
 }
 
-/** The review requests of one pull request that nothing has answered or withdrawn. */
+/**
+ * The review requests of one open pull request that nothing has answered
+ * or withdrawn. GitHub keeps a request across a close and a reopen: a
+ * closed pull request has none pending until it is reopened.
+ */
 function pendingReviews(story: Story, pr: PRKey): NextAction[] {
 	const key = prKeyString(pr);
 	const pending = new Map<string, Extract<NextAction, { kind: 'review' }>>();
+	let closed = false;
 	for (const e of story.events) {
 		if (e.source !== 'github' || !e.related.pr || prKeyString(e.related.pr) !== key) {
 			continue;
@@ -57,15 +62,57 @@ function pendingReviews(story: Story, pr: PRKey): NextAction[] {
 				}
 				break;
 			case 'pr.merged':
-			case 'pr.closed':
 				pending.clear();
+				break;
+			case 'pr.closed':
+				closed = true;
+				break;
+			case 'pr.reopened':
+				closed = false;
 				break;
 		}
 	}
-	return [...pending.values()];
+	return closed ? [] : [...pending.values()];
 }
 
-/** Whether a run is linked to the request, or announced after it on the same record. */
+/**
+ * The Kelos Task names of the follow-up spawners that end in the id of the
+ * comment or review they answer, as internal/collector's names.go reads
+ * them: vikunja-fu-…-c<id>, wiki-fu-…-c<id>, pr-followup-…-<c|l|r|p><id>,
+ * each with an optional retry suffix.
+ */
+const answeringName =
+	/^(?:vikunja-fu|wiki-fu|pr-followup)-.*-[clrp]([1-9][0-9]*)(?:-retry[1-9][0-9]*)?$/;
+
+/** The id of the record an announcement's Task name says it answers, if it names one. */
+function answeredID(announcement: Event): string | undefined {
+	return answeringName.exec(announcement.details?.taskName ?? '')?.[1];
+}
+
+/** The request's own id: the number its event id ends in ("issues/comments/5" → "5"). */
+function requestID(request: Event): string | undefined {
+	return /\/([0-9]+)$/.exec(request.id)?.[1];
+}
+
+/**
+ * Whether the announcement can be the answer to the request: posted on the
+ * same record at or after it, and naming it, or naming no request at all,
+ * which leaves it unknown which earlier request it answers. One naming
+ * another request is not this one's answer.
+ */
+function mayAnswer(announcement: Event, request: Event): boolean {
+	const where = thread(request.related);
+	if (where === undefined || thread(announcement.related) !== where) {
+		return false;
+	}
+	if (eventTime(announcement) < eventTime(request)) {
+		return false;
+	}
+	const named = answeredID(announcement);
+	return named === undefined || named === requestID(request);
+}
+
+/** Whether a run is linked to the request, or an announcement may be its answer. */
 function answered(story: Story, request: Event): boolean {
 	const key = eventKey(request);
 	const linked = story.correlations.some(
@@ -76,14 +123,7 @@ function answered(story: Story, request: Event): boolean {
 	if (linked) {
 		return true;
 	}
-	const where = thread(request.related);
-	return story.events.some(
-		(e) =>
-			e.kind === 'run.announced' &&
-			where !== undefined &&
-			thread(e.related) === where &&
-			eventTime(e) >= eventTime(request)
-	);
+	return story.events.some((e) => e.kind === 'run.announced' && mayAnswer(e, request));
 }
 
 export function nextActions(story: Story): NextAction[] {

@@ -48,3 +48,18 @@ test('a request with no announcement is waiting for an agent', async () => {
 			'Waiting for an agent: /kelos by owner 2026-03-04 15:00:00 UTC, no start announced'
 		);
 });
+
+test('a request seen by polling is not given the poll as its time', async () => {
+	const story = goldenStory('wiki-rooted-request');
+	story.events = story.events.filter((e) => e.kind !== 'run.announced');
+	story.correlations = story.correlations.filter(
+		(c) => c.to.id !== 'wiki/wiki.example.com/comments/880'
+	);
+	const request = story.events.find((e) => e.kind === 'request.created');
+	if (!request) throw new Error('no request');
+	delete request.sourceTime;
+	render(NextAction, { story, timeZone: 'UTC' });
+	await expect
+		.element(region())
+		.toHaveTextContent(/by owner \(seen 2026-03-04 \d\d:\d\d:\d\d UTC, no source time\)/);
+});

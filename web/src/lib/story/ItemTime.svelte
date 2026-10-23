@@ -1,6 +1,7 @@
 <script lang="ts">
+	import type { Interval } from '../model';
 	import type { TimelineItem } from '../timeline';
-	import { knownTime, parseTime } from '../time';
+	import { parseTime } from '../time';
 	import Time from './Time.svelte';
 
 	// When an item happened, as the event list shows it: an event's source
@@ -10,11 +11,13 @@
 	let { item, timeZone }: { item: TimelineItem; timeZone: string } = $props();
 </script>
 
-{#snippet bounds(start: string | undefined, end: string | undefined)}
-	{#if start}
-		started <Time at={start} {timeZone} />
-	{:else if end}
-		start unknown · ended <Time at={end} {timeZone} />
+{#snippet bounds({ start, end }: Interval)}
+	{#if start.state === 'known'}
+		started <Time at={start.at} {timeZone} />
+	{:else if end.state === 'known'}
+		start unknown · ended <Time at={end.at} {timeZone} />
+	{:else if end.state === 'open'}
+		start unknown · not ended at the last read
 	{:else}
 		start and end unknown
 	{/if}
@@ -31,7 +34,7 @@
 		seen <Time at={e.observedAt} {timeZone} /> (no source time)
 	{/if}
 {:else if item.kind === 'run'}
-	{@render bounds(knownTime(item.run.interval.start), knownTime(item.run.interval.end))}
+	{@render bounds(item.run.interval)}
 {:else}
-	{@render bounds(knownTime(item.check.interval.start), knownTime(item.check.interval.end))}
+	{@render bounds(item.check.interval)}
 {/if}

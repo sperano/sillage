@@ -66,7 +66,10 @@ describe('wiki-rooted-request', () => {
 		expect(pageURL(pathless, { instance: 'wiki.example.com', id: 57, locale: 'en' })).toBe(
 			'https://wiki.example.com/i/57'
 		);
-		expect(linkOf(pathless, 'pages/57/versions/121')?.href).toBe('https://wiki.example.com/i/57');
+		expect(linkOf(pathless, 'pages/57/versions/121')).toEqual({
+			href: 'https://wiki.example.com/i/57',
+			label: 'wiki page as it is now (version 121 has no link)'
+		});
 	});
 });
 
@@ -117,6 +120,21 @@ describe('Kelos console', () => {
 			'https://ops.example.com/kelos/api/resources/tasks/agents/vikunja-widgets-agent-opus-104/logs'
 		);
 		expect(runLink(run, { kelosConsoles: { 'cluster-a': 'not a url' } })).toBeUndefined();
+	});
+
+	test.each(['javascript:alert(1)//', 'data:text/html,x', 'ftp://kelos.example.com'])(
+		'a console at %s links nothing',
+		(base) => {
+			expect(runLink(run, { kelosConsoles: { 'cluster-a': base } })).toBeUndefined();
+		}
+	);
+
+	test('a console over http keeps its scheme and port', () => {
+		expect(
+			runLink(run, { kelosConsoles: { 'cluster-a': 'http://kelos.example.com:8080' } })?.href
+		).toBe(
+			'http://kelos.example.com:8080/api/resources/tasks/agents/vikunja-widgets-agent-opus-104/logs'
+		);
 	});
 
 	test('links nothing without a configured console', () => {

@@ -76,6 +76,16 @@ describe('review requests', () => {
 		expect(nextActions(openPR(requested, after))).toEqual([]);
 	});
 
+	test('a request survives a close and a reopen', () => {
+		const requested = github('pr.review_requested', 1, 'owner-gh', { reviewer: 'reviewer-a' });
+		const actions = nextActions(
+			openPR(requested, github('pr.closed', 2, 'owner-gh'), github('pr.reopened', 3, 'owner-gh'))
+		);
+		expect(actions).toEqual([
+			{ kind: 'review', reviewer: 'reviewer-a', team: false, pr: PR, requested }
+		]);
+	});
+
 	test("someone else's review leaves a user's request pending", () => {
 		const actions = nextActions(
 			openPR(
@@ -125,6 +135,42 @@ describe('agent requests', () => {
 		const s = goldenStory('failed-run-retry');
 		s.events.push(request('2026-03-05T14:00:00Z'));
 		expect(nextActions(s)).toEqual([]);
+	});
+
+	test('an announcement after it on another task leaves it waiting', () => {
+		const s = goldenStory('failed-run-retry');
+		const r = request('2026-03-05T14:00:00Z');
+		s.events.push(r);
+		for (const e of s.events.filter((x) => x.kind === 'run.announced')) {
+			e.related = { task: { instance: 'vikunja.example.com', id: 105 } };
+		}
+		expect(nextActions(s)).toEqual([{ kind: 'agent', request: r }]);
+	});
+
+	/** The story with only its last announcement, posted by the follow-up Task named name. */
+	function announcedAs(name: string): Story {
+		const s = goldenStory('failed-run-retry');
+		const last = s.events.filter((e) => e.kind === 'run.announced').at(-1);
+		if (!last) throw new Error('no announcement');
+		s.events = s.events.filter((e) => e.kind !== 'run.announced' || e === last);
+		last.details = { ...last.details, taskName: name };
+		return s;
+	}
+
+	test.each(['vikunja-fu-widgets-104-c5499', 'vikunja-fu-widgets-104-c5499-retry1'])(
+		'an announcement whose Task name %s names the request answers it',
+		(name) => {
+			const s = announcedAs(name);
+			s.events.push(request('2026-03-05T14:00:00Z'));
+			expect(nextActions(s)).toEqual([]);
+		}
+	);
+
+	test('an announcement whose Task name names another request leaves it waiting', () => {
+		const s = announcedAs('vikunja-fu-widgets-104-c5500');
+		const r = request('2026-03-05T14:00:00Z');
+		s.events.push(r);
+		expect(nextActions(s)).toEqual([{ kind: 'agent', request: r }]);
 	});
 
 	test('a request a correlation links to a run is answered', () => {

@@ -143,7 +143,7 @@ describe('graph', () => {
 		await page.getByRole('button', { name: /Task created/ }).click();
 		await expect
 			.element(page.getByTestId('graph-selected'))
-			.toHaveTextContent('vikunja/vikunja.example.com/tasks/104');
+			.toHaveTextContent('event:vikunja/vikunja.example.com/tasks/104');
 	});
 });
 

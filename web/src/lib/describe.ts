@@ -1,5 +1,6 @@
 import type {
 	Account,
+	CheckConclusion,
 	CheckRun,
 	Event,
 	EventKind,
@@ -82,6 +83,22 @@ export function outcomeLabel(outcome: Outcome): string {
 	return named(outcomeLabels, outcome);
 }
 
+const conclusionLabels: Record<CheckConclusion, string> = {
+	pending: 'pending',
+	success: 'succeeded',
+	failure: 'failed',
+	cancelled: 'cancelled',
+	timed_out: 'timed out',
+	neutral: 'neutral',
+	skipped: 'skipped',
+	action_required: 'action required',
+	stale: 'stale'
+};
+
+export function conclusionLabel(conclusion: CheckConclusion): string {
+	return named(conclusionLabels, conclusion);
+}
+
 export function runName(run: Run): string {
 	return run.taskName ?? run.pod ?? runKeyString(run.key);
 }
@@ -91,7 +108,7 @@ export function runLabel(run: Run): string {
 }
 
 export function checkLabel(pr: PullRequest, c: CheckRun): string {
-	return `Check ${c.name} on ${c.sha.slice(0, SHORT_SHA)} (${pr.key.repository}#${pr.key.number}): ${c.conclusion}`;
+	return `Check ${c.name} on ${c.sha.slice(0, SHORT_SHA)} (${pr.key.repository}#${pr.key.number}): ${conclusionLabel(c.conclusion)}`;
 }
 
 export function itemLabel(item: TimelineItem): string {

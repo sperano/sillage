@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Story } from '../model';
+	import type { Event, Story } from '../model';
 	import { nextActions } from '../nextAction';
 	import Time from './Time.svelte';
 
@@ -7,6 +7,14 @@
 
 	const actions = $derived(nextActions(story));
 </script>
+
+{#snippet when(e: Event)}
+	{#if e.sourceTime}
+		<Time at={e.sourceTime} {timeZone} />
+	{:else}
+		(seen <Time at={e.observedAt} {timeZone} />, no source time)
+	{/if}
+{/snippet}
 
 <section class="next-action" aria-labelledby="next-action-heading">
 	<h2 id="next-action-heading">Next action</h2>
@@ -18,13 +26,11 @@
 				<li>
 					{#if a.kind === 'review'}
 						Review by {a.reviewer}{a.team ? ' (team)' : ''} on {a.pr.repository}#{a.pr.number},
-						requested
-						<Time at={a.requested.sourceTime ?? a.requested.observedAt} {timeZone} />
+						requested {@render when(a.requested)}
 					{:else}
 						Waiting for an agent: {a.request.details?.command ?? 'request'} by
 						{a.request.actor.login ?? 'an unknown account'}
-						<Time at={a.request.sourceTime ?? a.request.observedAt} {timeZone} />, no start
-						announced
+						{@render when(a.request)}, no start announced
 					{/if}
 				</li>
 			{/each}

@@ -9,7 +9,9 @@
 </script>
 
 <div data-testid="graph" style="height: 200px">
-	<output data-testid="graph-selected">{selection.current?.id ?? ''}</output>
+	<output data-testid="graph-selected"
+		>{selection.current ? `${selection.current.kind}:${selection.current.id}` : ''}</output
+	>
 	{#each refs as r (`${r.kind}:${r.id}`)}
 		<button type="button" onclick={() => selection.select(r)}>graph {r.id}</button>
 	{/each}

@@ -27,6 +27,15 @@
 	} = $props();
 
 	const consoleLink = $derived(runLink(run, links));
+	/** The reported usage's values, with a separator only between them. */
+	const usage = $derived.by(() => {
+		const u = run.usage;
+		const parts: string[] = [];
+		if (u?.costUSD) parts.push(`US$${u.costUSD}`);
+		if (u?.inputTokens !== undefined) parts.push(`${u.inputTokens} input tokens`);
+		if (u?.outputTokens !== undefined) parts.push(`${u.outputTokens} output tokens`);
+		return parts.join(' · ');
+	});
 	const fields = $derived(
 		(
 			[
@@ -66,13 +75,9 @@
 		{#if run.created}<Time at={run.created} {timeZone} />{:else}unknown{/if}
 	</dd>
 	<Bounds interval={run.interval} {timeZone} />
-	{#if run.usage}
+	{#if usage}
 		<dt>Reported usage</dt>
-		<dd>
-			{#if run.usage.costUSD}US${run.usage.costUSD}{/if}
-			{#if run.usage.inputTokens !== undefined}· {run.usage.inputTokens} input tokens{/if}
-			{#if run.usage.outputTokens !== undefined}· {run.usage.outputTokens} output tokens{/if}
-		</dd>
+		<dd data-testid="usage">{usage}</dd>
 	{/if}
 	<dt>Kelos console</dt>
 	<dd>

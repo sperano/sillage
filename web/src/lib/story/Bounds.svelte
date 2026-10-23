@@ -41,6 +41,6 @@
 	{#if duration !== undefined}
 		{formatDuration(duration)}
 	{:else}
-		none: {missing}
+		none: {missing || 'a recorded time could not be read'}
 	{/if}
 </dd>

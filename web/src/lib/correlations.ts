@@ -7,13 +7,15 @@ export interface Link {
 	/** The end that is not the record looked at. */
 	other: Ref;
 	/**
-	 * For an ambiguous correlation, the set of alternatives it is one of,
-	 * two or more records, none chosen: the records of one kind one record
-	 * is ambiguously linked to, from it (an edit two runs could have made)
-	 * or, on the same evidence, to it (two runs an announcement could be
-	 * from, each linked to the task). Empty when no other candidate is
-	 * linked ambiguously: stronger evidence (a Task label) can have made a
-	 * sibling's link certain. A list, so that a later rule can yield
+	 * For an ambiguous correlation, the alternatives it is one of, two or
+	 * more refs, none chosen. Outgoing alternatives first: the `to` ends of
+	 * the ambiguous correlations leaving its `from`, of its `to`'s kind (the
+	 * runs an edit could be from). Else incoming alternatives: the `from`
+	 * ends of the ambiguous correlations entering its `to`, of its `from`'s
+	 * kind, on identical evidence (the runs an announcement naming no pod
+	 * could be from, each joined to the task). Empty when no other
+	 * alternative is ambiguous: stronger evidence (a Task label) can have
+	 * made a sibling's link certain. A list, so that a later rule can yield
 	 * several sets.
 	 */
 	candidateSets: Ref[][];

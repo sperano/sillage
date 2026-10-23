@@ -70,7 +70,7 @@ test('each row links its source record; runs need a configured console', async (
 
 test('checks are rows, each linking its run', async () => {
 	show(goldenStory('implementation-merged'));
-	const failure = row(/Check test on aaaaaaa .*failure/);
+	const failure = row(/Check test on aaaaaaa .*failed/);
 	await expect.element(failure).toHaveTextContent('started 2026-03-03 18:24:10 UTC');
 	await expect
 		.element(failure.getByRole('link'))

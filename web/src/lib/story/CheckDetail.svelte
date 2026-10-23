@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { CheckRun, PullRequest } from '../model';
-	import { checkLabel } from '../describe';
+	import { checkLabel, conclusionLabel } from '../describe';
 	import { checkURL, prURL } from '../links';
 	import Bounds from './Bounds.svelte';
 	import SourceLinkView from './SourceLinkView.svelte';
@@ -28,7 +28,7 @@
 	<dt>Commit</dt>
 	<dd><code>{check.sha}</code></dd>
 	<dt>Conclusion</dt>
-	<dd>{check.conclusion}</dd>
+	<dd>{conclusionLabel(check.conclusion)}</dd>
 	<Bounds interval={check.interval} {timeZone} />
 	<dt>Source record</dt>
 	<dd>

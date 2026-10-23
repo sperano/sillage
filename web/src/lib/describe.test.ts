@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { goldenStory } from './testing/stories';
-import { eventLabel, refLabel, runLabel } from './describe';
-import type { Event, EventKind } from './model';
+import { conclusionLabel, eventLabel, refLabel, runLabel } from './describe';
+import type { CheckConclusion, Event, EventKind } from './model';
 
 const story = goldenStory('wiki-rooted-request');
 
@@ -48,4 +48,11 @@ test('a correlation end is named by the record it points to', () => {
 	expect(refLabel(story, { kind: 'run', id: 'cluster-b/agents/uid/x' })).toBe(
 		'run cluster-b/agents/uid/x'
 	);
+});
+
+test('check conclusions are named in words, an unknown one as it is', () => {
+	expect(conclusionLabel('timed_out')).toBe('timed out');
+	expect(conclusionLabel('action_required')).toBe('action required');
+	expect(conclusionLabel('success')).toBe('succeeded');
+	expect(conclusionLabel('later_value' as CheckConclusion)).toBe('later_value');
 });

@@ -2,8 +2,11 @@ import type { CheckRun, Event, PageKey, PRKey, PullRequest, Run, Story, TaskKey 
 import { pageKeyString, runKeyString } from './keys';
 
 // Links to the record a source holds. Vikunja, GitHub and Wiki.js
-// instances are web hosts; a Kelos instance is a cluster name, so its
-// console's URL comes from configuration.
+// instances are web hosts: the collector keeps a source's host alone,
+// without its scheme or port, so they are linked over https on the
+// default port, and a source served otherwise gets wrong links. A Kelos
+// instance is a cluster name, so its console's URL comes from
+// configuration.
 
 export interface LinkConfig {
 	/** The Kelos console's base URL per cluster name. */
@@ -24,10 +27,14 @@ function idAfter(id: string, prefix: string): string | undefined {
 	return /^[0-9]+$/.test(rest) ? rest : undefined;
 }
 
+/** The schemes a link may have: anything else, javascript: above all, is never one. */
+const LINK_PROTOCOLS: ReadonlySet<string> = new Set(['https:', 'http:']);
+
 /**
  * The URL under base of the path segments, each encoded (a segment's own
  * slashes, as in owner/name or a wiki path, separate segments), with an
- * optional query and fragment; undefined when base is not a URL.
+ * optional query and fragment; undefined when base is not an http or
+ * https URL.
  */
 function under(
 	base: string,
@@ -38,6 +45,9 @@ function under(
 	try {
 		url = new URL(base);
 	} catch {
+		return undefined;
+	}
+	if (!LINK_PROTOCOLS.has(url.protocol)) {
 		return undefined;
 	}
 	const parts = segments.flatMap((s) => String(s).split('/')).map(encodeURIComponent);
@@ -158,6 +168,11 @@ function wikiLink(story: Story, e: Event): SourceLink | undefined {
 			onHost(page.instance, ['s', page.locale, path], { query: { v: version } }),
 			`wiki page version ${version}`
 		);
+	}
+	if (version) {
+		// Wiki.js shows a version by path only: the redirect by id goes to the
+		// current page, which is not this version.
+		return link(pageURL(story, page), `wiki page as it is now (version ${version} has no link)`);
 	}
 	const live = e.kind === 'page.edited' && e.details?.version === 'live';
 	return link(pageURL(story, page), live ? 'wiki page, live version' : 'wiki page');

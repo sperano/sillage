@@ -20,7 +20,12 @@ test('a known executor is certain', () => {
 });
 
 test('another source with the same login is another account', () => {
-	expect(of('tasks/102')).toBeUndefined();
+	const s = structuredClone(story);
+	const created = s.events.find((x) => x.id === 'tasks/102');
+	if (!created) throw new Error('no event tasks/102');
+	created.actor = { login: 'owner-gh', kind: 'person' };
+	created.instance = 'github.example.com';
+	expect(attributionUncertain(s, created)).toBeUndefined();
 });
 
 test.each([...goldenStories].filter(([name]) => name !== 'implementation-merged'))(

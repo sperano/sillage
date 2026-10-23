@@ -95,11 +95,13 @@ export interface Event {
 	evidence: Evidence;
 }
 
-/** Only an end can be open. */
-export type Bound = { state: 'known'; at: string } | { state: 'unknown' | 'open'; at?: undefined };
+/** A start bound: only an end can be open. */
+export type StartBound = { state: 'known'; at: string } | { state: 'unknown'; at?: undefined };
+
+export type Bound = StartBound | { state: 'open'; at?: undefined };
 
 export interface Interval {
-	start: Bound;
+	start: StartBound;
 	end: Bound;
 }
 
