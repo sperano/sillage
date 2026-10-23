@@ -35,7 +35,10 @@ type Batch struct {
 //     (or read before its render: see supersededLive) is dropped for the
 //     version; of a page's live records only the newest is kept. The
 //     record kept takes the dropped one's place in every story, and its
-//     correlations when the same account made both.
+//     correlations when the same account made both. A batch's wiki
+//     versions are its page's whole history trail, as wiki.Normalize gives
+//     it: a version archiving a save read before its render must come
+//     before the same author's later versions.
 //   - Coverage is merged per root and source instance (see mergeCoverage).
 //
 // Events keep their kinds: a pull request's pr.closed and pr.merged are
