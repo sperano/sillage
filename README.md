@@ -14,9 +14,8 @@ page; the normalized model (`internal/model`) with fabricated fixture
 stories (`testdata/fixtures/stories/`); a read-only client per source; and
 `sillage story`, which assembles one story from the live sources and prints
 it; and the frontend's single-task timeline graph (`web/src/lib/timeline/`),
-rendered in tests from the fixture stories but not yet reachable from the
-page, which has no routes or API to load a story from. Nothing is stored,
-nothing is deployed.
+rendered in tests from the fixture stories but not yet shown on the story
+page. Nothing is stored, nothing is deployed.
 
 ## Layout
 
