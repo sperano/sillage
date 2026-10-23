@@ -32,22 +32,25 @@ func (w *saver) supersede(id int64, e model.Event) error {
 	return w.exec("DELETE FROM events WHERE id = $1", old)
 }
 
-// supersededLive returns the row and id of the stored live record with id
-// liveID, else of the live record that replaced it, and false when there
-// is neither.
-func (w *saver) supersededLive(source model.Source, instance, liveID string) (int64, string, bool, error) {
-	if row, found, err := w.eventID(source, instance, liveID); err != nil || found {
+// supersededLive returns the row and event id of the stored live record
+// with id liveID, else of the live record that replaced it, and false when
+// there is neither.
+func (w *saver) supersededLive(source model.Source, instance, liveID string) (
+	row int64, id string, found bool, err error,
+) {
+	if row, found, err = w.eventID(source, instance, liveID); err != nil || found {
 		return row, liveID, found, err
 	}
-	var row int64
-	var id string
-	err := w.tx.QueryRow(w.ctx, `SELECT e.id, e.event_id FROM live_aliases a JOIN events e ON e.id = a.live_id
+	err = w.tx.QueryRow(w.ctx, `SELECT e.id, e.event_id FROM live_aliases a JOIN events e ON e.id = a.live_id
 		WHERE a.source = $1 AND a.instance = $2 AND a.event_id = $3`,
 		string(source), instance, liveID).Scan(&row, &id)
-	if errors.Is(err, pgx.ErrNoRows) {
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
 		return 0, "", false, nil
+	case err != nil:
+		return 0, "", false, err
 	}
-	return row, id, err == nil, err
+	return row, id, true, nil
 }
 
 // saveLive stores the live record e and returns the row the root's story

@@ -131,7 +131,8 @@ func (w *saver) exec(sql string, args ...any) error {
 }
 
 // ref returns where the batch's record r is stored, following each move
-// (a live edit re-rendered, then archived).
+// (a live edit re-rendered, then archived); at most len(moved) of them, so
+// that a cycle cannot loop.
 func (w *saver) ref(r model.Ref) model.Ref {
 	for range len(w.moved) {
 		to, ok := w.moved[r]

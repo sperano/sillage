@@ -80,6 +80,10 @@ func TestCheckApplied(t *testing.T) {
 		{"edited", []appliedMigration{row(migrations[0]), edited}, "other SQL"},
 		{"renamed", []appliedMigration{renamed}, "other SQL"},
 		{"a missing version", []appliedMigration{row(migrations[1])}, "lacks schema version 1"},
+		{"more than the binary's", []appliedMigration{{0, "0000_zero.sql", ""}, row(migrations[0]),
+			row(migrations[1])}, "lacks schema version 1"},
+		{"past the binary's", []appliedMigration{row(migrations[0]), row(migrations[1]),
+			{3, "0003_c.sql", ""}}, "unknown to this binary"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

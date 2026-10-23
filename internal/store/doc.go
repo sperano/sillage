@@ -25,8 +25,8 @@
 // replicas starting together migrate once and a failure leaves nothing
 // half-applied. Each row keeps its file's name and SHA-256, so a database
 // whose applied migration was since edited is refused. tern (v2.4) does
-// the same and more, but its migrate package templates SQL with sprig, whose dependency
-// tree the image would ship and license for no use; goose (v3.29) runs
-// through database/sql rather than pgx, and its module requires every
-// driver it supports. None of the three needs CGO.
+// the same and more, but its migrate package templates SQL with sprig,
+// whose dependency tree the image would ship and license for no use; goose
+// (v3.29) runs through database/sql rather than pgx, and its module
+// requires every driver it supports. None of the three needs CGO.
 package store

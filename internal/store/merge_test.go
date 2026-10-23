@@ -1,7 +1,6 @@
 package store
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
@@ -69,7 +68,10 @@ func TestMergeRunUsageByField(t *testing.T) {
 	overlay := finishedRun("uid-1", 0, 10, model.OutcomeSucceeded)
 	overlay.Usage = &model.Usage{OutputTokens: ptr(int64(20))}
 	got := mergeRun(base, overlay).Usage
-	if got == nil || got.CostUSD != "0.1" || got.InputTokens == nil || *got.InputTokens != 100 ||
+	if got == nil {
+		t.Fatal("merged usage is nil")
+	}
+	if got.CostUSD != "0.1" || got.InputTokens == nil || *got.InputTokens != 100 ||
 		got.OutputTokens == nil || *got.OutputTokens != 20 {
 		t.Errorf("usage = %+v, want cost 0.1, 100 tokens in, 20 out", got)
 	}
@@ -135,11 +137,20 @@ func TestMergeRunProgress(t *testing.T) {
 			if err := got.Validate(); err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(got.Interval, tt.want) || got.Outcome != tt.wantOutcome {
+			if !sameBound(got.Interval.Start, tt.want.Start) || !sameBound(got.Interval.End, tt.want.End) ||
+				got.Outcome != tt.wantOutcome {
 				t.Errorf("merged %+v, %s; want %+v, %s", got.Interval, got.Outcome, tt.want, tt.wantOutcome)
 			}
 		})
 	}
+}
+
+// sameBound reports whether two bounds have one state and, when known, one
+// instant.
+func sameBound(a, b model.Bound) bool {
+	ta, _ := a.Time()
+	tb, _ := b.Time()
+	return a.State == b.State && ta.Equal(tb)
 }
 
 func gap(start, end int, reason string) model.Gap {

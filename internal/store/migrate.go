@@ -102,7 +102,7 @@ func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", migrateLockID); err != nil {
 			return fmt.Errorf("store: migrate: lock: %w", err)
 		}
-		applied, err := appliedVersions(ctx, tx)
+		applied, err := appliedMigrations(ctx, tx)
 		if err != nil {
 			return err
 		}
@@ -122,12 +122,15 @@ func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	})
 }
 
-// checkApplied refuses applied migrations that are not the embedded ones:
-// a gap in their versions, another name or another checksum. applied is
-// in version order, with no version past the last of migrations, so it is
-// no longer than migrations.
+// checkApplied refuses applied migrations, in version order, that are not
+// the first of the embedded ones: a gap in their versions, a version the
+// binary lacks, another name or another checksum. Once it passes, the
+// migrations past len(applied) are the pending ones.
 func checkApplied(applied []appliedMigration, migrations []migration) error {
 	for i, a := range applied {
+		if i >= len(migrations) {
+			return fmt.Errorf("store: the database has schema version %d, unknown to this binary", a.version)
+		}
 		m := migrations[i]
 		switch {
 		case a.version != m.version:
@@ -140,9 +143,9 @@ func checkApplied(applied []appliedMigration, migrations []migration) error {
 	return nil
 }
 
-// appliedVersions returns the schema_migrations rows in version order,
+// appliedMigrations returns the schema_migrations rows in version order,
 // creating the table first if need be.
-func appliedVersions(ctx context.Context, tx pgx.Tx) ([]appliedMigration, error) {
+func appliedMigrations(ctx context.Context, tx pgx.Tx) ([]appliedMigration, error) {
 	_, err := tx.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version    integer PRIMARY KEY,
 		name       text NOT NULL,
