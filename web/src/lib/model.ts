@@ -5,7 +5,8 @@
 // (decodeModel.test.ts loads every golden story) instead of rendering wrong.
 //
 // Every time is an RFC 3339 string, in UTC in a story: kept as sent, never
-// parsed into a Date here. Optional fields are those Go omits when empty.
+// stored as a Date; eventTime and boundTime read one as milliseconds.
+// Optional fields are those Go omits when empty.
 
 /** The kinds of system a record comes from. */
 export const SOURCES = ['vikunja', 'kelos', 'github', 'wiki'] as const;
@@ -285,4 +286,19 @@ export interface Story {
 	pullRequests: PullRequest[];
 	correlations: Correlation[];
 	coverage: Coverage[];
+}
+
+/** The coverage key of a source instance: source and instance. */
+export function coverageKey(source: Source, instance: string): string {
+	return `${source}/${instance}`;
+}
+
+/** An event's place on a timeline: its source time, else when it was observed. */
+export function eventTime(e: Event): number {
+	return Date.parse(e.sourceTime ?? e.observedAt);
+}
+
+/** A bound's time in milliseconds, or undefined unless it is known. */
+export function boundTime(b: Bound): number | undefined {
+	return b.state === 'known' ? Date.parse(b.at) : undefined;
 }

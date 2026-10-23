@@ -1,14 +1,16 @@
-import type { CheckRun, Event, PullRequest, Run, Story } from './model';
+import type { CheckRun, Event, PRKey, PullRequest, Run, Story } from './model';
 import { eventKey, prKeyString, runKeyString } from './keys';
 import { intervalAnchor, parseTime } from './time';
 
 /**
- * What can be selected on the timeline: an event, a run or a check. Events
- * and runs use the ids correlation refs carry, so a correlation's end can
- * be selected; a check has no ref and gets its pull request's key and id.
+ * What can be selected on the timeline: an event, a run, a check or a
+ * review wait. Events and runs use the ids correlation refs carry, so a
+ * correlation's end can be selected; a check has no ref and gets its pull
+ * request's key and id; a review wait, drawn only by the graph, gets the
+ * key of the review request it starts at.
  */
 export interface ItemRef {
-	kind: 'event' | 'run' | 'check';
+	kind: 'event' | 'run' | 'check' | 'review-wait';
 	id: string;
 }
 
@@ -31,8 +33,12 @@ export function runRef(r: Run): ItemRef & { kind: 'run' } {
 	return { kind: 'run', id: runKeyString(r.key) };
 }
 
-export function checkRef(pr: PullRequest, c: CheckRun): ItemRef {
-	return { kind: 'check', id: `${prKeyString(pr.key)}/checks/${c.id}` };
+export function checkRef(pr: PRKey, c: CheckRun): ItemRef & { kind: 'check' } {
+	return { kind: 'check', id: `${prKeyString(pr)}/checks/${c.id}` };
+}
+
+export function reviewWaitRef(request: Event): ItemRef & { kind: 'review-wait' } {
+	return { kind: 'review-wait', id: eventKey(request) };
 }
 
 export function sameItem(a: ItemRef | undefined, b: ItemRef | undefined): boolean {
@@ -62,7 +68,7 @@ export function timelineItems(story: Story): TimelineItem[] {
 		...story.pullRequests.flatMap((pr) =>
 			pr.checks.map((check) => ({
 				kind: 'check' as const,
-				ref: checkRef(pr, check),
+				ref: checkRef(pr.key, check),
 				time: intervalAnchor(check.interval),
 				pr,
 				check

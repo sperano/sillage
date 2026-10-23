@@ -22,7 +22,9 @@ export default defineConfig({
 					name: 'client',
 					browser: {
 						enabled: true,
-						provider: playwright(),
+						// A zone other than UTC, with daylight saving time, so that the
+						// tests tell local time from UTC whatever zone the machine runs in.
+						provider: playwright({ contextOptions: { timezoneId: 'America/Toronto' } }),
 						instances: [{ browser: 'chromium', headless: true }]
 					},
 					include: ['src/**/*.svelte.test.ts']
@@ -33,6 +35,8 @@ export default defineConfig({
 				test: {
 					name: 'node',
 					environment: 'node',
+					// The browser tests' zone, for the same reason.
+					env: { TZ: 'America/Toronto' },
 					include: ['src/**/*.test.ts'],
 					exclude: ['src/**/*.svelte.test.ts']
 				}

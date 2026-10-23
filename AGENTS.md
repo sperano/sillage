@@ -33,7 +33,10 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, search, link resolution, version. No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
-| `web/src/lib/` | The story types (`model.ts`) and their runtime decoder, the read API client, the routes and the router. |
+| `web/src/lib/` | The story types (`model.ts`), their key strings (`keys.ts`) and their runtime decoder, the read API client, the routes and the router. |
+| `web/src/lib/selection.svelte.ts` | The selected event, run, check or review wait (`ItemRef`, `timeline.ts`), one instance shared by the timeline graph, the event list and the detail panel. |
+| `web/src/lib/timeline/` | The single-task timeline graph (SVG): lanes, intervals, coverage shading, zoom and pan. Layout is pure TypeScript; the components draw it and handle zoom, pan, selection and group expansion. |
+| `web/src/lib/testing/` | Web test helpers: the golden stories, record builders. |
 | `web/src/pages/`, `web/src/components/` | One component per route, and the parts they share. |
 | `web/placeholder/` | The committed page embedded by default, so Go builds without Node. |
 | `Dockerfile`, `.dockerignore` | The one image: the `webdist` binary on `scratch`, `linux/amd64` and `linux/arm64`. See "The image" below. |
@@ -131,7 +134,8 @@ matches the one in the agent image; upgrade both together.
 
 `testdata/fixtures/stories/` holds fabricated stories: normalized records
 in `input.json`, and `story.golden.json`, the `model.BuildStory` output the
-Go tests check and the web tests are to render. To add one, follow "Adding a story" in
+Go tests check and the web tests render (`web/src/lib/testing/goldens.ts`).
+To add one, follow "Adding a story" in
 `testdata/fixtures/README.md`: write `input.json`, register an explicit
 invariant check in `internal/model/storytest/invariants.go` (a test fails
 until you do), then `go test ./internal/model -run TestStoryGolden -update`

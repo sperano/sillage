@@ -1,9 +1,9 @@
 import { sameItem, type ItemRef } from './timeline';
 
 /**
- * The selected event, run or check of one story. The graph, the event list
- * and the detail panel share one instance, so selecting in any of them
- * selects in all.
+ * The selected event, run, check or review wait of one story. The graph,
+ * the event list and the detail panel share one instance, so selecting in
+ * any of them selects in all.
  */
 export class Selection {
 	// A ref is replaced, never changed in place: no deep proxy.

@@ -14,8 +14,10 @@ page and the read-only JSON API under `/api/v1/`; the normalized model
 (`internal/model`) with fabricated fixture stories
 (`testdata/fixtures/stories/`); a read-only client per source; `sillage
 story`, which assembles one story from the live sources and prints it; and
-a PostgreSQL store (`internal/store`) that nothing writes to yet. Nothing
-is deployed.
+a PostgreSQL store (`internal/store`) that nothing writes to yet. The
+frontend's single-task timeline graph (`web/src/lib/timeline/`) is
+rendered in tests from the fixture stories but not yet shown on the story
+page. Nothing is deployed.
 
 ## Layout
 
