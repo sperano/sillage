@@ -129,7 +129,7 @@ func newTestClient(t *testing.T, h http.Handler) *Client {
 	t.Helper()
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
-	c := NewClient(Config{BaseURL: srv.URL, Token: testToken}, srv.Client())
+	c := NewClient(Config{BaseURL: srv.URL, Instance: "vikunja.example.com", Token: testToken}, srv.Client())
 	c.perPage = testPerPage
 	c.now = fakeClock()
 	return c

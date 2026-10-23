@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/htmltext"
 	"github.com/sperano/sillage/internal/source/kelostext"
 )
@@ -12,7 +13,7 @@ func TestParseAnnouncement(t *testing.T) {
 	tests := []struct {
 		name string
 		body string
-		want Announcement
+		want announcement
 	}{
 		{
 			name: "implementation",
@@ -21,10 +22,10 @@ func TestParseAnnouncement(t *testing.T) {
 				`<p>WANT TO WATCH? OPEN THE <a href="https://kelos.example.com">KELOS CONSOLE</a>. SIGN IN, SELECT NAMESPACE ` +
 				`<code>agents</code>, AND FIND TASK <code>vikunja-demo-agent-opus-4220</code> IN RESOURCES.</p>` +
 				`<p>COFFEE TIME! REPORT TO FOLLOW.</p>`,
-			want: Announcement{
-				Role: RoleImplementation, Agent: "agent-opus", Model: "example-model-2[1m]",
-				Namespace: "agents", TaskName: "vikunja-demo-agent-opus-4220",
-				Pod: "vikunja-demo-agent-opus-4220-q8w4e",
+			want: announcement{
+				role: model.RoleImplementation, agent: "agent-opus", model: "example-model-2[1m]",
+				namespace: "agents", taskName: "vikunja-demo-agent-opus-4220",
+				pod: "vikunja-demo-agent-opus-4220-q8w4e",
 			},
 		},
 		{
@@ -32,9 +33,9 @@ func TestParseAnnouncement(t *testing.T) {
 			body: `<p>AGENT <code>agent-sol</code> (MODEL <code>example-model-3</code>) IS ON YOUR FOLLOW-UP REQUEST. ` +
 				`HEARD YOU LOUD AND CLEAR. KELOS TASK <code>vikunja-fu-demo-4220-c9102</code>, POD ` +
 				`<code>vikunja-fu-demo-4220-c9102-mn3bv</code>.</p><p>COFFEE TIME! CATCH YOU LATER.</p>`,
-			want: Announcement{
-				Role: RoleTaskFollowUp, Agent: "agent-sol", Model: "example-model-3",
-				TaskName: "vikunja-fu-demo-4220-c9102", Pod: "vikunja-fu-demo-4220-c9102-mn3bv",
+			want: announcement{
+				role: model.RoleTaskFollowUp, agent: "agent-sol", model: "example-model-3",
+				taskName: "vikunja-fu-demo-4220-c9102", pod: "vikunja-fu-demo-4220-c9102-mn3bv",
 			},
 		},
 		{
@@ -42,12 +43,12 @@ func TestParseAnnouncement(t *testing.T) {
 			body: `<p>THE AGENT IS ON THE FOLLOW-UP REQUEST: KELOS TASK <code>vikunja-fu-demo-4220-c9104</code>.</p>` +
 				`<p>OPEN THE <a href="https://kelos.example.com">KELOS CONSOLE</a>. SIGN IN, SELECT NAMESPACE ` +
 				`<code>agents</code>, AND FIND TASK <code>vikunja-fu-demo-4220-c9104</code> IN RESOURCES.</p>`,
-			want: Announcement{Role: RoleTaskFollowUp, Namespace: "agents", TaskName: "vikunja-fu-demo-4220-c9104"},
+			want: announcement{role: model.RoleTaskFollowUp, namespace: "agents", taskName: "vikunja-fu-demo-4220-c9104"},
 		},
 		{
 			name: "colon, implementation",
 			body: `<p>AGENT <code>agent-opus</code> IS ON THE CASE: KELOS TASK <code>vikunja-demo-4221</code>.</p>`,
-			want: Announcement{Role: RoleImplementation, Agent: "agent-opus", TaskName: "vikunja-demo-4221"},
+			want: announcement{role: model.RoleImplementation, agent: "agent-opus", taskName: "vikunja-demo-4221"},
 		},
 		{
 			name: "lowercase implementation",
@@ -55,10 +56,10 @@ func TestParseAnnouncement(t *testing.T) {
 				`working on this task: Kelos Task <a href="https://kelos.example.com/x"><code>vikunja-demo-agent-opus-4201</code></a>, ` +
 				`pod <code>vikunja-demo-agent-opus-4201-x7k2p</code>.</p><p>The link shows its latest log lines once you are ` +
 				`logged in to the <a href="https://kelos.example.com">Kelos Console</a> (namespace <code>agents</code>).</p>`,
-			want: Announcement{
-				Role: RoleImplementation, Agent: "agent-opus", Model: "example-model-2[1m]",
-				Namespace: "agents", TaskName: "vikunja-demo-agent-opus-4201",
-				Pod: "vikunja-demo-agent-opus-4201-x7k2p",
+			want: announcement{
+				role: model.RoleImplementation, agent: "agent-opus", model: "example-model-2[1m]",
+				namespace: "agents", taskName: "vikunja-demo-agent-opus-4201",
+				pod: "vikunja-demo-agent-opus-4201-x7k2p",
 			},
 		},
 		{
@@ -66,25 +67,25 @@ func TestParseAnnouncement(t *testing.T) {
 			body: `<p>Agent <code>agent-sol</code> (model <code>example-model-3</code>) has started on the follow-up ` +
 				`request: Kelos Task <a href="https://kelos.example.com/y"><code>vikunja-fu-demo-4201-c9003</code></a>, ` +
 				`pod <code>vikunja-fu-demo-4201-c9003-ab12c</code>.</p><p>(namespace <code>agents</code>)</p>`,
-			want: Announcement{
-				Role: RoleTaskFollowUp, Agent: "agent-sol", Model: "example-model-3",
-				Namespace: "agents", TaskName: "vikunja-fu-demo-4201-c9003",
-				Pod: "vikunja-fu-demo-4201-c9003-ab12c",
+			want: announcement{
+				role: model.RoleTaskFollowUp, agent: "agent-sol", model: "example-model-3",
+				namespace: "agents", taskName: "vikunja-fu-demo-4201-c9003",
+				pod: "vikunja-fu-demo-4201-c9003-ab12c",
 			},
 		},
 		{
 			name: "no agent, model, pod or namespace",
 			body: `<p>The agent has started working on this task: Kelos Task <a href="https://kelos.example.com/z">` +
 				`<code>vikunja-demo-4202</code></a>.</p>`,
-			want: Announcement{Role: RoleImplementation, TaskName: "vikunja-demo-4202"},
+			want: announcement{role: model.RoleImplementation, taskName: "vikunja-demo-4202"},
 		},
 		{
 			name: "line breaks inside the paragraph",
 			body: "<p>AGENT <code>agent-opus</code>\nIS ON THE CASE.\nTHIS ONE HAS THE STUFF. KELOS TASK " +
 				"<code>vikunja-demo-4203</code>, POD <code>vikunja-demo-4203-zz9yy</code>.</p>",
-			want: Announcement{
-				Role: RoleImplementation, Agent: "agent-opus",
-				TaskName: "vikunja-demo-4203", Pod: "vikunja-demo-4203-zz9yy",
+			want: announcement{
+				role: model.RoleImplementation, agent: "agent-opus",
+				taskName: "vikunja-demo-4203", pod: "vikunja-demo-4203-zz9yy",
 			},
 		},
 	}

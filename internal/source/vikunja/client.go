@@ -55,6 +55,7 @@ func (e *StatusError) Error() string {
 // Client never prints the token.
 type Client struct {
 	baseURL   string
+	instance  string
 	authorize func(*http.Request)
 	http      *http.Client
 	now       func() time.Time
@@ -73,6 +74,7 @@ func NewClient(cfg Config, hc *http.Client) *Client {
 	header := "Bearer " + string(cfg.Token)
 	return &Client{
 		baseURL:   cfg.BaseURL,
+		instance:  cfg.Instance,
 		authorize: func(r *http.Request) { r.Header.Set("Authorization", header) },
 		http:      hc,
 		now:       time.Now,
@@ -94,7 +96,7 @@ func (c *Client) Fetch(ctx context.Context, taskID int64) (Snapshot, error) {
 		return Snapshot{}, err
 	}
 	return Snapshot{
-		Instance:           c.baseURL,
+		Instance:           c.instance,
 		Task:               task,
 		Comments:           comments,
 		ObservedAt:         observed,

@@ -56,7 +56,7 @@ type Comment struct {
 
 // Snapshot is one read of a task and all its comments.
 type Snapshot struct {
-	// Instance is the base URL the task was read from.
+	// Instance is the host of the Vikunja instance the task was read from.
 	Instance string
 	Task     Task
 	// Comments are oldest first.

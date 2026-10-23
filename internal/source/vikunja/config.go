@@ -42,9 +42,10 @@ func (Token) MarshalText() ([]byte, error) { return []byte(redacted), nil }
 
 // Config is what the client needs to read one Vikunja instance.
 type Config struct {
-	// BaseURL is the instance's URL without a trailing slash; it also names
-	// the source instance on every event.
+	// BaseURL is the instance's URL without a trailing slash.
 	BaseURL string
+	// Instance names the source instance on every record: the URL's host.
+	Instance string
 	// Token is sent as a bearer token. It must only grant read access.
 	Token Token
 	// ServiceAccount is the username whose comments are parsed as Kelos
@@ -65,7 +66,15 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
 	}
+	cfg.Instance = instanceOf(cfg.BaseURL)
 	return cfg, nil
+}
+
+// instanceOf names the instance a base URL belongs to: its host, in lower
+// case. baseURL must be valid.
+func instanceOf(baseURL string) string {
+	u, _ := url.Parse(baseURL)
+	return strings.ToLower(u.Host)
 }
 
 func (c Config) validate() error {

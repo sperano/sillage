@@ -20,6 +20,9 @@ const (
 	// KindTaskLabelObserved: the task was seen carrying a label (details:
 	// "label").
 	KindTaskLabelObserved EventKind = "task.label_observed"
+	// KindTaskAssigneeObserved: the task was seen assigned to an account
+	// (details: "assignee", and "assigneeId" when Vikunja supplies one).
+	KindTaskAssigneeObserved EventKind = "task.assignee_observed"
 	// KindTaskDone: the task was marked done. A pull request's merge is a
 	// separate event, never this one.
 	KindTaskDone EventKind = "task.done"
@@ -67,6 +70,7 @@ var kindSources = map[EventKind][]Source{
 	KindTaskCreated:          {SourceVikunja},
 	KindTaskBucketObserved:   {SourceVikunja},
 	KindTaskLabelObserved:    {SourceVikunja},
+	KindTaskAssigneeObserved: {SourceVikunja},
 	KindTaskDone:             {SourceVikunja},
 	KindPageCreated:          {SourceWiki},
 	KindPageEdited:           {SourceWiki},
