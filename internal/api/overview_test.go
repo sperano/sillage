@@ -166,7 +166,7 @@ func (tooManyStore) Activity(context.Context, store.ActivityQuery) ([]store.Root
 func TestOverviewTooManyRoots(t *testing.T) {
 	h := New(Config{Store: tooManyStore{newFakeStore(t)}})
 	p := wantProblem(t, get(t, h, afternoonPath(nil)), http.StatusBadRequest)
-	if !strings.Contains(p.Detail, "narrow it") {
+	if !strings.Contains(p.Detail, "shorten the window") {
 		t.Errorf("detail = %q, want advice to narrow the window", p.Detail)
 	}
 }

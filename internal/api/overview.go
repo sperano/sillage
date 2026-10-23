@@ -62,7 +62,7 @@ func (a *api) overviewPage(r *http.Request) (any, error) {
 		From: q.window.From, To: q.window.To, Project: q.filter.Project, Kinds: overview.Kinds,
 	})
 	if errors.Is(err, store.ErrTooManyRoots) {
-		return nil, badRequest("more than %d tasks may have been active in this window: narrow it, or choose a project",
+		return nil, badRequest("more than %d tasks may have been active in this window: shorten the window, or choose a project",
 			store.MaxActivityRoots)
 	}
 	if err != nil {
