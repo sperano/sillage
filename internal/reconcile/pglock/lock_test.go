@@ -90,27 +90,32 @@ func TestCancelReleases(t *testing.T) {
 }
 
 func TestLost(t *testing.T) {
-	locks, url := testLocks(t, 1)
-	l := locks[0]
-	err := l.WithLock(t.Context(), func(ctx context.Context) error {
-		if err := terminateHolder(t, url, l.key); err != nil {
-			return err
+	for _, sign := range []int64{1, -1} {
+		locks, url := testLocks(t, 1)
+		l := locks[0]
+		// Both halves of the key range: a negative key's high half is
+		// held as an unsigned classid.
+		l.key = sign * (l.key | 1<<32)
+		err := l.WithLock(t.Context(), func(ctx context.Context) error {
+			if err := terminateHolder(t, url, l.key); err != nil {
+				return err
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(testWait):
+				return errors.New("the lock's context was not canceled")
+			}
+		})
+		if !errors.Is(err, reconcile.ErrLockLost) {
+			t.Errorf("key %d: WithLock() = %v, want ErrLockLost", l.key, err)
 		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(testWait):
-			return errors.New("the lock's context was not canceled")
-		}
-	})
-	if !errors.Is(err, reconcile.ErrLockLost) {
-		t.Errorf("WithLock() = %v, want ErrLockLost", err)
 	}
 }
 
 // terminateHolder ends the session holding the advisory lock key: a
 // bigint key is held as its high 32 bits in classid and its low ones in
-// objid, with objsubid 1.
+// objid, with objsubid 1, each unsigned.
 func terminateHolder(t *testing.T, url string, key int64) error {
 	t.Helper()
 	admin, err := pgx.Connect(t.Context(), url)
@@ -120,6 +125,7 @@ func terminateHolder(t *testing.T, url string, key int64) error {
 	defer func() { _ = admin.Close(context.WithoutCancel(t.Context())) }()
 	_, err = admin.Exec(t.Context(), `SELECT pg_terminate_backend(pid) FROM pg_locks
 		WHERE locktype = 'advisory' AND objsubid = 1
-		AND classid = ($1::bigint >> 32)::oid AND objid = ($1::bigint & x'ffffffff'::bigint)::oid`, key)
+		AND classid = (($1::bigint >> 32) & x'ffffffff'::bigint)::oid
+		AND objid = ($1::bigint & x'ffffffff'::bigint)::oid`, key)
 	return err
 }
