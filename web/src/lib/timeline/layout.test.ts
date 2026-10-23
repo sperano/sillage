@@ -22,6 +22,7 @@ const scale = scaleOf({ start: T0, end: T0 + 100 * MINUTE }, 0, 100);
 
 function span(over: Partial<Span>): Span {
 	return {
+		key: 'run:r',
 		selected: { kind: 'run', key: 'r' },
 		phase: 'running',
 		text: 'running',
@@ -38,13 +39,14 @@ describe('barExtent', () => {
 		expect(barExtent(span({}), scale)).toEqual({ x1: 10, x2: 20, shape: 'bar' });
 	});
 
-	test('runs an open end to its last read, else to the window end', () => {
+	test('runs an open end to its last read, and draws a stub without one', () => {
 		expect(
 			barExtent(span({ endState: 'open', end: undefined, openUntil: T0 + 50 * MINUTE }), scale)
 		).toMatchObject({ x2: 50, shape: 'bar' });
-		expect(barExtent(span({ endState: 'open', end: undefined }), scale)).toMatchObject({
-			x2: 100,
-			shape: 'bar'
+		expect(barExtent(span({ endState: 'open', end: undefined }), scale)).toEqual({
+			x1: 10,
+			x2: 10 + STUB_PX,
+			shape: 'stub'
 		});
 	});
 

@@ -45,6 +45,11 @@
 	const select = () => selection.select(span.selected);
 	// A stub starts at its known end and leaves towards the unknown one.
 	const unknownSide = $derived(span.start === undefined ? 'start' : 'end');
+	const stubText = $derived(
+		unknownSide === 'end' && open
+			? `${span.text}, not ended at the last read`
+			: `${span.text}, ${unknownSide} unknown`
+	);
 </script>
 
 <g
@@ -98,8 +103,7 @@
 			class="outside"
 			x={unknownSide === 'start' ? bar.x1 - TEXT_PAD_PX : bar.x2 + TEXT_PAD_PX}
 			y={top - STUB_TEXT_RAISE_PX}
-			text-anchor={unknownSide === 'start' ? 'end' : 'start'}
-			>{span.text}, {unknownSide} unknown</text
+			text-anchor={unknownSide === 'start' ? 'end' : 'start'}>{stubText}</text
 		>
 	{/if}
 	{#if span.exit}

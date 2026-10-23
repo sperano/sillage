@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { selectedId, type Selection } from '../selection.svelte';
+	import type { Selection } from '../selection.svelte';
 	import type { RowChart } from './chart';
 	import EventGroup from './EventGroup.svelte';
 	import EventPoint from './EventPoint.svelte';
@@ -67,7 +67,7 @@
 				<title>{u.reason}</title>
 			</rect>
 		{/each}
-		{#each layout.bars as bar (`${selectedId(bar.span.selected)}|${bar.span.phase}`)}
+		{#each layout.bars as bar (bar.span.key)}
 			<SpanBar
 				{bar}
 				y={layout.markY + bar.track * TRACK_PX}

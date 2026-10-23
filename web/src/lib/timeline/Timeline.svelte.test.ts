@@ -148,6 +148,33 @@ describe('intervals', () => {
 		expect(span.querySelector('[data-mark="run-exit"]')).toBeNull();
 	});
 
+	test('an open end with no last read of its source is a stub, not a bar', async () => {
+		const r = run({
+			outcome: 'running',
+			interval: { start: { state: 'known', at: '2026-03-01T10:00:00Z' }, end: { state: 'open' } }
+		});
+		const { container } = await show(story({ runs: [r] }));
+		expect(container.querySelector('[data-bar]')).toBeNull();
+		const stub = container.querySelector('[data-stub]')!.closest('[data-span]')!;
+		expect(stub.textContent).toContain('running, not ended at the last read');
+	});
+
+	test('a queued run with a known start draws both its waits', async () => {
+		const r = run({
+			outcome: 'waiting',
+			created: '2026-03-01T09:00:00Z',
+			interval: { start: { state: 'known', at: '2026-03-01T09:30:00Z' }, end: { state: 'open' } }
+		});
+		const s = story({
+			runs: [r],
+			coverage: [
+				{ source: 'kelos', instance: 'cluster-a', lastSuccessfulRead: '2026-03-01T10:00:00Z' }
+			]
+		});
+		const { container } = await show(s);
+		expect(all(container, '[data-span="waiting"] [data-bar]')).toHaveLength(2);
+	});
+
 	test('waiting, running and review waits say what they are', async () => {
 		const s = story({
 			runs: [run({ created: '2026-03-01T09:40:00Z' })],

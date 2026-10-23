@@ -33,6 +33,8 @@ export interface EndMark {
 }
 
 export interface Span {
+	/** Unique within a story: a run has two spans, its wait and its run. */
+	key: string;
 	selected: Selected;
 	phase: Phase;
 	/** Says what the interval is, whatever its colour. */
@@ -54,13 +56,15 @@ export interface Span {
 
 /** The spans of one run: its wait between creation and start, then its run. */
 export function runSpans(run: Run, openUntil: number | undefined): Span[] {
-	const selected: Selected = { kind: 'run', key: runKeyString(run.key) };
+	const key = runKeyString(run.key);
+	const selected: Selected = { kind: 'run', key };
 	const created = run.created === undefined ? undefined : Date.parse(run.created);
 	const start = boundTime(run.interval.start);
 	const end = boundTime(run.interval.end);
 	const spans: Span[] = [];
 	if (created !== undefined && start !== undefined && start > created) {
 		spans.push({
+			key: `run:${key}:before-start`,
 			selected,
 			phase: 'waiting',
 			text: 'waiting to start',
@@ -74,6 +78,7 @@ export function runSpans(run: Run, openUntil: number | undefined): Span[] {
 	// A run still queued has waited since its creation, when that is known.
 	const from = queued && start === undefined ? created : start;
 	spans.push({
+		key: `run:${key}`,
 		selected,
 		phase: queued ? 'waiting' : 'running',
 		text: queued ? 'waiting (queued)' : 'running',
@@ -94,6 +99,7 @@ export function runSpans(run: Run, openUntil: number | undefined): Span[] {
 export function checkSpan(pr: PRKey, check: CheckRun, openUntil: number | undefined): Span {
 	const end = boundTime(check.interval.end);
 	return {
+		key: `check:${prKeyString(pr)}#${check.id}`,
 		selected: { kind: 'check', pr: prKeyString(pr), id: check.id },
 		phase: 'check',
 		text: `check ${check.name}`,
@@ -121,6 +127,17 @@ function answers(request: Event, later: Event): boolean {
 	);
 }
 
+/** Whether the pull request was merged, or closed and not reopened since. */
+function closedAfter(sorted: Event[]): boolean {
+	let closed = false;
+	for (const e of sorted) {
+		if (e.kind === 'pr.merged') return true;
+		if (e.kind === 'pr.closed') closed = true;
+		if (e.kind === 'pr.reopened') closed = false;
+	}
+	return closed;
+}
+
 /**
  * The review waits of one pull request's events: from each review request
  * to the requested reviewer's review or the request's removal. With no
@@ -133,9 +150,10 @@ export function reviewWaits(events: Event[], openUntil: number | undefined): Spa
 		if (request.kind !== 'pr.review_requested') return [];
 		const later = sorted.slice(i + 1);
 		const answer = later.find((e) => answers(request, e));
-		const ended = later.some((e) => e.kind === 'pr.merged' || e.kind === 'pr.closed');
+		const ended = closedAfter(later);
 		const who = requestee(request);
 		const span: Span = {
+			key: `review-wait:${eventKey(request)}`,
 			selected: { kind: 'review-wait', key: eventKey(request) },
 			phase: 'review-wait',
 			text: who ? `review wait: ${who}` : 'review wait',

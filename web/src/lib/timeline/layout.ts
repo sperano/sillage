@@ -85,18 +85,15 @@ export interface RowLayout {
 
 /**
  * Where the span is drawn, or undefined when neither end is known. An
- * open end runs to the last read of its source, else to the window's end.
+ * open end runs to the last read of its source; with no last read, there is
+ * no time to run it to, and it is drawn as a stub like an unknown end.
  */
 export function barExtent(
 	span: Span,
 	scale: Scale
 ): { x1: number; x2: number; shape: Bar['shape'] } | undefined {
-	const end =
-		span.endState === 'open'
-			? scale.x(span.openUntil ?? scale.window.end)
-			: span.end === undefined
-				? undefined
-				: scale.x(span.end);
+	const endAt = span.endState === 'open' ? span.openUntil : span.end;
+	const end = endAt === undefined ? undefined : scale.x(endAt);
 	if (span.start !== undefined && end !== undefined) {
 		const x1 = scale.x(span.start);
 		return { x1, x2: Math.max(end, x1 + MIN_BAR_PX), shape: 'bar' };

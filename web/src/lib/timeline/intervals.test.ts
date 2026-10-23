@@ -46,6 +46,19 @@ describe('runSpans', () => {
 		});
 	});
 
+	test('a queued run with a known start keeps two spans with distinct keys', () => {
+		const spans = runSpans(
+			run({
+				outcome: 'waiting',
+				created: '2026-03-01T09:00:00Z',
+				interval: { start: { state: 'known', at: '2026-03-01T09:30:00Z' }, end: { state: 'open' } }
+			}),
+			READ
+		);
+		expect(spans.map((s) => s.phase)).toEqual(['waiting', 'waiting']);
+		expect(new Set(spans.map((s) => s.key)).size).toBe(2);
+	});
+
 	test('unknown bounds stay unknown, with no time and no exit', () => {
 		const [span] = runSpans(
 			run({
@@ -143,6 +156,19 @@ describe('reviewWaits', () => {
 			end: undefined
 		});
 		expect(reviewWaits([request], undefined)[0]).toMatchObject({ endState: 'unknown' });
+	});
+
+	test('stays open when the pull request was closed and reopened since', () => {
+		const closed = prEvent('pr.closed', '2026-03-01T10:40:00Z');
+		const reopened = prEvent('pr.reopened', '2026-03-01T10:50:00Z');
+		expect(reviewWaits([request, closed, reopened], READ)[0]).toMatchObject({
+			endState: 'open',
+			openUntil: READ
+		});
+		const closedAgain = prEvent('pr.closed', '2026-03-01T10:55:00Z');
+		expect(reviewWaits([request, closed, reopened, closedAgain], READ)[0]).toMatchObject({
+			endState: 'unknown'
+		});
 	});
 
 	test('a team request ends only at its removal', () => {
