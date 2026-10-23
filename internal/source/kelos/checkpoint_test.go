@@ -38,7 +38,7 @@ func TestCheckpointRoundTrip(t *testing.T) {
 		},
 		tasksVersion: "20", recordsVersion: "21", tasksSeenAt: testEnd, recordsSeenAt: testStart,
 	}
-	data, err := json.Marshal(st.checkpoint())
+	data, err := json.Marshal(st.checkpoint(testConfig()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,8 +53,8 @@ func TestCheckpointRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got.checkpoint(), st.checkpoint()) {
-		t.Errorf("restored state differs:\n%+v\nwant\n%+v", got.checkpoint(), st.checkpoint())
+	if !reflect.DeepEqual(got.checkpoint(testConfig()), st.checkpoint(testConfig())) {
+		t.Errorf("restored state differs:\n%+v\nwant\n%+v", got.checkpoint(testConfig()), st.checkpoint(testConfig()))
 	}
 }
 
@@ -101,19 +101,53 @@ func TestStatePrune(t *testing.T) {
 	}
 }
 
-// The checkpoint never persists annotations, which can hold the prompt.
-func TestCheckpointDropsAnnotations(t *testing.T) {
+// The checkpoint never persists annotations, which can hold the prompt,
+// except the correlation annotations: a deleted Task it holds still names
+// what started it.
+func TestCheckpointKeepsOnlyCorrelationAnnotations(t *testing.T) {
 	task := decodedTask(t, uidA, PhaseRunning)
-	task.Annotations = map[string]string{"kubectl.kubernetes.io/last-applied-configuration": "{\"spec\":{\"prompt\":\"secret plan\"}}"}
-	st := &state{attempts: map[types.UID]*attempt{uidA: {uid: uidA, task: task}}}
-	data, err := json.Marshal(st.checkpoint())
+	task.Annotations = map[string]string{
+		"kubectl.kubernetes.io/last-applied-configuration": "{\"spec\":{\"prompt\":\"secret plan\"}}",
+		testDomain + "/pr":     "41",
+		testDomain + "/prompt": "secret plan",
+	}
+	st := &state{
+		attempts:    map[types.UID]*attempt{uidA: {uid: uidA, task: task}},
+		tasksSeenAt: testEnd, recordsSeenAt: testEnd,
+	}
+	data, err := json.Marshal(st.checkpoint(testConfig()))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), "secret plan") || strings.Contains(string(data), "annotations") {
+	if strings.Contains(string(data), "secret plan") || strings.Contains(string(data), "last-applied") {
 		t.Errorf("checkpoint persists annotations: %s", data)
 	}
-	if task.Annotations == nil {
+	var cp Checkpoint
+	if err := json.Unmarshal(data, &cp); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := stateOf(cp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := restored.attempts[uidA].task.Annotations; !reflect.DeepEqual(got, map[string]string{testDomain + "/pr": "41"}) {
+		t.Errorf("restored annotations = %v, want only the pr annotation", got)
+	}
+	if len(task.Annotations) != 3 {
 		t.Error("checkpoint modified the state's Task")
+	}
+}
+
+// A Task with no correlation annotation keeps none.
+func TestCheckpointWithoutCorrelationAnnotations(t *testing.T) {
+	task := decodedTask(t, uidA, PhaseRunning)
+	task.Annotations = map[string]string{"example.com/note": "x"}
+	st := &state{attempts: map[types.UID]*attempt{uidA: {uid: uidA, task: task}}}
+	data, err := json.Marshal(st.checkpoint(testConfig()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "annotations") {
+		t.Errorf("checkpoint persists annotations: %s", data)
 	}
 }

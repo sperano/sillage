@@ -23,16 +23,24 @@ const (
 // belongs to the story or not, and what joins them to it.
 type kelosView struct {
 	runs []model.Run
-	// labels are the runs' correlations with the tasks their labels name.
-	labels     []model.Correlation
+	// links are the runs' correlations with the tasks their labels name,
+	// and with the pages and pull requests their Origins name.
+	links []model.Correlation
+	// linksFrom indexes links by run.
+	linksFrom  map[model.Ref][]model.Correlation
 	placements map[model.RunKey]kelos.Placement
 }
 
-// readKelos reads the namespace. A failed read leaves a.kelos nil.
+// readKelos reads the namespace, keeping and recalling the Tasks' origins
+// when the collector has an OriginMemory: a failure to do either fails the
+// read. A failed read leaves a.kelos nil.
 func (a *assembly) readKelos(ctx context.Context) {
 	a.source(model.SourceKelos)
 	at := a.c.now()
 	snap, err := a.c.src.Kelos.Read(ctx)
+	if err == nil {
+		snap, err = a.c.origins.remember(ctx, a.cfg.Kelos, snap)
+	}
 	if err != nil {
 		a.fail(model.SourceKelos, err)
 		return
@@ -43,7 +51,13 @@ func (a *assembly) readKelos(ctx context.Context) {
 		return
 	}
 	a.read(model.SourceKelos, at)
-	a.kelos = &kelosView{runs: recs.Runs, labels: recs.Correlations, placements: kelos.Placements(a.cfg.Kelos, snap)}
+	a.kelos = &kelosView{
+		runs: recs.Runs, links: recs.Correlations, linksFrom: make(map[model.Ref][]model.Correlation),
+		placements: kelos.Placements(a.cfg.Kelos, snap),
+	}
+	for _, c := range recs.Correlations {
+		a.kelos.linksFrom[c.From] = append(a.kelos.linksFrom[c.From], c)
+	}
 }
 
 // runsWhere returns the namespace's runs that match.
@@ -69,32 +83,41 @@ func (a *assembly) kelosEvidence(r model.Run, note string) model.Evidence {
 	return model.Evidence{Source: model.SourceKelos, Instance: a.cfg.Kelos.Cluster, Ref: ref, Note: note}
 }
 
-// branchEvidence points to the Task whose spec.branch p names, saying
-// more after it.
+// branchEvidence points to the Task whose spec.branch (or branch
+// annotation) p names, saying more after it.
 func (a *assembly) branchEvidence(p kelos.Placement, more string) model.Evidence {
 	return model.Evidence{
-		Source: model.SourceKelos, Instance: a.cfg.Kelos.Cluster, Ref: p.BranchRef, Note: "spec.branch " + p.Branch + more,
+		Source: model.SourceKelos, Instance: a.cfg.Kelos.Cluster, Ref: p.BranchRef, Note: p.BranchFrom + " " + p.Branch + more,
 	}
 }
 
-// taskRuns adds the runs that belong to task id: by their task label, by
-// the branch their Task works on (identifiers), or by the task and comment
-// spawners' name conventions (a heuristic, for a run without the label).
-func (a *assembly) taskRuns(id int64) {
-	if a.kelos == nil {
-		return
-	}
-	for _, c := range a.kelos.labels {
+// linkedRuns adds the runs whose label or Origin names the root.
+func (a *assembly) linkedRuns() {
+	for _, c := range a.kelos.links {
 		if c.To == a.rootRef {
 			a.includeRun(c.From)
 			a.links.add(c)
 		}
 	}
+}
+
+// taskRuns adds the runs that belong to task id: by their task label, by
+// the branch their Task works on (identifiers), or by the task and comment
+// spawners' name conventions (a heuristic, only for a run with neither the
+// label nor an Origin).
+func (a *assembly) taskRuns(id int64) {
+	if a.kelos == nil {
+		return
+	}
+	a.linkedRuns()
 	branch := taskBranch(id)
 	for _, r := range a.kelos.runs {
 		if p := a.kelos.placements[r.Key]; p.Branch == branch {
 			a.addRun(r)
 			a.links.identifier(r.Key.Ref(), a.rootRef, a.branchEvidence(p, ""))
+		}
+		if a.originOf(r) != nil {
+			continue
 		}
 		if n, _, ok := taskOfName(r.TaskName); ok && n == id && !a.links.has(r.Key.Ref(), a.rootRef) {
 			a.addRun(r)
@@ -105,16 +128,18 @@ func (a *assembly) taskRuns(id int64) {
 	}
 }
 
-// pageRuns adds the runs that belong to page key: by the wiki spawner's
-// Task name, which names the page and the requesting comment, or by the
-// branch their Task works on.
+// pageRuns adds the runs that belong to page key: by their Origin, by
+// the branch their Task works on, or, for a run with no Origin, by the
+// wiki spawner's Task name, which names the page and the requesting
+// comment.
 func (a *assembly) pageRuns(key model.PageKey) {
 	if a.kelos == nil {
 		return
 	}
+	a.linkedRuns()
 	branch := pageBranch(key.ID)
 	for _, r := range a.kelos.runs {
-		if req, ok := pageOfName(r.TaskName); ok && req.page == key.ID {
+		if req, ok := pageOfName(r.TaskName); ok && req.page == key.ID && a.originOf(r) == nil {
 			a.addRun(r)
 			a.links.identifier(r.Key.Ref(), a.rootRef, a.kelosEvidence(r, "Task name names page "+
 				strconv.FormatInt(req.page, 10)))
@@ -286,10 +311,13 @@ func (a *assembly) announcementEvidence(e model.Event, note string) model.Eviden
 }
 
 // workspaceNames lists the workspace, else the project, of every run of
-// the story.
+// the story whose Origin names no repository.
 func (a *assembly) workspaceNames() []string {
 	var names []string
 	for _, r := range a.runs {
+		if _, ok := a.originRepository(r); ok {
+			continue
+		}
 		if a.kelos != nil {
 			if ws := a.kelos.placements[r.Key].Workspace; ws != "" {
 				names = append(names, ws)

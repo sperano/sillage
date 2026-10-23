@@ -22,8 +22,9 @@ var orphanDeletes = []string{
 // it deleted. A story goes whole, once its last activity (or, with none,
 // its last save) is older than the retention, with the records no other
 // story holds and webhook delivery attempts as old: pruning record by
-// record would open gaps no coverage records. With the default policy it
-// deletes nothing.
+// record would open gaps no coverage records. A run's origin goes once it
+// was first seen before the retention and longer ago than Kelos keeps a
+// TaskRecord. With the default policy it deletes nothing.
 func (s *Store) Prune(ctx context.Context, now time.Time) (int64, error) {
 	cutoff, ok := s.retention.Cutoff(now)
 	if !ok {
@@ -41,7 +42,10 @@ func (s *Store) Prune(ctx context.Context, now time.Time) (int64, error) {
 				return err
 			}
 		}
-		_, err = tx.Exec(ctx, "DELETE FROM delivery_attempts WHERE received_at < $1", cutoff)
+		if _, err := tx.Exec(ctx, "DELETE FROM delivery_attempts WHERE received_at < $1", cutoff); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, "DELETE FROM run_origins WHERE first_seen_at < $1", originsCutoff(cutoff, now))
 		return err
 	})
 	if err != nil {

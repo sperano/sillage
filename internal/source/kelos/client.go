@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -72,6 +73,10 @@ type Snapshot struct {
 	// TasksVersion and RecordsVersion are the resourceVersions of the two
 	// lists, from which a watch of each resource starts.
 	TasksVersion, RecordsVersion string
+	// Remembered holds, by Task UID, the Origin a caller kept of a Task
+	// this read no longer lists (see Origins and RecordOnly): a TaskRecord
+	// does not copy the Task's annotations. A Reader never sets it.
+	Remembered map[types.UID]Origin
 }
 
 // Reader lists the Tasks and TaskRecords of the configured namespace.

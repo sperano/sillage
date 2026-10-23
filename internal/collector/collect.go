@@ -32,6 +32,7 @@ func (a *assembly) collectTask(ctx context.Context, key model.TaskKey, repos []g
 	a.readGitHub(ctx, taskBranch(id), repos)
 	a.prRuns()
 	a.actorRuns()
+	a.requestLinks()
 	return nil
 }
 
@@ -54,6 +55,7 @@ func (a *assembly) collectPage(ctx context.Context, key model.PageKey, repos []g
 	a.readGitHub(ctx, pageBranch(key.ID), repos)
 	a.prRuns()
 	a.actorRuns()
+	a.requestLinks()
 	return nil
 }
 

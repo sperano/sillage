@@ -25,11 +25,11 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage. Read once, nothing kept. |
 | `internal/source/vikunja/` | Read-only Vikunja client and its normalization into `model`. |
 | `internal/source/github/` | Read-only GitHub client and its normalization into `model`. |
-| `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and watcher (list, then watch with persisted checkpoints), and their normalization into `model`. |
+| `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and watcher (list, then watch with persisted checkpoints), and their normalization into `model`, with the identifier correlations the spawners' correlation annotations (a Task's `Origin`) name. |
 | `internal/source/wiki/` | Read-only Wiki.js client and its normalization into `model`. |
 | `internal/source/htmltext/` | Rendered comment HTML to plain text, shared by the sources that parse comments. |
 | `internal/source/kelostext/` | Requests (`/gordon`, `/kelos`) and Kelos start announcements in every form posted, shared by the sources that parse comments. |
-| `internal/store/` | PostgreSQL persistence of `model` records, checkpoints and coverage; `migrations/` holds the numbered SQL files embedded and applied at startup (add one, never edit one that shipped). |
+| `internal/store/` | PostgreSQL persistence of `model` records, checkpoints, coverage and Kelos Task origins (kept on first sight: a TaskRecord does not copy annotations); `migrations/` holds the numbered SQL files embedded and applied at startup (add one, never edit one that shipped). |
 | `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, search, link resolution, version. No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |

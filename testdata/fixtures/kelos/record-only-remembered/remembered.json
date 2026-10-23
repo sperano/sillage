@@ -1,0 +1,15 @@
+{
+  "00000000-0000-4000-8000-000000003101": {
+    "task": "tasks/agents/pr-followup-widgets-41-p7001",
+    "annotations": {
+      "source": "github",
+      "source-instance": "github.example.com",
+      "repository": "example-org/widgets",
+      "pr": "41",
+      "event": "pull_request_review",
+      "review": "7001",
+      "delivery": "review-poll-7001"
+    },
+    "seenAt": "2026-03-12T11:10:00Z"
+  }
+}

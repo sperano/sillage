@@ -1,0 +1,39 @@
+{
+  "apiVersion": "kelos.dev/v1alpha2",
+  "kind": "TaskRecordList",
+  "metadata": {},
+  "items": [
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "TaskRecord",
+      "metadata": {
+        "name": "00000000-0000-4000-8000-000000003101",
+        "namespace": "agents",
+        "uid": "11111111-0000-4000-8000-000000003101",
+        "creationTimestamp": "2026-03-12T11:30:01Z",
+        "labels": {
+          "vikunja.example.com/workspace": "widgets",
+          "vikunja.example.com/variant": "agent-opus",
+          "vikunja.example.com/role": "pr-followup"
+        }
+      },
+      "spec": {
+        "taskRef": {
+          "name": "pr-followup-widgets-41-p7001",
+          "uid": "00000000-0000-4000-8000-000000003101"
+        },
+        "type": "claude-code",
+        "phase": "Succeeded",
+        "startTime": "2026-03-12T11:10:05Z",
+        "completionTime": "2026-03-12T11:30:00Z",
+        "ttlSecondsAfterCompletion": 2592000,
+        "model": "model-a",
+        "usage": {
+          "costUSD": "250m",
+          "inputTokens": 1200,
+          "outputTokens": 80
+        }
+      }
+    }
+  ]
+}

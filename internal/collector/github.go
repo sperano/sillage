@@ -100,11 +100,16 @@ func (a *assembly) branchRecords(ctx context.Context, repo github.Repository, br
 }
 
 // repositories returns the repositories to read, in order: those the
-// workspaces and projects of the story's runs map to, and extra; and the
-// names that map to none.
+// Origins of the story's runs name, those the workspaces and projects of
+// the others map to, and extra; and the names that map to none.
 func (a *assembly) repositories(extra []github.Repository) ([]github.Repository, []string) {
 	var repos []github.Repository
 	var unknown []string
+	for _, r := range a.runs {
+		if repo, ok := a.originRepository(r); ok {
+			repos = append(repos, repo)
+		}
+	}
 	for _, name := range a.workspaceNames() {
 		if r, ok := a.cfg.Workspaces[name]; ok {
 			repos = append(repos, r)
@@ -127,10 +132,12 @@ func (a *assembly) repositories(extra []github.Repository) ([]github.Repository,
 var followUpRoles = []model.RunRole{model.RolePRFollowUp, model.RoleConflictFix, model.RoleAutomation}
 
 // prRuns joins the namespace's PR follow-up, conflict and bookkeeping
-// runs to the story's pull requests. The Task's branch is an identifier
-// when it is the head of exactly one of them, or when the Task name picks
-// one; a Task name alone (its Task gone) is a heuristic; a branch with
-// several pull requests and no name to pick one makes each ambiguous.
+// runs, and the runs whose Origin names a pull request, to the story's
+// pull requests. An Origin naming a pull request is an identifier, and the
+// only join of its run. Otherwise the Task's branch is an identifier when
+// it is the head of exactly one of them, or when the Task name picks one;
+// a Task name alone (its Task gone) is a heuristic; a branch with several
+// pull requests and no name to pick one makes each ambiguous.
 func (a *assembly) prRuns() {
 	if a.kelos == nil || len(a.prs) == 0 {
 		return
@@ -139,8 +146,25 @@ func (a *assembly) prRuns() {
 		return strings.Compare(x.Key.String(), y.Key.String())
 	})
 	for _, r := range a.kelos.runs {
-		if slices.Contains(followUpRoles, r.Role) {
+		if annotated := a.annotatedLinks(r, model.RefPR); len(annotated) > 0 {
+			a.annotatedPRRun(r, annotated)
+		} else if slices.Contains(followUpRoles, r.Role) {
 			a.prRun(r, prs)
+		}
+	}
+}
+
+// annotatedPRRun joins r to the pull requests its Origin names that the
+// story holds. GitHub compares repository names without case.
+func (a *assembly) annotatedPRRun(r model.Run, annotated []model.Correlation) {
+	for _, c := range annotated {
+		for _, pr := range a.prs {
+			if strings.EqualFold(pr.Key.Ref().ID, c.To.ID) {
+				a.links.add(model.Correlation{
+					From: c.From, To: pr.Key.Ref(), Confidence: c.Confidence, Evidence: c.Evidence,
+				})
+				a.addRun(r)
+			}
 		}
 	}
 }
