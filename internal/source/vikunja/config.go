@@ -17,8 +17,10 @@ const (
 	// EnvServiceAccount names the environment variable holding the username
 	// of the account Kelos posts its start announcements as.
 	EnvServiceAccount = "SILLAGE_VIKUNJA_SERVICE_ACCOUNT"
-	// DefaultServiceAccount is used when EnvServiceAccount is unset.
-	DefaultServiceAccount = "kelos"
+	// DefaultServiceAccount is used when EnvServiceAccount is unset. The
+	// account was renamed in place from kelos, so Vikunja reports this
+	// username as the author of every announcement, the old ones included.
+	DefaultServiceAccount = "gordon"
 	// redacted replaces the token wherever it would be printed.
 	redacted = "[redacted]"
 )

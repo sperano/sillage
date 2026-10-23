@@ -9,13 +9,13 @@ import (
 	"github.com/sperano/sillage/internal/source/kelostext"
 )
 
-// serviceAccount is the fixtures' Kelos account.
-const serviceAccount = "kelos"
+// serviceAccount is the fixtures' Kelos account, DefaultServiceAccount.
+const serviceAccount = "gordon"
 
 var (
-	fixtureOwner = User{ID: 7, Username: "owner", Name: "Robin Owner"}
-	fixtureAgent = User{ID: 21, Username: "agent-opus", Name: "Agent Opus"}
-	fixtureKelos = User{ID: 23, Username: "kelos", Name: "Kelos"}
+	fixtureOwner  = User{ID: 7, Username: "owner", Name: "Robin Owner"}
+	fixtureAgent  = User{ID: 21, Username: "agent-opus", Name: "Agent Opus"}
+	fixtureGordon = User{ID: 23, Username: "gordon", Name: "Gordon Cole"}
 	// fixtureZone is the fixtures' UTC offset.
 	fixtureZone = time.FixedZone("", -5*60*60)
 )
@@ -82,7 +82,7 @@ func TestNormalizeTwoPages(t *testing.T) {
 	if announced.Evidence.Path != "/api/v1/tasks/4201/comments/9002" {
 		t.Errorf("announcement evidence = %+v", announced.Evidence)
 	}
-	if announced.CommentID != 9002 || !reflect.DeepEqual(announced.Actor, &fixtureKelos) || len(announced.Flags) != 0 {
+	if announced.CommentID != 9002 || !reflect.DeepEqual(announced.Actor, &fixtureGordon) || len(announced.Flags) != 0 {
 		t.Errorf("announcement = %+v", announced)
 	}
 
@@ -233,7 +233,7 @@ func TestNormalizeAnnouncementNeedsServiceAccount(t *testing.T) {
 		Task: Task{ID: 4205, Created: created},
 		Comments: []Comment{
 			announcementComment(9030, fixtureOwner, created.Add(time.Minute)),
-			announcementComment(9031, fixtureKelos, created.Add(2*time.Minute)),
+			announcementComment(9031, fixtureGordon, created.Add(2*time.Minute)),
 		},
 		ObservedAt: testObservedAt,
 	}
