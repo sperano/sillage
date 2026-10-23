@@ -1,6 +1,7 @@
 package store
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -59,6 +60,85 @@ func TestMergeRunEvidenceOverlayWins(t *testing.T) {
 	got := mergeEvidence(base, []model.Evidence{kelosEvidence("a", "new")})
 	if len(got) != 2 || got[0].Note != "new" || got[1].Ref != "b" {
 		t.Errorf("evidence = %+v, want a (new) and b", got)
+	}
+}
+
+func TestMergeRunUsageByField(t *testing.T) {
+	base := finishedRun("uid-1", 0, 10, model.OutcomeSucceeded)
+	base.Usage = &model.Usage{CostUSD: "0.1", InputTokens: ptr(int64(100))}
+	overlay := finishedRun("uid-1", 0, 10, model.OutcomeSucceeded)
+	overlay.Usage = &model.Usage{OutputTokens: ptr(int64(20))}
+	got := mergeRun(base, overlay).Usage
+	if got == nil || got.CostUSD != "0.1" || got.InputTokens == nil || *got.InputTokens != 100 ||
+		got.OutputTokens == nil || *got.OutputTokens != 20 {
+		t.Errorf("usage = %+v, want cost 0.1, 100 tokens in, 20 out", got)
+	}
+	if got.InputTokens == base.Usage.InputTokens {
+		t.Error("merged usage shares base's token count")
+	}
+}
+
+func TestMergeRunProgress(t *testing.T) {
+	interval := func(start, end model.Bound) model.Interval { return model.Interval{Start: start, End: end} }
+	run := func(iv model.Interval, outcome model.Outcome) model.Run {
+		r := finishedRun("uid-1", 0, 0, outcome)
+		r.Interval = iv
+		return r
+	}
+	unknown := model.UnknownBound()
+	tests := []struct {
+		name          string
+		base, overlay model.Run
+		want          model.Interval
+		wantOutcome   model.Outcome
+	}{
+		{
+			"each unknown bound is taken from base",
+			run(interval(model.KnownAt(at(1)), unknown), model.OutcomeSucceeded),
+			run(interval(unknown, model.KnownAt(at(9))), model.OutcomeSucceeded),
+			interval(model.KnownAt(at(1)), model.KnownAt(at(9))), model.OutcomeSucceeded,
+		},
+		{
+			"a known end fills an unknown one",
+			run(interval(model.KnownAt(at(1)), model.KnownAt(at(9))), model.OutcomeFailed),
+			run(interval(model.KnownAt(at(1)), unknown), model.OutcomeFailed),
+			interval(model.KnownAt(at(1)), model.KnownAt(at(9))), model.OutcomeFailed,
+		},
+		{
+			"an announcement keeps a running run running",
+			run(interval(model.KnownAt(at(1)), model.OpenEnd()), model.OutcomeRunning),
+			run(interval(unknown, unknown), model.OutcomeUnknown),
+			interval(model.KnownAt(at(1)), model.OpenEnd()), model.OutcomeRunning,
+		},
+		{
+			"an end of unknown outcome keeps its bound and base's outcome",
+			run(interval(model.KnownAt(at(1)), unknown), model.OutcomeSucceeded),
+			run(interval(unknown, model.KnownAt(at(9))), model.OutcomeUnknown),
+			interval(model.KnownAt(at(1)), model.KnownAt(at(9))), model.OutcomeSucceeded,
+		},
+		{
+			"an end of unknown outcome ends a running run",
+			run(interval(model.KnownAt(at(1)), model.OpenEnd()), model.OutcomeRunning),
+			run(interval(unknown, model.KnownAt(at(9))), model.OutcomeUnknown),
+			interval(model.KnownAt(at(1)), model.KnownAt(at(9))), model.OutcomeUnknown,
+		},
+		{
+			"bounds that disagree are overlay's",
+			run(interval(model.KnownAt(at(10)), unknown), model.OutcomeSucceeded),
+			run(interval(unknown, model.KnownAt(at(9))), model.OutcomeSucceeded),
+			interval(unknown, model.KnownAt(at(9))), model.OutcomeSucceeded,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := mergeRun(tt.base, tt.overlay)
+			if err := got.Validate(); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got.Interval, tt.want) || got.Outcome != tt.wantOutcome {
+				t.Errorf("merged %+v, %s; want %+v, %s", got.Interval, got.Outcome, tt.want, tt.wantOutcome)
+			}
+		})
 	}
 }
 

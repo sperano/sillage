@@ -63,3 +63,18 @@ func TestCorrelationValidateNamesCorrelation(t *testing.T) {
 	c.Confidence = ""
 	checkErr(t, c.Validate(), "correlation run:cluster-a/agents/uid/uid-1 -> task:")
 }
+
+func TestCorrelationPairKey(t *testing.T) {
+	c := testCorrelation()
+	reversed := Correlation{From: c.To, To: c.From}
+	if c.PairKey() != reversed.PairKey() {
+		t.Errorf("PairKey() = %q one way, %q the other; want one key", c.PairKey(), reversed.PairKey())
+	}
+	// Joined unquoted, both pairs would read "event:x <-> event:y <-> event:z".
+	event := func(id string) Ref { return Ref{Kind: RefEvent, ID: id} }
+	a := Correlation{From: event("x <-> event:y"), To: event("z")}
+	b := Correlation{From: event("x"), To: event("y <-> event:z")}
+	if a.PairKey() == b.PairKey() {
+		t.Errorf("PairKey() = %q for two different pairs", a.PairKey())
+	}
+}

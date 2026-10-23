@@ -226,7 +226,7 @@ func (e Event) Validate() error {
 }
 
 func (e Event) validate() error {
-	if !e.Source.valid() || e.Instance == "" || e.ID == "" {
+	if !e.Source.Valid() || e.Instance == "" || e.ID == "" {
 		return errors.New("source, instance and id are required")
 	}
 	if err := e.validateID(); err != nil {
@@ -241,7 +241,7 @@ func (e Event) validate() error {
 	if e.ObservedAt.IsZero() {
 		return errors.New("observed time is required")
 	}
-	if err := e.validateLastObserved(); err != nil {
+	if err := e.validateObserved(); err != nil {
 		return err
 	}
 	if err := e.Actor.validate(); err != nil {
@@ -269,12 +269,18 @@ func (e Event) validateID() error {
 	return fmt.Errorf("unknown id kind %q", e.IDKind)
 }
 
-func (e Event) validateLastObserved() error {
+// validateObserved checks what a state seen by polling is stored by: it
+// has no source time and names the task it was seen on, and only it has a
+// last observed time, no earlier than its first.
+func (e Event) validateObserved() error {
+	if e.Kind.Observed() && (e.SourceTime != nil || e.Related.Task == nil) {
+		return errors.New("a state seen by polling has no source time and names its task")
+	}
 	switch {
 	case e.LastObservedAt == nil:
 		return nil
-	case !e.Kind.Observed() || e.SourceTime != nil:
-		return errors.New("only a state seen by polling, without a source time, has a last observed time")
+	case !e.Kind.Observed():
+		return errors.New("only a state seen by polling has a last observed time")
 	case e.LastObservedAt.Before(e.ObservedAt):
 		return errors.New("last observed time is before the observed time")
 	}
@@ -319,7 +325,7 @@ func validateEvidence(evidence []Evidence) error {
 		return errors.New("evidence is required")
 	}
 	for _, ev := range evidence {
-		if !ev.Source.valid() || ev.Instance == "" || ev.Ref == "" {
+		if !ev.Source.Valid() || ev.Instance == "" || ev.Ref == "" {
 			return errors.New("evidence needs a source, an instance and a ref")
 		}
 	}

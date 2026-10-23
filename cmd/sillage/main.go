@@ -1,6 +1,7 @@
 // Command sillage serves sillage's HTTP endpoints. For now that is a health
 // check and the embedded frontend; with SILLAGE_DATABASE_URL set, it also
-// migrates the store at startup. The collector and the read API come later.
+// migrates and prunes the store at startup. The collector and the read API
+// come later.
 package main
 
 import (
@@ -78,17 +79,20 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 		return err
 	}
 	slog.Info("starting", "version", version)
-	st, err := openStore(ctx, getenv)
-	if err != nil {
-		return err
-	}
-	if st != nil {
-		defer st.Close()
-	}
+	// Listen first: a bad or busy address fails the start before the store
+	// is migrated or pruned.
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", cfg.listenAddr)
 	if err != nil {
 		return err
+	}
+	st, err := openStore(ctx, getenv)
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
+	if st != nil {
+		defer st.Close()
 	}
 	return serve(ctx, ln, newHandler(web.FS()))
 }

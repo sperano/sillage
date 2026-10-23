@@ -48,7 +48,7 @@ func (r Records) validate() error {
 		validateAll(r.Runs, Run.Validate, func(run Run) string { return run.Key.String() }),
 		validateRunPods(r.Runs),
 		validateAll(r.PullRequests, PullRequest.Validate, func(p PullRequest) string { return p.Key.String() }),
-		validateAll(r.Correlations, Correlation.Validate, Correlation.pairKey),
+		validateAll(r.Correlations, Correlation.Validate, Correlation.PairKey),
 		validateAll(r.Coverage, Coverage.Validate, Coverage.Key),
 	)
 }

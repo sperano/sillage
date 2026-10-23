@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 // Confidence is how strongly the evidence establishes a correlation.
@@ -34,10 +35,11 @@ type Correlation struct {
 
 func (c Correlation) String() string { return c.From.String() + " -> " + c.To.String() }
 
-// pairKey identifies the pair of records whatever the direction, so that a
-// link recorded from each end counts as one.
-func (c Correlation) pairKey() string {
-	from, to := c.From.String(), c.To.String()
+// PairKey identifies the pair of records whatever the direction, so that a
+// link recorded from each end counts as one. Each ref is quoted, so that
+// no ref, whatever its id holds, can make two pairs share a key.
+func (c Correlation) PairKey() string {
+	from, to := strconv.Quote(c.From.String()), strconv.Quote(c.To.String())
 	if to < from {
 		from, to = to, from
 	}

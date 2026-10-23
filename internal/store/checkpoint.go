@@ -31,9 +31,7 @@ type Checkpoint struct {
 }
 
 func (c Checkpoint) validate() error {
-	switch c.Source {
-	case model.SourceVikunja, model.SourceKelos, model.SourceGitHub, model.SourceWiki:
-	default:
+	if !c.Source.Valid() {
 		return fmt.Errorf("store: checkpoint: unknown source %q", c.Source)
 	}
 	if c.Instance == "" || c.Scope == "" {

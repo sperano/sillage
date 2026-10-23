@@ -11,16 +11,18 @@ import (
 
 // supersede drops the stored live record that the archived version e
 // (row id) names in its "supersedes" detail: the same save, now with a
-// version id. The live record's stories and correlations move to the
-// version.
+// version id. When a newer live record of the same edit replaced it (see
+// replaceLive), that record is dropped instead. The live record's stories
+// and correlations move to the version.
 func (w *saver) supersede(id int64, e model.Event) error {
 	liveID := e.Details[detailSupersedes]
-	live := eventRef(e.Source, e.Instance, liveID)
-	w.moved[live] = e.Ref()
-	old, found, err := w.eventID(e.Source, e.Instance, liveID)
+	w.moved[eventRef(e.Source, e.Instance, liveID)] = e.Ref()
+	old, oldID, found, err := w.supersededLive(e.Source, e.Instance, liveID)
 	if err != nil || !found {
 		return err
 	}
+	live := eventRef(e.Source, e.Instance, oldID)
+	w.moved[live] = e.Ref()
 	if err := w.moveEventStories(old, id); err != nil {
 		return err
 	}
@@ -28,6 +30,24 @@ func (w *saver) supersede(id int64, e model.Event) error {
 		return err
 	}
 	return w.exec("DELETE FROM events WHERE id = $1", old)
+}
+
+// supersededLive returns the row and id of the stored live record with id
+// liveID, else of the live record that replaced it, and false when there
+// is neither.
+func (w *saver) supersededLive(source model.Source, instance, liveID string) (int64, string, bool, error) {
+	if row, found, err := w.eventID(source, instance, liveID); err != nil || found {
+		return row, liveID, found, err
+	}
+	var row int64
+	var id string
+	err := w.tx.QueryRow(w.ctx, `SELECT e.id, e.event_id FROM live_aliases a JOIN events e ON e.id = a.live_id
+		WHERE a.source = $1 AND a.instance = $2 AND a.event_id = $3`,
+		string(source), instance, liveID).Scan(&row, &id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, "", false, nil
+	}
+	return row, id, err == nil, err
 }
 
 // saveLive stores the live record e and returns the row the root's story
@@ -53,8 +73,7 @@ func (w *saver) saveLive(e model.Event) (int64, error) {
 	}
 	for _, o := range others {
 		if o.event.Time().After(e.Time()) {
-			w.replacedBy(e, o.event)
-			return o.id, nil
+			return o.id, w.replacedBy(e, o)
 		}
 	}
 	id, err := w.upsertEvent(e, eventRow{lastObserved: e.ObservedAt})
@@ -72,31 +91,58 @@ func (w *saver) saveLive(e model.Event) (int64, error) {
 // sameEdit reports whether two live records of a page may be one edit,
 // re-rendered, or the same account's later save: then the newer keeps the
 // older's correlations. Otherwise they are dropped rather than given to
-// someone else's edit.
-func sameEdit(older, newer model.Event) bool { return older.Actor == newer.Actor }
+// someone else's edit. An unknown author (a token that may not read it, a
+// move) matches no one; the author's id, when both name one, is compared
+// rather than the name.
+func sameEdit(older, newer model.Event) bool {
+	if older.Actor.Kind == model.ActorUnknown || newer.Actor.Kind == model.ActorUnknown {
+		return false
+	}
+	if a, b := older.Details[detailAuthorID], newer.Details[detailAuthorID]; a != "" && b != "" {
+		return a == b
+	}
+	return older.Actor == newer.Actor
+}
 
 // replacedBy records that the batch's live record e is stored as newer.
-func (w *saver) replacedBy(e, newer model.Event) {
-	if sameEdit(e, newer) {
-		w.moved[e.Ref()] = newer.Ref()
-		return
+func (w *saver) replacedBy(e model.Event, newer storedEvent) error {
+	if !sameEdit(e, newer.event) {
+		w.dropped[e.Ref()] = true
+		return nil
 	}
-	w.dropped[e.Ref()] = true
+	w.moved[e.Ref()] = newer.event.Ref()
+	return w.alias(e, newer.id)
 }
 
 // replaceLive deletes the older live record old, which e (row id)
 // replaces, after giving e its stories and, for the same edit, its
-// correlations.
+// correlations and its place for the version that archives it.
 func (w *saver) replaceLive(old storedEvent, id int64, e model.Event) error {
 	if err := w.moveEventStories(old.id, id); err != nil {
 		return err
 	}
-	if sameEdit(old.event, e) {
-		if err := w.repointCorrelations(old.event.Ref(), e.Ref()); err != nil {
-			return err
-		}
+	if !sameEdit(old.event, e) {
+		w.dropped[old.event.Ref()] = true
+		return w.deleteEvent(old.id, old.event.Ref())
+	}
+	w.moved[old.event.Ref()] = e.Ref()
+	if err := w.repointCorrelations(old.event.Ref(), e.Ref()); err != nil {
+		return err
+	}
+	if err := w.exec("UPDATE live_aliases SET live_id = $2 WHERE live_id = $1", old.id, id); err != nil {
+		return err
+	}
+	if err := w.alias(old.event, id); err != nil {
+		return err
 	}
 	return w.deleteEvent(old.id, old.event.Ref())
+}
+
+// alias records that the live record e is stored as row live.
+func (w *saver) alias(e model.Event, live int64) error {
+	return w.exec(`INSERT INTO live_aliases (source, instance, event_id, live_id) VALUES ($1, $2, $3, $4)
+		ON CONFLICT (source, instance, event_id) DO UPDATE SET live_id = EXCLUDED.live_id`,
+		string(e.Source), e.Instance, e.ID, live)
 }
 
 // moveEventStories adds event row to every story holding row from.

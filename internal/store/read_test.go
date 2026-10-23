@@ -2,6 +2,7 @@ package store
 
 import (
 	"testing"
+	"time"
 
 	"github.com/sperano/sillage/internal/model"
 )
@@ -94,8 +95,9 @@ func TestCoverageMergedAcrossReads(t *testing.T) {
 		t.Fatalf("coverage = %+v, want one read at minute 20", got)
 	}
 	gaps := got[0].Gaps
+	// The first read knew minute 10 itself: the gap after it starts 1ns later.
 	if len(gaps) != 2 || !gaps[0].Start.Equal(at(0)) || !gaps[0].End.Equal(at(5)) ||
-		!gaps[1].Start.After(at(10)) || !gaps[1].End.Equal(at(15)) {
-		t.Errorf("gaps = %+v, want minutes 0 to 5 and 10 to 15", gaps)
+		!gaps[1].Start.Equal(at(10).Add(time.Nanosecond)) || !gaps[1].End.Equal(at(15)) {
+		t.Errorf("gaps = %+v, want minutes 0 to 5 and just after 10 to 15", gaps)
 	}
 }

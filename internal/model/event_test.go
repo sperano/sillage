@@ -52,7 +52,7 @@ func TestEventValidate(t *testing.T) {
 	runEventCases(t, tests)
 }
 
-func TestEventValidateLastObserved(t *testing.T) {
+func TestEventValidateObserved(t *testing.T) {
 	observation := func(e *Event) {
 		e.Kind, e.SourceTime = KindTaskBucketObserved, nil
 	}
@@ -77,7 +77,15 @@ func TestEventValidateLastObserved(t *testing.T) {
 			observation(e)
 			e.SourceTime = timePtr(at(5))
 			e.LastObservedAt = timePtr(at(20))
-		}, "only a state seen by polling"},
+		}, "has no source time"},
+		{"observation with a source time", func(e *Event) {
+			observation(e)
+			e.SourceTime = timePtr(at(5))
+		}, "has no source time"},
+		{"observation without a task", func(e *Event) {
+			observation(e)
+			e.Related.Task = nil
+		}, "names its task"},
 	}
 	runEventCases(t, tests)
 }
@@ -147,6 +155,9 @@ func TestEventValidateKindSources(t *testing.T) {
 			t.Run(string(kind)+"/"+string(source), func(t *testing.T) {
 				e := testEvent("c-1")
 				e.Kind, e.Source = kind, source
+				if kind.Observed() {
+					e.SourceTime = nil
+				}
 				want := "cannot come from " + string(source)
 				if slices.Contains(allowed, source) {
 					want = ""

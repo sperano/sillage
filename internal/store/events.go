@@ -16,6 +16,7 @@ import (
 const (
 	detailVersion    = "version"
 	detailSupersedes = "supersedes"
+	detailAuthorID   = "authorId"
 	versionLive      = "live"
 )
 
@@ -151,6 +152,6 @@ func isLive(e model.Event) bool {
 	return e.Source == model.SourceWiki && e.Related.Page != nil && e.Details[detailVersion] == versionLive
 }
 
-func isObservation(e model.Event) bool {
-	return e.Kind.Observed() && e.SourceTime == nil && e.Related.Task != nil
-}
+// isObservation reports whether e is a state seen by polling, which the
+// model guarantees has no source time and names its task.
+func isObservation(e model.Event) bool { return e.Kind.Observed() }

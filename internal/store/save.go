@@ -74,8 +74,8 @@ type saver struct {
 	// re-keyed run, an observation folded into an earlier one, a live wiki
 	// edit an archived version superseded.
 	moved map[model.Ref]model.Ref
-	// dropped are the batch's records not stored, whose correlations are
-	// dropped too: live wiki edits another account's newer one replaced.
+	// dropped are the records not stored, whose correlations are dropped
+	// too: live wiki edits another account's newer one replaced.
 	dropped map[model.Ref]bool
 }
 
@@ -130,10 +130,15 @@ func (w *saver) exec(sql string, args ...any) error {
 	return err
 }
 
-// ref returns where the batch's record r is stored.
+// ref returns where the batch's record r is stored, following each move
+// (a live edit re-rendered, then archived).
 func (w *saver) ref(r model.Ref) model.Ref {
-	if to, ok := w.moved[r]; ok {
-		return to
+	for range len(w.moved) {
+		to, ok := w.moved[r]
+		if !ok {
+			break
+		}
+		r = to
 	}
 	return r
 }
