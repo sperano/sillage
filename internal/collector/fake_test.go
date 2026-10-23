@@ -291,5 +291,5 @@ func taskRoot(id int64) model.Root {
 }
 
 func pageRoot(id int64) model.Root {
-	return model.Root{Page: &model.PageKey{Instance: testWikiHost, ID: id, Locale: defaultWikiLocale}}
+	return model.Root{Page: &model.PageKey{Instance: testWikiHost, ID: id, Locale: wiki.DefaultLocale}}
 }
