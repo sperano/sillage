@@ -88,9 +88,9 @@ describe('reasonText', () => {
 	});
 
 	test('cuts it inside the span when more of it fits there than before it', () => {
-		const long = { ...span(10, 150), reason: 'kelos/c: '.padEnd(60, 'x') };
+		const long = { ...span(30, 150), reason: 'kelos/c: '.padEnd(60, 'x') };
 		const text = reasonText(long, scale);
-		expect(text).toMatchObject({ x: 110 + REASON_PAD_PX, anchor: 'start' });
+		expect(text).toMatchObject({ x: 130 + REASON_PAD_PX, anchor: 'start' });
 		expect(text!.text.length).toBeGreaterThan(10);
 	});
 
