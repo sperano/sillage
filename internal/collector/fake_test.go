@@ -36,6 +36,10 @@ const (
 	testNamespace   = "agents"
 	testWorkspace   = "widgets"
 	testAgent       = "agent-opus"
+	// testServiceAccount posts the fixtures' Vikunja start announcements.
+	// It is configured, not vikunja.DefaultServiceAccount, so that the
+	// fixtures do not depend on the source's default.
+	testServiceAccount = "kelos"
 	// testGitHubAPIPath is where the fake serves GitHub's REST API, as
 	// GitHub Enterprise Server does.
 	testGitHubAPIPath = "/api/v3"
@@ -66,7 +70,7 @@ type storyDirs struct {
 func testConfig() Config {
 	return Config{
 		VikunjaInstance:       testVikunjaHost,
-		VikunjaServiceAccount: vikunja.DefaultServiceAccount,
+		VikunjaServiceAccount: testServiceAccount,
 		VikunjaAgentUsers:     []string{testAgent},
 		Kelos: kelos.Config{
 			Cluster: testCluster, Namespace: testNamespace, LabelDomain: testVikunjaHost, VikunjaInstance: testVikunjaHost,
@@ -101,7 +105,7 @@ func newStoryCollector(t *testing.T, dirs storyDirs) *Collector {
 		t.Fatal(err)
 	}
 	vk := vikunja.NewClient(vikunja.Config{
-		BaseURL: "http://" + testVikunjaHost, Token: testToken, ServiceAccount: vikunja.DefaultServiceAccount,
+		BaseURL: "http://" + testVikunjaHost, Token: testToken, ServiceAccount: testServiceAccount,
 	}, hc)
 	c, err := New(testConfig(), Sources{Vikunja: vk, Kelos: reader, GitHub: gh, Wiki: wk})
 	if err != nil {
