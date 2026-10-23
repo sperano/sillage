@@ -22,6 +22,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `cmd/sillage/` | The one binary: today `GET /healthz`, the read API under `/api/` and the embedded frontend (its `index.html` for every other `GET` path without a file extension, so client-side routes deep-link), and `sillage story`, which prints one story assembled from the live sources; later the collector loop too. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s, what the API answers `internal/api`'s. |
 | `internal/model/` | Normalized events, runs, entities and links, and coverage. Source-independent. |
 | `internal/model/storytest/` | The invariant each fixture story exists for, asserted by the model's and the collector's tests. |
+| `internal/testzone/` | `TestMain` for the packages with golden files: their tests run with `time.Local` seven hours west of UTC, so output that depends on the host's zone fails on every machine. |
 | `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage. Read once, nothing kept. |
 | `internal/source/vikunja/` | Read-only Vikunja client and its normalization into `model`. |
 | `internal/source/github/` | Read-only GitHub client and its normalization into `model`. |
@@ -163,6 +164,9 @@ change to the story JSON also changes `web/src/lib/model.ts` and
 - **An unknown interval stays unknown.** A gap between two records is never
   drawn or counted as work, waiting or idle time. A correlation the evidence
   does not establish is shown as uncertain, not as a causal link.
+- **A time read from a source never takes the host's zone.** A decoder that
+  puts times in `time.Local` (Kubernetes' `metav1.Time` does) has its times
+  converted to UTC; `model.BuildStory` turns every time into UTC.
 - Named constants, not magic numbers.
 - Files ≤ ~500 lines, functions ≤ ~50; compose small functions.
 - Tests live in sibling files: `foo.go` → `foo_test.go`, `foo.ts` →

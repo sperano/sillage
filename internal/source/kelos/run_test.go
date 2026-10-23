@@ -238,3 +238,24 @@ func TestBuildDeletedUnfinishedTask(t *testing.T) {
 		}
 	}
 }
+
+// A run's times are in UTC whatever time.Local is, which TestMain sets to
+// a zone that is not UTC: metav1.Time decodes every time into time.Local.
+// The record supplies task-with-record's interval, the Task's status
+// task-only's.
+func TestRunTimesAreUTC(t *testing.T) {
+	for _, story := range []string{"task-with-record", "task-only"} {
+		run := onlyRun(t, storyRecords(t, story))
+		if run.Created == nil || run.Created.Location() != time.UTC {
+			t.Errorf("%s: created = %v, want a time in UTC", story, run.Created)
+		}
+		for name, b := range map[string]model.Bound{"start": run.Interval.Start, "end": run.Interval.End} {
+			if at, ok := b.Time(); ok && at.Location() != time.UTC {
+				t.Errorf("%s: %s = %v, want a time in UTC", story, name, at)
+			}
+		}
+		if _, ok := run.Interval.Start.Time(); !ok {
+			t.Errorf("%s: start unknown, want one to check", story)
+		}
+	}
+}

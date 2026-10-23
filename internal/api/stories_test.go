@@ -13,7 +13,12 @@ import (
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/model/storytest"
 	"github.com/sperano/sillage/internal/store"
+	"github.com/sperano/sillage/internal/testzone"
 )
+
+// TestMain runs the tests outside UTC, so that output depending on the
+// host's zone fails here too.
+func TestMain(m *testing.M) { testzone.Main(m) }
 
 // storyPath is the API path of root's story.
 func storyPath(root model.Root) string {
