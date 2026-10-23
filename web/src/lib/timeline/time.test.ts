@@ -55,6 +55,11 @@ describe('ticks', () => {
 		]);
 	});
 
+	test('has no ticks for a window that is not a time, and caps a long one', () => {
+		expect(ticks(Number.NaN, Number.NaN, 4, 'utc')).toEqual([]);
+		expect(ticks(0, 100 * 365 * DAY_MS, 4, 'utc')).toHaveLength(4);
+	});
+
 	test('labels day steps with dates only', () => {
 		const out = ticks(
 			Date.parse('2026-01-01T12:00:00Z'),

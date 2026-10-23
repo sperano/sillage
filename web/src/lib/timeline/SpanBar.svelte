@@ -3,7 +3,7 @@
 	import EventGlyph from './EventGlyph.svelte';
 	import { spanDescription, spanText } from './intervals';
 	import { onActivate } from './keys';
-	import { labelWidth, type Bar } from './layout';
+	import { LABEL_LINE_GAP_PX, LABEL_NUDGE_PX, labelWidth, type Bar } from './layout';
 	import { formatClock, type Zone } from './time';
 
 	interface Props {
@@ -25,7 +25,8 @@
 	const TEXT_PAD_PX = 5;
 	/** The size of the chevron that marks an open end. */
 	const CHEVRON_PX = 5;
-	const LINE_GAP_PX = 12;
+	/** How far above the bar a stub's text sits. */
+	const STUB_TEXT_RAISE_PX = 2;
 
 	const span = $derived(bar.span);
 	const text = $derived(spanText(span));
@@ -96,7 +97,7 @@
 		<text
 			class="outside"
 			x={unknownSide === 'start' ? bar.x1 - TEXT_PAD_PX : bar.x2 + TEXT_PAD_PX}
-			y={top - 2}
+			y={top - STUB_TEXT_RAISE_PX}
 			text-anchor={unknownSide === 'start' ? 'end' : 'start'}
 			>{span.text}, {unknownSide} unknown</text
 		>
@@ -104,8 +105,8 @@
 	{#if span.exit}
 		<EventGlyph mark={span.exit.mark} x={bar.x2} {y} />
 		{#if labelY !== undefined}
-			<text class="label" x={bar.x2 - 4} y={labelY}>{span.exit.label}</text>
-			<text class="time" x={bar.x2 - 4} y={labelY + LINE_GAP_PX}
+			<text class="label" x={bar.x2 - LABEL_NUDGE_PX} y={labelY}>{span.exit.label}</text>
+			<text class="time" x={bar.x2 - LABEL_NUDGE_PX} y={labelY + LABEL_LINE_GAP_PX}
 				>{formatClock(span.exit.at, zone)}</text
 			>
 		{/if}

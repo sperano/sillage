@@ -14,6 +14,14 @@
 	const R = 5;
 	/** The selection ring's radius. */
 	const RING_R = 9;
+	/** A check mark drawn inside a glyph. */
+	const TICK_PATH = `M ${-R * 0.6} 0 L ${-R * 0.2} ${R / 2} L ${R * 0.6} ${-R / 2}`;
+	/** How far a run exit's flagpole reaches past the glyph, and its flag's depth. */
+	const FLAG_PX = 3;
+	/** How much larger than the others the merge diamond is drawn. */
+	const DIAMOND_GROW_PX = 1;
+	/** A cross drawn inside a glyph. */
+	const CROSS_PATH = `M ${-R / 2} ${-R / 2} L ${R / 2} ${R / 2} M ${R / 2} ${-R / 2} L ${-R / 2} ${R / 2}`;
 </script>
 
 <!-- Each kind of mark has its own shape: an ending is never just a dot. -->
@@ -25,17 +33,25 @@
 		<circle class="hollow" r={R} />
 	{:else if mark === 'task-done'}
 		<rect class="solid" x={-R} y={-R} width={R * 2} height={R * 2} />
-		<path class="tick" d="M -3 0 L -1 2.5 L 3 -2.5" />
+		<path class="tick" d={TICK_PATH} />
 	{:else if mark === 'run-exit'}
-		<path class="solid" d="M 0 {-R - 3} L 0 {R + 3} M 0 {-R - 3} L {R + 2} {-R} L 0 {-R + 3}" />
+		<path
+			class="solid"
+			d="M 0 {-R - FLAG_PX} L 0 {R + FLAG_PX} M 0 {-R - FLAG_PX} L {R + FLAG_PX - 1} {-R} L 0 {-R +
+				FLAG_PX}"
+		/>
 	{:else if mark === 'check-success'}
 		<circle class="solid" r={R} />
-		<path class="tick" d="M -3 0 L -1 2.5 L 3 -2.5" />
+		<path class="tick" d={TICK_PATH} />
 	{:else if mark === 'check-end'}
 		<circle class="solid" r={R} />
-		<path class="tick" d="M -2.5 -2.5 L 2.5 2.5 M 2.5 -2.5 L -2.5 2.5" />
+		<path class="tick" d={CROSS_PATH} />
 	{:else if mark === 'pr-merged'}
-		<path class="solid" d="M 0 {-R - 1} L {R + 1} 0 L 0 {R + 1} L {-R - 1} 0 Z" />
+		<path
+			class="solid"
+			d="M 0 {-R - DIAMOND_GROW_PX} L {R + DIAMOND_GROW_PX} 0 L 0 {R + DIAMOND_GROW_PX} L {-R -
+				DIAMOND_GROW_PX} 0 Z"
+		/>
 	{:else if mark === 'pr-closed'}
 		<rect class="hollow" x={-R} y={-R} width={R * 2} height={R * 2} />
 		<path class="cross" d="M {-R} {-R} L {R} {R} M {R} {-R} L {-R} {R}" />

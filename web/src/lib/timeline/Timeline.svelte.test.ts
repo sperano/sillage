@@ -161,10 +161,6 @@ describe('intervals', () => {
 		});
 		const { container } = await show(s);
 		const labels = all(container, '[data-span]').map((e) => e.getAttribute('aria-label'));
-		console.log(
-			labels,
-			all(container, 'text').map((t) => t.textContent)
-		);
 		expect(labels.some((l) => l?.startsWith('waiting to start · 20m 00s'))).toBe(true);
 		expect(labels.some((l) => l?.startsWith('running · 10m 00s'))).toBe(true);
 		expect(labels.some((l) => l?.startsWith('review wait: alice · 30m 00s'))).toBe(true);
@@ -202,31 +198,32 @@ describe('interaction', () => {
 
 	test('one zone applies to the axis and every label', async () => {
 		const { container } = await show(golden('implementation-merged'));
-		const range = container.querySelector('output')!;
-		expect(range.textContent).toMatch(/UTC$/);
+		const range = page.getByRole('status');
+		await expect.element(range).toHaveTextContent(/UTC$/);
 		const label = container.querySelector('[data-span="running"]')!.getAttribute('aria-label');
 		expect(label).toContain('2026-03-03 18:05:37 UTC');
 		await page.getByLabelText('Time zone').selectOptions('local');
-		await tick();
-		expect(range.textContent).not.toMatch(/UTC$/);
-		expect(
-			container.querySelector('[data-span="running"]')!.getAttribute('aria-label')
-		).not.toContain('UTC');
+		await expect.element(range).toHaveTextContent(/America\/Toronto$/);
+		await expect
+			.element(page.getByRole('button', { name: /^running · 25m 33s/ }))
+			.toHaveAccessibleName(/2026-03-03 13:05:37 America\/Toronto/);
 	});
 
 	test('zooms in to a minute, back out to the whole story, and pans', async () => {
-		const { container } = await show(golden('implementation-merged'));
-		const range = container.querySelector('output')!;
-		const whole = range.textContent;
+		await show(golden('implementation-merged'));
+		const range = page.getByRole('status');
+		const whole = range.element().textContent ?? '';
 		const zoomIn = page.getByRole('button', { name: 'Zoom in' });
-		await expect.element(page.getByRole('button', { name: 'Earlier' })).toBeDisabled();
+		const earlier = page.getByRole('button', { name: 'Earlier' });
+		await expect.element(earlier).toBeDisabled();
 		await zoomIn.click();
-		expect(range.textContent).not.toBe(whole);
-		await page.getByRole('button', { name: 'Earlier' }).click();
+		await expect.element(range).not.toHaveTextContent(whole);
+		await expect.element(earlier).toBeEnabled();
+		await earlier.click();
 		for (let i = 0; i < 12; i++) await zoomIn.click({ force: true });
 		await expect.element(zoomIn).toBeDisabled();
 		await page.getByRole('button', { name: 'Whole story' }).click();
-		expect(range.textContent).toBe(whole);
+		await expect.element(range).toHaveTextContent(whole);
 	});
 
 	test('groups crowded events under a count that expands', async () => {

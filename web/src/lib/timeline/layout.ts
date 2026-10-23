@@ -33,6 +33,14 @@ const TRACK_GAP_PX = 4;
 export const CHAR_PX = 6.2;
 /** The same for the 10px text of subtitles, notes and coverage reasons. */
 export const SMALL_CHAR_PX = 5.6;
+/** Where the row titles and the other left-column text start. */
+export const TITLE_X_PX = 12;
+/** The space between the two lines of a mark's label: what, then when. */
+export const LABEL_LINE_GAP_PX = 12;
+/** How far left of its mark a label starts. */
+export const LABEL_NUDGE_PX = 4;
+/** How far outside the window a mark is still laid out. */
+const CULL_MARGIN_PX = GROUP_GAP_PX;
 /** Text cut shorter than this many characters is left out. */
 const MIN_FIT_CHARS = 3;
 
@@ -73,8 +81,6 @@ export interface RowLayout {
 	listY: number;
 	bars: Bar[];
 	placed: Placed[];
-	/** Spans with neither end known: listed, never drawn. */
-	undrawn: Span[];
 }
 
 /**
@@ -189,7 +195,15 @@ function placeLabels(placed: Placed[], bars: Bar[], timeText: (t: number) => str
 	return used;
 }
 
-/** Lays out one row from its top edge y. */
+/** Whether x1..x2 reaches into the window, give or take the cull margin. */
+function inView(x1: number, x2: number, scale: Scale): boolean {
+	return x2 >= scale.left - CULL_MARGIN_PX && x1 <= scale.right + CULL_MARGIN_PX;
+}
+
+/**
+ * Lays out one row from its top edge y: only what reaches into the window.
+ * A span with neither end known has no extent; the row's note says so.
+ */
 export function layoutRow(
 	row: Row,
 	y: number,
@@ -197,19 +211,14 @@ export function layoutRow(
 	expanded: ReadonlySet<string>,
 	timeText: (t: number) => string
 ): RowLayout {
-	const undrawn: Span[] = [];
 	const unpacked = row.spans.flatMap((span) => {
 		const extent = barExtent(span, scale);
-		if (!extent) undrawn.push(span);
-		return extent ? [{ span, ...extent }] : [];
+		return extent && inView(extent.x1, extent.x2, scale) ? [{ span, ...extent }] : [];
 	});
 	const bars = packTracks(unpacked);
 	const tracks = Math.max(1, ...bars.map((b) => b.track + 1));
-	const placed = groupPoints(
-		row.events.map((e) => pointOf(e, scale)),
-		row.id,
-		expanded
-	);
+	const points = row.events.map((e) => pointOf(e, scale)).filter((p) => inView(p.x, p.x, scale));
+	const placed = groupPoints(points, row.id, expanded);
 	const levels = Math.max(1, placeLabels(placed, bars, timeText));
 	// Each expanded group lists its members under itself, from the same line.
 	const expandedLines = Math.max(
@@ -226,8 +235,7 @@ export function layoutRow(
 		labelY: tracksBottom + LABEL_OFFSET_PX,
 		listY,
 		bars,
-		placed,
-		undrawn
+		placed
 	};
 }
 

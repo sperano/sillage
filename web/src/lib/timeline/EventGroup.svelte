@@ -3,6 +3,7 @@
 	import EventGlyph from './EventGlyph.svelte';
 	import { onActivate } from './keys';
 	import { LINE_PX, type Point } from './layout';
+	import { eventName } from './marks';
 	import { formatClock, formatFull, type Zone } from './time';
 
 	interface Props {
@@ -24,6 +25,10 @@
 	const BADGE_R = 9;
 	/** How far right of the group the expanded list starts. */
 	const LIST_INDENT_PX = 8;
+	/** The keyboard focus ring's distance outside the badge or glyph. */
+	const FOCUS_GAP_PX = 4;
+	/** A glyph's half size, around which a member's focus ring is drawn. */
+	const GLYPH_R = 5;
 
 	const first = $derived(members[0]!);
 	const last = $derived(members[members.length - 1]!);
@@ -38,13 +43,14 @@
 		class="badge"
 		role="button"
 		tabindex="0"
-		aria-label="{name}; {expanded ? 'collapse' : 'expand'}"
+		aria-label={name}
 		aria-expanded={expanded}
 		onclick={toggle}
 		onkeydown={onActivate(toggle)}
 	>
 		<title>{name}</title>
-		<circle cx={x} cy={y} r={BADGE_R} />
+		<circle class="focus" cx={x} cy={y} r={BADGE_R + FOCUS_GAP_PX} />
+		<circle class="count" cx={x} cy={y} r={BADGE_R} />
 		<text {x} {y} dy="0.35em">{members.length}</text>
 	</g>
 	{#if expanded}
@@ -52,18 +58,20 @@
 			{@const select = () => selection.select(m.selected)}
 			{@const selected = selection.is(m.selected)}
 			{@const lineY = listY + i * LINE_PX}
+			{@const name = eventName(m.event, zone)}
 			<g
 				class="member"
 				role="button"
 				tabindex="0"
-				aria-label="{m.label}, {formatFull(m.at, zone)}"
+				aria-label={name}
 				aria-pressed={selected}
 				data-event={m.key}
 				onclick={select}
 				onkeydown={onActivate(select)}
 			>
-				<title>{m.label}, {formatFull(m.at, zone)}</title>
+				<title>{name}</title>
 				<line class="lead" x1={m.x} y1={y} x2={x + LIST_INDENT_PX} y2={lineY} />
+				<circle class="focus" cx={x + LIST_INDENT_PX} cy={lineY} r={GLYPH_R + FOCUS_GAP_PX} />
 				<EventGlyph mark={m.mark} x={x + LIST_INDENT_PX} y={lineY} {selected} />
 				<text x={x + LIST_INDENT_PX * 2} y={lineY} dy="0.35em"
 					>{m.label} · {formatClock(m.at, zone)}</text
@@ -79,14 +87,21 @@
 		cursor: pointer;
 		outline: none;
 	}
-	.badge circle {
+	.badge .count {
 		fill: var(--tl-bg);
 		stroke: var(--tl-event);
 		stroke-width: 2;
 	}
-	.badge:focus-visible circle,
-	.member:focus-visible text {
+	.focus {
+		fill: none;
 		stroke: var(--tl-focus);
+		stroke-width: 2;
+		stroke-dasharray: 3 2;
+		opacity: 0;
+	}
+	.badge:focus-visible .focus,
+	.member:focus-visible .focus {
+		opacity: 1;
 	}
 	.badge text {
 		fill: var(--tl-fg);

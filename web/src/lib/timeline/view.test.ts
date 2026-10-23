@@ -12,6 +12,13 @@ describe('storyDomain', () => {
 		expect(d.end).toBeGreaterThan(Date.parse('2026-03-03T20:00:00Z'));
 	});
 
+	test('leaves out a time that does not parse', () => {
+		const s = golden('discuss-no-pr');
+		const broken = { ...s, events: [{ ...s.events[0]!, sourceTime: 'not a time' }] };
+		const d = storyDomain(broken);
+		expect(Number.isFinite(d.start) && Number.isFinite(d.end)).toBe(true);
+	});
+
 	test('is never narrower than the minimum span', () => {
 		const story = { ...golden('discuss-no-pr'), events: [], runs: [], coverage: [] };
 		const d = storyDomain(story, 0);

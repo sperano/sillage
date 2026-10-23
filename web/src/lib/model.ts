@@ -36,13 +36,13 @@ export interface PageKey {
 	locale: string;
 }
 
-/** One Kelos Task attempt: exactly one of uid and pod is set. */
-export interface RunKey {
-	cluster: string;
-	namespace: string;
-	uid?: string;
-	pod?: string;
-}
+/**
+ * One Kelos Task attempt: by Task UID, or by pod when only a start
+ * announcement named it.
+ */
+export type RunKey = { cluster: string; namespace: string } & (
+	{ uid: string; pod?: undefined } | { pod: string; uid?: undefined }
+);
 
 export interface PRKey {
 	instance: string;
@@ -50,11 +50,8 @@ export interface PRKey {
 	number: number;
 }
 
-/** Exactly one of task and page is set. */
-export interface Root {
-	task?: TaskKey;
-	page?: PageKey;
-}
+/** What a story is about: a Vikunja task, or a wiki page. */
+export type Root = { task: TaskKey; page?: undefined } | { page: PageKey; task?: undefined };
 
 export interface Account {
 	login?: string;
@@ -98,11 +95,8 @@ export interface Event {
 
 export type BoundState = 'known' | 'unknown' | 'open';
 
-/** One end of an interval: at is set exactly when state is known. */
-export interface Bound {
-	state: BoundState;
-	at?: string;
-}
+/** One end of an interval: a known end has a time, an unknown or open one none. */
+export type Bound = { state: 'known'; at: string } | { state: 'unknown' | 'open'; at?: undefined };
 
 export interface Interval {
 	start: Bound;
@@ -223,9 +217,9 @@ export function pageKeyString(k: PageKey): string {
 }
 
 export function runKeyString(k: RunKey): string {
-	return k.uid
+	return k.uid !== undefined
 		? `${k.cluster}/${k.namespace}/uid/${k.uid}`
-		: `${k.cluster}/${k.namespace}/pod/${k.pod ?? ''}`;
+		: `${k.cluster}/${k.namespace}/pod/${k.pod}`;
 }
 
 export function prKeyString(k: PRKey): string {
@@ -244,5 +238,5 @@ export function eventTime(e: Event): number {
 
 /** A bound's time in milliseconds, or undefined unless it is known. */
 export function boundTime(b: Bound): number | undefined {
-	return b.state === 'known' && b.at !== undefined ? Date.parse(b.at) : undefined;
+	return b.state === 'known' ? Date.parse(b.at) : undefined;
 }

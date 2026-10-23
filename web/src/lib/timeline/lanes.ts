@@ -45,13 +45,16 @@ export interface Row {
 	sources: string[];
 	events: Event[];
 	spans: Span[];
-	/** Said on the row when it has nothing to draw, or nothing known to. */
+	/** Said on the row about what it cannot draw: an interval with no known end. */
 	note?: string;
 	/** Where the row sorts within its section. */
 	order: number;
 	/** The row this one is drawn under: a pull request's, for its checks. */
 	parent?: string;
 }
+
+/** What a row is created with; the rest fills in as records are placed. */
+type RowInit = Omit<Row, 'id' | 'events' | 'spans' | 'order'>;
 
 /** The kinds of event a conversation posts, drawn on their author's row. */
 const CONVERSATION = new Set<Event['kind']>([
@@ -64,7 +67,7 @@ const CONVERSATION = new Set<Event['kind']>([
 export function buildRows(story: Story): Row[] {
 	const rows = new Map<string, Row>();
 	const lastRead = lastReads(story);
-	const ensure = (id: string, init: () => Omit<Row, 'id' | 'events' | 'spans' | 'order'>) => {
+	const ensure = (id: string, init: () => RowInit) => {
 		let row = rows.get(id);
 		if (!row) {
 			row = { id, events: [], spans: [], order: Number.POSITIVE_INFINITY, ...init() };
@@ -84,12 +87,13 @@ export function buildRows(story: Story): Row[] {
 	addPullRequests(ctx);
 	for (const e of story.events) placeEvent(ctx, e);
 	addReviewWaits(ctx, [...rows.values()]);
+	for (const row of rows.values()) addNote(row);
 	return sortRows([...rows.values()], story.root.task ? 'task' : 'pages');
 }
 
 interface Context {
 	story: Story;
-	ensure: (id: string, init: () => Omit<Row, 'id' | 'events' | 'spans' | 'order'>) => Row;
+	ensure: (id: string, init: () => RowInit) => Row;
 	find: (id: string) => Row | undefined;
 	lastRead: (source: string) => number | undefined;
 	runOfEvent: Map<string, string>;
@@ -194,9 +198,6 @@ function addRun(ctx: Context, run: Run, name: string, attempt: number): void {
 	}));
 	row.order = runAnchor(run);
 	row.spans.push(...runSpans(run, ctx.lastRead(source)));
-	if (run.interval.start.state === 'unknown' && run.interval.end.state === 'unknown') {
-		row.note = 'start and end unknown: no bar';
-	}
 }
 
 /** One row per pull request, and one row of checks per commit. */
@@ -240,14 +241,13 @@ function rowOf(ctx: Context, e: Event): Row {
 		const run = ctx.runOfEvent.get(eventKey(e));
 		const runRow = run === undefined ? undefined : ctx.find(`run:${run}`);
 		if (runRow && e.actor.kind !== 'person') return runRow;
-		if (e.actor.kind !== 'unknown' && e.actor.login) return accountRow(ctx, e);
+		if (e.actor.kind !== 'unknown' && e.actor.login) return accountRow(ctx, e, e.actor.login);
 	}
 	return entityRow(ctx, e);
 }
 
 /** The row of the account that posted a conversation event. */
-function accountRow(ctx: Context, e: Event): Row {
-	const login = e.actor.login!;
+function accountRow(ctx: Context, e: Event, login: string): Row {
 	const section =
 		e.actor.kind === 'person' ? 'people' : e.actor.kind === 'agent' ? 'runs' : 'automation';
 	return ctx.ensure(`account:${e.actor.kind}:${e.source}/${e.instance}:${login}`, () => ({
@@ -268,7 +268,22 @@ function entityRow(ctx: Context, e: Event): Row {
 	if (page && (e.source === 'wiki' || !task)) return pageRow(ctx, page);
 	if (task) return taskRow(ctx, task);
 	const root = ctx.story.root;
-	return root.task ? taskRow(ctx, root.task) : pageRow(ctx, root.page!);
+	return root.task ? taskRow(ctx, root.task) : pageRow(ctx, root.page);
+}
+
+/**
+ * Notes each interval with neither end known, which has nothing to draw:
+ * without the note it would look like no interval at all.
+ */
+function addNote(row: Row): void {
+	const notes = row.spans
+		.filter((s) => s.start === undefined && s.endState === 'unknown')
+		.map((s) =>
+			s.selected.kind === 'run'
+				? 'start and end unknown: no bar'
+				: `${s.text}: start and end unknown, no bar`
+		);
+	if (notes.length > 0) row.note = notes.join('; ');
 }
 
 function addReviewWaits(ctx: Context, rows: Row[]): void {

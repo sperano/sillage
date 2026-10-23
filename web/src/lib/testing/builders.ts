@@ -1,11 +1,16 @@
 // Small records for unit tests: complete enough to be valid, with every
 // field a test cares about overridable.
 
-import type { Event, Run, Story } from '../model';
+import type { Event, PRKey, Run, Story, TaskKey } from '../model';
 
-export const TASK = { instance: 'vikunja.example.com', id: 1 };
-export const PR = { instance: 'github.example.com', repository: 'example-org/widgets', number: 3 };
+export const TASK: Readonly<TaskKey> = { instance: 'vikunja.example.com', id: 1 };
+export const PR: Readonly<PRKey> = {
+	instance: 'github.example.com',
+	repository: 'example-org/widgets',
+	number: 3
+};
 
+// Ids only need to differ within a test; a counter keeps them short.
 let next = 0;
 
 export function event(over: Partial<Event> = {}): Event {

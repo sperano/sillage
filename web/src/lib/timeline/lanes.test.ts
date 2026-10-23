@@ -127,6 +127,31 @@ describe('event placement', () => {
 		expect(ids(rows)).toContain('pr:github.example.com/example-org/widgets/pull/3');
 	});
 
+	test('a check with neither end known is noted on its row', () => {
+		const rows = buildRows(
+			story({
+				pullRequests: [
+					{
+						key: PR,
+						branch: 'b',
+						checks: [
+							{
+								id: 1,
+								sha: 'c'.repeat(40),
+								name: 'lint',
+								conclusion: 'neutral',
+								interval: { start: { state: 'unknown' }, end: { state: 'unknown' } }
+							}
+						]
+					}
+				]
+			})
+		);
+		expect(rows.find((r) => r.id.startsWith('checks:'))!.note).toBe(
+			'check lint: start and end unknown, no bar'
+		);
+	});
+
 	test('an automation run goes to the automation lane', () => {
 		const rows = buildRows(story({ runs: [run({ role: 'automation' })] }));
 		expect(inSection(rows, 'automation')).toHaveLength(1);

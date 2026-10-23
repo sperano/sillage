@@ -3,7 +3,7 @@
 	import type { RowChart } from './chart';
 	import EventGroup from './EventGroup.svelte';
 	import EventPoint from './EventPoint.svelte';
-	import { fitText, LABEL_BAND_PX, SMALL_CHAR_PX, TRACK_PX } from './layout';
+	import { fitText, LABEL_BAND_PX, SMALL_CHAR_PX, TITLE_X_PX, TRACK_PX } from './layout';
 	import SpanBar from './SpanBar.svelte';
 	import type { Zone } from './time';
 	import type { Scale } from './view';
@@ -20,15 +20,16 @@
 
 	let { layout, scale, zone, selection, ids, ontoggle }: Props = $props();
 
-	const TITLE_X_PX = 12;
-	const TEXT_PAD_PX = 20;
+	/** Room kept between the left column's text and the plot. */
+	const COLUMN_GUTTER_PX = 20;
+	/** The space between the title, subtitle and note lines. */
 	const SUBTITLE_GAP_PX = 14;
 
 	const row = $derived(layout.row);
 	/** The baseline of a line of labels, or undefined for a hidden label. */
 	const labelAt = (level: number | undefined) =>
 		level === undefined ? undefined : layout.labelY + level * LABEL_BAND_PX;
-	const titleWidth = $derived(scale.left - TITLE_X_PX - TEXT_PAD_PX);
+	const titleWidth = $derived(scale.left - TITLE_X_PX - COLUMN_GUTTER_PX);
 </script>
 
 <g class="row" data-row={row.id} data-section={row.section}>
@@ -52,9 +53,11 @@
 	{/if}
 	<g clip-path="url(#{ids}-plot)">
 		{#each layout.unknown as u, i (i)}
+			<!-- The source bands above name these spans for assistive technology. -->
 			<rect
 				class="unknown"
 				data-unknown
+				aria-hidden="true"
 				x={scale.x(u.start)}
 				y={layout.y}
 				width={Math.max(scale.x(u.end) - scale.x(u.start), 0)}

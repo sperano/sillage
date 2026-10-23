@@ -14,7 +14,10 @@
 
 	/** The least room, in pixels, between two ticks. */
 	const TICK_SPACING_PX = 110;
-	const LABEL_Y_PX = AXIS_PX - 10;
+	/** How far above the axis line the tick labels' baseline sits. */
+	const LABEL_RAISE_PX = 10;
+	/** How far above the axis line the grid lines start. */
+	const TICK_PX = 4;
 
 	const axisTicks = $derived(
 		ticks(
@@ -29,8 +32,8 @@
 <g class="axis" aria-hidden="true">
 	{#each axisTicks as tick (tick.at)}
 		{@const x = scale.x(tick.at)}
-		<line class="grid" x1={x} x2={x} y1={AXIS_PX - 4} y2={bottom} />
-		<text {x} y={LABEL_Y_PX}>{tick.label}</text>
+		<line class="grid" x1={x} x2={x} y1={AXIS_PX - TICK_PX} y2={bottom} />
+		<text {x} y={AXIS_PX - LABEL_RAISE_PX}>{tick.label}</text>
 	{/each}
 	<line class="base" x1={scale.left} x2={scale.right} y1={AXIS_PX} y2={AXIS_PX} />
 </g>

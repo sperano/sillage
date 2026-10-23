@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Attachment } from 'svelte/attachments';
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { Story } from '../model';
 	import type { Selection } from '../selection.svelte';
@@ -6,6 +7,7 @@
 	import CoverageBand from './CoverageBand.svelte';
 	import { storySources } from './coverage';
 	import { buildRows } from './lanes';
+	import { TITLE_X_PX } from './layout';
 	import { formatClock, type Zone } from './time';
 	import TimelineAxis from './TimelineAxis.svelte';
 	import TimelineRow from './TimelineRow.svelte';
@@ -39,6 +41,14 @@
 	const WHEEL_STEP_PX = 300;
 	/** Pointer travel, in pixels, under which a press is a click, not a drag. */
 	const DRAG_THRESHOLD_PX = 3;
+	/** PointerEvent.button of the main button. */
+	const PRIMARY_BUTTON = 0;
+	/** The section headings' baseline, below the top of their band. */
+	const SECTION_BASELINE_PX = 15;
+	/** The tile of the unknown hatching. */
+	const HATCH_PX = 8;
+	/** The tile of the waiting stripes and review-wait dots. */
+	const FILL_TILE_PX = 6;
 
 	const ids = $props.id();
 	const rows = $derived(buildRows(story));
@@ -84,17 +94,14 @@
 		else expanded.add(id);
 	}
 
-	let svg: SVGSVGElement | undefined = $state();
-
 	// Ctrl or Cmd with the wheel zooms around the pointer, Shift with it
 	// pans; a plain wheel scrolls the page. Svelte's wheel handlers are
 	// passive, and these must prevent the page from scrolling.
-	$effect(() => {
-		if (!svg) return;
+	const wheel: Attachment<SVGSVGElement> = (svg) => {
 		const onwheel = (e: WheelEvent) => {
 			if (e.ctrlKey || e.metaKey) {
 				e.preventDefault();
-				const x = e.clientX - svg!.getBoundingClientRect().left;
+				const x = e.clientX - svg.getBoundingClientRect().left;
 				zoomBy(ZOOM_STEP ** (e.deltaY / WHEEL_STEP_PX), scale.time(x));
 			} else if (e.shiftKey) {
 				e.preventDefault();
@@ -103,15 +110,17 @@
 			}
 		};
 		svg.addEventListener('wheel', onwheel, { passive: false });
-		return () => svg!.removeEventListener('wheel', onwheel);
-	});
+		return () => svg.removeEventListener('wheel', onwheel);
+	};
 
 	let drag: { x: number; window: TimeWindow; moved: boolean } | undefined;
 
-	function onpointerdown(e: PointerEvent) {
-		if ((e.target as Element).closest('[role="button"]')) return;
+	/** A primary press outside every mark starts dragging the window. */
+	function onpointerdown(e: PointerEvent & { currentTarget: SVGSVGElement }) {
+		if (e.button !== PRIMARY_BUTTON) return;
+		if (e.target instanceof Element && e.target.closest('[role="button"]')) return;
 		drag = { x: e.clientX, window: view, moved: false };
-		svg?.setPointerCapture(e.pointerId);
+		e.currentTarget.setPointerCapture(e.pointerId);
 	}
 
 	function onpointermove(e: PointerEvent) {
@@ -134,7 +143,7 @@
 <section class="timeline" aria-label="Timeline">
 	<TimelineToolbar
 		bind:zone
-		window={view}
+		{view}
 		canZoomIn={span > Math.min(MIN_SPAN_MS, domainSpan)}
 		canZoomOut={span < domainSpan}
 		canPan={span < domainSpan}
@@ -143,10 +152,12 @@
 			(view = pan(view, (d === 'earlier' ? -PAN_FRACTION : PAN_FRACTION) * span, domain))}
 		onreset={() => (view = domain)}
 	/>
+	<!-- Escape from any focused mark clears the selection; the marks are the
+	     interactive elements, this only catches the key bubbling up. -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="plot" bind:clientWidth={width} {onkeydown}>
 		<svg
-			bind:this={svg}
+			{@attach wheel}
 			width={scale.right + RIGHT_PAD_PX}
 			height={chart.height}
 			role="group"
@@ -160,16 +171,31 @@
 				<clipPath id="{ids}-plot">
 					<rect x={scale.left} y="0" width={scale.right - scale.left} height={chart.height} />
 				</clipPath>
-				<pattern id="{ids}-hatch" width="8" height="8" patternUnits="userSpaceOnUse">
-					<path class="hatch" d="M -2 2 L 2 -2 M 0 8 L 8 0 M 6 10 L 10 6" />
+				<pattern id="{ids}-hatch" width={HATCH_PX} height={HATCH_PX} patternUnits="userSpaceOnUse">
+					<!-- One diagonal across the tile, and its continuations at two corners. -->
+					<path
+						class="hatch"
+						d="M 0 {HATCH_PX} L {HATCH_PX} 0 M -1 1 L 1 -1 M {HATCH_PX - 1} {HATCH_PX +
+							1} L {HATCH_PX + 1} {HATCH_PX - 1}"
+					/>
 				</pattern>
-				<pattern id="{ids}-waiting" width="6" height="6" patternUnits="userSpaceOnUse">
-					<rect class="waiting-bg" width="6" height="6" />
-					<path class="waiting-line" d="M 0 3 H 6" />
+				<pattern
+					id="{ids}-waiting"
+					width={FILL_TILE_PX}
+					height={FILL_TILE_PX}
+					patternUnits="userSpaceOnUse"
+				>
+					<rect class="waiting-bg" width={FILL_TILE_PX} height={FILL_TILE_PX} />
+					<path class="waiting-line" d="M 0 {FILL_TILE_PX / 2} H {FILL_TILE_PX}" />
 				</pattern>
-				<pattern id="{ids}-review" width="6" height="6" patternUnits="userSpaceOnUse">
-					<rect class="review-bg" width="6" height="6" />
-					<circle class="review-dot" cx="3" cy="3" r="1" />
+				<pattern
+					id="{ids}-review"
+					width={FILL_TILE_PX}
+					height={FILL_TILE_PX}
+					patternUnits="userSpaceOnUse"
+				>
+					<rect class="review-bg" width={FILL_TILE_PX} height={FILL_TILE_PX} />
+					<circle class="review-dot" cx={FILL_TILE_PX / 2} cy={FILL_TILE_PX / 2} r="1" />
 				</pattern>
 			</defs>
 			<TimelineAxis {scale} {zone} bottom={chart.height} />
@@ -177,7 +203,9 @@
 				<CoverageBand {band} {scale} {ids} />
 			{/each}
 			{#each chart.sections as heading (heading.section)}
-				<text class="section" x="12" y={heading.y + 15}>{heading.title}</text>
+				<text class="section" x={TITLE_X_PX} y={heading.y + SECTION_BASELINE_PX}
+					>{heading.title}</text
+				>
 			{/each}
 			{#each chart.rows as layout (layout.row.id)}
 				<TimelineRow {layout} {scale} {zone} {selection} {ids} ontoggle={toggle} />

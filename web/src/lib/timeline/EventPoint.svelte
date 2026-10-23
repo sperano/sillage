@@ -2,9 +2,9 @@
 	import type { Selection } from '../selection.svelte';
 	import EventGlyph from './EventGlyph.svelte';
 	import { onActivate } from './keys';
-	import type { Point } from './layout';
-	import { actorLabel } from './marks';
-	import { formatClock, formatFull, type Zone } from './time';
+	import { LABEL_LINE_GAP_PX, LABEL_NUDGE_PX, type Point } from './layout';
+	import { eventName } from './marks';
+	import { formatClock, type Zone } from './time';
 
 	interface Props {
 		point: Point;
@@ -17,15 +17,10 @@
 
 	let { point, y, labelY, zone, selection }: Props = $props();
 
-	/** The space between a label's two lines. */
-	const LINE_GAP_PX = 12;
 	/** The keyboard focus ring's radius. */
 	const FOCUS_R = 11;
 
-	const name = $derived(
-		`${point.label}, ${actorLabel(point.event)}, ${formatFull(point.at, zone)}` +
-			(point.event.sourceTime === undefined ? ', observed time' : '')
-	);
+	const name = $derived(eventName(point.event, zone));
 	const selected = $derived(selection.is(point.selected));
 	const select = () => selection.select(point.selected);
 </script>
@@ -44,8 +39,10 @@
 	<circle class="focus" cx={point.x} cy={y} r={FOCUS_R} />
 	<EventGlyph mark={point.mark} x={point.x} {y} {selected} />
 	{#if labelY !== undefined}
-		<text class="label" x={point.x - 4} y={labelY}>{point.label}</text>
-		<text class="time" x={point.x - 4} y={labelY + LINE_GAP_PX}>{formatClock(point.at, zone)}</text>
+		<text class="label" x={point.x - LABEL_NUDGE_PX} y={labelY}>{point.label}</text>
+		<text class="time" x={point.x - LABEL_NUDGE_PX} y={labelY + LABEL_LINE_GAP_PX}
+			>{formatClock(point.at, zone)}</text
+		>
 	{/if}
 </g>
 

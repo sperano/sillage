@@ -92,11 +92,11 @@ export function zoneName(zone: Zone): string {
 
 /** A duration as its two largest units: 45s, 6m 37s, 1h 05m, 2d 3h. */
 export function formatDuration(ms: number): string {
-	const s = Math.round(ms / SECOND_MS);
-	const days = Math.floor(s / (DAY_MS / SECOND_MS));
-	const hours = Math.floor(s / (HOUR_MS / SECOND_MS)) % 24;
-	const minutes = Math.floor(s / (MINUTE_MS / SECOND_MS)) % 60;
-	const seconds = s % 60;
+	const total = Math.round(ms / SECOND_MS) * SECOND_MS;
+	const days = Math.floor(total / DAY_MS);
+	const hours = Math.floor((total % DAY_MS) / HOUR_MS);
+	const minutes = Math.floor((total % HOUR_MS) / MINUTE_MS);
+	const seconds = Math.floor((total % MINUTE_MS) / SECOND_MS);
 	if (days > 0) return `${days}d ${hours}h`;
 	if (hours > 0) return `${hours}h ${pad(minutes)}m`;
 	if (minutes > 0) return `${minutes}m ${pad(seconds)}s`;
@@ -116,10 +116,13 @@ export function tickStep(span: number, maxTicks: number): number {
 
 /**
  * The axis ticks in [start, end], aligned on the zone's wall clock: whole
- * minutes, hours or midnights there. A tick shows its date when it is the
- * first or the day changed since the previous one.
+ * minutes, hours or midnights there, and never more than maxTicks, even
+ * past the largest step. A tick shows its date when it is the first or the
+ * day changed since the previous one. A window that is not a finite time
+ * has no ticks.
  */
 export function ticks(start: number, end: number, maxTicks: number, zone: Zone): Tick[] {
+	if (!Number.isFinite(start) || !Number.isFinite(end)) return [];
 	const step = tickStep(end - start, maxTicks);
 	const out: Tick[] = [];
 	let wall = Math.ceil((start + offsetMs(start, zone)) / step) * step;
@@ -127,7 +130,7 @@ export function ticks(start: number, end: number, maxTicks: number, zone: Zone):
 	for (; ; wall += step) {
 		// Undo the offset at the tick itself, which differs across a DST change.
 		const at = wall - offsetMs(wall - offsetMs(start, zone), zone);
-		if (at > end) break;
+		if (at > end || out.length >= maxTicks) break;
 		const day = formatDate(at, zone);
 		const label =
 			step >= DAY_MS

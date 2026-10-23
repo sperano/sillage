@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SOURCE_ROW_PX, type SourceBand } from './chart';
-	import { fitText, SMALL_CHAR_PX } from './layout';
+	import { fitText, SMALL_CHAR_PX, TITLE_X_PX } from './layout';
 	import type { Scale } from './view';
 
 	interface Props {
@@ -12,7 +12,7 @@
 
 	let { band, scale, ids }: Props = $props();
 
-	const TITLE_X_PX = 12;
+	/** Room kept between a reason and its span's edge. */
 	const TEXT_PAD_PX = 4;
 	const INSET_PX = 3;
 </script>
@@ -29,7 +29,7 @@
 			{@const visible = Math.min(x1 + width, scale.right) - Math.max(x1, scale.left)}
 			<!-- A reason that does not fit in its span is written before it. -->
 			{@const inside = u.reason.length * SMALL_CHAR_PX + 2 * TEXT_PAD_PX <= visible}
-			<g data-unknown>
+			<g data-unknown role="img" aria-label={u.reason}>
 				<title>{u.reason}</title>
 				<rect
 					x={x1}

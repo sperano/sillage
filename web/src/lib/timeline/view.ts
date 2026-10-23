@@ -25,9 +25,13 @@ export const PAN_FRACTION = 0.25;
 /**
  * Every time the story records: events, run creations and known bounds,
  * check bounds, and each source's last successful read, after which the
- * story is unknown.
+ * story is unknown. A time that does not parse is left out.
  */
 export function storyTimes(story: Story): number[] {
+	return recordedTimes(story).filter(Number.isFinite);
+}
+
+function recordedTimes(story: Story): number[] {
 	const times = story.events.map(eventTime);
 	for (const run of story.runs) {
 		if (run.created) times.push(Date.parse(run.created));
@@ -54,8 +58,9 @@ function knownBounds(...bounds: Bound[]): number[] {
  */
 export function storyDomain(story: Story, now = Date.now()): TimeWindow {
 	const times = storyTimes(story);
-	const first = times.length > 0 ? Math.min(...times) : now;
-	const last = times.length > 0 ? Math.max(...times) : now;
+	// A loop, not Math.min(...times): spreading a long array overflows the stack.
+	const first = times.reduce((a, b) => Math.min(a, b), times[0] ?? now);
+	const last = times.reduce((a, b) => Math.max(a, b), times[0] ?? now);
 	const pad = Math.max((last - first) * DOMAIN_PAD_FRACTION, MIN_SPAN_MS / 2);
 	return { start: first - pad, end: last + pad };
 }

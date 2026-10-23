@@ -133,9 +133,19 @@ describe('layoutRow', () => {
 			endState: 'unknown',
 			end: undefined
 		});
-		const laid = layoutRow(row([unknown]), 0, scale, new Set(), String);
-		expect(laid.bars).toEqual([]);
-		expect(laid.undrawn).toEqual([unknown]);
+		expect(layoutRow(row([unknown]), 0, scale, new Set(), String).bars).toEqual([]);
+	});
+
+	test('lays out only what reaches into the window', () => {
+		const before = span({ start: T0 - 50 * MINUTE, end: T0 - 40 * MINUTE });
+		const across = span({ start: T0 - 50 * MINUTE, end: T0 + 5 * MINUTE });
+		const events = [
+			event({ sourceTime: new Date(T0 + 200 * MINUTE).toISOString() }),
+			event({ sourceTime: new Date(T0 + 50 * MINUTE).toISOString() })
+		];
+		const laid = layoutRow(row([before, across], events), 0, scale, new Set(), String);
+		expect(laid.bars.map((b) => b.span)).toEqual([across]);
+		expect(laid.placed.map((p) => p.kind === 'point' && p.point.event)).toEqual([events[1]]);
 	});
 
 	test('moves a label that would overlap down a line, and hides it when no line is free', () => {

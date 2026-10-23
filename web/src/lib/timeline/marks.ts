@@ -2,7 +2,8 @@
 // a run's exit, a check's success, a pull request closed and one merged are
 // never drawn as one "done".
 
-import type { CheckConclusion, Event, Outcome } from '../model';
+import { eventTime, type CheckConclusion, type Event, type Outcome } from '../model';
+import { formatFull, type Zone } from './time';
 
 /**
  * The shape of a point on the timeline. Each kind has its own glyph, so
@@ -41,6 +42,7 @@ function withDetail(text: string, value: string): string {
 
 /** The short text of an event, as the timeline shows it next to its mark. */
 export function eventLabel(e: Event): string {
+	const requestee = detail(e, 'reviewer') || detail(e, 'team');
 	switch (e.kind) {
 		case 'task.created':
 			return 'task created';
@@ -64,18 +66,12 @@ export function eventLabel(e: Event): string {
 			return withDetail('request', detail(e, 'command'));
 		case 'run.announced':
 			return 'run announced';
-	}
-	return prEventLabel(e);
-}
-
-function prEventLabel(e: Event): string {
-	switch (e.kind) {
 		case 'pr.opened':
 			return 'PR opened';
 		case 'pr.review_requested':
-			return withDetail('review requested', detail(e, 'reviewer') || detail(e, 'team'));
+			return withDetail('review requested', requestee);
 		case 'pr.review_request_removed':
-			return withDetail('review request removed', detail(e, 'reviewer') || detail(e, 'team'));
+			return withDetail('review request removed', requestee);
 		case 'pr.review_submitted':
 			return withDetail('review', detail(e, 'state'));
 		case 'pr.merged':
@@ -84,14 +80,27 @@ function prEventLabel(e: Event): string {
 			return 'PR closed, not merged';
 		case 'pr.reopened':
 			return 'PR reopened';
+		default: {
+			// A kind added to the model fails to compile here until it has a label.
+			const unlabelled: never = e.kind;
+			return unlabelled;
+		}
 	}
-	return e.kind;
 }
 
 /** Who acted, as the account and, when known, the executor behind it. */
 export function actorLabel(e: Event): string {
 	const account = e.actor.login ?? 'unknown actor';
 	return e.executor ? `${account} (executor ${e.executor.name})` : account;
+}
+
+/**
+ * Everything a mark says, in words: what happened, who, and when, and
+ * whether the time is only when the state was observed.
+ */
+export function eventName(e: Event, zone: Zone): string {
+	const observed = e.sourceTime === undefined ? ', observed time' : '';
+	return `${eventLabel(e)}, ${actorLabel(e)}, ${formatFull(eventTime(e), zone)}${observed}`;
 }
 
 /** The text of a run's exit: how it ended. */

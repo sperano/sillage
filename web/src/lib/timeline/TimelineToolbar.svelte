@@ -4,7 +4,7 @@
 
 	interface Props {
 		zone: Zone;
-		window: TimeWindow;
+		view: TimeWindow;
 		canZoomIn: boolean;
 		canZoomOut: boolean;
 		canPan: boolean;
@@ -15,7 +15,7 @@
 
 	let {
 		zone = $bindable(),
-		window,
+		view,
 		canZoomIn,
 		canZoomOut,
 		canPan,
@@ -25,8 +25,8 @@
 	}: Props = $props();
 
 	const range = $derived(
-		`${formatDate(window.start, zone)} ${formatMinute(window.start, zone)} – ` +
-			`${formatDate(window.end, zone)} ${formatMinute(window.end, zone)} ${zoneName(zone)}`
+		`${formatDate(view.start, zone)} ${formatMinute(view.start, zone)} – ` +
+			`${formatDate(view.end, zone)} ${formatMinute(view.end, zone)} ${zoneName(zone)}`
 	);
 </script>
 
@@ -45,7 +45,7 @@
 		<button type="button" onclick={() => onpan('earlier')} disabled={!canPan}>Earlier</button>
 		<button type="button" onclick={() => onpan('later')} disabled={!canPan}>Later</button>
 	</div>
-	<output class="range" aria-live="polite">{range}</output>
+	<output class="range">{range}</output>
 </div>
 
 <style>
