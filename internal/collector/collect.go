@@ -64,7 +64,8 @@ func (a *assembly) collectPage(ctx context.Context, key model.PageKey, repos []g
 }
 
 // readTask reads the task and its comments, and returns the wiki pages
-// they link. A failed read yields neither, and false.
+// they link. A failed read, or one the source cannot normalize, yields
+// neither, and false.
 func (a *assembly) readTask(ctx context.Context, id int64) ([]pageLink, bool) {
 	at := a.c.now()
 	snap, err := a.c.src.Vikunja.Fetch(ctx, id)
@@ -86,6 +87,5 @@ func (a *assembly) readTask(ctx context.Context, id int64) ([]pageLink, bool) {
 // deliverable: an agent's or the service account's. A person's link is
 // context, not part of the story.
 func (a *assembly) delivering(u vikunja.User) bool {
-	kind := a.vikunjaAccount(&u).Kind
-	return kind == model.ActorAgent || kind == model.ActorService
+	return u.Username != "" && (u.Username == a.cfg.VikunjaServiceAccount || a.vikunjaAgent(u.Username))
 }

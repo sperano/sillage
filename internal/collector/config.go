@@ -56,8 +56,8 @@ type Config struct {
 	Kelos kelos.Config
 	// GitHubInstance is the GitHub web host, as model.PRKey names it.
 	GitHubInstance string
-	// GitHubAnnouncers are the GitHub logins whose comments are parsed as
-	// start announcements.
+	// GitHubAnnouncers are the logins whose pull request comments are
+	// read as start announcements (github.EnvAnnouncers).
 	GitHubAnnouncers []string
 	// WikiInstance is the Wiki.js host, as model.PageKey names it.
 	WikiInstance string

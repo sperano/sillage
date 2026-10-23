@@ -92,8 +92,8 @@ func (a *assembly) resolveLinks(ctx context.Context, links []pageLink) (map[int6
 	}
 	out := make(map[int64][]int64)
 	for _, l := range links {
-		id := l.id
-		for _, try := range l.lookups() {
+		id := l.ID
+		for _, try := range l.Lookups() {
 			if id == 0 {
 				id = byPath[try]
 			}
@@ -110,38 +110,18 @@ func (a *assembly) resolveLinks(ctx context.Context, links []pageLink) (map[int6
 	return out, nil
 }
 
-// String names the page a link points to, as written.
-func (l pageLink) String() string {
-	if l.path == "" {
-		return wikiIDRoute + "/" + strconv.FormatInt(l.id, 10)
-	}
-	return l.locale + "/" + l.path
-}
-
 // listPages lists the wiki's page ids, and indexes them by locale and
 // path.
-func (a *assembly) listPages(ctx context.Context) (map[int64]bool, map[pageLink]int64, error) {
+func (a *assembly) listPages(ctx context.Context) (map[int64]bool, map[wiki.Link]int64, error) {
 	pages, err := a.c.src.Wiki.Pages(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 	ids := make(map[int64]bool, len(pages))
-	byPath := make(map[pageLink]int64, len(pages))
+	byPath := make(map[wiki.Link]int64, len(pages))
 	for _, p := range pages {
 		ids[p.ID] = true
-		byPath[pageLink{locale: p.Locale, path: p.Path}] = p.ID
+		byPath[wiki.Link{Locale: p.Locale, Path: p.Path}] = p.ID
 	}
 	return ids, byPath, nil
-}
-
-// lookups are the locale and path pairs a link by path may mean.
-func (l pageLink) lookups() []pageLink {
-	if l.path == "" {
-		return nil
-	}
-	out := []pageLink{{locale: l.locale, path: l.path}}
-	if l.locale != defaultWikiLocale {
-		out = append(out, pageLink{locale: defaultWikiLocale, path: l.locale + "/" + l.path})
-	}
-	return out
 }

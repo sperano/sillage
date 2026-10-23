@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/sperano/sillage/internal/reconcile"
 	"github.com/sperano/sillage/internal/source/vikunja"
+	"github.com/sperano/sillage/internal/store"
 )
 
 // testDatabaseURL is a fabricated database no test connects to.
@@ -29,31 +29,30 @@ func TestMetricsServed(t *testing.T) {
 	}
 }
 
-func TestOpenStoreNotBuilt(t *testing.T) {
-	if _, _, err := openStore(t.Context(), testDatabaseURL); !errors.Is(err, errNoStore) {
-		t.Errorf("openStore() error = %v, want %v", err, errNoStore)
-	}
-}
-
 func TestStartCollector(t *testing.T) {
 	tests := []struct {
 		name  string
 		env   map[string]string
 		inErr string
 	}{
-		{name: "off without a database", env: nil},
+		{name: "off without a store", env: nil},
 		{
 			name:  "bad interval",
-			env:   map[string]string{databaseURLEnv: testDatabaseURL, reconcile.EnvInterval: "often"},
+			env:   map[string]string{store.EnvDatabaseURL: testDatabaseURL, reconcile.EnvInterval: "often"},
 			inErr: reconcile.EnvInterval,
 		},
-		{name: "no source configured", env: map[string]string{databaseURLEnv: testDatabaseURL}, inErr: vikunja.EnvURL},
+		{name: "no source configured", env: map[string]string{store.EnvDatabaseURL: testDatabaseURL}, inErr: vikunja.EnvURL},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, m := newMetrics()
 			var logs bytes.Buffer
-			wait, err := startCollector(t.Context(), func(k string) string { return tt.env[k] }, m,
+			// No test reaches the store: a configuration error comes first.
+			var st *store.Store
+			if tt.env != nil {
+				st = new(store.Store)
+			}
+			wait, err := startCollector(t.Context(), func(k string) string { return tt.env[k] }, st, m,
 				slog.New(slog.NewTextHandler(&logs, nil)))
 			switch {
 			case tt.inErr != "":

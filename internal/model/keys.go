@@ -18,7 +18,8 @@ const (
 	SourceWiki    Source = "wiki"
 )
 
-func (s Source) valid() bool {
+// Valid reports whether s is one of the sources sillage reads.
+func (s Source) Valid() bool {
 	switch s {
 	case SourceVikunja, SourceKelos, SourceGitHub, SourceWiki:
 		return true

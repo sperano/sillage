@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -17,6 +18,12 @@ type attempt struct {
 	uid    types.UID
 	task   *Task
 	record *TaskRecord
+	// deleted is set once a watch found the Task gone; task then holds its
+	// last observed state.
+	deleted *Deletion
+	// awaitingTaskSince is set when a watch received the record before
+	// any state of its Task: the Task may still arrive.
+	awaitingTaskSince time.Time
 }
 
 // Normalize turns one read into model records: one run per Task UID, with
@@ -32,10 +39,16 @@ func Normalize(cfg Config, s Snapshot) (model.Records, error) {
 	if err != nil {
 		return model.Records{}, err
 	}
+	return cfg.records(attempts)
+}
+
+// records builds and validates the run, and the task correlation when
+// there is one, of each attempt.
+func (c Config) records(attempts []*attempt) (model.Records, error) {
 	recs := model.Records{Runs: []model.Run{}, Correlations: []model.Correlation{}}
 	var errs []error
 	for _, a := range attempts {
-		run, link := cfg.build(a)
+		run, link := c.build(a)
 		errs = append(errs, run.Validate())
 		recs.Runs = append(recs.Runs, run)
 		if link != nil {

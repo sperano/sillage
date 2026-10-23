@@ -9,25 +9,27 @@ being down never blocks anything.
 
 ## Status
 
-Pre-alpha. A Go binary that answers `GET /healthz` and `GET /metrics` and
-serves a placeholder page; the normalized model (`internal/model`) with
-fabricated fixture stories (`testdata/fixtures/stories/`); a read-only
-client per source; `sillage story`, which assembles one story from the live
-sources and prints it; and the collection loop that will keep the store
-current, which waits for the PostgreSQL store to be built. Nothing is
-stored yet.
+Pre-alpha. A Go binary that answers `GET /healthz` and `GET /metrics`,
+serves a placeholder page and the read-only JSON API under `/api/v1/`; the
+normalized model (`internal/model`) with fabricated fixture stories
+(`testdata/fixtures/stories/`); a read-only client per source; `sillage
+story`, which assembles one story from the live sources and prints it; a
+PostgreSQL store (`internal/store`) that nothing writes to yet; and the
+collection loop that will keep it current. The frontend's single-task
+timeline graph (`web/src/lib/timeline/`) is rendered in tests from the
+fixture stories but not yet shown on the story page. Nothing is deployed.
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
-| `cmd/sillage/` | The binary (collector, read API and embedded frontend, eventually). |
+| `cmd/sillage/` | The binary: health check, read API and embedded frontend (the collector, eventually). |
 | `internal/model/` | Normalized events, runs, entities and coverage. |
 | `internal/source/{vikunja,github,kelos,wiki}/` | One read-only source each. |
 | `internal/collector/` | Joins the sources' records into one story. |
 | `internal/reconcile/` | The collection loop: reads the sources periodically into the store, with freshness and gaps; `pglock/`, its PostgreSQL lock. |
-| `internal/store/` | Persistence. |
-| `internal/api/` | Read-only HTTP API. |
+| `internal/store/` | PostgreSQL persistence, with its migrations embedded. |
+| `internal/api/` | Read-only JSON API over the store. |
 | `testdata/fixtures/` | Fabricated test data, shared by Go and web tests. |
 | `web/` | Svelte 5 + Vite single-page frontend (TypeScript), embedded into the binary. |
 | `web/placeholder/` | Page embedded when the frontend is not built. |
@@ -48,6 +50,33 @@ curl localhost:8080/healthz                # ok
 (cd web && npm ci && npm run build)        # builds web/dist/
 go build -tags webdist ./cmd/sillage       # embeds web/dist/
 ```
+
+With `SILLAGE_DATABASE_URL` (a PostgreSQL connection string, never
+logged) set, the binary applies the store's embedded migrations at startup
+and prunes by `SILLAGE_RETENTION` (`90d`, `720h`, or the default
+`forever`; at least a day). Without it, nothing is stored, and the API
+answers 503 for everything but its version.
+
+The API (`internal/api`, all `GET`, JSON, `Cache-Control: no-store`, errors
+as RFC 9457 problem bodies) has no authentication of its own: `/api/` must
+stay behind the Authentik forward-auth in front of sillage.
+
+| Route | Answers |
+| --- | --- |
+| `/api/v1/stories/task/{instance}/{id}`, `/api/v1/stories/page/{instance}/{id}/{locale}` | The stored `model.Story`, as the golden files under `testdata/fixtures/stories/` |
+| `/api/v1/coverage/task/{instance}/{id}`, `/api/v1/coverage/page/{instance}/{id}/{locale}` | The root's coverage: last successful read and gaps per source |
+| `/api/v1/coverage` | Per source instance, the newest and stalest last read across stored roots |
+| `/api/v1/search?q=&limit=` | Roots by title or key, most recently active first (`q` at most 200 characters) |
+| `/api/v1/resolve?url=` | The roots whose stories hold what a Vikunja task, GitHub pull request or wiki page URL, or a Kelos Task (`[<namespace>/]<name>`, UID), points to; 404 if none |
+| `/api/v1/version` | The binary's version |
+
+A wiki URL by path (`/<locale>/<path>`) resolves only with the wiki source
+configured (`SILLAGE_WIKI_URL`, `SILLAGE_WIKI_TOKEN`,
+`SILLAGE_WIKI_AGENT_USERS`), whose page listing maps it to a page id; by id
+(`/i/<id>`) it always does. Every other `GET` path that is no frontend file
+serves the frontend's `index.html`, so that deep links to its routes work,
+unless its last segment has an extension (`/app.js`): a missing file is a
+404.
 
 The image builds both (no local `web/dist/` needed) and embeds the
 frontend:
@@ -145,6 +174,14 @@ go vet ./...
 go run honnef.co/go/tools/cmd/staticcheck@2026.2.2 ./...
 go test -race ./...
 go build ./...
+```
+
+The store's tests need a PostgreSQL they may create schemas in, named by
+`SILLAGE_TEST_DATABASE_URL`; without it they skip. CI has no PostgreSQL yet,
+so it skips them: this command is local only.
+
+```sh
+SILLAGE_TEST_DATABASE_URL=postgres://sillage@localhost:5432/sillage_test?sslmode=disable go test -race ./internal/store
 ```
 
 Web, from `web/`:

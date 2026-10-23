@@ -1,0 +1,104 @@
+import { afterEach, describe, expect, test } from 'vitest';
+import { memoryHistory } from './history';
+import { Router } from './router.svelte';
+
+let cleanup: (() => void)[] = [];
+
+afterEach(() => {
+	cleanup.forEach((c) => c());
+	cleanup = [];
+});
+
+// click clicks a link with attrs, which router handles, and reports
+// whether router cancelled the browser's own handling of it; the test page
+// itself never navigates.
+function click(router: Router, attrs: Record<string, string>, init: MouseEventInit = {}): boolean {
+	const anchor = document.createElement('a');
+	for (const [k, v] of Object.entries(attrs)) anchor.setAttribute(k, v);
+	document.body.append(anchor);
+	let prevented = false;
+	const onClick = (event: MouseEvent) => {
+		router.handleClick(event);
+		prevented = event.defaultPrevented;
+		event.preventDefault();
+	};
+	document.addEventListener('click', onClick);
+	cleanup.push(() => {
+		document.removeEventListener('click', onClick);
+		anchor.remove();
+	});
+	anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init }));
+	return prevented;
+}
+
+describe('handleClick', () => {
+	test('follows a link to an app route in place', () => {
+		const history = memoryHistory('/');
+		const router = new Router(history);
+		expect(click(router, { href: '/task/vikunja.example.com/7' })).toBe(true);
+		expect(router.route).toEqual({
+			name: 'task',
+			key: { instance: 'vikunja.example.com', id: 7 }
+		});
+		expect(history.entries()).toEqual(['/', '/task/vikunja.example.com/7']);
+	});
+
+	test.each<[string, Record<string, string>, MouseEventInit]>([
+		['a modified click', { href: '/task/vikunja.example.com/7' }, { ctrlKey: true }],
+		['a middle click', { href: '/task/vikunja.example.com/7' }, { button: 1 }],
+		['another origin', { href: 'https://vikunja.example.com/tasks/7' }, {}],
+		['a new tab', { href: '/task/vikunja.example.com/7', target: '_blank' }, {}],
+		['a download', { href: '/task/vikunja.example.com/7', download: '' }, {}],
+		['the API', { href: '/api/v1/coverage' }, {}],
+		['a fragment of the current page', { href: '#sources' }, {}]
+	])('leaves %s to the browser', (_, attrs, init) => {
+		const history = memoryHistory('/');
+		const router = new Router(history);
+		expect(click(router, attrs, init)).toBe(false);
+		expect(history.entries()).toEqual(['/']);
+	});
+});
+
+test('start follows back and forward until stopped', () => {
+	const history = memoryHistory('/');
+	const router = new Router(history);
+	const stop = router.start();
+	router.navigate('/open?url=x');
+	expect(router.route).toEqual({ name: 'open', url: 'x' });
+	history.back();
+	expect(router.route).toEqual({ name: 'home', query: '' });
+	stop();
+});
+
+test('the same URL again keeps the route, and counts no navigation', () => {
+	const router = new Router(memoryHistory('/task/vikunja.example.com/1'));
+	const route = router.route;
+	router.start()();
+	router.navigate('/task/vikunja.example.com/1', { replace: true });
+	expect(router.route).toBe(route);
+	expect(router.navigations).toBe(0);
+	router.navigate('/');
+	expect(router.navigations).toBe(1);
+});
+
+test('a fragment change keeps the route', () => {
+	const history = memoryHistory('/task/vikunja.example.com/1');
+	const router = new Router(history);
+	const route = router.route;
+	router.navigate('/task/vikunja.example.com/1#sources');
+	expect(router.route).toBe(route);
+	expect(router.navigations).toBe(0);
+});
+
+test('navigating to the current URL adds no entry', () => {
+	const history = memoryHistory('/?q=widgets');
+	new Router(history).navigate('/?q=widgets');
+	expect(history.entries()).toEqual(['/?q=widgets']);
+});
+
+test('navigate with replace drops the current entry', () => {
+	const history = memoryHistory('/open?url=x');
+	const router = new Router(history);
+	router.navigate('/task/vikunja.example.com/1', { replace: true });
+	expect(history.entries()).toEqual(['/task/vikunja.example.com/1']);
+});

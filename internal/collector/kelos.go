@@ -9,15 +9,14 @@ import (
 	"github.com/sperano/sillage/internal/source/kelos"
 )
 
-// The details of the start announcements and bucket observations the
-// collector reads.
+// The details of the start announcements the collector reads, as the
+// sources set them.
 const (
 	detailTaskName  = "taskName"
 	detailPod       = "pod"
 	detailNamespace = "namespace"
 	detailWorkspace = "workspace"
 	detailRole      = "role"
-	detailBucket    = "bucket"
 )
 
 // kelosView is one read of the namespace: every run in it, whether it

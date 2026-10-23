@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 // Confidence is how strongly the evidence establishes a correlation.
@@ -49,6 +50,13 @@ func PairOf(a, b Ref) RefPair {
 }
 
 func (p RefPair) String() string { return p.first.String() + " <-> " + p.second.String() }
+
+// Key is the pair as text, for where a comparable struct cannot go (a
+// database column). Each ref is quoted, so that no ref, whatever its id
+// holds, can make two pairs share a key.
+func (p RefPair) Key() string {
+	return strconv.Quote(p.first.String()) + " <-> " + strconv.Quote(p.second.String())
+}
 
 // Pair returns the pair of records the correlation joins.
 func (c Correlation) Pair() RefPair { return PairOf(c.From, c.To) }
