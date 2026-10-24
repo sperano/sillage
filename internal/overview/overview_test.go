@@ -161,3 +161,25 @@ func TestBuildRejectsAnEmptyRoot(t *testing.T) {
 		t.Error("Build accepted an input with no root")
 	}
 }
+
+// A run the story holds only as an ambiguous candidate for one of its
+// records is not the row's; a run with a link the evidence establishes,
+// or with none at all, is.
+func TestAmbiguousCandidateIsNotTheRows(t *testing.T) {
+	own, candidate, unlinked := testRun("own", model.UnknownBound(), model.UnknownBound(), model.OutcomeSucceeded),
+		testRun("candidate", model.UnknownBound(), model.UnknownBound(), model.OutcomeSucceeded),
+		testRun("unlinked", model.UnknownBound(), model.UnknownBound(), model.OutcomeSucceeded)
+	root := model.Ref{Kind: model.RefPage, ID: "wiki.example.com/pages/1/en"}
+	edit := model.Ref{Kind: model.RefEvent, ID: "wiki/wiki.example.com/edit"}
+	link := func(from, to model.Ref, ambiguous bool) model.Correlation {
+		return model.Correlation{From: from, To: to, Confidence: model.ConfidenceHeuristic, Ambiguous: ambiguous}
+	}
+	got := ownRuns([]model.Run{own, candidate, unlinked}, []model.Correlation{
+		link(own.Key.Ref(), root, false),
+		link(edit, own.Key.Ref(), true),
+		link(edit, candidate.Key.Ref(), true),
+	})
+	if want := []string{"own", "unlinked"}; !slices.Equal(runUIDs(got), want) {
+		t.Errorf("runs = %v, want %v", runUIDs(got), want)
+	}
+}

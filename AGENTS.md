@@ -24,6 +24,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/model/storytest/` | The invariant each fixture story exists for, asserted by the model's and the collector's tests. |
 | `internal/testzone/` | `TestMain` for the packages with golden files: their tests run with `time.Local` seven hours west of UTC, so output that depends on the host's zone fails on every machine. |
 | `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage; and names the roots a Kelos read points to. Read once, nothing kept: a caller passes what a store kept back in. |
+| `internal/collector/collectortest/` | The real source clients answered from `testdata/fixtures/collector/`'s responses, and which responses each fixture story is assembled from: the collector's tests and `cmd/sillage`'s loop-fed overview test read the same corpus. |
 | `internal/source/vikunja/` | Read-only Vikunja client and its normalization into `model`. |
 | `internal/source/github/` | Read-only GitHub client and its normalization into `model`. |
 | `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and watcher (list, then watch with persisted checkpoints), and their normalization into `model`, with the identifier correlations the spawners' correlation annotations (a Task's `Origin`) name. Each Task's `run.observed` names the Task's pod at the time (a TaskRecord's names none): a retried Job has two. |

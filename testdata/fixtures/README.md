@@ -47,6 +47,14 @@ story, and assert the invariant the story exists for:
 | `reopened-task` | After completion, reopening and a second completion, Vikunja exposes only the latest `done_at`; the story states that limitation and invents no earlier event. |
 | `second-pr-after-close` | A closed-unmerged pull request followed by a second pull request on the same branch does not complete the task. |
 
+The multi-task overview reads the same corpus: `internal/overview`
+asserts what each story's row shows (`corpusCases`) and sweeps every hour
+of its day; `internal/store` saves the corpus and checks that the overview
+built from what `Activity` reads is the one built from the files, hour by
+hour; and `cmd/sillage` runs the collection loop over each story's
+`collector/` responses into PostgreSQL and checks what `GET
+/api/v1/overview` serves against the stored stories.
+
 ## Overview
 
 `overview/` holds the multi-task overview's set: seven fabricated tasks over
@@ -90,7 +98,10 @@ the collector assembles each story in `collector/`.
 3. Generate the golden file and read it before committing:
    `go test ./internal/model -run TestStoryGolden -update`.
 4. Make the collector assemble the story from source responses: add them
-   under `collector/<name>/` (see its README) and a case to `storyCases`
-   in `internal/collector/collector_test.go`; `TestEveryStoryIsAssembled`
-   fails until you do.
-5. Add a row to the table above.
+   under `collector/<name>/` (see its README) and an entry to `Stories`
+   in `internal/collector/collectortest/stories.go`;
+   `TestEveryStoryIsAssembled` fails until you do.
+5. Say what the overview must show of it: a case in `corpusCases` in
+   `internal/overview/corpus_test.go`;
+   `TestEveryCorpusStoryHasAnOverviewCase` fails until you do.
+6. Add a row to the table above.

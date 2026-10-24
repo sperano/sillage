@@ -12,8 +12,10 @@
 // missing. A pull request closed without a merge never closes its task:
 // the task's state is Vikunja's alone. A failed attempt stays in its row
 // while a retry of the same Kelos Task runs, even when it ended before the
-// window. Comments, observations and webhook deliveries are not rows'
-// content: they belong to the single-task story.
+// window. A run the story holds only as one of several candidates for a
+// record (two concurrent runs of one agent profile) is not the row's.
+// Comments, observations and webhook deliveries are not rows' content:
+// they belong to the single-task story.
 package overview
 
 import (
@@ -33,8 +35,9 @@ type Window struct {
 // Contains reports whether t is in the window.
 func (w Window) Contains(t time.Time) bool { return !t.Before(w.From) && t.Before(w.To) }
 
-// Input is one root's stored records that an overview reads: its runs,
-// pull requests, coverage, and the events of the kinds in Kinds.
+// Input is one root's stored records that an overview reads: its runs and
+// the correlations that link them, pull requests, coverage, and the events
+// of the kinds in Kinds.
 type Input struct {
 	Root    model.Root
 	Title   string
@@ -173,8 +176,8 @@ var kindSet = func() map[model.EventKind]bool {
 	return set
 }()
 
-// onlyKinds keeps the events of Kinds and drops correlations, which the
-// overview does not read.
+// onlyKinds keeps the events of Kinds and the root's own runs, and drops
+// correlations, which the overview reads for nothing else.
 func onlyKinds(recs model.Records) model.Records {
 	var events []model.Event
 	for _, e := range recs.Events {
@@ -183,6 +186,31 @@ func onlyKinds(recs model.Records) model.Records {
 		}
 	}
 	recs.Events = events
+	recs.Runs = ownRuns(recs.Runs, recs.Correlations)
 	recs.Correlations = nil
 	return recs
+}
+
+// ownRuns drops the runs a story holds only as ambiguous candidates: a run
+// whose every correlation is ambiguous is in the story because a record of
+// it may be that run's work or another's, not because the run worked on
+// the root. The single-task story shows it as uncertain; a row would show
+// it as the root's. A run without a correlation is kept: nothing says it
+// is not the root's.
+func ownRuns(runs []model.Run, correlations []model.Correlation) []model.Run {
+	linked := make(map[model.Ref]bool)
+	certain := make(map[model.Ref]bool)
+	for _, c := range correlations {
+		for _, end := range []model.Ref{c.From, c.To} {
+			linked[end] = true
+			certain[end] = certain[end] || !c.Ambiguous
+		}
+	}
+	var out []model.Run
+	for _, r := range runs {
+		if ref := r.Key.Ref(); !linked[ref] || certain[ref] {
+			out = append(out, r)
+		}
+	}
+	return out
 }

@@ -68,9 +68,9 @@ func TestFailedReadYieldsNoRecordsAndNoRead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.source), func(t *testing.T) {
-			c := newStoryCollector(t, storyCases[tt.story].dirs)
+			c := newStoryCollector(t, storyCases[tt.story].Dirs)
 			tt.fail(&c.src)
-			res, err := c.Collect(t.Context(), storyCases[tt.story].root)
+			res, err := c.Collect(t.Context(), storyCases[tt.story].Root)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -88,7 +88,7 @@ func TestFailedReadYieldsNoRecordsAndNoRead(t *testing.T) {
 }
 
 func TestKelosFailureKeepsAnnouncedRunsUnknown(t *testing.T) {
-	c := newStoryCollector(t, storyCases["implementation-merged"].dirs)
+	c := newStoryCollector(t, storyCases["implementation-merged"].Dirs)
 	c.src.Kelos = failingKelos{}
 	res, err := c.Collect(t.Context(), taskRoot(102))
 	if err != nil {
@@ -123,7 +123,7 @@ func TestCollectRejectsAForeignRoot(t *testing.T) {
 }
 
 func TestCollectRejectsAPageOfAnotherLocale(t *testing.T) {
-	c := newStoryCollector(t, storyDirs{wiki: storyCases["wiki-rooted-request"].dirs.wiki})
+	c := newStoryCollector(t, storyDirs{Wiki: storyCases["wiki-rooted-request"].Dirs.Wiki})
 	root := pageRoot(57)
 	root.Page.Locale = "fr"
 	_, err := c.Collect(t.Context(), root)
@@ -140,8 +140,8 @@ func TestGitHubNotReadWithoutRepository(t *testing.T) {
 }
 
 func TestGitHubReadFromARepositoryAskedFor(t *testing.T) {
-	dirs := storyCases["announced-run-only"].dirs
-	dirs.github = storyCases["discuss-no-pr"].dirs.github
+	dirs := storyCases["announced-run-only"].Dirs
+	dirs.GitHub = storyCases["discuss-no-pr"].Dirs.GitHub
 	res, err := newStoryCollector(t, dirs).Collect(t.Context(), taskRoot(105), testRepo)
 	if err != nil {
 		t.Fatal(err)
@@ -152,7 +152,7 @@ func TestGitHubReadFromARepositoryAskedFor(t *testing.T) {
 }
 
 func TestUnmappedWorkspaceNoted(t *testing.T) {
-	c := newStoryCollector(t, storyCases["implementation-merged"].dirs)
+	c := newStoryCollector(t, storyCases["implementation-merged"].Dirs)
 	c.cfg.Workspaces = nil
 	res, err := c.Collect(t.Context(), taskRoot(102))
 	if err != nil {
@@ -165,7 +165,7 @@ func TestUnmappedWorkspaceNoted(t *testing.T) {
 }
 
 func TestKelosTTLGapOnlyBeforeTheTTL(t *testing.T) {
-	c := newStoryCollector(t, storyCases["implementation-merged"].dirs)
+	c := newStoryCollector(t, storyCases["implementation-merged"].Dirs)
 	c.now = func() time.Time { return time.Date(2026, 3, 3, 20, 0, 0, 0, time.UTC) }
 	res, err := c.Collect(t.Context(), taskRoot(102))
 	if err != nil {
