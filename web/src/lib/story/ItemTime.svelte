@@ -1,13 +1,15 @@
 <script lang="ts">
 	import type { Interval } from '../model';
 	import type { TimelineItem } from '../timeline';
+	import { compareTimes } from '../check';
 	import { parseTime } from '../time';
 	import Time from './Time.svelte';
 
 	// When an item happened, as the event list shows it: an event's source
 	// time, and its observed time when that differs, or when a state seen
 	// by polling was first and last seen; an interval's first known bound;
-	// a phase's start, else its end, as its pod recorded it.
+	// a phase's start, else its end, as its pod recorded it, and both edges
+	// of inconsistent markers, earlier first, as the list orders them.
 
 	let { item, timeZone }: { item: TimelineItem; timeZone: string } = $props();
 </script>
@@ -43,11 +45,17 @@
 {:else if item.kind === 'check'}
 	{@render bounds(item.check.interval)}
 {:else}
-	{@const { start, end } = item.phase}
-	{#if start}
-		started <Time at={start.at} {timeZone} />
-	{:else if end}
-		start not recorded · ended <Time at={end.at} {timeZone} />
+	{@const p = item.phase}
+	{#if p.state === 'start-not-recorded'}
+		start not recorded · ended <Time at={p.end.at} {timeZone} />
+	{:else if p.state === 'inconsistent'}
+		{#if compareTimes(p.end.at, p.start.at) < 0}
+			end <Time at={p.end.at} {timeZone} /> · start <Time at={p.start.at} {timeZone} />
+		{:else}
+			start <Time at={p.start.at} {timeZone} /> · end <Time at={p.end.at} {timeZone} />
+		{/if}
+	{:else}
+		started <Time at={p.start.at} {timeZone} />
 	{/if}
 	(the pod's clock)
 {/if}
