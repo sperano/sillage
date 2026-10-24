@@ -79,7 +79,8 @@
 		const q = { ...query, from: base.window.from, to: base.window.to };
 		request = { after: base, more: { state: 'loading' } };
 		// Only the latest request for the first page shown settles: a newer
-		// request, or a first page that changed meanwhile, drops this one.
+		// request, or a new first page, aborts this one; the first page is
+		// compared too, since it changes before the effect that aborts runs.
 		const current = () => !signal.aborted && base === firstPage;
 		try {
 			const page = await api.overview(q, next, signal);

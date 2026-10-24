@@ -204,6 +204,7 @@ test('a next page that failed for other filters is not reported for the new ones
 	await rerender({ query: { ...DEFAULT_QUERY, failed: true } });
 	await expect.element(page.getByText(/6 tasks matching the filters/)).toBeVisible();
 	await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+	await expect.element(page.getByRole('button', { name: 'Load more tasks' })).toBeEnabled();
 });
 
 test('a task a later page repeats is shown once', async () => {
