@@ -25,6 +25,7 @@ test('every golden story is loaded', () => {
 		'discuss-no-pr',
 		'failed-run-retry',
 		'implementation-merged',
+		'phase-markers',
 		'reopened-task',
 		'second-pr-after-close',
 		'wiki-rooted-request'

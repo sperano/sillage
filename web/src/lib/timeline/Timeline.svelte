@@ -52,6 +52,7 @@
 
 	const ids = $props.id();
 	const rows = $derived(buildRows(story));
+	const phased = $derived(story.runs.some((r) => r.phases !== undefined));
 	const domain = $derived(storyDomain(story));
 	// Showing another story shows the whole of it again.
 	let view = $derived(domain);
@@ -217,6 +218,13 @@
 		recorded; chevron: not ended at the last read; dashed stub: one end unknown. Hatched: no records
 		known. Ctrl + wheel zooms, Shift + wheel or drag pans.
 	</p>
+	{#if phased}
+		<p class="legend" data-phase-legend>
+			Under a run: the phases its pod reported. Dashed segment: both ends recorded; tick: one end
+			recorded (chevron: in progress at the last read); two ticks: markers that do not pair. Grey:
+			joined to the run by Task name and time, uncertain. A missing marker is not a missing phase.
+		</p>
+	{/if}
 </section>
 
 <style>

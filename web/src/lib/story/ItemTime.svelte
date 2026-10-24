@@ -6,7 +6,7 @@
 
 	// When an item happened, as the event list shows it: an event's source
 	// time, and its observed time when that differs; an interval's first
-	// known bound.
+	// known bound; a phase's start, else its end, as its pod recorded it.
 
 	let { item, timeZone }: { item: TimelineItem; timeZone: string } = $props();
 </script>
@@ -35,6 +35,14 @@
 	{/if}
 {:else if item.kind === 'run'}
 	{@render bounds(item.run.interval)}
-{:else}
+{:else if item.kind === 'check'}
 	{@render bounds(item.check.interval)}
+{:else}
+	{@const { start, end } = item.phase}
+	{#if start}
+		started <Time at={start.at} {timeZone} />
+	{:else if end}
+		start not recorded · ended <Time at={end.at} {timeZone} />
+	{/if}
+	(the pod's clock)
 {/if}

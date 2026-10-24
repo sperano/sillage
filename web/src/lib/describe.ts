@@ -5,6 +5,7 @@ import type {
 	Event,
 	EventKind,
 	Outcome,
+	Phase,
 	PullRequest,
 	Ref,
 	Run,
@@ -14,6 +15,7 @@ import type {
 import { eventKey, pageKeyString, prKeyString, runKeyString, taskKeyString } from './keys';
 import { pagePath } from './links';
 import { named } from './named';
+import { phaseText } from './phases';
 import type { TimelineItem } from './timeline';
 
 // Plain words for records: what the event list and the detail panel say.
@@ -119,7 +121,14 @@ export function itemLabel(item: TimelineItem): string {
 			return runLabel(item.run);
 		case 'check':
 			return checkLabel(item.pr, item.check);
+		case 'phase':
+			return phaseLabel(item.run, item.phase);
 	}
+}
+
+/** A phase, and the run it is a part of. */
+export function phaseLabel(run: Run, p: Phase): string {
+	return `Phase of ${runName(run)}: ${phaseText(p)}`;
 }
 
 export function accountLabel(a: Account): string {

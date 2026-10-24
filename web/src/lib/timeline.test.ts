@@ -3,11 +3,12 @@ import { goldenStories, goldenStory } from './testing/stories';
 import { timelineItems } from './timeline';
 
 test.each([...goldenStories])(
-	'%s: every event, run and check is listed once, in time order',
+	'%s: every event, run, check and phase is listed once, in time order',
 	(_, story) => {
 		const items = timelineItems(story);
 		const checks = story.pullRequests.reduce((n, p) => n + p.checks.length, 0);
-		expect(items).toHaveLength(story.events.length + story.runs.length + checks);
+		const phases = story.runs.reduce((n, r) => n + (r.phases?.length ?? 0), 0);
+		expect(items).toHaveLength(story.events.length + story.runs.length + checks + phases);
 		expect(new Set(items.map((i) => `${i.ref.kind}:${i.ref.id}`)).size).toBe(items.length);
 		const timed = items.filter((i) => i.time !== undefined).map((i) => Date.parse(i.time ?? ''));
 		expect(timed).toEqual([...timed].sort((a, b) => a - b));
@@ -37,4 +38,16 @@ test('the retry is a second run row', () => {
 		'cluster-a/agents/uid/00000000-0000-4000-8000-00000000104a',
 		'cluster-a/agents/uid/00000000-0000-4000-8000-00000000104b'
 	]);
+});
+
+test('a phase sits at its first recorded edge, an inconsistent pair at the earlier', () => {
+	const items = timelineItems(goldenStory('phase-markers'));
+	const phases = items.filter((i) => i.kind === 'phase');
+	expect(phases).toHaveLength(7);
+	const backwards = phases.find(
+		(i) =>
+			i.kind === 'phase' && i.phase.state === 'inconsistent' && i.phase.end?.kind === 'wiki-login'
+	);
+	expect(backwards?.time).toBe(backwards?.kind === 'phase' ? backwards.phase.end?.at : undefined);
+	expect(new Set(phases.map((i) => i.ref.id.split('/phases/')[0])).size).toBe(2);
 });
