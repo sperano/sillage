@@ -18,8 +18,8 @@ const (
 	PathVikunja = Prefix + "vikunja"
 	// PathGitHub receives the GitHub repository webhooks' deliveries.
 	PathGitHub = Prefix + "github"
-	// storeTimeout bounds deciding a delivery's outcome, and then again
-	// recording it.
+	// storeTimeout bounds deciding a delivery's outcome, which records an
+	// accepted one, and then again recording any other.
 	storeTimeout = 10 * time.Second
 )
 
@@ -28,13 +28,19 @@ const (
 	queueFullDetail = "the collector's queue of reads is full: its next periodic read catches up"
 )
 
+// errQueueFull is the scheduler refusing a read.
+var errQueueFull = errors.New(queueFullDetail)
+
 // Store is what the handler needs from the store: *store.Store.
 type Store interface {
 	// DeliveryAccepted reports whether an attempt of the delivery was
 	// accepted.
 	DeliveryAccepted(ctx context.Context, source model.Source, instance, id string) (bool, error)
-	// RecordDelivery records one attempt; store.ErrAlreadyAccepted for an
-	// accepted one when an earlier attempt was accepted.
+	// AcceptDelivery records an accepted attempt and runs act in one
+	// transaction, so that of two attempts racing only one runs it;
+	// store.ErrAlreadyAccepted, act not run, when an attempt was accepted.
+	AcceptDelivery(ctx context.Context, d model.Delivery, act func() error) error
+	// RecordDelivery records one attempt that was not accepted.
 	RecordDelivery(ctx context.Context, d model.Delivery) error
 	// RootsOfPullRequest returns the stored roots whose stories hold the
 	// pull request.
@@ -141,7 +147,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// An authenticated attempt is recorded even if its sender hangs up.
 	ctx := context.WithoutCancel(r.Context())
 	roots := h.settle(ctx, ep, &d, body)
-	recorded := h.record(ctx, &d)
+	// settle recorded an accepted attempt along with scheduling its reads.
+	recorded := d.Outcome == model.DeliveryAccepted || h.record(ctx, &d)
 	h.respond(ctx, w, d, len(roots), recorded)
 }
 
@@ -160,8 +167,8 @@ func (h *Handler) refuse(ctx context.Context, w http.ResponseWriter, ep endpoint
 	http.Error(w, rf.err.Error(), rf.status)
 }
 
-// settle decides d's outcome and, when it is accepted, schedules the reads
-// of the roots it names, which it returns.
+// settle decides d's outcome and, when it is accepted, records it and
+// schedules the reads of the roots it names, which it returns.
 func (h *Handler) settle(ctx context.Context, ep endpoint, d *model.Delivery, body []byte) []model.Root {
 	ctx, cancel := context.WithTimeout(ctx, storeTimeout)
 	defer cancel()
@@ -187,13 +194,33 @@ func (h *Handler) settle(ctx context.Context, ep endpoint, d *model.Delivery, bo
 		d.Outcome, d.Detail = model.DeliveryIgnored, why
 		return nil
 	}
-	for _, root := range roots {
-		if !h.sched.Schedule(root) {
-			d.Outcome, d.Detail = model.DeliveryFailed, queueFullDetail
-			return roots
-		}
-	}
+	return h.accept(ctx, d, roots)
+}
+
+// accept records d accepted and schedules the reads of roots in one store
+// transaction, so that of two attempts of d racing, only one schedules
+// them; the other is a duplicate. It returns roots unless d was a
+// duplicate. A failed d can have scheduled some of the reads.
+func (h *Handler) accept(ctx context.Context, d *model.Delivery, roots []model.Root) []model.Root {
 	d.Outcome = model.DeliveryAccepted
+	err := h.store.AcceptDelivery(ctx, *d, func() error {
+		for _, root := range roots {
+			if !h.sched.Schedule(root) {
+				return errQueueFull
+			}
+		}
+		return nil
+	})
+	switch {
+	case err == nil:
+	case errors.Is(err, store.ErrAlreadyAccepted):
+		d.Outcome, d.Detail = model.DeliveryIgnored, duplicateDetail
+		return nil
+	case errors.Is(err, errQueueFull):
+		d.Outcome, d.Detail = model.DeliveryFailed, queueFullDetail
+	default:
+		h.fail(ctx, d, &storeError{op: "recording its acceptance", err: err})
+	}
 	return roots
 }
 
@@ -203,17 +230,12 @@ func (h *Handler) fail(ctx context.Context, d *model.Delivery, se *storeError) {
 	d.Outcome, d.Detail = model.DeliveryFailed, "the store failed while "+se.op
 }
 
-// record records d, as a duplicate if an earlier attempt was accepted
-// meanwhile, and reports whether it was recorded.
+// record records d, which was not accepted, and reports whether it was
+// recorded.
 func (h *Handler) record(ctx context.Context, d *model.Delivery) bool {
 	ctx, cancel := context.WithTimeout(ctx, storeTimeout)
 	defer cancel()
-	err := h.store.RecordDelivery(ctx, *d)
-	if errors.Is(err, store.ErrAlreadyAccepted) {
-		d.Outcome, d.Detail = model.DeliveryIgnored, duplicateDetail
-		err = h.store.RecordDelivery(ctx, *d)
-	}
-	if err != nil {
+	if err := h.store.RecordDelivery(ctx, *d); err != nil {
 		h.log.ErrorContext(ctx, "webhook delivery: recording it failed", "source", d.Source, "delivery", d.ID,
 			"error", err)
 		return false

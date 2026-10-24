@@ -55,6 +55,14 @@ func (*acceptingStore) DeliveryAccepted(context.Context, model.Source, string, s
 	return false, nil
 }
 
+func (s *acceptingStore) AcceptDelivery(_ context.Context, d model.Delivery, act func() error) error {
+	if err := act(); err != nil {
+		return err
+	}
+	s.recorded = append(s.recorded, d)
+	return nil
+}
+
 func (s *acceptingStore) RecordDelivery(_ context.Context, d model.Delivery) error {
 	s.recorded = append(s.recorded, d)
 	return nil

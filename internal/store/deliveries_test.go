@@ -1,10 +1,13 @@
 package store
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/sperano/sillage/internal/model"
 )
@@ -40,6 +43,11 @@ func attempts(t *testing.T, s *Store, id string) [][2]string {
 	return out
 }
 
+// accept is AcceptDelivery with an act that succeeds.
+func accept(ctx context.Context, s *Store, d model.Delivery) error {
+	return s.AcceptDelivery(ctx, d, func() error { return nil })
+}
+
 func TestRecordDelivery(t *testing.T) {
 	s := newTestStore(t, Retention{})
 	ctx := t.Context()
@@ -51,14 +59,16 @@ func TestRecordDelivery(t *testing.T) {
 	if ok, err := s.DeliveryAccepted(ctx, model.SourceGitHub, testGitHub, "d-1"); err != nil || ok {
 		t.Fatalf("DeliveryAccepted after a failed attempt = %v, %v; want false", ok, err)
 	}
-	if err := s.RecordDelivery(ctx, delivery("d-1", 1, model.DeliveryAccepted)); err != nil {
+	if err := accept(ctx, s, delivery("d-1", 1, model.DeliveryAccepted)); err != nil {
 		t.Fatal(err)
 	}
 	if ok, err := s.DeliveryAccepted(ctx, model.SourceGitHub, testGitHub, "d-1"); err != nil || !ok {
 		t.Fatalf("DeliveryAccepted = %v, %v; want true", ok, err)
 	}
-	if err := s.RecordDelivery(ctx, delivery("d-1", 2, model.DeliveryAccepted)); !errors.Is(err, ErrAlreadyAccepted) {
-		t.Fatalf("a second accepted attempt: %v, want ErrAlreadyAccepted", err)
+	ran := false
+	err := s.AcceptDelivery(ctx, delivery("d-1", 2, model.DeliveryAccepted), func() error { ran = true; return nil })
+	if !errors.Is(err, ErrAlreadyAccepted) || ran {
+		t.Fatalf("a second accepted attempt: %v, act ran %v; want ErrAlreadyAccepted, act not run", err, ran)
 	}
 	ignored := delivery("d-1", 2, model.DeliveryIgnored)
 	ignored.Detail = "duplicate"
@@ -75,18 +85,58 @@ func TestRecordDelivery(t *testing.T) {
 	}
 	other := delivery("d-1", 3, model.DeliveryAccepted)
 	other.Source, other.Instance = model.SourceVikunja, testVikunja
-	if err := s.RecordDelivery(ctx, other); err != nil {
+	if err := accept(ctx, s, other); err != nil {
 		t.Errorf("the same id from another source: %v, want it accepted", err)
 	}
 }
 
-func TestRecordDeliveryRace(t *testing.T) {
+func TestAcceptDeliveryActFails(t *testing.T) {
+	s := newTestStore(t, Retention{})
+	ctx := t.Context()
+	errFull := errors.New("queue full")
+	if err := s.AcceptDelivery(ctx, delivery("d-1", 0, model.DeliveryAccepted), func() error { return errFull }); err != errFull {
+		t.Fatalf("AcceptDelivery = %v, want act's error as it is", err)
+	}
+	if got := attempts(t, s, "d-1"); len(got) != 0 {
+		t.Fatalf("attempts = %q, want nothing recorded when act fails", got)
+	}
+	if err := accept(ctx, s, delivery("d-1", 1, model.DeliveryAccepted)); err != nil {
+		t.Errorf("a retry after act failed: %v, want it accepted", err)
+	}
+}
+
+// An accepted attempt at the time of a failed one is not taken for an
+// earlier acceptance.
+func TestAcceptDeliveryAtTheTimeOfAnotherAttempt(t *testing.T) {
+	s := newTestStore(t, Retention{})
+	ctx := t.Context()
+	if err := s.RecordDelivery(ctx, delivery("d-1", 0, model.DeliveryFailed)); err != nil {
+		t.Fatal(err)
+	}
+	ran := false
+	err := s.AcceptDelivery(ctx, delivery("d-1", 0, model.DeliveryAccepted), func() error { ran = true; return nil })
+	if err == nil || errors.Is(err, ErrAlreadyAccepted) || ran {
+		t.Errorf("AcceptDelivery = %v, act ran %v; want an error other than ErrAlreadyAccepted, act not run", err, ran)
+	}
+}
+
+// actHold keeps each racing act running, so that the racers overlap.
+const actHold = 20 * time.Millisecond
+
+func TestAcceptDeliveryRace(t *testing.T) {
 	s := newTestStore(t, Retention{})
 	const racers = 8
 	errs := make([]error, racers)
+	var acts atomic.Int32
 	var wg sync.WaitGroup
 	for i := range racers {
-		wg.Go(func() { errs[i] = s.RecordDelivery(t.Context(), delivery("d-race", i, model.DeliveryAccepted)) })
+		wg.Go(func() {
+			errs[i] = s.AcceptDelivery(t.Context(), delivery("d-race", i, model.DeliveryAccepted), func() error {
+				acts.Add(1)
+				time.Sleep(actHold)
+				return nil
+			})
+		})
 	}
 	wg.Wait()
 	accepted := 0
@@ -95,17 +145,26 @@ func TestRecordDeliveryRace(t *testing.T) {
 		case err == nil:
 			accepted++
 		case !errors.Is(err, ErrAlreadyAccepted):
-			t.Errorf("RecordDelivery: %v", err)
+			t.Errorf("AcceptDelivery: %v", err)
 		}
 	}
-	if accepted != 1 {
-		t.Errorf("%d racing attempts were accepted, want 1", accepted)
+	if accepted != 1 || acts.Load() != 1 {
+		t.Errorf("%d racing attempts were accepted and %d acts ran, want 1 and 1", accepted, acts.Load())
 	}
 }
 
 func TestRecordDeliveryInvalid(t *testing.T) {
 	s := newTestStore(t, Retention{})
-	if err := s.RecordDelivery(t.Context(), delivery("", 0, model.DeliveryAccepted)); err == nil {
+	if err := s.RecordDelivery(t.Context(), delivery("", 0, model.DeliveryIgnored)); err == nil {
 		t.Error("a delivery without an id was recorded")
+	}
+	if err := accept(t.Context(), s, delivery("", 0, model.DeliveryAccepted)); err == nil {
+		t.Error("a delivery without an id was accepted")
+	}
+	if err := s.RecordDelivery(t.Context(), delivery("d-1", 0, model.DeliveryAccepted)); err == nil {
+		t.Error("RecordDelivery recorded an accepted attempt")
+	}
+	if err := accept(t.Context(), s, delivery("d-1", 0, model.DeliveryIgnored)); err == nil {
+		t.Error("AcceptDelivery recorded an ignored attempt")
 	}
 }

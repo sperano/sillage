@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -63,10 +64,10 @@ type fakeStore struct {
 	// prRoots are the stored roots of each pull request, by key string.
 	prRoots map[string][]model.Root
 	// readErr fails DeliveryAccepted and RootsOfPullRequest, recordErr
-	// RecordDelivery.
+	// AcceptDelivery and RecordDelivery.
 	readErr, recordErr error
-	// acceptRace makes the next accepted RecordDelivery find an attempt
-	// accepted meanwhile.
+	// acceptRace makes the next AcceptDelivery find an attempt accepted
+	// meanwhile.
 	acceptRace bool
 }
 
@@ -88,18 +89,40 @@ func (s *fakeStore) acceptedLocked(source model.Source, instance, id string) boo
 	return false
 }
 
+func (s *fakeStore) AcceptDelivery(_ context.Context, d model.Delivery, act func() error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.recordErr != nil {
+		return s.recordErr
+	}
+	if d.Outcome != model.DeliveryAccepted {
+		return fmt.Errorf("fake store: AcceptDelivery of a %s attempt", d.Outcome)
+	}
+	if err := d.Validate(); err != nil {
+		return err
+	}
+	if s.acceptRace || s.acceptedLocked(d.Source, d.Instance, d.ID) {
+		s.acceptRace = false
+		return store.ErrAlreadyAccepted
+	}
+	if err := act(); err != nil {
+		return err
+	}
+	s.attempts = append(s.attempts, d)
+	return nil
+}
+
 func (s *fakeStore) RecordDelivery(_ context.Context, d model.Delivery) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.recordErr != nil {
 		return s.recordErr
 	}
+	if d.Outcome == model.DeliveryAccepted {
+		return errors.New("fake store: RecordDelivery of an accepted attempt")
+	}
 	if err := d.Validate(); err != nil {
 		return err
-	}
-	if d.Outcome == model.DeliveryAccepted && (s.acceptRace || s.acceptedLocked(d.Source, d.Instance, d.ID)) {
-		s.acceptRace = false
-		return store.ErrAlreadyAccepted
 	}
 	s.attempts = append(s.attempts, d)
 	return nil

@@ -1,6 +1,7 @@
--- At most one accepted attempt per delivery: a later attempt of a delivery
--- accepted already is recorded as ignored, so that the roots it names are
--- read again once per delivery, however often it is redelivered or
--- replayed.
+-- At most one accepted attempt recorded per delivery: a later attempt of a
+-- delivery accepted already is recorded as ignored. Store.AcceptDelivery
+-- inserts the accepted attempt in the transaction that asks for the reads
+-- of the roots it names, so that only one attempt asks for them, however
+-- often the delivery is redelivered.
 CREATE UNIQUE INDEX delivery_attempts_accepted ON delivery_attempts (source, instance, delivery_id)
     WHERE outcome = 'accepted';

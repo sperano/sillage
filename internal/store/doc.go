@@ -12,10 +12,10 @@
 // carries replaces the root's stored coverage of that instance, and the
 // root's coverage of the other instances is kept. Checkpoints lists the
 // checkpoints back. The Reader methods (Story, SearchRoots, Coverage)
-// serve the API. RecordDelivery and DeliveryAccepted keep the webhook
-// delivery attempts the ingest paths received, apart from every story's
-// records. Prune applies the Config's retention policy (by default keep
-// everything).
+// serve the API. AcceptDelivery, RecordDelivery and DeliveryAccepted keep
+// the webhook delivery attempts the ingest paths received, apart from
+// every story's records. Prune applies the Config's retention policy (by
+// default keep everything).
 //
 // Each record is stored as its model JSON, the source of truth read back
 // into a story, next to the columns that key it (events by source,

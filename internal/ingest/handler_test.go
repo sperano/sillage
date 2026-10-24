@@ -266,6 +266,9 @@ func TestOutcomes(t *testing.T) {
 			if counted != 1 {
 				t.Errorf("%s deliveries = %v, want 1", tt.outcome, counted)
 			}
+			if got := hs.sched.roots(); len(got) != 0 {
+				t.Errorf("scheduled %+v, want nothing", got)
+			}
 		})
 	}
 }
