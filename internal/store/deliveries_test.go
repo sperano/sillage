@@ -155,13 +155,12 @@ func TestAcceptDeliveryRace(t *testing.T) {
 }
 
 const (
-	// lockWaitDeadline bounds waiting for an attempt to wait on another.
-	lockWaitDeadline = 10 * time.Second
-	// lockWaitPoll is how often the wait is looked for.
+	// waitDeadline bounds each wait on a racing attempt: to reach its act,
+	// to wait on another, or to return.
+	waitDeadline = 10 * time.Second
+	// lockWaitPoll is how often an attempt waiting on another is looked
+	// for.
 	lockWaitPoll = 10 * time.Millisecond
-	// attemptDeadline bounds waiting for an attempt to reach its act or
-	// to return.
-	attemptDeadline = 10 * time.Second
 )
 
 // An attempt racing one whose act is running waits for its outcome, and
@@ -185,7 +184,7 @@ func TestAcceptDeliveryWaitsForARacingAttempt(t *testing.T) {
 	case <-inAct:
 	case err := <-first:
 		t.Fatalf("the first attempt returned before its act: %v", err)
-	case <-time.After(attemptDeadline):
+	case <-time.After(waitDeadline):
 		t.Fatal("the first attempt never reached its act")
 	}
 	var ran atomic.Bool
@@ -201,22 +200,22 @@ func TestAcceptDeliveryWaitsForARacingAttempt(t *testing.T) {
 		t.Fatal("the second attempt's act ran while the first was undecided")
 	}
 	releaseFirst()
-	if err := receive(t, first, "the first attempt"); err != errFull {
+	if err := awaitAttempt(t, first, "the first attempt"); err != errFull {
 		t.Fatalf("the first attempt: %v, want its act's error", err)
 	}
-	if err := receive(t, second, "the second attempt"); err != nil || !ran.Load() {
+	if err := awaitAttempt(t, second, "the second attempt"); err != nil || !ran.Load() {
 		t.Errorf("the second attempt: %v, act ran %v; want it accepted once the first failed", err, ran.Load())
 	}
 }
 
-// receive returns what an attempt returned, failing the test if it has not
-// returned within attemptDeadline.
-func receive(t *testing.T, result <-chan error, attempt string) error {
+// awaitAttempt returns what an attempt returned, failing the test if it
+// has not returned within waitDeadline.
+func awaitAttempt(t *testing.T, result <-chan error, attempt string) error {
 	t.Helper()
 	select {
 	case err := <-result:
 		return err
-	case <-time.After(attemptDeadline):
+	case <-time.After(waitDeadline):
 		t.Fatalf("%s did not return", attempt)
 		return nil
 	}
@@ -226,7 +225,7 @@ func receive(t *testing.T, result <-chan error, attempt string) error {
 // lock.
 func waitForLockWait(t *testing.T, s *Store) {
 	t.Helper()
-	deadline := time.Now().Add(lockWaitDeadline)
+	deadline := time.Now().Add(waitDeadline)
 	for {
 		var waiting bool
 		err := s.pool.QueryRow(t.Context(), `SELECT EXISTS (SELECT 1 FROM pg_stat_activity
