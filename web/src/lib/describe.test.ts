@@ -24,9 +24,24 @@ test('events are named with their details', () => {
 	expect(eventLabel(event('comments/881'))).toBe('Run announced: wiki-fu-widgets-57-c880');
 });
 
+test('a Kelos observation names its object, how it was seen and its phase', () => {
+	const observed = (details: Record<string, string>): Event => ({
+		...event('comments/882'),
+		kind: 'run.observed',
+		details
+	});
+	expect(eventLabel(observed({ object: 'task', change: 'modified', phase: 'Running' }))).toBe(
+		'Kelos Task modified, phase Running'
+	);
+	expect(eventLabel(observed({ object: 'taskrecord', change: 'listed' }))).toBe(
+		'Kelos TaskRecord listed'
+	);
+	expect(eventLabel(observed({}))).toBe('Kelos object observed');
+});
+
 test('a kind newer than this build is shown as it is named', () => {
-	expect(eventLabel({ ...event('comments/882'), kind: 'run.observed' as EventKind })).toBe(
-		'run.observed'
+	expect(eventLabel({ ...event('comments/882'), kind: 'task.archived' as EventKind })).toBe(
+		'task.archived'
 	);
 });
 

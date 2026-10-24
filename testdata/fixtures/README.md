@@ -58,6 +58,19 @@ hour; and `cmd/sillage` runs the collection loop over each story's
 `collector/` responses into PostgreSQL and checks what `GET
 /api/v1/overview` serves against the stored stories.
 
+## Event contract
+
+`contract/event.golden.json` is what an event's JSON may hold, generated
+from `internal/model` (`go test ./internal/model -run
+TestEventContractGolden -update`): every kind with the sources it may
+come from, the kinds of a state seen by polling, and every field with
+whether it may be absent. The stories hold only what the collector
+assembles, but the store also serves what only the collection loop
+writes (a Kelos watch's `run.observed`, an observation's
+`lastObservedAt`); `web/src/lib/decodeModel.test.ts` checks the web
+model and decoder against this file, so a kind or field added in Go
+fails the web tests until the frontend takes it.
+
 ## Overview
 
 `overview/` holds the multi-task overview's set: seven fabricated tasks over

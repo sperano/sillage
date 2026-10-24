@@ -1,12 +1,24 @@
-import { readdirSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { DecodeError } from './check';
 import { parseStory } from './decodeModel';
+import { EVENT_KIND_SOURCES, OBSERVED_KINDS } from './model';
 import { STORIES_DIR, goldenStories, goldenStory } from '../testing/goldenStories';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../..');
 const BASE_STORY = 'implementation-merged';
+// The Go model's event contract (internal/model's TestEventContractGolden).
+const EVENT_CONTRACT = 'testdata/fixtures/contract/event.golden.json';
+// In BASE_STORY: a task created (a recorded action), then its bucket seen
+// by polling, and its one run's key.
+const RECORDED_EVENT = 0;
+const OBSERVED_EVENT = 1;
+const RUN_KEY = {
+	cluster: 'cluster-a',
+	namespace: 'agents',
+	uid: '00000000-0000-4000-8000-000000000102'
+};
 
 type Path = readonly (string | number)[];
 
@@ -105,6 +117,14 @@ describe('optional fields the golden stories lack', () => {
 				)
 		],
 		[
+			'a state seen again by a later read',
+			(s) => set(s, ['events', OBSERVED_EVENT, 'lastObservedAt'], '2026-03-03T18:20:00Z')
+		],
+		[
+			'a Kelos observation of the run',
+			(s) => (get(s, ['events']) as unknown[]).push(runObserved())
+		],
+		[
 			'two correlations whose ids hold what a joined pair would',
 			(s) => {
 				set(s, ['correlations', 0, 'from'], { kind: 'event', id: 'a' });
@@ -118,6 +138,23 @@ describe('optional fields the golden stories lack', () => {
 		expect(parseStory(json)).toStrictEqual(json);
 	});
 });
+
+// runObserved is a watch's observation of BASE_STORY's run, as the Kelos
+// source writes it.
+function runObserved(): unknown {
+	return {
+		source: 'kelos',
+		instance: 'cluster-a',
+		id: `tasks/${RUN_KEY.uid}@4101/modified`,
+		idKind: 'source',
+		kind: 'run.observed',
+		observedAt: '2026-03-03T18:06:30Z',
+		actor: { kind: 'unknown' },
+		related: { run: RUN_KEY },
+		details: { object: 'task', change: 'modified', phase: 'Running', resourceVersion: '4101' },
+		evidence: { source: 'kelos', instance: 'cluster-a', ref: 'tasks/agents/widgets-102' }
+	};
+}
 
 function runKeyedByPod(story: unknown): unknown {
 	return { cluster: 'cluster-a', namespace: 'agents', pod: get(story, ['runs', 0, 'pod']) };
@@ -141,6 +178,16 @@ describe('a story the Go model would reject', () => {
 			'a kind from the wrong source',
 			(s) => set(s, ['events', 0, 'source'], 'github'),
 			'kind task.created cannot come from github'
+		],
+		[
+			'a last observed time on a recorded action',
+			(s) => set(s, ['events', RECORDED_EVENT, 'lastObservedAt'], '2026-03-03T18:20:00Z'),
+			'kind task.created is no state seen by polling'
+		],
+		[
+			'a last observed time before the first',
+			(s) => set(s, ['events', OBSERVED_EVENT, 'lastObservedAt'], '2026-03-03T18:04:59Z'),
+			'is before observedAt'
 		],
 		[
 			'a fingerprint id that is not one',
@@ -409,5 +456,52 @@ describe('a phase the Go model would not make', () => {
 	])('%s fails', (_, change, problem) => {
 		expect(() => parseStory(phased(change))).toThrow(DecodeError);
 		expect(() => parseStory(phased(change))).toThrow(problem);
+	});
+});
+
+interface EventContract {
+	kinds: Record<string, string[]>;
+	observedKinds: string[];
+	fields: { name: string; optional: boolean }[];
+}
+
+function eventContract(): EventContract {
+	return JSON.parse(readFileSync(join(REPO_ROOT, EVENT_CONTRACT), 'utf8')) as EventContract;
+}
+
+function sortedSources(
+	kinds: Readonly<Record<string, readonly string[]>>
+): Record<string, string[]> {
+	return Object.fromEntries(Object.entries(kinds).map(([k, v]) => [k, [...v].sort()]));
+}
+
+describe('the Go event contract', () => {
+	test('every event kind, from the sources the Go model allows', () => {
+		expect(sortedSources(EVENT_KIND_SOURCES)).toEqual(sortedSources(eventContract().kinds));
+	});
+
+	test('the kinds of a state seen by polling', () => {
+		expect([...OBSERVED_KINDS].sort()).toEqual(eventContract().observedKinds);
+	});
+
+	test('every field decodes, and only the optional ones may be absent', () => {
+		const fields = eventContract().fields;
+		const extra = { executor: { name: 'agent-opus', kind: 'agent' }, details: { k: 'v' } };
+		const json = base((s) => {
+			Object.assign(get(s, ['events', RECORDED_EVENT]) as Node, extra);
+			Object.assign(get(s, ['events', OBSERVED_EVENT]) as Node, extra, {
+				lastObservedAt: '2026-03-03T18:20:00Z'
+			});
+		});
+		const recorded = get(json, ['events', RECORDED_EVENT]) as Node;
+		const observed = get(json, ['events', OBSERVED_EVENT]) as Node;
+		const names = new Set([...Object.keys(recorded), ...Object.keys(observed)]);
+		expect([...names].sort()).toEqual(fields.map((f) => f.name).sort());
+		expect(parseStory(json)).toStrictEqual(json);
+		for (const { name, optional } of fields) {
+			if (optional) continue;
+			const missing = base((s) => remove(s, ['events', RECORDED_EVENT, name]));
+			expect(() => parseStory(missing), name).toThrow(`missing field ${name}`);
+		}
 	});
 });

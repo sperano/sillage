@@ -25,6 +25,16 @@ const SHORT_SHA = 7;
 
 type Details = Readonly<Record<string, string>>;
 
+/** The Kelos objects a run.observed event's "object" detail names. */
+const kelosObjects: Readonly<Record<string, string>> = { task: 'Task', taskrecord: 'TaskRecord' };
+
+/** "Kelos Task modified, phase Running": how a list or watch saw a run's object. */
+function kelosObservation(d: Details): string {
+	const object = d.object ? named(kelosObjects, d.object) : 'object';
+	const seen = `Kelos ${object} ${d.change ?? 'observed'}`;
+	return d.phase ? `${seen}, phase ${d.phase}` : seen;
+}
+
 const eventLabels: Record<EventKind, (d: Details) => string> = {
 	'task.created': () => 'Task created',
 	'task.bucket_observed': (d) => `Seen in bucket ${d.bucket ?? '(unnamed)'}`,
@@ -43,6 +53,7 @@ const eventLabels: Record<EventKind, (d: Details) => string> = {
 	'request.created': (d) =>
 		`Request ${d.command ?? ''}${d.agent ? ` for ${d.agent}` : ''}`.trimEnd(),
 	'run.announced': (d) => (d.taskName ? `Run announced: ${d.taskName}` : 'Run announced'),
+	'run.observed': kelosObservation,
 	'pr.opened': () => 'Pull request opened',
 	'pr.review_requested': (d) => `Review requested from ${d.reviewer ?? d.team ?? '(unnamed)'}`,
 	'pr.review_request_removed': (d) =>

@@ -264,6 +264,10 @@ function placeEvent(ctx: Context, e: Event): void {
 }
 
 function rowOf(ctx: Context, e: Event): Row {
+	if (e.kind === 'run.observed' && e.related.run) {
+		const runRow = ctx.find(`run:${runKeyString(e.related.run)}`);
+		if (runRow) return runRow;
+	}
 	if (CONVERSATION.has(e.kind)) {
 		const run = ctx.runOfEvent.get(eventKey(e));
 		const runRow = run === undefined ? undefined : ctx.find(`run:${run}`);

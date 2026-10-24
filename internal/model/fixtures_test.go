@@ -19,7 +19,8 @@ func TestMain(m *testing.M) { testzone.Main(m) }
 
 // update rewrites every story.golden.json from its input.json:
 // go test ./internal/model -run TestStoryGolden -update
-var update = flag.Bool("update", false, "rewrite the fixture stories' golden files")
+// and the event contract (TestEventContractGolden).
+var update = flag.Bool("update", false, "rewrite the fixture stories' and the event contract's golden files")
 
 // storiesDir holds one directory per fixture story.
 const storiesDir = "../../testdata/fixtures/stories"
