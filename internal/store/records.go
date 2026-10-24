@@ -149,10 +149,15 @@ func (w *saver) repointCorrelation(id int64, c model.Correlation, from, to model
 	return w.exec("DELETE FROM correlations WHERE id = $1", id)
 }
 
-// saveCoverage merges each coverage record with the root's stored one.
+// saveCoverage stores each coverage record by the saver's rule: merged
+// with the root's stored one, or in its place.
 func (w *saver) saveCoverage(coverage []model.Coverage) error {
 	for _, c := range coverage {
-		if err := w.mergeCoverage(c); err != nil {
+		put := w.putCoverage
+		if w.coverage == coverageMerge {
+			put = w.mergeCoverage
+		}
+		if err := put(c); err != nil {
 			return fmt.Errorf("coverage %s: %w", c.Key(), err)
 		}
 	}
@@ -173,7 +178,13 @@ func (w *saver) mergeCoverage(c model.Coverage) error {
 	case !errors.Is(err, pgx.ErrNoRows):
 		return err
 	}
-	if body, err = json.Marshal(c); err != nil {
+	return w.putCoverage(c)
+}
+
+// putCoverage stores c as the root's coverage of its source instance.
+func (w *saver) putCoverage(c model.Coverage) error {
+	body, err := json.Marshal(c)
+	if err != nil {
 		return err
 	}
 	return w.exec(`
