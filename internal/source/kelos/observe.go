@@ -45,8 +45,11 @@ type observed struct {
 	resource, object, ref string
 	meta                  metav1.ObjectMeta
 	// run is the UID of the Task the object belongs to.
-	run    types.UID
-	phase  Phase
+	run   types.UID
+	phase Phase
+	// pod is the Task's status.podName: its latest pod, empty for a
+	// TaskRecord, which names none.
+	pod    string
 	change change
 	at     time.Time
 }
@@ -54,7 +57,7 @@ type observed struct {
 func (c Config) observeTask(t *Task, ch change, at time.Time) model.Event {
 	return c.observation(observed{
 		resource: tasksResource, object: objectTask, ref: c.taskRef(t.Name),
-		meta: t.ObjectMeta, run: t.UID, phase: t.Status.Phase, change: ch, at: at,
+		meta: t.ObjectMeta, run: t.UID, phase: t.Status.Phase, pod: t.Status.PodName, change: ch, at: at,
 	})
 }
 
@@ -65,11 +68,14 @@ func (c Config) observeRecord(r *TaskRecord, ch change, at time.Time) model.Even
 	})
 }
 
-// observation is a run.observed event. Its id is the object's UID and
+// observation is a run.observed event, with the Task's pod at the time,
+// so that every pod a Task had is kept, not only the latest one its
+// status names: the Job's retry replaces the first pod with a second. Its
+// id is the object's UID and
 // resourceVersion, which the API server gives each change, with the
 // change: a relist observing an unchanged object gives it the id it had,
 // and a resumed watch never repeats an event. Without a resourceVersion
-// the id is a fingerprint of the time it was received.
+// the id is a fingerprint of the time it was received and what it says.
 func (c Config) observation(o observed) model.Event {
 	run := model.RunKey{Cluster: c.Cluster, Namespace: c.Namespace, UID: string(o.run)}
 	rv := o.meta.ResourceVersion
@@ -87,7 +93,7 @@ func (c Config) observation(o observed) model.Event {
 		},
 	}
 	if rv == "" {
-		e.ID = model.Fingerprint(o.at, o.resource+"/"+string(o.meta.UID), string(o.change), string(o.phase))
+		e.ID = model.Fingerprint(o.at, o.resource+"/"+string(o.meta.UID), string(o.change), o.content())
 		e.IDKind = model.IDFingerprint
 		e.Evidence.Note = fmt.Sprintf("%s without a resourceVersion; %s", o.change, observedTimeNote)
 	} else {
@@ -96,7 +102,20 @@ func (c Config) observation(o observed) model.Event {
 	if o.phase != "" {
 		e.Details["phase"] = string(o.phase)
 	}
+	if o.pod != "" {
+		e.Details["pod"] = o.pod
+	}
 	return e
+}
+
+// content is what an observation without a resourceVersion says, for its
+// fingerprint: its phase, and its pod when it names one, so that two pods
+// received at one instant are two observations.
+func (o observed) content() string {
+	if o.pod == "" {
+		return string(o.phase)
+	}
+	return string(o.phase) + "\n" + o.pod
 }
 
 // listed is an observation of every object a list read.

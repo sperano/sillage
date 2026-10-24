@@ -16,7 +16,7 @@ const (
 )
 
 func testHandler() http.Handler {
-	metrics, _ := newMetrics()
+	metrics, _, _ := newMetrics()
 	return newHandler(fstest.MapFS{
 		indexFile:         {Data: []byte(testIndex)},
 		"assets/app-1.js": {Data: []byte(testScript)},

@@ -16,13 +16,14 @@ import (
 )
 
 // newMetrics returns the handler of /metrics, which serves the Go
-// runtime's, the process's and the collector's metrics, and the
-// collector's metrics to record into.
-func newMetrics() (http.Handler, *reconcile.Metrics) {
+// runtime's, the process's, the collector's and the endpoints' metrics,
+// the collector's metrics to record into, and the registry the endpoints
+// register theirs with.
+func newMetrics() (http.Handler, *reconcile.Metrics, prometheus.Registerer) {
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	m := reconcile.NewMetrics(reg)
-	return promhttp.HandlerFor(reg, promhttp.HandlerOpts{}), m
+	return promhttp.HandlerFor(reg, promhttp.HandlerOpts{}), m, reg
 }
 
 // startCollector starts the collection loop the environment configures

@@ -15,8 +15,11 @@ normalized model (`internal/model`) with fabricated fixture stories
 (`testdata/fixtures/stories/`); a read-only client per source; `sillage
 story`, which assembles one story from the live sources and prints it; a
 PostgreSQL store (`internal/store`); the collection loop, which keeps it
-current; and a webhook receiver (`internal/ingest`) that stays off,
-answering 503, until the collection loop reads what its deliveries name.
+current; a webhook receiver (`internal/ingest`) that stays off,
+answering 503, until the collection loop reads what its deliveries name;
+and the in-cluster endpoint of the phase markers Kelos runs' pods report
+(`internal/ingest/marker`), stored and joined to their runs but not drawn
+yet.
 The frontend's single-task timeline graph (`web/src/lib/timeline/`) is
 rendered in tests from the fixture stories but not yet shown on the story
 page. Nothing is deployed.
@@ -33,6 +36,7 @@ page. Nothing is deployed.
 | `internal/store/` | PostgreSQL persistence, with its migrations embedded. |
 | `internal/api/` | Read-only JSON API over the store. |
 | `internal/ingest/` | Webhook receiver: Vikunja and GitHub deliveries, recorded as evidence, ask the collector for a fresh read. |
+| `internal/ingest/marker/` | `POST /ingest/marker`: phase markers from Kelos runs' pods, authenticated by a TokenReview. |
 | `testdata/fixtures/` | Fabricated test data, shared by Go and web tests. |
 | `web/` | Svelte 5 + Vite single-page frontend (TypeScript), embedded into the binary. |
 | `web/placeholder/` | Page embedded when the frontend is not built. |
@@ -97,6 +101,30 @@ received or acted on its own delivery. It then asks the collector to read
 the task or page it names again; nothing is written from the payload, and
 the periodic reads stay authoritative. Until the collection loop reads
 the roots deliveries name, both paths answer 503.
+
+`POST /ingest/marker` (`internal/ingest/marker`) takes the phase markers
+that wrappers in a Kelos run's pod report: one edge (`start` or `end`) of
+one span (`blocker-wait`, `wiki-login`, `agent`), a JSON object of at most
+4096 bytes of named fields only (when, which Task, how the span ended),
+never a free-form payload such as a prompt or an output. It is meant for the in-cluster
+Service only. Each request carries the pod's projected ServiceAccount
+token (`Authorization: Bearer`, audience `sillage`), which sillage checks
+with a TokenReview: its own ServiceAccount needs `create` on
+`tokenreviews` (`system:auth-delegator`). Only ServiceAccounts of
+`SILLAGE_KELOS_NAMESPACE` bound to a pod are accepted, and the pod the
+review names is the marker's sender, whatever the body says. A verdict is
+cached by the token's hash until the token expires (at most an hour). It
+answers 202 when stored, 200 for an identical re-send, 409 for a different
+marker under the same pod UID, span and edge, 429 past 2000 markers of one
+pod, 400 for an invalid body (a marker more than 5 minutes from its
+receipt included), 413 for one too large, 401 for a token refused, and 503
+without a store, when the review or the store fails, or when too many
+reviews or bodies are in flight for a second (try again later). A stored marker is
+joined to its run by its pod, as an identifier, else by its Task name and
+time inside exactly one run, as a heuristic, else it stays unattached
+(counted in the stories' Kelos coverage); each later save of Kelos
+records joins it again both ways, so a run saved with its Task name and
+a matching interval attaches it even when no read ever names its pod.
 
 The image builds both (no local `web/dist/` needed) and embeds the
 frontend:
@@ -178,8 +206,9 @@ besides the Go runtime's and the process's, each source instance's last
 successful read (`sillage_source_last_success_timestamp_seconds`), failed
 reads by reason (`sillage_source_read_errors_total`) and read durations
 (`sillage_source_read_duration_seconds`), the records committed
-(`sillage_records_written_total`), store errors, cycles, roots and whether
-this process holds the lock. Who may reach it is the deployment's decision.
+(`sillage_records_written_total`), store errors, cycles, roots, whether
+this process holds the lock, and the phase-marker requests by outcome
+(`sillage_phase_markers_total`). Who may reach it is the deployment's decision.
 
 ## Test
 

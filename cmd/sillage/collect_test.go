@@ -45,7 +45,7 @@ func TestStartCollector(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, m := newMetrics()
+			_, m, _ := newMetrics()
 			var logs bytes.Buffer
 			// No test reaches the store: a configuration error comes first.
 			var st *store.Store

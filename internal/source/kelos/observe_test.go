@@ -1,6 +1,7 @@
 package kelos
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/sperano/sillage/internal/model"
@@ -47,5 +48,40 @@ func TestObservationWithoutResourceVersion(t *testing.T) {
 	}
 	if later := testConfig().observeTask(task, changeAdded, testObservedAt.Add(testStep)); later.ID == e.ID {
 		t.Error("two receptions share a fingerprint")
+	}
+	task.Status.PodName = "pod-retry"
+	if retried := testConfig().observeTask(task, changeAdded, testObservedAt); retried.ID == e.ID {
+		t.Error("two pods received at one instant share a fingerprint")
+	}
+}
+
+// retryVersion is the resourceVersion of the Task once it names its first
+// pod, after the one decodedTask gives it.
+const retryVersion = 7
+
+// Each observation of a Task names the pod its status named then, so that
+// a retried Job's first pod is kept once the second replaced it; a
+// TaskRecord names none.
+func TestObservationNamesTheTasksPod(t *testing.T) {
+	cfg := testConfig()
+	task := decodedTask(t, uidA, PhaseRunning)
+	if e := cfg.observeTask(task, changeAdded, testObservedAt); e.Details["pod"] != "" {
+		t.Errorf("pod = %q before the Task named one", e.Details["pod"])
+	}
+	var pods, ids []string
+	for i, pod := range []string{"pod-first", "pod-retry"} {
+		task.Status.PodName = pod
+		task.ResourceVersion = fmt.Sprint(retryVersion + i)
+		e := cfg.observeTask(task, changeModified, testObservedAt)
+		pods, ids = append(pods, e.Details["pod"]), append(ids, e.ID)
+	}
+	if pods[0] != "pod-first" || pods[1] != "pod-retry" {
+		t.Errorf("pods = %q, want each observation's own", pods)
+	}
+	if ids[0] == ids[1] {
+		t.Errorf("both pods' observations have id %q: the store would keep one", ids[0])
+	}
+	if e := cfg.observeRecord(decodedRecord(t, uidA), changeAdded, testObservedAt); e.Details["pod"] != "" {
+		t.Errorf("a record's observation names pod %q", e.Details["pod"])
 	}
 }
