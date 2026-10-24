@@ -77,9 +77,20 @@ type identity struct {
 type refusal struct {
 	status int
 	err    error
+	// public, when set, answers the request instead of err, which only
+	// the log holds: what the API server said is not the sender's to read.
+	public string
 }
 
 func (e *refusal) Error() string { return e.err.Error() }
+
+// answer is what the request is answered.
+func (e *refusal) answer() string {
+	if e.public != "" {
+		return e.public
+	}
+	return e.err.Error()
+}
 
 func (e *refusal) Unwrap() error { return e.err }
 
@@ -88,6 +99,9 @@ func unauthorized(format string, args ...any) *refusal {
 }
 
 var errBusy = errors.New("too many token reviews are running: try again")
+
+// reviewFailed answers a request whose token review failed.
+const reviewFailed = "the token could not be reviewed"
 
 // authenticator authenticates requests by their bearer token.
 type authenticator struct {
@@ -149,7 +163,7 @@ func (a *authenticator) review(ctx context.Context, token string) (ReviewStatus,
 	st, err := a.reviewer.Review(ctx, token)
 	if err != nil {
 		return ReviewStatus{}, &refusal{status: http.StatusServiceUnavailable,
-			err: fmt.Errorf("the token review failed: %w", err)}
+			err: fmt.Errorf("the token review failed: %w", err), public: reviewFailed}
 	}
 	return st, nil
 }

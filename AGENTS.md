@@ -26,7 +26,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage; and names the roots a Kelos read points to. Read once, nothing kept: a caller passes what a store kept back in. |
 | `internal/source/vikunja/` | Read-only Vikunja client and its normalization into `model`. |
 | `internal/source/github/` | Read-only GitHub client and its normalization into `model`. |
-| `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and watcher (list, then watch with persisted checkpoints), and their normalization into `model`, with the identifier correlations the spawners' correlation annotations (a Task's `Origin`) name. Each `run.observed` names the Task's pod at the time: a retried Job has two. |
+| `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and watcher (list, then watch with persisted checkpoints), and their normalization into `model`, with the identifier correlations the spawners' correlation annotations (a Task's `Origin`) name. Each Task's `run.observed` names the Task's pod at the time (a TaskRecord's names none): a retried Job has two. |
 | `internal/source/wiki/` | Read-only Wiki.js client and its normalization into `model`. |
 | `internal/source/htmltext/` | Rendered comment HTML to plain text, shared by the sources that parse comments. |
 | `internal/source/kelostext/` | Requests (`/gordon`, `/kelos`) and Kelos start announcements in every form posted, shared by the sources that parse comments. |

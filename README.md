@@ -117,7 +117,8 @@ answers 202 when stored, 200 for an identical re-send, 409 for a different
 marker under the same pod UID, span and edge, 429 past 2000 markers of one
 pod, 400 for an invalid body (a marker more than 5 minutes from its
 receipt included), 413 for one too large, 401 for a token refused, and 503
-without a store or when the review or the store fails. A stored marker is
+without a store, when the review or the store fails, or when too many
+reviews or bodies are in flight for a second (try again later). A stored marker is
 joined to its run by its pod, as an identifier, else by its Task name and
 time inside exactly one run, as a heuristic, else it stays unattached
 (counted in the stories' Kelos coverage) until a Kelos read names its pod.
@@ -203,7 +204,7 @@ successful read (`sillage_source_last_success_timestamp_seconds`), failed
 reads by reason (`sillage_source_read_errors_total`) and read durations
 (`sillage_source_read_duration_seconds`), the records committed
 (`sillage_records_written_total`), store errors, cycles, roots, whether
-this process holds the lock, and the phase markers received by outcome
+this process holds the lock, and the phase-marker requests by outcome
 (`sillage_phase_markers_total`). Who may reach it is the deployment's decision.
 
 ## Test

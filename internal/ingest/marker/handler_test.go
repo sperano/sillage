@@ -84,8 +84,11 @@ func TestRefusesTokens(t *testing.T) {
 	hs.h.ServeHTTP(rec, req)
 	expectStatus(t, "basic authentication", rec, http.StatusUnauthorized)
 	hs.reviewer.err = errors.New("API server unreachable")
-	expectStatus(t, "a review failing", hs.post(fabricatedToken("new", testNow.Add(time.Hour)), body()),
-		http.StatusServiceUnavailable)
+	rec = hs.post(fabricatedToken("new", testNow.Add(time.Hour)), body())
+	expectStatus(t, "a review failing", rec, http.StatusServiceUnavailable)
+	if strings.Contains(rec.Body.String(), "unreachable") {
+		t.Errorf("a failed review answers what the API server said: %q", rec.Body.String())
+	}
 }
 
 // A token's verdict is reviewed once, then cached until the token expires;
@@ -148,6 +151,24 @@ func TestRefusesBodies(t *testing.T) {
 	expectStatus(t, "a body of unknown length too large", rec, http.StatusRequestEntityTooLarge)
 	expectStatus(t, "a time within the skew", hs.post(hs.token, strings.Replace(body(), "12:00:00", "12:04:59", 1)),
 		http.StatusAccepted)
+}
+
+// With every body slot held, a request waits for one, then is answered
+// 503 without its body being read.
+func TestBoundsTheBodiesInFlight(t *testing.T) {
+	hs := newHarness(t)
+	for range maxBodiesInFlight {
+		hs.h.bodies <- struct{}{}
+	}
+	expectStatus(t, "every slot held", hs.post(hs.token, body()), http.StatusServiceUnavailable)
+	if len(hs.store.markers) != 0 {
+		t.Error("a marker was stored without a body slot")
+	}
+	<-hs.h.bodies
+	expectStatus(t, "a slot free", hs.post(hs.token, body()), http.StatusAccepted)
+	if len(hs.h.bodies) != maxBodiesInFlight-1 {
+		t.Errorf("%d slots held after the request, want %d", len(hs.h.bodies), maxBodiesInFlight-1)
+	}
 }
 
 func TestOnlyPostsToThePath(t *testing.T) {

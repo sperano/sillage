@@ -28,7 +28,9 @@ func reviewingClient(t *testing.T, status map[string]any, err error) *dynamicfak
 			return true, nil, err
 		}
 		out := obj.DeepCopy()
-		out.Object["status"] = status
+		if status != nil {
+			out.Object["status"] = status
+		}
 		return true, out, nil
 	})
 	return client
@@ -62,6 +64,14 @@ func TestKubeReviewerFails(t *testing.T) {
 	}
 	if _, err := rev.Review(t.Context(), "the-token"); err == nil {
 		t.Error("a refused review succeeded")
+	}
+	// An answer without a status is a failed review, not a token refused.
+	rev, err = NewKubeReviewer(reviewingClient(t, nil, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rev.Review(t.Context(), "the-token"); err == nil {
+		t.Error("a review answered without a status succeeded")
 	}
 	if _, err := NewKubeReviewer(nil); err == nil {
 		t.Error("a reviewer without a client was built")

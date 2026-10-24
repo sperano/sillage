@@ -24,7 +24,14 @@ const (
 	storeTimeout = 5 * time.Second
 	// bodyReadTimeout bounds reading a body.
 	bodyReadTimeout = 5 * time.Second
+	// maxBodiesInFlight bounds the bodies read at once, so that a pod
+	// holding many slow requests holds at most this many bodies in memory.
+	maxBodiesInFlight = 16
+	// bodySlotWait is how long a request waits for a body slot.
+	bodySlotWait = time.Second
 )
+
+var errBodiesBusy = errors.New("too many markers are being read: try again")
 
 // Store is what the handler needs from the store: *store.Store.
 type Store interface {
@@ -53,6 +60,9 @@ type Handler struct {
 	metrics *Metrics
 	log     *slog.Logger
 	now     func() time.Time
+	// bodies holds a slot for each body being read: at most
+	// maxBodiesInFlight, however many requests arrive.
+	bodies chan struct{}
 }
 
 // New returns the handler of Path, reviewing tokens with rev and storing
@@ -64,7 +74,8 @@ func New(cfg Config, rev Reviewer, st Store, m *Metrics, log *slog.Logger) (*Han
 	if cfg.Cluster == "" || cfg.Namespace == "" {
 		return nil, errors.New("marker: the Kelos cluster and namespace are required")
 	}
-	h := &Handler{cfg: cfg, store: st, metrics: m, log: log, now: time.Now}
+	h := &Handler{cfg: cfg, store: st, metrics: m, log: log, now: time.Now,
+		bodies: make(chan struct{}, maxBodiesInFlight)}
 	h.auth = newAuthenticator(rev, cfg.Namespace, func() time.Time { return h.now() })
 	return h, nil
 }
@@ -100,10 +111,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.record(context.WithoutCancel(r.Context()), w, m)
 }
 
-// readReport reads and decodes the body, at most MaxBodyBytes.
+// readReport reads and decodes the body, at most MaxBodyBytes, once a body
+// slot is free.
 func (h *Handler) readReport(w http.ResponseWriter, r *http.Request, received time.Time) (model.MarkerReport, error) {
 	if r.ContentLength > MaxBodyBytes {
 		return model.MarkerReport{}, tooLarge()
+	}
+	wait := time.NewTimer(bodySlotWait)
+	defer wait.Stop()
+	select {
+	case h.bodies <- struct{}{}:
+		defer func() { <-h.bodies }()
+	case <-wait.C:
+		return model.MarkerReport{}, &refusal{status: http.StatusServiceUnavailable, err: errBodiesBusy}
+	case <-r.Context().Done():
+		return model.MarkerReport{}, &refusal{status: http.StatusServiceUnavailable, err: errBodiesBusy}
 	}
 	// A writer that cannot set deadlines (a test recorder) has its
 	// server's timeouts only.
@@ -145,7 +167,7 @@ func (h *Handler) refuse(ctx context.Context, w http.ResponseWriter, err error) 
 	}
 	h.metrics.count(o)
 	h.log.Log(ctx, level, "phase marker refused", "status", ae.status, "reason", ae.err)
-	http.Error(w, ae.err.Error(), ae.status)
+	http.Error(w, ae.answer(), ae.status)
 }
 
 // record stores m and answers with what the store did.

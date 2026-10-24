@@ -40,9 +40,12 @@ func (k kubeReviewer) Review(ctx context.Context, token string) (ReviewStatus, e
 	if err != nil {
 		return ReviewStatus{}, fmt.Errorf("marker: token review: %w", err)
 	}
-	status, _, err := unstructured.NestedMap(out.Object, "status")
+	status, found, err := unstructured.NestedMap(out.Object, "status")
 	if err != nil {
 		return ReviewStatus{}, fmt.Errorf("marker: token review status: %w", err)
+	}
+	if !found {
+		return ReviewStatus{}, errors.New("marker: token review: the API server answered no status")
 	}
 	var st ReviewStatus
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(status, &st); err != nil {
