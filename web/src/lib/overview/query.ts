@@ -2,6 +2,8 @@
 // page's URL holds them (so that a filtered overview is a link) and as the
 // API takes them.
 
+import { MINUTE_MS } from '../timeline/time';
+
 /** How the overview groups its lanes: a row per task, or a group per agent profile. */
 export const GROUPINGS = ['task', 'executor'] as const;
 export type Grouping = (typeof GROUPINGS)[number];
@@ -79,17 +81,30 @@ export function parseOverviewQuery(params: URLSearchParams): OverviewQuery {
 	return q;
 }
 
-/** An RFC 3339 time, as the API reads one. */
-const RFC_3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/i;
+/** An RFC 3339 time, as the API reads one, its offset captured. */
+const RFC_3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|([+-])(\d{2}):(\d{2}))$/;
+const MINUTES_PER_HOUR = 60;
 
 /**
  * A URL's window bound as the form shows it and gives it back: in UTC, to
- * the second, so that applying the form never moves the window. Anything
- * else stays as it is, for the API to reject.
+ * the second (a fraction of a second is dropped), so that applying the
+ * form queries the window shown. Anything else, a date or time out of
+ * range included, stays as it is, for the API to reject.
  */
 function canonicalTime(time: string): string {
-	const field = RFC_3339.test(time) ? timeField(time) : '';
-	return field === '' ? time : `${field}Z`;
+	const m = RFC_3339.exec(time);
+	const written = time.slice(0, FIELD_LENGTH);
+	const wall = Date.parse(`${written}Z`);
+	// A date or time out of range does not read back as written.
+	if (!m || Number.isNaN(wall) || new Date(wall).toISOString().slice(0, FIELD_LENGTH) !== written) {
+		return time;
+	}
+	const [, sign, hours, minutes] = m;
+	const offset =
+		sign === undefined
+			? 0
+			: (sign === '-' ? -1 : 1) * (Number(hours) * MINUTES_PER_HOUR + Number(minutes));
+	return `${timeField(new Date(wall - offset * MINUTE_MS).toISOString())}Z`;
 }
 
 /** The parameters of the query's filters and window, without what is unset. */

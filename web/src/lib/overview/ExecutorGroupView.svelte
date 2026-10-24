@@ -4,7 +4,7 @@
 <script lang="ts">
 	import { count } from '../format';
 	import { rootHref } from '../routes';
-	import type { ExecutorGroup } from './lanes';
+	import { NO_EXECUTOR, type ExecutorGroup } from './lanes';
 	import LanePlot from './LanePlot.svelte';
 	import type { Range } from './spans';
 	import { rowUnknownSpans } from './unknown';
@@ -18,7 +18,7 @@
 
 	let { group, range, cursor, onpick }: Props = $props();
 
-	const name = $derived(group.executor ?? 'no executor known');
+	const name = $derived(group.executor ?? NO_EXECUTOR);
 </script>
 
 <li class="group">

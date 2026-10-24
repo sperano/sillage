@@ -4,7 +4,7 @@
 <script lang="ts">
 	import { count } from '../format';
 	import { formatMinute } from '../timeline/time';
-	import { rowTitle } from './lanes';
+	import { rowTitles } from './lanes';
 	import type { OverviewRow } from './model';
 	import type { Range } from './spans';
 	import { endChips } from './end';
@@ -20,7 +20,9 @@
 
 	let { rows, range, cursor, partial }: Props = $props();
 
-	const names = (list: readonly OverviewRow[]) => list.map(rowTitle).join(', ');
+	// Untitled tasks sharing a short name are told apart by their instance.
+	const titles = $derived(rowTitles(rows));
+	const names = (list: readonly OverviewRow[]) => list.map((r) => titles.get(r)).join(', ');
 
 	const instant = $derived(instantOf(rows, cursor));
 	const runs = $derived(instant.executing.reduce((n, e) => n + e.runs.length, 0));

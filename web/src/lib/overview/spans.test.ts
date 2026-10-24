@@ -55,6 +55,9 @@ describe('place', () => {
 			left: 0,
 			stub: 'start'
 		});
+		expect(
+			place(span({ start: afternoon('14:00'), end: afternoon('14:00') }), range)
+		).toMatchObject({ left: 0, right: 0 });
 	});
 
 	it('draws nothing with no known end, or outside the window', () => {

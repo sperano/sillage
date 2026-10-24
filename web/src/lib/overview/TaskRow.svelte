@@ -5,7 +5,7 @@
 	import { rootLabel } from '../roots';
 	import { rootHref } from '../routes';
 	import { endChips } from './end';
-	import { collapsedLane, expandedLanes, rowTitle } from './lanes';
+	import { collapsedLane, expandedLanes, NO_EXECUTOR, rowTitle } from './lanes';
 	import LanePlot from './LanePlot.svelte';
 	import type { OverviewRow } from './model';
 	import type { Range } from './spans';
@@ -19,8 +19,6 @@
 	}
 
 	let { row, range, cursor, onpick }: Props = $props();
-
-	const NO_EXECUTOR = 'no executor known';
 
 	const id = $props.id();
 	let expanded = $state(false);

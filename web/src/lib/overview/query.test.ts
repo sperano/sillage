@@ -75,6 +75,13 @@ describe('the filter form', () => {
 		expect(queryOfForm(form({ from: timeField(q.from) })).from).toBe(q.from);
 	});
 
+	it('leaves a date or time out of range for the API to reject', () => {
+		const q = parseOverviewQuery(
+			new URLSearchParams('from=2026-02-30T00:00:00Z&to=2026-03-10T24:00:00Z')
+		);
+		expect([q.from, q.to]).toEqual(['2026-02-30T00:00:00Z', '2026-03-10T24:00:00Z']);
+	});
+
 	it('reads its flags and grouping', () => {
 		const q = queryOfForm(form({ review: 'on', missing: 'on', group: 'executor' }));
 		expect([q.review, q.failed, q.missing, q.group]).toEqual([true, false, true, 'executor']);

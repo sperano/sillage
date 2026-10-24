@@ -126,7 +126,8 @@ export function place(s: OverviewSpan, w: Range): Placement | undefined {
 	const end = drawnEnd(s);
 	const inside = (t: number) => t >= w.start && t < w.end;
 	if (start !== undefined && end !== undefined) {
-		if (end <= w.start || start >= w.end) return undefined;
+		// A span ending at the window's start is before it, unless it is an instant there.
+		if (end < w.start || (end === w.start && start < end) || start >= w.end) return undefined;
 		return {
 			left: Math.max(0, fraction(start, w)),
 			right: Math.min(1, fraction(end, w)),
