@@ -34,13 +34,15 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/reconcile/pglock/` | The `Locker` as a PostgreSQL session advisory lock: one process collects at a time. |
 | `internal/reconcile/storetest/` | The contract of `reconcile.Store`, asserted of the loop tests' fake and, against PostgreSQL, of `cmd/sillage`'s adapter: a store the loop's tests do not model fails it first. |
 | `internal/store/` | PostgreSQL persistence of `model` records, checkpoints, coverage and Kelos Task origins (kept on first sight: a TaskRecord does not copy annotations); `migrations/` holds the numbered SQL files embedded and applied at startup (add one, never edit one that shipped). |
-| `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, search, link resolution, version. No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
+| `internal/overview/` | The multi-task overview of a window: one row per task or page with its runs, pull requests, review waits and state changes in it, and whether its history is missing; filters and cursor pages. Pure: model records in, rows out. |
+| `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, search, link resolution, the overview, version. No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
 | `internal/ingest/` | The webhook receiver: `POST /ingest/vikunja` and `POST /ingest/github`, authenticated by their signatures alone (they bypass the forward-auth). Each authenticated attempt is recorded in the store as evidence that sillage received it (`model.Delivery`), and asks the collector to read the roots it names again; no record comes from a payload. `Queue` is the collector loop's end of those requests. |
-| `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |
+| `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests; `overview/`, the overview's set of overlapping stories and its golden overview. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
 | `web/src/lib/` | The story types (`model.ts`), their key strings (`keys.ts`) and their runtime decoder, the read API client, the routes and the router. |
 | `web/src/lib/selection.svelte.ts` | The selected event, run, check or review wait (`ItemRef`, `timeline.ts`), one instance shared by the timeline graph, the event list and the detail panel. |
 | `web/src/lib/timeline/` | The single-task timeline graph (SVG): lanes, intervals, coverage shading, zoom and pan. Layout is pure TypeScript; the components draw it and handle zoom, pan, selection and group expansion. |
+| `web/src/lib/overview/` | The multi-task overview: its types and decoder (the Go `overview.Page`), its URL query, what a row says at an instant and at the window's end, its lanes (by task or by executor) and the components that draw them. |
 | `web/src/lib/testing/` | Web test helpers: the golden stories, record builders. |
 | `web/src/pages/`, `web/src/components/` | One component per route, and the parts they share. |
 | `web/placeholder/` | The committed page embedded by default, so Go builds without Node. |
@@ -64,7 +66,8 @@ keeps `./...` out of npm's tree.
 
 The frontend routes with the history API, not the hash, so that a link to
 it is a plain URL: `/` (the entry page; `/?q=` a search), `/task/<instance>/<id>`,
-`/page/<instance>/<id>/<locale>`, and `/open?url=<link>`, which resolves a
+`/page/<instance>/<id>/<locale>`, `/overview` (what was working on what, its
+window, filters and grouping in the query), and `/open?url=<link>`, which resolves a
 Vikunja, Kelos, GitHub or wiki link to its story. The server must answer
 every `GET` path outside `/api/`, `/ingest/`, `/healthz` and `/metrics`
 with `index.html` for those deep links to load.
@@ -158,6 +161,13 @@ story (`web/src/lib/decodeModel.test.ts`, which rejects unknown fields and
 values) and render it (`web/src/pages/StoryPage.svelte.test.ts`), so a
 change to the story JSON also changes `web/src/lib/model.ts` and
 `web/src/lib/decodeModel.ts` in the same PR.
+
+`testdata/fixtures/overview/` is the multi-task overview's set: stories of
+several tasks with overlapping runs over one afternoon and the golden
+overview of its window (`go test ./internal/overview -run
+TestOverviewGolden -update`). The API serves it and the web tests decode
+and render it, so a change to the overview's JSON also changes
+`web/src/lib/overview/` in the same PR.
 
 ## Rules
 

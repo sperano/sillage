@@ -47,6 +47,33 @@ story, and assert the invariant the story exists for:
 | `reopened-task` | After completion, reopening and a second completion, Vikunja exposes only the latest `done_at`; the story states that limitation and invents no earlier event. |
 | `second-pr-after-close` | A closed-unmerged pull request followed by a second pull request on the same branch does not complete the task. |
 
+## Overview
+
+`overview/` holds the multi-task overview's set: seven fabricated tasks over
+one afternoon (2026-03-10, the window 14:00 to 15:00 UTC), one story file
+each under `overview/stories/` (`input.json`'s fields plus a `title`), and
+`overview.golden.json`, the overview of that window, unfiltered, on one
+page. The Go tests in `internal/overview` build it, compare it with the
+golden file and assert each point explicitly; `internal/store` saves the
+set and checks that the overview it reads back is the same; `internal/api`
+serves it; the web tests decode and render the golden file. These stories
+are not in `stories/`: they exist for overlap across tasks, not for one
+story's invariant, and the collector does not assemble them.
+
+| Task | What it shows |
+| --- | --- |
+| 201 | A run waiting 30 s before it starts, a pull request, a review request unanswered at the last read. |
+| 202 | The same, ending before 14:25; its pull request closed after the window with the request unanswered. |
+| 203 | A failed run alongside 201's run, under the same agent profile; its retry, same Kelos Task name, still running. |
+| 204 | A pull request closed without a merge; the task is never marked done. |
+| 205 | A run known from its announcement only, inside a Kelos gap: missing history. |
+| 206 | Ran before the window; approved, merged and marked done in it. |
+| 207 | The day before: no row. |
+
+At 14:25, 201, 203 and 204 are executing. To change the set, edit the
+story files and run `go test ./internal/overview -run TestOverviewGolden
+-update`, then read the golden file's diff.
+
 Each source's raw, fabricated responses live in its own directory
 (`vikunja/`, `kelos/`, `github/`, `wiki/`), and the responses from which
 the collector assembles each story in `collector/`.

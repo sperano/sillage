@@ -1,0 +1,175 @@
+{
+  "description": "Agent cedar fails 14:08-14:35, at the same time as its run on task 201; a retry of the same Kelos Task, created at 14:35:30, starts at 14:40 and is still running at the last read.",
+  "title": "Cache metrics",
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 203
+    }
+  },
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "tasks/203",
+      "idKind": "source",
+      "kind": "task.created",
+      "sourceTime": "2026-03-10T13:40:00Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "owner",
+        "kind": "person"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 203
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/203",
+        "note": "created, created_by"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/20301",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-03-10T14:08:05Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "kelos-bot",
+        "kind": "service"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 203
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/203/comments",
+        "note": "comment 20301"
+      },
+      "details": {
+        "agent": "agent-cedar",
+        "pod": "vikunja-gadgets-agent-cedar-203-ccccc",
+        "taskName": "vikunja-gadgets-agent-cedar-203"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/20302",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-03-10T14:40:05Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "kelos-bot",
+        "kind": "service"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 203
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/203/comments",
+        "note": "comment 20302"
+      },
+      "details": {
+        "agent": "agent-cedar",
+        "pod": "vikunja-gadgets-agent-cedar-203-ddddd",
+        "taskName": "vikunja-gadgets-agent-cedar-203"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000002031"
+      },
+      "taskName": "vikunja-gadgets-agent-cedar-203",
+      "pod": "vikunja-gadgets-agent-cedar-203-ccccc",
+      "agent": "agent-cedar",
+      "project": "gadgets",
+      "role": "implementation",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-10T14:08:00Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-03-10T14:35:00Z"
+        }
+      },
+      "outcome": "failed",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/vikunja-gadgets-agent-cedar-203-00002031",
+          "note": "phase, startTime, completionTime"
+        }
+      ]
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000002032"
+      },
+      "taskName": "vikunja-gadgets-agent-cedar-203",
+      "pod": "vikunja-gadgets-agent-cedar-203-ddddd",
+      "agent": "agent-cedar",
+      "project": "gadgets",
+      "role": "implementation",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-10T14:40:00Z"
+        },
+        "end": {
+          "state": "open"
+        }
+      },
+      "outcome": "running",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/vikunja-gadgets-agent-cedar-203-00002032",
+          "note": "phase, startTime"
+        }
+      ],
+      "created": "2026-03-10T14:35:30Z"
+    }
+  ],
+  "pullRequests": [],
+  "correlations": [],
+  "coverage": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+    },
+    {
+      "source": "kelos",
+      "instance": "cluster-a",
+      "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+    }
+  ]
+}

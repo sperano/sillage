@@ -1,0 +1,192 @@
+{
+  "description": "Agent cedar runs 14:11-14:34 after 30 s waiting to start, opens pull request 21 and requests the owner's review at 14:34; nobody answers before the last read.",
+  "title": "Health check",
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 201
+    }
+  },
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "tasks/201",
+      "idKind": "source",
+      "kind": "task.created",
+      "sourceTime": "2026-03-10T13:55:00Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "owner",
+        "kind": "person"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 201
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/201",
+        "note": "created, created_by"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "comments/20101",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-03-10T14:11:05Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "kelos-bot",
+        "kind": "service"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 201
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/201/comments",
+        "note": "comment 20101"
+      },
+      "details": {
+        "agent": "agent-cedar",
+        "pod": "vikunja-widgets-agent-cedar-201-aaaaa",
+        "taskName": "vikunja-widgets-agent-cedar-201"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "pulls/21",
+      "idKind": "source",
+      "kind": "pr.opened",
+      "sourceTime": "2026-03-10T14:33:00Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 21
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/21",
+        "note": "user owner-gh; label kelos:agent-cedar names the executor"
+      },
+      "details": {
+        "branch": "kelos/vikunja-201"
+      },
+      "executor": {
+        "name": "agent-cedar",
+        "kind": "agent"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/events/82101",
+      "idKind": "source",
+      "kind": "pr.review_requested",
+      "sourceTime": "2026-03-10T14:34:00Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 21
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/21/timeline",
+        "note": "event 82101, review_requested"
+      },
+      "details": {
+        "reviewer": "owner-gh"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000000201"
+      },
+      "taskName": "vikunja-widgets-agent-cedar-201",
+      "pod": "vikunja-widgets-agent-cedar-201-aaaaa",
+      "agent": "agent-cedar",
+      "project": "widgets",
+      "role": "implementation",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-10T14:11:00Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-03-10T14:34:00Z"
+        }
+      },
+      "outcome": "succeeded",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/vikunja-widgets-agent-cedar-201-00000201",
+          "note": "phase, startTime, completionTime"
+        }
+      ],
+      "created": "2026-03-10T14:10:30Z"
+    }
+  ],
+  "pullRequests": [
+    {
+      "key": {
+        "instance": "github.example.com",
+        "repository": "example-org/widgets",
+        "number": 21
+      },
+      "branch": "kelos/vikunja-201",
+      "checks": []
+    }
+  ],
+  "correlations": [],
+  "coverage": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+    },
+    {
+      "source": "kelos",
+      "instance": "cluster-a",
+      "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+    }
+  ]
+}

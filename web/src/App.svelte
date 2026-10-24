@@ -5,6 +5,7 @@
 	import EntryPage from './pages/EntryPage.svelte';
 	import NotFoundPage from './pages/NotFoundPage.svelte';
 	import OpenPage from './pages/OpenPage.svelte';
+	import OverviewPage from './pages/OverviewPage.svelte';
 	import StoryPage from './pages/StoryPage.svelte';
 
 	let { api, router }: { api: Api; router: Router } = $props();
@@ -20,10 +21,12 @@
 
 	// After a navigation, move focus to the new page's heading, so that a
 	// keyboard or screen reader user lands on what replaced the link. Moving
-	// from one search to another keeps the entry page, and the focus where
-	// the reader is.
+	// from one search to another keeps the entry page, and from one overview
+	// filter to another the overview, with the focus where the reader is.
 	$effect(() => {
-		const samePage = shown === 'home' && route.name === 'home';
+		const samePage =
+			(shown === 'home' && route.name === 'home') ||
+			(shown === 'overview' && route.name === 'overview');
 		shown = route.name;
 		if (router.navigations > 0 && !samePage) main?.querySelector<HTMLElement>('h1')?.focus();
 	});
@@ -43,6 +46,8 @@
 		<StoryPage {api} root={{ page: route.key }} />
 	{:else if route.name === 'open'}
 		<OpenPage {api} {router} url={route.url} />
+	{:else if route.name === 'overview'}
+		<OverviewPage {api} {router} query={route.query} />
 	{:else}
 		<NotFoundPage path={route.path} />
 	{/if}

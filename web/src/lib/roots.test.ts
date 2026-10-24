@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import type { Root } from './model';
-import { rootLabel, rootSegments, sameRoot } from './roots';
+import { rootLabel, rootName, rootSegments, sameRoot } from './roots';
 
 const task: Root = { task: { instance: 'vikunja.example.com', id: 102 } };
 const page: Root = { page: { instance: 'wiki.example.com', id: 41, locale: 'en' } };
@@ -25,4 +25,9 @@ test('rootSegments encodes each part', () => {
 	expect(
 		rootSegments({ page: { instance: 'wiki.example.com:8443', id: 7, locale: 'pt/br' } })
 	).toBe('/page/wiki.example.com%3A8443/7/pt%2Fbr');
+});
+
+test('rootName names the task or the page without its instance', () => {
+	expect(rootName(task)).toBe('task 102');
+	expect(rootName(page)).toBe('page 41 (en)');
 });

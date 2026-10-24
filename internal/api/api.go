@@ -22,6 +22,7 @@ const (
 	RouteCoverage     = "GET /api/v1/coverage"
 	RouteResolve      = "GET /api/v1/resolve"
 	RouteSearch       = "GET /api/v1/search"
+	RouteOverview     = "GET /api/v1/overview"
 	RouteVersion      = "GET /api/v1/version"
 )
 
@@ -63,6 +64,9 @@ type Config struct {
 	// DefaultMaxResponseBytes when zero or less, and raised to
 	// MinResponseBytes when positive but lower.
 	MaxResponseBytes int
+	// Now is the current time, where an overview's window ends by
+	// default; time.Now when nil.
+	Now func() time.Time
 }
 
 // api serves the routes of one Config.
@@ -81,6 +85,9 @@ func New(cfg Config) http.Handler {
 	case cfg.MaxResponseBytes < MinResponseBytes:
 		cfg.MaxResponseBytes = MinResponseBytes
 	}
+	if cfg.Now == nil {
+		cfg.Now = time.Now
+	}
 	a := &api{cfg: cfg}
 	mux := http.NewServeMux()
 	a.handle(mux, RouteTaskStory, a.needStore(a.taskStory))
@@ -90,6 +97,7 @@ func New(cfg Config) http.Handler {
 	a.handle(mux, RouteCoverage, a.needStore(a.freshness))
 	a.handle(mux, RouteResolve, a.needStore(a.resolve))
 	a.handle(mux, RouteSearch, a.needStore(a.search))
+	a.handle(mux, RouteOverview, a.needStore(a.overviewPage))
 	a.handle(mux, RouteVersion, a.version)
 	a.handle(mux, Prefix, unrouted)
 	return noStore(mux)

@@ -268,7 +268,7 @@ export const coverageList: Decoder<Coverage[]> = unique(
 
 // A run keyed by pod when a run keyed by UID names the same pod: one
 // attempt, which the collector re-keys by UID rather than keeping twice.
-function checkRunPods(runs: Run[], path: string): void {
+export function checkRunPods(runs: Run[], path: string): void {
 	const podsOfUIDRuns = new Set(
 		runs.flatMap((r) =>
 			r.key.uid !== undefined && r.pod !== undefined ? [podKey(r.key, r.pod)] : []

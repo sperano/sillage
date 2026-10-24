@@ -17,14 +17,14 @@ const DOMAIN = {
 };
 
 test('a source with no coverage is unknown throughout', () => {
-	expect(unknownSpans(story(), 'wiki/w', DOMAIN, 'utc')).toEqual([
+	expect(unknownSpans(story().coverage, 'wiki/w', DOMAIN, 'utc')).toEqual([
 		{ ...DOMAIN, reason: 'wiki/w: no coverage recorded' }
 	]);
 });
 
 test('a source never read is unknown throughout', () => {
 	const s = story({ coverage: [{ source: 'wiki', instance: 'w' }] });
-	expect(unknownSpans(s, 'wiki/w', DOMAIN, 'utc')[0]!.reason).toBe(
+	expect(unknownSpans(s.coverage, 'wiki/w', DOMAIN, 'utc')[0]!.reason).toBe(
 		'wiki/w: never read successfully'
 	);
 });
@@ -42,7 +42,7 @@ test('gaps keep their reason, clipped to the window, and time after the last rea
 			}
 		]
 	});
-	expect(unknownSpans(s, 'kelos/c', DOMAIN, 'utc')).toEqual([
+	expect(unknownSpans(s.coverage, 'kelos/c', DOMAIN, 'utc')).toEqual([
 		{
 			start: DOMAIN.start,
 			end: Date.parse('2026-01-01T02:00:00Z'),

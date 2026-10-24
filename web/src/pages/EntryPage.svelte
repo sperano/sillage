@@ -13,6 +13,9 @@
 
 <h1 tabindex="-1">Sillage</h1>
 <p>What people, agents and automation did on a task, from Vikunja, Kelos, GitHub and the wiki.</p>
+<p>
+	<a href="/overview">What was working on what?</a> The tasks active over a window, side by side.
+</p>
 <SearchSection {api} {router} {query} />
 <OpenLinkForm {router} />
 <SourceFreshness {api} />

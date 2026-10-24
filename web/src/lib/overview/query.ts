@@ -1,0 +1,178 @@
+// The overview's query: its window, its filters and its grouping, as the
+// page's URL holds them (so that a filtered overview is a link) and as the
+// API takes them.
+
+import { MINUTE_MS } from '../timeline/time';
+
+/** How the overview groups its lanes: a row per task, or a group per agent profile. */
+export const GROUPINGS = ['task', 'executor'] as const;
+export type Grouping = (typeof GROUPINGS)[number];
+
+/** The grouping a parameter names: the first, a row per task, unless it names another. */
+export function parseGrouping(value: unknown): Grouping {
+	return GROUPINGS.find((g) => g === value) ?? GROUPINGS[0];
+}
+
+export interface OverviewQuery {
+	/** RFC 3339; absent: the API's default, the day before to. */
+	from?: string;
+	/** RFC 3339; absent: now. */
+	to?: string;
+	project: string;
+	/** Text in a task's title or key. */
+	task: string;
+	/** An agent profile. */
+	executor: string;
+	/** Only tasks with a review request waiting in the window. */
+	review: boolean;
+	/** Only tasks with a failed run. */
+	failed: boolean;
+	/** Only tasks whose history is missing in part of the window. */
+	missing: boolean;
+	group: Grouping;
+}
+
+/** The overview's path. */
+export const OVERVIEW_PATH = '/overview';
+
+/** The query parameters, shared by the page's URL and the API. */
+export const PARAMS = {
+	from: 'from',
+	to: 'to',
+	project: 'project',
+	task: 'task',
+	executor: 'executor',
+	review: 'review',
+	failed: 'failed',
+	missing: 'missing',
+	group: 'group',
+	after: 'after'
+} as const;
+
+const TRUE = 'true';
+
+/** The query with nothing set: the API's default window, no filter, a row per task. */
+export const DEFAULT_QUERY: OverviewQuery = {
+	project: '',
+	task: '',
+	executor: '',
+	review: false,
+	failed: false,
+	missing: false,
+	group: GROUPINGS[0]
+};
+
+/** The query a URL's parameters hold. */
+export function parseOverviewQuery(params: URLSearchParams): OverviewQuery {
+	const text = (name: string) => params.get(name)?.trim() ?? '';
+	const q: OverviewQuery = {
+		project: text(PARAMS.project),
+		task: text(PARAMS.task),
+		executor: text(PARAMS.executor),
+		review: params.get(PARAMS.review) === TRUE,
+		failed: params.get(PARAMS.failed) === TRUE,
+		missing: params.get(PARAMS.missing) === TRUE,
+		group: parseGrouping(params.get(PARAMS.group))
+	};
+	const from = canonicalTime(text(PARAMS.from));
+	const to = canonicalTime(text(PARAMS.to));
+	if (from) q.from = from;
+	if (to) q.to = to;
+	return q;
+}
+
+/** An RFC 3339 time, its offset (hours 00–23, minutes 00–59) captured. */
+const RFC_3339 =
+	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|([+-])([01]\d|2[0-3]):([0-5]\d))$/;
+const MINUTES_PER_HOUR = 60;
+
+/**
+ * A URL's window bound as the form shows it and gives it back: in UTC, to
+ * the second (a fraction of a second is dropped), so that applying the
+ * form queries the window shown. Anything else, a date, time or offset
+ * out of range included, stays as it is, for the API to read or reject.
+ */
+function canonicalTime(time: string): string {
+	const m = RFC_3339.exec(time);
+	const written = time.slice(0, FIELD_LENGTH);
+	const wall = Date.parse(`${written}Z`);
+	// A date or time out of range does not read back as written.
+	if (!m || Number.isNaN(wall) || new Date(wall).toISOString().slice(0, FIELD_LENGTH) !== written) {
+		return time;
+	}
+	const [, sign, hours, minutes] = m;
+	const offset =
+		sign === undefined
+			? 0
+			: (sign === '-' ? -1 : 1) * (Number(hours) * MINUTES_PER_HOUR + Number(minutes));
+	return `${timeField(new Date(wall - offset * MINUTE_MS).toISOString())}Z`;
+}
+
+/** The parameters of the query's filters and window, without what is unset. */
+function filterParams(q: OverviewQuery): URLSearchParams {
+	const p = new URLSearchParams();
+	if (q.from) p.set(PARAMS.from, q.from);
+	if (q.to) p.set(PARAMS.to, q.to);
+	for (const name of ['project', 'task', 'executor'] as const) {
+		if (q[name]) p.set(PARAMS[name], q[name]);
+	}
+	for (const name of ['review', 'failed', 'missing'] as const) {
+		if (q[name]) p.set(PARAMS[name], TRUE);
+	}
+	return p;
+}
+
+/** The overview page's URL for the query. */
+export function overviewHref(q: OverviewQuery): string {
+	const p = filterParams(q);
+	if (q.group !== DEFAULT_QUERY.group) p.set(PARAMS.group, q.group);
+	const search = p.toString();
+	return search ? `${OVERVIEW_PATH}?${search}` : OVERVIEW_PATH;
+}
+
+/** The API's parameters for one page of the query: after the cursor, when one is given. */
+export function overviewApiParams(q: OverviewQuery, after?: string): URLSearchParams {
+	const p = filterParams(q);
+	if (after) p.set(PARAMS.after, after);
+	return p;
+}
+
+/** A datetime-local value to the second: 2026-03-10T14:00:00. */
+const FIELD_LENGTH = 'YYYY-MM-DDTHH:MM:SS'.length;
+/** A datetime-local value to the minute, as the browser gives one without seconds. */
+const MINUTE_FIELD_LENGTH = 'YYYY-MM-DDTHH:MM'.length;
+
+/** An RFC 3339 time as a datetime-local value in UTC; empty for none, or for one that is not a time. */
+export function timeField(time: string | undefined): string {
+	if (time === undefined) return '';
+	const ms = Date.parse(time);
+	return Number.isNaN(ms) ? '' : new Date(ms).toISOString().slice(0, FIELD_LENGTH);
+}
+
+/** A datetime-local value, read as UTC, as RFC 3339; undefined when empty. */
+export function fieldTime(value: FormDataEntryValue | null): string | undefined {
+	if (typeof value !== 'string' || value === '') return undefined;
+	return value.length === MINUTE_FIELD_LENGTH ? `${value}:00Z` : `${value}Z`;
+}
+
+function fieldText(value: FormDataEntryValue | null): string {
+	return typeof value === 'string' ? value.trim() : '';
+}
+
+/** The query the filter form holds, its fields named as the parameters. */
+export function queryOfForm(form: FormData): OverviewQuery {
+	const q: OverviewQuery = {
+		project: fieldText(form.get(PARAMS.project)),
+		task: fieldText(form.get(PARAMS.task)),
+		executor: fieldText(form.get(PARAMS.executor)),
+		review: form.has(PARAMS.review),
+		failed: form.has(PARAMS.failed),
+		missing: form.has(PARAMS.missing),
+		group: parseGrouping(form.get(PARAMS.group))
+	};
+	const from = fieldTime(form.get(PARAMS.from));
+	const to = fieldTime(form.get(PARAMS.to));
+	if (from) q.from = from;
+	if (to) q.to = to;
+	return q;
+}

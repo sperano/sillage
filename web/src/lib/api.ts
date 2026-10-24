@@ -9,6 +9,9 @@ import { coverageList, parseStory, root as rootDecoder } from './decodeModel';
 import type { Coverage, Root, Story } from './model';
 import { rootSegments, sameRoot } from './roots';
 import { MS_PER_SECOND } from './format';
+import { parseOverviewPage } from './overview/decode';
+import type { OverviewPage } from './overview/model';
+import { overviewApiParams, type OverviewQuery } from './overview/query';
 
 /** Where the read API is served, on the frontend's own origin. */
 export const API_BASE = '/api/v1';
@@ -112,6 +115,11 @@ export interface Api {
 	resolve(url: string, signal?: AbortSignal): Promise<Root>;
 	/** How far each source instance has been read. */
 	coverage(signal?: AbortSignal): Promise<Coverage[]>;
+	/**
+	 * One page of the overview: the tasks active in the query's window that
+	 * match its filters, after the cursor when one is given.
+	 */
+	overview(query: OverviewQuery, after?: string, signal?: AbortSignal): Promise<OverviewPage>;
 }
 
 export interface ApiOptions {
@@ -143,7 +151,12 @@ export function createApi(options: ApiOptions = {}): Api {
 			get(`${API_BASE}/search${query('q', q)}`, (b) => decode(rootSummaries, b), signal),
 		resolve: (url, signal) =>
 			get(`${API_BASE}/resolve${query('url', url)}`, (b) => decode(rootDecoder, b), signal),
-		coverage: (signal) => get(`${API_BASE}/coverage`, (b) => decode(coverageList, b), signal)
+		coverage: (signal) => get(`${API_BASE}/coverage`, (b) => decode(coverageList, b), signal),
+		overview: (q, after, signal) => {
+			const params = overviewApiParams(q, after).toString();
+			const path = params ? `${API_BASE}/overview?${params}` : `${API_BASE}/overview`;
+			return get(path, parseOverviewPage, signal);
+		}
 	};
 }
 

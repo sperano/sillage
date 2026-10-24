@@ -1,0 +1,97 @@
+import { describe, expect, it } from 'vitest';
+import {
+	DEFAULT_QUERY,
+	OVERVIEW_PATH,
+	overviewApiParams,
+	overviewHref,
+	parseOverviewQuery,
+	queryOfForm,
+	timeField
+} from './query';
+
+describe('the overview query', () => {
+	it('is empty by default', () => {
+		expect(parseOverviewQuery(new URLSearchParams())).toEqual(DEFAULT_QUERY);
+		expect(overviewHref(DEFAULT_QUERY)).toBe(OVERVIEW_PATH);
+	});
+
+	it('round-trips through the page URL', () => {
+		const q = {
+			from: '2026-03-10T14:00:00Z',
+			to: '2026-03-10T15:00:00Z',
+			project: 'widgets',
+			task: 'cache metrics',
+			executor: 'agent-cedar',
+			review: true,
+			failed: true,
+			missing: false,
+			group: 'executor' as const
+		};
+		const href = overviewHref(q);
+		expect(parseOverviewQuery(new URL(href, 'http://sillage.example.com').searchParams)).toEqual(q);
+	});
+
+	it('reads only true as a set flag, and only executor as the other grouping', () => {
+		const q = parseOverviewQuery(new URLSearchParams('review=1&failed=yes&missing=true&group=x'));
+		expect([q.review, q.failed, q.missing, q.group]).toEqual([false, false, true, 'task']);
+	});
+
+	it('sends the API the filters and the cursor, never the grouping', () => {
+		const params = overviewApiParams(
+			{ ...DEFAULT_QUERY, executor: 'agent-cedar', group: 'executor' },
+			'c1'
+		);
+		expect(params.toString()).toBe('executor=agent-cedar&after=c1');
+	});
+});
+
+describe('the filter form', () => {
+	function form(fields: Record<string, string>): FormData {
+		const data = new FormData();
+		for (const [k, v] of Object.entries(fields)) data.set(k, v);
+		return data;
+	}
+
+	it('reads its window as UTC, with or without seconds', () => {
+		const q = queryOfForm(form({ from: '2026-03-10T14:00', to: '2026-03-10T15:00:30' }));
+		expect([q.from, q.to]).toEqual(['2026-03-10T14:00:00Z', '2026-03-10T15:00:30Z']);
+	});
+
+	it('leaves an empty window to the API, and keeps a time to the second', () => {
+		expect(queryOfForm(form({ from: '', project: ' widgets ' }))).toEqual({
+			...DEFAULT_QUERY,
+			project: 'widgets'
+		});
+		expect(timeField('2026-03-10T14:00:30+01:00')).toBe('2026-03-10T13:00:30');
+		expect(timeField('not a time')).toBe('');
+		expect(timeField(undefined)).toBe('');
+	});
+
+	it('takes a URL window as the form shows it, so applying the form keeps it', () => {
+		const q = parseOverviewQuery(
+			new URLSearchParams('from=2026-03-10T14:00:30.750%2B01:00&to=yesterday')
+		);
+		expect([q.from, q.to]).toEqual(['2026-03-10T13:00:30Z', 'yesterday']);
+		expect(queryOfForm(form({ from: timeField(q.from) })).from).toBe(q.from);
+	});
+
+	it('leaves a date or time out of range for the API to reject', () => {
+		const q = parseOverviewQuery(
+			new URLSearchParams('from=2026-02-30T00:00:00Z&to=2026-03-10T24:00:00Z')
+		);
+		expect([q.from, q.to]).toEqual(['2026-02-30T00:00:00Z', '2026-03-10T24:00:00Z']);
+	});
+
+	it('leaves an offset out of range as written instead of shifting the window', () => {
+		const q = parseOverviewQuery(
+			new URLSearchParams('from=2026-03-10T14:00:00%2B24:00&to=2026-03-10T15:00:00-10:60')
+		);
+		expect([q.from, q.to]).toEqual(['2026-03-10T14:00:00+24:00', '2026-03-10T15:00:00-10:60']);
+	});
+
+	it('reads its flags and grouping', () => {
+		const q = queryOfForm(form({ review: 'on', missing: 'on', group: 'executor' }));
+		expect([q.review, q.failed, q.missing, q.group]).toEqual([true, false, true, 'executor']);
+		expect(queryOfForm(form({ group: 'other' })).group).toBe('task');
+	});
+});
