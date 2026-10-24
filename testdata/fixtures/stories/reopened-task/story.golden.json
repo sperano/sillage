@@ -1,0 +1,44 @@
+{
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 107
+    }
+  },
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:4a0f86901d7ad04dff8f33f04d699d37938398da673bdebd2aa3142246430b4b",
+      "idKind": "fingerprint",
+      "kind": "task.done",
+      "sourceTime": "2026-03-12T11:00:00Z",
+      "observedAt": "2026-03-12T11:05:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 107
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/107",
+        "note": "done is true; done_at is the latest completion time; Vikunja does not retain earlier completion or reopen times"
+      }
+    }
+  ],
+  "runs": [],
+  "pullRequests": [],
+  "correlations": [],
+  "coverage": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "lastSuccessfulRead": "2026-03-12T11:05:00Z"
+    }
+  ]
+}

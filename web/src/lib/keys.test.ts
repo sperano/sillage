@@ -21,9 +21,12 @@ function known(story: Story): Set<string> {
 test('every golden story is loaded', () => {
 	expect([...goldenStories.keys()].sort()).toEqual([
 		'announced-run-only',
+		'checks-after-force-push',
 		'discuss-no-pr',
 		'failed-run-retry',
 		'implementation-merged',
+		'reopened-task',
+		'second-pr-after-close',
 		'wiki-rooted-request'
 	]);
 });
@@ -31,6 +34,7 @@ test('every golden story is loaded', () => {
 describe.each([...goldenStories])('%s', (_, story) => {
 	test('every correlation end is a key of the story, as the Go model writes it', () => {
 		const refs = known(story);
+		expect(refs.size).toBeGreaterThan(0);
 		for (const c of story.correlations) {
 			expect(refs).toContain(`${c.from.kind}:${c.from.id}`);
 			expect(refs).toContain(`${c.to.kind}:${c.to.id}`);
