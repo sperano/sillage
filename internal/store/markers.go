@@ -29,6 +29,9 @@ const (
 	// MarkerLimited: the store holds the limit of markers of its pod; it
 	// is refused, and the pod's refusal noted.
 	MarkerLimited MarkerResult = "limited"
+	// markerFailed: what RecordMarker returns with an error; the marker
+	// may not be stored.
+	markerFailed MarkerResult = ""
 )
 
 const (
@@ -48,10 +51,10 @@ const (
 // MarkerDuplicate or MarkerConflict, even past the limit.
 func (s *Store) RecordMarker(ctx context.Context, m model.Marker, perPod int) (MarkerResult, error) {
 	if m.Join != nil {
-		return "", errors.New("store: a marker is recorded before it is joined")
+		return markerFailed, errors.New("store: a marker is recorded before it is joined")
 	}
 	if err := m.Validate(); err != nil {
-		return "", fmt.Errorf("store: %w", err)
+		return markerFailed, fmt.Errorf("store: %w", err)
 	}
 	var result MarkerResult
 	// The save lock orders the marker with the saves that join it: a save
@@ -62,7 +65,7 @@ func (s *Store) RecordMarker(ctx context.Context, m model.Marker, perPod int) (M
 		return err
 	})
 	if err != nil {
-		return "", fmt.Errorf("store: record marker %s %s of pod %s: %w", m.Report.Span, m.Report.Edge,
+		return markerFailed, fmt.Errorf("store: record marker %s %s of pod %s: %w", m.Report.Span, m.Report.Edge,
 			m.Sender.PodUID, err)
 	}
 	return result, nil
@@ -77,17 +80,17 @@ func recordMarker(ctx context.Context, tx pgx.Tx, m model.Marker, perPod int) (M
 	case err == nil:
 		return compareHeld(body, m)
 	case !errors.Is(err, pgx.ErrNoRows):
-		return "", err
+		return markerFailed, err
 	}
 	var held int
 	if err := tx.QueryRow(ctx, "SELECT count(*) FROM markers WHERE pod_uid = $1", snd.PodUID).Scan(&held); err != nil {
-		return "", err
+		return markerFailed, err
 	}
 	if held >= perPod {
 		return MarkerLimited, noteLimit(ctx, tx, m)
 	}
 	if body, err = json.Marshal(m); err != nil {
-		return "", err
+		return markerFailed, err
 	}
 	var id int64
 	err = tx.QueryRow(ctx, `INSERT INTO markers
@@ -96,7 +99,7 @@ func recordMarker(ctx context.Context, tx pgx.Tx, m model.Marker, perPod int) (M
 		snd.Cluster, snd.Namespace, snd.Pod, snd.PodUID, r.Span, string(r.Edge), nullable(r.TaskName),
 		r.At, m.ReceivedAt, body).Scan(&id)
 	if err != nil {
-		return "", err
+		return markerFailed, err
 	}
 	j := newJoiner(ctx, tx, snd.Cluster, snd.Namespace)
 	return MarkerStored, j.rejoin(`id = $3`, id)
@@ -107,7 +110,7 @@ func recordMarker(ctx context.Context, tx pgx.Tx, m model.Marker, perPod int) (M
 func compareHeld(body []byte, m model.Marker) (MarkerResult, error) {
 	var held model.Marker
 	if err := json.Unmarshal(body, &held); err != nil {
-		return "", err
+		return markerFailed, err
 	}
 	if held.Report.Equal(m.Report) && held.Sender == m.Sender {
 		return MarkerDuplicate, nil

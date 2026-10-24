@@ -212,5 +212,6 @@ func taskEvidence(r model.Run) string {
 			return ev.Ref
 		}
 	}
+	// A stored run has evidence: model.BuildStory validates it before a save.
 	return r.Evidence[0].Ref
 }
