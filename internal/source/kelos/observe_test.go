@@ -49,3 +49,25 @@ func TestObservationWithoutResourceVersion(t *testing.T) {
 		t.Error("two receptions share a fingerprint")
 	}
 }
+
+// Each observation of a Task names the pod its status named then, so that
+// a retried Job's first pod is kept once the second replaced it; a
+// TaskRecord names none.
+func TestObservationNamesTheTasksPod(t *testing.T) {
+	cfg := testConfig()
+	task := decodedTask(t, uidA, PhaseRunning)
+	if e := cfg.observeTask(task, changeAdded, testObservedAt); e.Details["pod"] != "" {
+		t.Errorf("pod = %q before the Task named one", e.Details["pod"])
+	}
+	var pods []string
+	for _, pod := range []string{"pod-first", "pod-retry"} {
+		task.Status.PodName = pod
+		pods = append(pods, cfg.observeTask(task, changeModified, testObservedAt).Details["pod"])
+	}
+	if pods[0] != "pod-first" || pods[1] != "pod-retry" {
+		t.Errorf("pods = %q, want each observation's own", pods)
+	}
+	if e := cfg.observeRecord(decodedRecord(t, uidA), changeAdded, testObservedAt); e.Details["pod"] != "" {
+		t.Errorf("a record's observation names pod %q", e.Details["pod"])
+	}
+}

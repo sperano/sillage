@@ -44,7 +44,8 @@ func (s *Store) read(ctx context.Context, fn func(pgx.Tx) error) error {
 	return pgx.BeginTxFunc(ctx, s.pool, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}, fn)
 }
 
-// Story returns root's stored story, or ErrNotFound.
+// Story returns root's stored story, or ErrNotFound. Its Kelos coverage
+// notes what the phase markers leave unknown (see addMarkerNotes).
 func (s *Store) Story(ctx context.Context, root model.Root) (model.Story, error) {
 	if err := root.Validate(); err != nil {
 		return model.Story{}, fmt.Errorf("store: %w", err)
@@ -55,8 +56,10 @@ func (s *Store) Story(ctx context.Context, root model.Root) (model.Story, error)
 		if err != nil {
 			return err
 		}
-		recs, err = loadRecords(ctx, tx, id)
-		return err
+		if recs, err = loadRecords(ctx, tx, id); err != nil {
+			return err
+		}
+		return addMarkerNotes(ctx, tx, id, recs.Coverage)
 	})
 	if err != nil {
 		return model.Story{}, fmt.Errorf("store: story %s: %w", rootRef(root), err)
@@ -185,7 +188,8 @@ func queryJSON[T any](ctx context.Context, tx pgx.Tx, sql string, args ...any) (
 }
 
 // Coverage returns how far each source was read for root, in source and
-// instance order, or ErrNotFound.
+// instance order, or ErrNotFound. Its Kelos coverage notes what the phase
+// markers leave unknown, as Story's does.
 func (s *Store) Coverage(ctx context.Context, root model.Root) ([]model.Coverage, error) {
 	if err := root.Validate(); err != nil {
 		return nil, fmt.Errorf("store: %w", err)
@@ -196,9 +200,11 @@ func (s *Store) Coverage(ctx context.Context, root model.Root) ([]model.Coverage
 		if err != nil {
 			return err
 		}
-		out, err = queryJSON[model.Coverage](ctx, tx,
-			"SELECT body FROM coverage WHERE root_id = $1 ORDER BY source, instance", id)
-		return err
+		if out, err = queryJSON[model.Coverage](ctx, tx,
+			"SELECT body FROM coverage WHERE root_id = $1 ORDER BY source, instance", id); err != nil {
+			return err
+		}
+		return addMarkerNotes(ctx, tx, id, out)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("store: coverage %s: %w", rootRef(root), err)

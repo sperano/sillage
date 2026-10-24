@@ -113,6 +113,7 @@ func (w *saver) save(title string, story model.Story) error {
 	steps := []func() error{
 		func() error { return w.saveRuns(story.Runs) },
 		func() error { return w.saveEvents(story.Events) },
+		func() error { return w.joinMarkers(story) },
 		func() error { return w.savePullRequests(story.PullRequests) },
 		func() error { return w.saveCorrelations(story.Correlations) },
 		func() error { return w.saveCoverage(story.Coverage) },

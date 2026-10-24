@@ -7,7 +7,10 @@
 // then runs the collector, which keeps the store current; without,
 // nothing is collected and the API answers 503 for what it would read.
 // The collector does not take the reads deliveries ask for yet; until it
-// does, the ingest paths answer 503 to every delivery and record nothing.
+// does, the webhook paths answer 503 to every delivery and record nothing.
+// The phase markers that Kelos runs' pods report (internal/ingest/marker,
+// on /ingest/marker, authenticated by a TokenReview of each pod's token)
+// are recorded with a store, and refused without.
 //
 // "sillage story -task <id>" (or "-page <id>") instead prints one story's
 // JSON, assembled from the live sources the environment configures.
@@ -28,6 +31,7 @@ import (
 	"time"
 
 	"github.com/sperano/sillage/internal/api"
+	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/web"
 )
 
@@ -135,7 +139,12 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 		_ = ln.Close()
 		return err
 	}
-	metrics, m := newMetrics()
+	metrics, m, reg := newMetrics()
+	markerHandler, err := newMarkerIngest(getenv, st, reg, kelos.NewDynamicClient)
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
 	collectCtx, stopCollecting := context.WithCancel(ctx)
 	defer stopCollecting()
 	wait, err := startCollector(collectCtx, getenv, st, m, slog.Default())
@@ -143,7 +152,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 		_ = ln.Close()
 		return err
 	}
-	err = serve(ctx, ln, newHandler(web.FS(), apiHandler, ingestHandler, metrics))
+	err = serve(ctx, ln, newHandler(web.FS(), apiHandler, ingestRoutes(ingestHandler, markerHandler), metrics))
 	// The collector stops before the store closes.
 	stopCollecting()
 	wait()

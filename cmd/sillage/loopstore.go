@@ -18,7 +18,9 @@ type loopStore struct{ st *store.Store }
 var _ reconcile.Store = loopStore{}
 
 // Records returns the root's stored story's records; none for a root the
-// store has no story of.
+// store has no story of. Their Kelos coverage carries the store's phase
+// marker notes, which the loop never commits back: it reads only the runs
+// and correlations, and keeps its own coverage.
 func (s loopStore) Records(ctx context.Context, root model.Root) (model.Records, error) {
 	story, err := s.st.Story(ctx, root)
 	if errors.Is(err, store.ErrNotFound) {

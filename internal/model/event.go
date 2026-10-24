@@ -51,7 +51,8 @@ const (
 	KindRunAnnounced EventKind = "run.announced"
 	// KindRunObserved: a Kubernetes list or watch of one of a run's Kelos
 	// objects, its Task or its TaskRecord (details: "object", "change",
-	// "phase" when the object has one, "resourceVersion"). The API server
+	// "phase" when the object has one, "pod", a Task's status.podName,
+	// when it names one, "resourceVersion"). The API server
 	// gives no time for a change, so it has no source time: its observed
 	// time is when the collector received it, and the run's own times stay
 	// the controller's lifecycle times.

@@ -53,10 +53,14 @@ func buildIngest(getenv func(string) string, secrets ingest.Secrets, st ingest.S
 	return h, nil
 }
 
-// ingestUnavailable answers every ingest request 503, saying why, and
+// ingestUnavailable answers every webhook delivery 503, saying why, and
 // records nothing.
 func ingestUnavailable(reason string) http.Handler {
-	msg := "webhook ingestion is off: " + reason
+	return unavailable("webhook ingestion is off: " + reason)
+}
+
+// unavailable answers every request 503 with msg, and records nothing.
+func unavailable(msg string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, msg, http.StatusServiceUnavailable)
 	})

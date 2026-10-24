@@ -17,7 +17,16 @@
 // from the first read that saw it, since a TaskRecord does not copy them.
 // AcceptDelivery, RecordDelivery and DeliveryAccepted keep the webhook
 // delivery attempts the ingest paths received, apart from every story's
-// records. Prune applies the Config's retention policy (by default keep
+// records. RecordMarker keeps the phase markers the Kelos runs' pods
+// report, apart from every story too, and joins each to its run: by its
+// pod, among every pod a save saw a run keyed by Task UID with (its pod,
+// and the pod each run.observed event names), as an identifier; else by
+// the Task name it gives and its time, inside exactly one run's interval,
+// as a heuristic; else not at all, until a later save of Kelos records
+// names its pod or Task name. RunMarkers reads back the markers joined to
+// runs. Story and Coverage add to a root's Kelos coverage how many markers
+// of its cluster are unattached, and the pods of its runs that passed the
+// limit of markers. Prune applies the Config's retention policy (by default keep
 // everything).
 //
 // Each record is stored as its model JSON, the source of truth read back
