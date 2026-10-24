@@ -15,6 +15,7 @@ import {
 	type TaskKey
 } from '../model';
 import { checkSpan, hasExtent, reviewWaits, runSpans, type Span } from './intervals';
+import { phaseSpans, type PhaseSpan } from './phases';
 
 /** The lanes, in the order they are drawn after the root's lane. */
 export const SECTIONS = ['task', 'people', 'runs', 'automation', 'pulls', 'pages'] as const;
@@ -41,6 +42,8 @@ export interface Row {
 	sources: string[];
 	events: Event[];
 	spans: Span[];
+	/** A run's phases, drawn on sub-tracks under its bar; none on other rows. */
+	phases: PhaseSpan[];
 	/** Said on the row about what it cannot draw: an interval with no known end. */
 	note?: string;
 	/** Where the row sorts within its section. */
@@ -50,7 +53,7 @@ export interface Row {
 }
 
 /** What a row is created with; the rest fills in as records are placed. */
-type RowInit = Omit<Row, 'id' | 'events' | 'spans' | 'order'>;
+type RowInit = Omit<Row, 'id' | 'events' | 'spans' | 'phases' | 'order'>;
 
 /** The kinds of event a conversation posts, drawn on their author's row. */
 const CONVERSATION = new Set<Event['kind']>([
@@ -66,7 +69,7 @@ export function buildRows(story: Story): Row[] {
 	const ensure = (id: string, init: () => RowInit) => {
 		let row = rows.get(id);
 		if (!row) {
-			row = { id, events: [], spans: [], order: Number.POSITIVE_INFINITY, ...init() };
+			row = { id, events: [], spans: [], phases: [], order: Number.POSITIVE_INFINITY, ...init() };
 			rows.set(id, row);
 		}
 		return row;
@@ -221,6 +224,7 @@ function addRun(ctx: Context, run: Run, { name, attempt, scoped }: RunTitle): vo
 	}));
 	row.order = runAnchor(run);
 	row.spans.push(...runSpans(run, ctx.lastRead(source)));
+	row.phases.push(...phaseSpans(run));
 }
 
 /** One row per pull request, and one row of checks per commit. */

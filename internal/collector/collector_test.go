@@ -18,16 +18,18 @@ func TestMain(m *testing.M) { testzone.Main(m) }
 // keep the invariant its story exists for.
 var storyCases = collectortest.Stories
 
-// collectStory assembles a fixture story, failing on any failed read.
+// collectStory assembles a fixture story, with the markers a store would
+// keep of it, failing on any failed read.
 func collectStory(t *testing.T, name string) model.Story {
 	t.Helper()
 	sc, ok := storyCases[name]
 	if !ok {
 		t.Fatalf("no story case %s", name)
 	}
-	res, err := newStoryCollector(t, sc.Dirs).Collect(t.Context(), sc.Root, sc.Repos...)
+	kept := Kept{Markers: collectortest.Markers(t, fixturesDir, sc.Dirs)}
+	res, err := newStoryCollector(t, sc.Dirs).Recollect(t.Context(), sc.Root, kept, sc.Repos...)
 	if err != nil {
-		t.Fatalf("Collect: %v", err)
+		t.Fatalf("Recollect: %v", err)
 	}
 	for _, f := range res.Failures {
 		t.Errorf("failed read: %v", f)

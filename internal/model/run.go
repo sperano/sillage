@@ -106,6 +106,10 @@ type Run struct {
 	// Usage is what the run reported using, when it reported anything.
 	Usage    *Usage     `json:"usage,omitempty"`
 	Evidence []Evidence `json:"evidence"`
+	// Phases are the spans its pods reported with phase markers, in the
+	// order of their first recorded edge; none without markers. BuildStory
+	// derives them from the story's markers.
+	Phases []Phase `json:"phases,omitempty"`
 }
 
 // Usage is the cost and token usage a run reported. Each field is unset

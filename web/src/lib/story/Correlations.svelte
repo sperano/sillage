@@ -6,6 +6,7 @@
 	import { linksOf } from '../correlations';
 	import { refLabel } from '../describe';
 	import EvidenceList from './EvidenceList.svelte';
+	import LinkButton from './LinkButton.svelte';
 
 	let {
 		story,
@@ -41,9 +42,7 @@
 {#snippet other(ref: Ref)}
 	{@const item = selectable(ref)}
 	{#if item}
-		<button type="button" class="link" onclick={(e) => choose(e, item)}
-			>{refLabel(story, ref)}</button
-		>
+		<LinkButton onclick={(e) => choose(e, item)}>{refLabel(story, ref)}</LinkButton>
 	{:else}
 		{refLabel(story, ref)}
 	{/if}
@@ -86,16 +85,6 @@
 {/if}
 
 <style>
-	.link {
-		border: none;
-		background: none;
-		padding: 0;
-		color: LinkText;
-		font: inherit;
-		text-decoration: underline;
-		cursor: pointer;
-	}
-
 	.confidence {
 		display: block;
 		font-size: 0.875em;

@@ -25,7 +25,9 @@ the source adapters, the store and the web UI:
 - `input.json`: the story's root (a Vikunja task, or a wiki page for work
   requested from the wiki) and its normalized records (`internal/model`
   `Records`: events, runs, pull requests with their checks, correlations,
-  coverage), in any order, with a `description` of what the story shows.
+  coverage, and the phase markers joined to the runs, each with the join
+  the store makes of it), in any order, with a `description` of what the
+  story shows.
   Times may carry any offset.
 - `story.golden.json`: `model.BuildStory`'s output for it: validated,
   every time in UTC, every list in its deterministic order. Generated;
@@ -46,6 +48,7 @@ story, and assert the invariant the story exists for:
 | `checks-after-force-push` | Checks from three observed GitHub heads remain in the story across a force push; a later head never replaces an earlier SHA's results. |
 | `reopened-task` | After completion, reopening and a second completion, Vikunja exposes only the latest `done_at`; the story states that limitation and invents no earlier event. |
 | `second-pr-after-close` | A closed-unmerged pull request followed by a second pull request on the same branch does not complete the task. |
+| `phase-markers` | A run's phases come only from its markers: a complete pair is known to known, a start alone is in progress while the run runs and its pod is the last one seen with it, and interrupted once it ended or a retried Job's next pod was seen (never closed at its end), an end alone has an unknown start, an end before its start or of another kind keeps both edges with no interval; a marker joined by Task name and time makes its phase uncertain. The store joins the markers as the fixture does. |
 
 The multi-task overview reads the same corpus: `internal/overview`
 asserts what each story's row shows (`corpusCases`) and sweeps every hour

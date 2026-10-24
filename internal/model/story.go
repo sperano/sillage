@@ -15,6 +15,10 @@ type Records struct {
 	PullRequests []PullRequest `json:"pullRequests"`
 	Correlations []Correlation `json:"correlations"`
 	Coverage     []Coverage    `json:"coverage"`
+	// Markers are the phase markers joined to the runs, which BuildStory
+	// pairs into the runs' phases. A story holds the phases, not the
+	// markers.
+	Markers []Marker `json:"markers,omitempty"`
 }
 
 // Story is everything known about one root, validated, with every time in
@@ -28,7 +32,10 @@ type Story struct {
 // BuildStory validates the records and returns them as root's story. It
 // rejects two records with the same identity rather than choosing one:
 // deduplicating source deliveries is the collector's job, and two runs
-// with one key would mean a retry was merged. It does not modify recs.
+// with one key would mean a retry was merged. Each run's phases are those
+// its markers establish, whatever phases recs held, and the Kelos coverage
+// of their cluster notes that markers are best effort. It does not modify
+// recs.
 func BuildStory(root Root, recs Records) (Story, error) {
 	if err := root.Validate(); err != nil {
 		return Story{}, err
@@ -39,6 +46,9 @@ func BuildStory(root Root, recs Records) (Story, error) {
 	}
 	recs.normalize()
 	recs.sort()
+	recs.addPhases()
+	recs.notePhases()
+	recs.Markers = nil
 	return Story{Root: root, Records: recs}, nil
 }
 
@@ -50,6 +60,7 @@ func (r Records) validate() error {
 		validateAll(r.PullRequests, PullRequest.Validate, func(p PullRequest) string { return p.Key.String() }),
 		validateAll(r.Correlations, Correlation.Validate, Correlation.Pair),
 		validateAll(r.Coverage, Coverage.Validate, Coverage.Key),
+		validateMarkers(r.Markers, r.Runs),
 	)
 }
 
@@ -101,6 +112,7 @@ func (r Records) clone() Records {
 		PullRequests: cloneList(r.PullRequests),
 		Correlations: cloneList(r.Correlations),
 		Coverage:     cloneList(r.Coverage),
+		Markers:      slices.Clone(r.Markers),
 	}
 	for i := range out.Events {
 		out.Events[i].Details = maps.Clone(out.Events[i].Details)

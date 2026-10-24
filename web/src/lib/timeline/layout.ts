@@ -8,6 +8,7 @@ import { eventRef, type ItemRef } from '../timeline';
 import { drawnEnd, type Span } from './intervals';
 import type { Row } from './lanes';
 import { eventLabel, eventMark, type MarkKind } from './marks';
+import { packPhases, PHASE_TRACK_PX, type PlacedPhase } from './phases';
 import type { Scale } from './view';
 
 /** Events closer than this, in pixels, are grouped under one count. */
@@ -96,6 +97,10 @@ export interface RowLayout {
 	listY: number;
 	bars: Bar[];
 	placed: Placed[];
+	/** The row's phases in the window, each on its sub-track under the bars. */
+	phases: PlacedPhase[];
+	/** The vertical centre of the first sub-track of phases. */
+	phaseY: number;
 }
 
 /**
@@ -246,7 +251,8 @@ function inView(x1: number, x2: number, scale: Scale): boolean {
 /**
  * Lays out one row from its top edge y: only what reaches into the window.
  * Bars are stacked on tracks over the whole row, drawn or not, so that
- * panning never moves a bar to another track or changes the row's tracks.
+ * panning never moves a bar to another track or changes the row's tracks;
+ * a run's phases likewise on sub-tracks under them, none without phases.
  * A span with neither end known has no extent; the row's note says so.
  */
 export function layoutRow(
@@ -265,11 +271,14 @@ export function layoutRow(
 	// A loop, not Math.max(...): spreading a long array overflows the stack.
 	const tracks = packed.reduce((n, b) => Math.max(n, b.track + 1), 1);
 	const bars = packed.filter((b) => inView(b.x1, b.x2, scale));
+	const phases = packPhases(row.phases, scale);
+	const phaseTracks = phases.reduce((n, p) => Math.max(n, p.track + 1), 0);
+	const phasesTop = y + ROW_PAD_PX + tracks * TRACK_PX;
 	const points = row.events.map((e) => pointOf(e, scale)).filter((p) => inView(p.x, p.x, scale));
 	const placed = groupPoints(points, row.id, expanded);
 	const levels = Math.max(1, placeLabels(placed, bars, scale, timeText));
 	const expandedLines = stackLists(placed);
-	const tracksBottom = y + ROW_PAD_PX + tracks * TRACK_PX;
+	const tracksBottom = phasesTop + phaseTracks * PHASE_TRACK_PX;
 	const listY = tracksBottom + levels * LABEL_BAND_PX;
 	return {
 		row,
@@ -279,7 +288,9 @@ export function layoutRow(
 		labelY: tracksBottom + LABEL_OFFSET_PX,
 		listY,
 		bars,
-		placed
+		placed,
+		phases: phases.filter((p) => inView(p.left, p.right, scale)),
+		phaseY: phasesTop + PHASE_TRACK_PX / 2
 	};
 }
 

@@ -1,0 +1,33 @@
+{
+  "apiVersion": "kelos.dev/v1alpha2",
+  "kind": "TaskRecordList",
+  "metadata": {},
+  "items": [
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "TaskRecord",
+      "metadata": {
+        "name": "00000000-0000-4000-8000-00000000109a",
+        "namespace": "agents",
+        "uid": "11111111-0000-4000-8000-00000000109a",
+        "creationTimestamp": "2026-03-14T10:40:00Z",
+        "labels": {
+          "vikunja.example.com/project": "widgets",
+          "vikunja.example.com/variant": "agent-opus",
+          "vikunja.example.com/task": "109"
+        }
+      },
+      "spec": {
+        "taskRef": {
+          "name": "vikunja-widgets-agent-opus-109",
+          "uid": "00000000-0000-4000-8000-00000000109a"
+        },
+        "type": "claude-code",
+        "phase": "Failed",
+        "startTime": "2026-03-14T10:00:20Z",
+        "completionTime": "2026-03-14T10:40:00Z",
+        "model": "example-model-2[1m]"
+      }
+    }
+  ]
+}

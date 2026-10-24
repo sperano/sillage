@@ -6,7 +6,7 @@ import { eventKey, runKeyString } from '../keys';
 import type { Story } from '../model';
 import { Selection } from '../selection.svelte';
 import { event, PR, prEvent, run, story } from '../testing/builders';
-import { golden, goldens } from '../testing/goldens';
+import { copy, golden, goldens } from '../testing/goldens';
 import Timeline from './Timeline.svelte';
 
 const STORIES = [
@@ -15,6 +15,7 @@ const STORIES = [
 	'discuss-no-pr',
 	'failed-run-retry',
 	'implementation-merged',
+	'phase-markers',
 	'reopened-task',
 	'second-pr-after-close',
 	'wiki-rooted-request'
@@ -361,5 +362,91 @@ describe('interaction', () => {
 		for (const e of crowded) {
 			expect(container.querySelector(`[data-event="${eventKey(e)}"]`)).not.toBeNull();
 		}
+	});
+});
+
+describe('phases', () => {
+	const PHASED = 'phase-markers';
+
+	function phaseMarks(container: Element, state: string): Element[] {
+		return all(container, `[data-phase="${state}"]`);
+	}
+
+	test('a dashed segment only when both ends are recorded and pair', async () => {
+		const { container } = await show(golden(PHASED));
+		const segments = all(container, '[data-segment]');
+		expect(segments).toHaveLength(phaseMarks(container, 'complete').length);
+		expect(segments.length).toBeGreaterThan(0);
+		for (const s of segments) {
+			expect(s.closest('[data-phase]')?.getAttribute('data-phase')).toBe('complete');
+		}
+	});
+
+	test('ticks otherwise: a chevron in progress, one tick for one edge, two for a pair', async () => {
+		const { container } = await show(golden(PHASED));
+		const [progress] = phaseMarks(container, 'in-progress');
+		expect(progress?.querySelector('[data-chevron]')).not.toBeNull();
+		expect(progress?.textContent).toContain('agent: in progress');
+		for (const [state, text] of [
+			['interrupted', 'interrupted: no end recorded'],
+			['start-not-recorded', 'start not recorded']
+		] as const) {
+			const [mark] = phaseMarks(container, state);
+			expect(mark?.querySelectorAll('[data-tick]')).toHaveLength(1);
+			expect(mark?.querySelector('[data-chevron]')).toBeNull();
+			expect(mark?.textContent).toContain(text);
+		}
+		for (const pair of phaseMarks(container, 'inconsistent')) {
+			expect(pair.querySelectorAll('[data-tick]')).toHaveLength(2);
+			expect(pair.textContent).toContain('inconsistent markers');
+		}
+	});
+
+	test('a heuristic join is drawn and labelled uncertain', async () => {
+		const { container } = await show(golden(PHASED));
+		const uncertain = all(container, '[data-confidence="heuristic"]');
+		// The Job's first pod of each run, which no Kelos read named.
+		expect(uncertain).toHaveLength(2);
+		for (const mark of uncertain) expect(mark.getAttribute('aria-label')).toContain('(uncertain)');
+	});
+
+	test('nested phases stack on sub-tracks under the run bar, inside its row', async () => {
+		const s = golden(PHASED);
+		const { container } = await show(s);
+		const row = container.querySelector(`[data-row="run:${runKeyString(s.runs[0]!.key)}"]`)!;
+		const bar = row.querySelector('[data-span="running"] [data-bar]')!.getBoundingClientRect();
+		const tops = new Set(all(row, '[data-phase]').map((p) => p.getBoundingClientRect().top));
+		expect(tops.size).toBeGreaterThan(1);
+		for (const top of tops) expect(top).toBeGreaterThan(bar.bottom);
+		// Sillage's downtime shades the sub-tracks too.
+		const gap = all(row, '[data-unknown]').find((u) =>
+			u.querySelector('title')?.textContent?.includes('phase markers')
+		);
+		expect(gap?.getBoundingClientRect().bottom).toBeGreaterThan(Math.max(...tops));
+	});
+
+	test('selecting a phase selects it, not its run', async () => {
+		const { container, selection } = await show(golden(PHASED));
+		const [mark] = phaseMarks(container, 'complete');
+		mark!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+		await tick();
+		expect(selection.current?.kind).toBe('phase');
+		expect(mark?.getAttribute('aria-pressed')).toBe('true');
+	});
+
+	test('a run with no markers draws no phase and no phase legend', async () => {
+		const s = copy(golden(PHASED));
+		for (const r of s.runs) delete r.phases;
+		const { container } = await show(s);
+		expect(container.querySelector('[data-phase]')).toBeNull();
+		expect(container.querySelector('[data-phase-legend]')).toBeNull();
+		const phased = await show(golden(PHASED));
+		expect(phased.container.querySelector('[data-phase-legend]')).not.toBeNull();
+	});
+
+	test.each(STORIES.filter((n) => n !== PHASED))('%s draws no phase', async (name) => {
+		const { container } = await show(golden(name));
+		expect(container.querySelector('[data-phase]')).toBeNull();
+		expect(container.querySelector('[data-phase-legend]')).toBeNull();
 	});
 });

@@ -48,6 +48,9 @@
 				const href = checkURL(item.pr, item.check);
 				return href === undefined ? undefined : { href, label: `GitHub check ${item.check.id}` };
 			}
+			case 'phase':
+				// A pod reported its markers to sillage: no source has a page for them.
+				return undefined;
 		}
 	}
 

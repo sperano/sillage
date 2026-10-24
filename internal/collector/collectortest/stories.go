@@ -49,6 +49,10 @@ var Stories = map[string]Story{
 		Vikunja: "collector/second-pr-after-close/vikunja",
 		GitHub:  "collector/second-pr-after-close/github",
 	}, []github.Repository{Repo}},
+	"phase-markers": {taskRoot(109), Dirs{
+		Vikunja: "collector/phase-markers/vikunja", Kelos: "collector/phase-markers/kelos",
+		GitHub: "collector/phase-markers/github", Markers: "collector/phase-markers/markers",
+	}, nil},
 }
 
 func taskRoot(id int64) model.Root {

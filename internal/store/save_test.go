@@ -23,6 +23,9 @@ type fixture struct {
 	Description string     `json:"description"`
 	Root        model.Root `json:"root"`
 	model.Records
+	// markers are the fixture's phase markers, which a pod reports and
+	// RecordMarker records: no batch holds them.
+	markers []model.Marker
 }
 
 func fixtureNames(t *testing.T) []string {
@@ -53,6 +56,7 @@ func loadFixture(t *testing.T, name string) (fixture, []byte) {
 	if err := json.Unmarshal(data, &f); err != nil {
 		t.Fatalf("%s: %v", name, err)
 	}
+	f.markers, f.Records.Markers = f.Records.Markers, nil
 	golden, err := os.ReadFile(filepath.Join(storiesDir, name, "story.golden.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -70,9 +74,10 @@ func marshalStory(t *testing.T, s model.Story) []byte {
 }
 
 // TestFixtureRoundTrip saves every fixture story into one store, twice,
-// and reads each back: the stored story is its golden file, so saving is
-// idempotent and stories do not leak into each other. Saving the story
-// read back changes nothing either.
+// records its phase markers as received, unjoined, and reads each back:
+// the stored story is its golden file, so saving is idempotent, stories do
+// not leak into each other, and the store joins each marker as the
+// fixture does. Saving the story read back changes nothing either.
 func TestFixtureRoundTrip(t *testing.T) {
 	s := newTestStore(t, Retention{})
 	names := fixtureNames(t)
@@ -80,6 +85,13 @@ func TestFixtureRoundTrip(t *testing.T) {
 		for _, name := range names {
 			f, _ := loadFixture(t, name)
 			mustSave(t, s, f.Root, f.Records)
+		}
+	}
+	for _, name := range names {
+		f, _ := loadFixture(t, name)
+		for _, m := range f.markers {
+			m.Join = nil
+			mustRecord(t, s, m, testPerPod, MarkerStored)
 		}
 	}
 	for _, name := range names {

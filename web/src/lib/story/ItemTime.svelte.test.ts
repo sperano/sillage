@@ -3,8 +3,8 @@ import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import ItemTime from './ItemTime.svelte';
 import { goldenStory } from '../testing/stories';
-import { eventRef, runRef } from '../timeline';
-import type { Event, Interval } from '../model';
+import { eventRef, phaseRef, runRef } from '../timeline';
+import type { Event, Interval, Phase } from '../model';
 
 function showRun(interval: Interval) {
 	const run = goldenStory('announced-run-only').runs[0];
@@ -43,4 +43,33 @@ test('a state seen again says when it was first and last seen', async () => {
 test('a state seen once says only when it was seen', async () => {
 	showObserved(() => {});
 	await expect.element(page.getByText(/last seen/)).not.toBeInTheDocument();
+});
+
+function showPhase(match: (p: Phase) => boolean) {
+	const run = goldenStory('phase-markers').runs.find((r) => r.phases?.some(match));
+	const phase = run?.phases?.find(match);
+	if (!run || !phase) throw new Error('no such phase');
+	render(ItemTime, {
+		item: { kind: 'phase', ref: phaseRef(run, phase), run, phase },
+		timeZone: 'UTC'
+	});
+}
+
+test('inconsistent markers show both edges, the earlier first', async () => {
+	showPhase((p) => p.state === 'inconsistent' && p.end.kind === 'wiki-login');
+	await expect
+		.element(page.getByText(/^end 2026-03-14 10:19:58 UTC · start 2026-03-14 10:20:00 UTC/))
+		.toBeInTheDocument();
+});
+
+test('inconsistent markers in order show the start first', async () => {
+	showPhase((p) => p.state === 'inconsistent' && p.end.kind === 'agent');
+	await expect
+		.element(page.getByText(/^start 2026-03-14 10:25:00 UTC · end 2026-03-14 10:26:00 UTC/))
+		.toBeInTheDocument();
+});
+
+test('a phase whose start was not recorded says when it ended', async () => {
+	showPhase((p) => p.state === 'start-not-recorded');
+	await expect.element(page.getByText(/^start not recorded · ended /)).toBeInTheDocument();
 });

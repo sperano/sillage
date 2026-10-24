@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 
@@ -160,10 +161,12 @@ func (w *saver) repointCorrelation(id int64, c model.Correlation, from, to model
 	return w.exec("DELETE FROM correlations WHERE id = $1", id)
 }
 
-// saveCoverage stores each coverage record by the saver's rule: merged
-// with the root's stored one, or in its place.
+// saveCoverage stores each coverage record by the saver's rule (merged
+// with the root's stored one, or in its place), without PhaseMarkersNote,
+// which a story read adds while its runs have markers.
 func (w *saver) saveCoverage(coverage []model.Coverage) error {
 	for _, c := range coverage {
+		c.Notes = slices.DeleteFunc(slices.Clone(c.Notes), func(n string) bool { return n == model.PhaseMarkersNote })
 		put := w.putCoverage
 		if w.coverage == coverageMerge {
 			put = w.mergeCoverage

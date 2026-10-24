@@ -18,11 +18,12 @@ PostgreSQL store (`internal/store`); the collection loop, which keeps it
 current; a webhook receiver (`internal/ingest`) that stays off,
 answering 503, until the collection loop reads what its deliveries name;
 and the in-cluster endpoint of the phase markers Kelos runs' pods report
-(`internal/ingest/marker`), stored and joined to their runs but not drawn
-yet.
-The frontend's single-task timeline graph (`web/src/lib/timeline/`) is
-rendered in tests from the fixture stories but not yet shown on the story
-page. Nothing is deployed.
+(`internal/ingest/marker`), stored, joined to their runs and paired into
+the runs' phases in each story.
+The frontend's single-task timeline graph (`web/src/lib/timeline/`), which
+draws the phases under their run's bar, and its event list and detail
+panel (`web/src/lib/story/`) are rendered in tests from the fixture
+stories but not yet shown on the story page. Nothing is deployed.
 
 ## Layout
 
@@ -125,6 +126,17 @@ time inside exactly one run, as a heuristic, else it stays unattached
 (counted in the stories' Kelos coverage); each later save of Kelos
 records joins it again both ways, so a run saved with its Task name and
 a matching interval attaches it even when no read ever names its pod.
+
+A story pairs the markers joined to its runs into each run's `phases`
+(`model.BuildStory`), by pod UID and span: both edges of one kind, the end
+not before the start, make a complete phase; a start alone is in progress
+while the run is unfinished and interrupted once it is not (never closed
+at the run's end); an end alone has an unknown start; an end before its
+start or of another kind leaves both edges with no interval. A phase
+carries its edges' emitter, its pod and its join, and is uncertain when
+either edge was joined by Task name and time. The Kelos coverage of a
+story with phases notes that markers are best effort, and a restart's gap
+on it that markers sent meanwhile may not have been received.
 
 The image builds both (no local `web/dist/` needed) and embeds the
 frontend:

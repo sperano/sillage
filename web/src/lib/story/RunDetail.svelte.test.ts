@@ -35,3 +35,33 @@ test('usage with a cost separates every value', async () => {
 		.element(page.getByTestId('usage'))
 		.toHaveTextContent(/^US\$0\.42 · 300 output tokens$/);
 });
+
+test('a run lists its phases, each selecting it', async () => {
+	const story = goldenStory('phase-markers');
+	const run = story.runs[1]!;
+	const selection = new Selection();
+	render(RunDetail, {
+		story,
+		items: timelineItems(story),
+		selection,
+		run,
+		links: {},
+		timeZone: 'UTC'
+	});
+	await page.getByRole('button', { name: 'agent: in progress' }).click();
+	expect(selection.current?.kind).toBe('phase');
+});
+
+test('a run without phases lists none', async () => {
+	const story = goldenStory('failed-run-retry');
+	render(RunDetail, {
+		story,
+		items: timelineItems(story),
+		selection: new Selection(),
+		run: story.runs[0]!,
+		links: {},
+		timeZone: 'UTC'
+	});
+	await expect.element(page.getByRole('heading', { level: 3 })).toBeVisible();
+	expect(document.querySelector('[data-testid="phases"]')).toBeNull();
+});
