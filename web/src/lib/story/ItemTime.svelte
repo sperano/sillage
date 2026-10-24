@@ -5,8 +5,8 @@
 	import Time from './Time.svelte';
 
 	// When an item happened, as the event list shows it: an event's source
-	// time, and its observed time when that differs; an interval's first
-	// known bound.
+	// time, and its observed time when that differs, or when a state seen
+	// by polling was first and last seen; an interval's first known bound.
 
 	let { item, timeZone }: { item: TimelineItem; timeZone: string } = $props();
 </script>
@@ -31,7 +31,11 @@
 			· observed <Time at={e.observedAt} {timeZone} />
 		{/if}
 	{:else}
-		seen <Time at={e.observedAt} {timeZone} /> (no source time)
+		seen <Time at={e.observedAt} {timeZone} />
+		{#if e.lastObservedAt}
+			· last seen <Time at={e.lastObservedAt} {timeZone} />
+		{/if}
+		(no source time)
 	{/if}
 {:else if item.kind === 'run'}
 	{@render bounds(item.run.interval)}

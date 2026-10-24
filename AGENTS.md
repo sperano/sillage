@@ -162,7 +162,11 @@ read the diff, and say so in the PR. The web tests decode every golden
 story (`web/src/lib/decodeModel.test.ts`, which rejects unknown fields and
 values) and render it (`web/src/pages/StoryPage.svelte.test.ts`), so a
 change to the story JSON also changes `web/src/lib/model.ts` and
-`web/src/lib/decodeModel.ts` in the same PR.
+`web/src/lib/decodeModel.ts` in the same PR. A record the stories never
+hold can still reach the browser from the store: every event kind and
+field is in `testdata/fixtures/contract/event.golden.json` (`go test
+./internal/model -run TestEventContractGolden -update`), which the web
+decoder's tests check `model.ts` and the decoder against.
 
 `testdata/fixtures/overview/` is the multi-task overview's set: stories of
 several tasks with overlapping runs over one afternoon and the golden

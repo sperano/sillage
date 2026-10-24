@@ -1,0 +1,126 @@
+{
+  "kinds": {
+    "comment.created": [
+      "vikunja",
+      "wiki",
+      "github"
+    ],
+    "page.created": [
+      "wiki"
+    ],
+    "page.edited": [
+      "wiki"
+    ],
+    "page.moved": [
+      "wiki"
+    ],
+    "pr.closed": [
+      "github"
+    ],
+    "pr.merged": [
+      "github"
+    ],
+    "pr.opened": [
+      "github"
+    ],
+    "pr.reopened": [
+      "github"
+    ],
+    "pr.review_request_removed": [
+      "github"
+    ],
+    "pr.review_requested": [
+      "github"
+    ],
+    "pr.review_submitted": [
+      "github"
+    ],
+    "request.created": [
+      "vikunja",
+      "wiki",
+      "github"
+    ],
+    "run.announced": [
+      "vikunja",
+      "wiki",
+      "github"
+    ],
+    "run.observed": [
+      "kelos"
+    ],
+    "task.assignee_observed": [
+      "vikunja"
+    ],
+    "task.bucket_observed": [
+      "vikunja"
+    ],
+    "task.created": [
+      "vikunja"
+    ],
+    "task.done": [
+      "vikunja"
+    ],
+    "task.label_observed": [
+      "vikunja"
+    ]
+  },
+  "observedKinds": [
+    "task.assignee_observed",
+    "task.bucket_observed",
+    "task.label_observed"
+  ],
+  "fields": [
+    {
+      "name": "source",
+      "optional": false
+    },
+    {
+      "name": "instance",
+      "optional": false
+    },
+    {
+      "name": "id",
+      "optional": false
+    },
+    {
+      "name": "idKind",
+      "optional": false
+    },
+    {
+      "name": "kind",
+      "optional": false
+    },
+    {
+      "name": "sourceTime",
+      "optional": true
+    },
+    {
+      "name": "observedAt",
+      "optional": false
+    },
+    {
+      "name": "lastObservedAt",
+      "optional": true
+    },
+    {
+      "name": "actor",
+      "optional": false
+    },
+    {
+      "name": "executor",
+      "optional": true
+    },
+    {
+      "name": "related",
+      "optional": false
+    },
+    {
+      "name": "details",
+      "optional": true
+    },
+    {
+      "name": "evidence",
+      "optional": false
+    }
+  ]
+}

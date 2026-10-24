@@ -29,6 +29,7 @@ import {
 	EVENT_KINDS,
 	EVENT_KIND_SOURCES,
 	ID_KINDS,
+	OBSERVED_KINDS,
 	OUTCOMES,
 	REF_KINDS,
 	RUN_ROLES,
@@ -129,7 +130,7 @@ export const event: Decoder<Event> = refine(
 			related,
 			evidence
 		},
-		{ sourceTime: timestamp, executor, details: record(anyString) }
+		{ sourceTime: timestamp, lastObservedAt: timestamp, executor, details: record(anyString) }
 	),
 	(e, path) => {
 		const sources: readonly string[] = EVENT_KIND_SOURCES[e.kind];
@@ -137,8 +138,20 @@ export const event: Decoder<Event> = refine(
 		if (e.idKind === 'fingerprint' && !FINGERPRINT.test(e.id)) {
 			fail(`${path}.id`, `${JSON.stringify(e.id)} is not a fingerprint`);
 		}
+		checkLastObserved(e, path);
 	}
 );
+
+const observedKinds: readonly string[] = OBSERVED_KINDS;
+
+// checkLastObserved mirrors the Go model's validateObserved: only a state
+// seen by polling has a last observed time, no earlier than its first.
+function checkLastObserved(e: Event, path: string): void {
+	if (e.lastObservedAt === undefined) return;
+	const at = `${path}.lastObservedAt`;
+	if (!observedKinds.includes(e.kind)) fail(at, `kind ${e.kind} is no state seen by polling`);
+	if (compareTimes(e.lastObservedAt, e.observedAt) < 0) fail(at, 'is before observedAt');
+}
 
 const boundFields = object({ state: oneOf(BOUND_STATES) }, { at: timestamp });
 

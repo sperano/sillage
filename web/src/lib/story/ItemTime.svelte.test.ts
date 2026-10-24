@@ -3,8 +3,8 @@ import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import ItemTime from './ItemTime.svelte';
 import { goldenStory } from '../testing/stories';
-import { runRef } from '../timeline';
-import type { Interval } from '../model';
+import { eventRef, runRef } from '../timeline';
+import type { Event, Interval } from '../model';
 
 function showRun(interval: Interval) {
 	const run = goldenStory('announced-run-only').runs[0];
@@ -23,4 +23,24 @@ test('a run with an unknown start and an open end is not ended', async () => {
 test('a run with neither end known says so', async () => {
 	showRun({ start: { state: 'unknown' }, end: { state: 'unknown' } });
 	await expect.element(page.getByText('start and end unknown')).toBeInTheDocument();
+});
+
+function showObserved(change: (e: Event) => void) {
+	const event = goldenStory('implementation-merged').events.find(
+		(e) => e.kind === 'task.bucket_observed'
+	);
+	if (!event) throw new Error('no observed event');
+	change(event);
+	render(ItemTime, { item: { kind: 'event', ref: eventRef(event), event }, timeZone: 'UTC' });
+}
+
+test('a state seen again says when it was first and last seen', async () => {
+	showObserved((e) => (e.lastObservedAt = '2026-03-03T18:20:00Z'));
+	await expect.element(page.getByText(/· last seen/)).toBeInTheDocument();
+	await expect.element(page.getByText(/no source time/)).toBeInTheDocument();
+});
+
+test('a state seen once says only when it was seen', async () => {
+	showObserved(() => {});
+	await expect.element(page.getByText(/last seen/)).not.toBeInTheDocument();
 });

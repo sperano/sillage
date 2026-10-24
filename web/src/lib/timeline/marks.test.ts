@@ -43,3 +43,16 @@ test('the actor keeps account and executor apart', () => {
 	});
 	expect(actorLabel(e)).toBe('owner-gh (executor agent-opus)');
 });
+
+test('a Kelos observation is marked as observed and names its object, change and phase', () => {
+	const e = event({
+		source: 'kelos',
+		instance: 'cluster-a',
+		kind: 'run.observed',
+		sourceTime: undefined,
+		details: { object: 'task', change: 'modified', phase: 'Running' }
+	});
+	expect(eventMark(e)).toBe('observed');
+	expect(eventLabel(e)).toBe('task modified: Running');
+	expect(eventLabel({ ...e, details: {} })).toBe('object observed');
+});

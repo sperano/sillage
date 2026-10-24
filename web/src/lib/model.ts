@@ -66,6 +66,7 @@ export const EVENT_KIND_SOURCES = {
 	'comment.created': ['vikunja', 'wiki', 'github'],
 	'request.created': ['vikunja', 'wiki', 'github'],
 	'run.announced': ['vikunja', 'wiki', 'github'],
+	'run.observed': ['kelos'],
 	'pr.opened': ['github'],
 	'pr.review_requested': ['github'],
 	'pr.review_request_removed': ['github'],
@@ -78,6 +79,16 @@ export type EventKind = keyof typeof EVENT_KIND_SOURCES;
 // Object.keys types its result string[]; these keys are EventKind by
 // definition. Frozen, as the decoder checks against it.
 export const EVENT_KINDS = Object.freeze(Object.keys(EVENT_KIND_SOURCES) as EventKind[]);
+
+/**
+ * The kinds of a state seen by polling, as the Go model's observedKinds:
+ * only they have a last observed time.
+ */
+export const OBSERVED_KINDS = [
+	'task.bucket_observed',
+	'task.label_observed',
+	'task.assignee_observed'
+] as const satisfies readonly EventKind[];
 
 /** Where an event id comes from: the source, or a fingerprint when it has none. */
 export const ID_KINDS = ['source', 'fingerprint'] as const;
@@ -125,8 +136,14 @@ export interface Event {
 	kind: EventKind;
 	/** When the source says it happened; absent for a state seen by polling. */
 	sourceTime?: string;
-	/** When the collector read it. */
+	/** When the collector read it: for a state seen by polling, when it was first seen. */
 	observedAt: string;
+	/**
+	 * For a state seen by polling and seen again unchanged, the last read
+	 * that saw it; absent when only one read did. It says nothing about
+	 * when the state began or ended.
+	 */
+	lastObservedAt?: string;
 	actor: Account;
 	executor?: Executor;
 	related: Related;

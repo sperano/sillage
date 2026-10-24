@@ -45,6 +45,13 @@
 	</dd>
 	<dt>Observed</dt>
 	<dd><Time at={event.observedAt} {timeZone} /></dd>
+	{#if event.lastObservedAt}
+		<dt>Last observed</dt>
+		<dd data-testid="last-observed">
+			<Time at={event.lastObservedAt} {timeZone} />: seen unchanged by every read until then; when
+			it changed is unknown
+		</dd>
+	{/if}
 	<dt>Account</dt>
 	<dd>{accountLabel(event.actor)}</dd>
 	<dt>Executor</dt>
