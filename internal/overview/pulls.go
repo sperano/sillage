@@ -150,17 +150,17 @@ func requestee(e model.Event) string {
 // closedAt returns when the events left the pull request merged, or
 // closed and not reopened: its merge, or its last close.
 func closedAt(events []model.Event) (time.Time, bool) {
-	var at time.Time
+	var when time.Time
 	closed := false
 	for _, e := range events {
 		switch e.Kind {
 		case model.KindPRMerged:
 			return e.Time(), true
 		case model.KindPRClosed:
-			at, closed = e.Time(), true
+			when, closed = e.Time(), true
 		case model.KindPRReopened:
-			at, closed = time.Time{}, false
+			when, closed = time.Time{}, false
 		}
 	}
-	return at, closed
+	return when, closed
 }
