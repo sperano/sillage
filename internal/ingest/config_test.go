@@ -28,8 +28,11 @@ func TestSecretsAreRedacted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, out := range []string{fmt.Sprint(s), fmt.Sprintf("%+v", s), fmt.Sprintf("%#v", s), logged.String(),
-		string(encoded)} {
+	outs := []string{fmt.Sprint(s), logged.String(), string(encoded)}
+	for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%q", "%x", "%d", "%t", "%08s", "%-20v"} {
+		outs = append(outs, fmt.Sprintf(verb, s), fmt.Sprintf(verb, s.GitHub))
+	}
+	for _, out := range outs {
 		if strings.Contains(out, "secret-value") || !strings.Contains(out, redacted) {
 			t.Errorf("%q leaks a secret or lacks %s", out, redacted)
 		}

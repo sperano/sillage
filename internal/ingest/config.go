@@ -1,6 +1,8 @@
 package ingest
 
 import (
+	"fmt"
+	"io"
 	"log/slog"
 
 	"github.com/sperano/sillage/internal/collector"
@@ -17,15 +19,17 @@ const (
 	redacted = "[redacted]"
 )
 
-// Secret is a webhook secret. It prints as [redacted] through fmt and
-// log/slog, so a Secrets can be logged without leaking it.
+// Secret is a webhook secret. It prints as [redacted] through fmt, with
+// any verb, and log/slog, so a Secrets can be logged without leaking it.
 type Secret string
 
 // String implements fmt.Stringer.
 func (Secret) String() string { return redacted }
 
-// GoString implements fmt.GoStringer, for %#v.
-func (Secret) GoString() string { return redacted }
+// Format implements fmt.Formatter, so that no verb prints the value: fmt
+// calls String only for %v, %s, %q, %x and %X, and prints a string's
+// value under any other.
+func (Secret) Format(f fmt.State, _ rune) { _, _ = io.WriteString(f, redacted) }
 
 // LogValue implements slog.LogValuer.
 func (Secret) LogValue() slog.Value { return slog.StringValue(redacted) }
