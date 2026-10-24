@@ -40,9 +40,14 @@ function goingAt(i: Interval, t: number): boolean {
 	return end !== undefined ? end > t : i.end.state === 'open';
 }
 
+/** An optional RFC 3339 time, in milliseconds. */
+function optionalTime(s: string | undefined): number | undefined {
+	return s === undefined ? undefined : Date.parse(s);
+}
+
 /** Whether a run still queued at its last read was created before t: then it was waiting at t. */
 function queuedAt(run: Run, t: number): boolean {
-	const created = run.created === undefined ? undefined : Date.parse(run.created);
+	const created = optionalTime(run.created);
 	return (
 		run.outcome === 'waiting' &&
 		run.interval.end.state === 'open' &&
@@ -55,19 +60,27 @@ function queuedAt(run: Run, t: number): boolean {
 export type ReviewState = 'requested' | 'unknown';
 
 const OPEN_NOTE = 'not ended at the last read';
+const CLOSED_LATER_NOTE = 'its pull request closed later with no answer recorded';
 
 /**
- * A review wait's state at t: requested when it started before t and had
- * not been answered by t (an open end counts as not answered), nor its
+ * A review wait's state at t: requested when it started before t and by t
+ * neither was answered (an open end counts as not answered) nor had its
  * pull request closed; unknown once its pull request closed with no answer
  * recorded; none otherwise.
  */
 export function reviewStateAt(w: ReviewWait, t: number): ReviewState | undefined {
 	if (goingAt(w.interval, t)) return 'requested';
+	if (w.interval.end.state !== 'unknown') return undefined;
 	const start = boundTime(w.interval.start);
-	if (start === undefined || start >= t || w.interval.end.state !== 'unknown') return undefined;
-	const closed = w.closed === undefined ? undefined : Date.parse(w.closed);
+	if (start === undefined || start >= t) return undefined;
+	const closed = optionalTime(w.closed);
 	return closed !== undefined && closed > t ? 'requested' : 'unknown';
+}
+
+/** What a requested chip says of its end: open at the last read, or closed later unanswered. */
+function requestedNote(w: ReviewWait): string | undefined {
+	if (w.interval.end.state === 'open') return OPEN_NOTE;
+	return w.interval.end.state === 'unknown' ? CLOSED_LATER_NOTE : undefined;
 }
 
 function reviewText(w: ReviewWait): string {
@@ -130,7 +143,7 @@ function reviewChips(w: ReviewWait, to: number): Chip[] {
 				{
 					kind: 'review',
 					text: reviewText(w),
-					note: w.interval.end.state === 'open' ? OPEN_NOTE : undefined
+					note: requestedNote(w)
 				}
 			];
 		case 'unknown':

@@ -5,7 +5,7 @@ import { API_BASE } from '../lib/api';
 import { memoryHistory } from '../lib/history';
 import { DEFAULT_QUERY, overviewHref, type OverviewQuery } from '../lib/overview/query';
 import { Router } from '../lib/router.svelte';
-import { afternoon, overviewGoldenJSON } from '../lib/testing/overview';
+import { afternoon, CLOSED_UNANSWERED, overviewGoldenJSON } from '../lib/testing/overview';
 import { fakeServer, HANG, json, problem } from '../testing/fakeServer';
 import OverviewPage from './OverviewPage.svelte';
 
@@ -118,7 +118,7 @@ interface WaitJSON {
 /** Closes a review wait's pull request unanswered before the window's end. */
 function closeUnanswered(w: WaitJSON): void {
 	w.interval.end = { state: 'unknown' };
-	w.closed = '2026-03-10T14:50:00Z';
+	w.closed = CLOSED_UNANSWERED;
 }
 
 test('a review whose answer is unknown is named apart, not counted as requested', async () => {

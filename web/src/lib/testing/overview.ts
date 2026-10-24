@@ -21,6 +21,12 @@ export function afternoon(clock: string): number {
 	return Date.parse(`2026-03-10T${clock}:00Z`);
 }
 
+/**
+ * A time for a test to close a review wait's pull request unanswered at:
+ * after every golden request, before the window's end.
+ */
+export const CLOSED_UNANSWERED = '2026-03-10T14:50:00Z';
+
 /** The row of task id; throws when the page has none. */
 export function rowOfTask(page: OverviewPage, id: number): OverviewRow {
 	const row = page.rows.find((r) => r.root.task?.id === id);

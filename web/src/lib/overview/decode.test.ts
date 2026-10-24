@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DecodeError } from '../check';
-import { overviewGoldenJSON } from '../testing/overview';
+import { CLOSED_UNANSWERED, overviewGoldenJSON } from '../testing/overview';
 import { parseOverviewPage } from './decode';
 
 type JSONObject = Record<string, unknown>;
@@ -68,8 +68,10 @@ describe('parseOverviewPage', () => {
 			(wait(row).interval as JSONObject).end = { state: 'unknown' };
 		});
 		expect(() => parseOverviewPage(unclosed)).toThrow(/close time exactly when/);
-		const open = withFirstRow((row) => (wait(row).closed = '2026-03-10T14:50:00Z'));
-		expect(() => parseOverviewPage(open)).toThrow(/close time exactly when/);
+		const known = withFirstRow((row) => {
+			wait(row).closed = CLOSED_UNANSWERED;
+		});
+		expect(() => parseOverviewPage(known)).toThrow(/close time exactly when/);
 		const early = withFirstRow((row) => {
 			(wait(row).interval as JSONObject).end = { state: 'unknown' };
 			wait(row).closed = '2026-03-10T14:00:00Z';

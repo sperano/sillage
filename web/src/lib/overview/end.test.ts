@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Run } from '../model';
-import { afternoon, overviewGolden, rowOfTask } from '../testing/overview';
+import { afternoon, CLOSED_UNANSWERED, overviewGolden, rowOfTask } from '../testing/overview';
 import type { ReviewWait } from './model';
 import { endChips, reviewStateAt } from './end';
 
@@ -33,6 +33,9 @@ describe('endChips', () => {
 
 	it('shows a review still requested at the end when its pull request closed only after it', () => {
 		expect(chips(202)).toEqual(['review: review requested: owner-gh', 'pr-open: PR #22 open']);
+		expect(endChips(rowOfTask(page, 202), end)[0]?.note).toBe(
+			'its pull request closed later with no answer recorded'
+		);
 	});
 
 	it('says when a run and the history are unknown, and nothing more', () => {
@@ -75,7 +78,7 @@ describe('endChips', () => {
 		const wait: ReviewWait = {
 			...row.reviewWaits[0]!,
 			interval: { ...row.reviewWaits[0]!.interval, end: { state: 'unknown' } },
-			closed: '2026-03-10T14:50:00Z'
+			closed: CLOSED_UNANSWERED
 		};
 		expect(endChips({ ...row, reviewWaits: [wait] }, end)[0]).toEqual({
 			kind: 'unknown',
@@ -100,7 +103,7 @@ describe('reviewStateAt', () => {
 	const closed: ReviewWait = {
 		...wait,
 		interval: { ...wait.interval, end: { state: 'unknown' } },
-		closed: '2026-03-10T14:50:00Z'
+		closed: CLOSED_UNANSWERED
 	};
 	const answered: ReviewWait = {
 		...wait,

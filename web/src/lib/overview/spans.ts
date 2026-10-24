@@ -78,7 +78,11 @@ export function requestee(w: ReviewWait): string {
 	return w.reviewer ?? (w.team === undefined ? '' : `team ${w.team}`);
 }
 
-/** The span of a review wait. */
+/**
+ * The span of a review wait. A wait whose pull request closed unanswered
+ * keeps its unknown end: closed says when the request stopped waiting for
+ * the chips, not that an answer came then.
+ */
 export function waitBar(row: OverviewRow, w: ReviewWait): OverviewSpan {
 	const who = requestee(w);
 	return fromInterval(
