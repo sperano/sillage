@@ -18,8 +18,12 @@ var markKinds = map[model.EventKind]bool{
 	model.KindReviewSubmitted: true,
 }
 
-// detailPod is the start announcement's detail naming its pod.
-const detailPod = "pod"
+// The start announcement's details naming its attempt.
+const (
+	detailPod       = "pod"
+	detailTaskName  = "taskName"
+	detailNamespace = "namespace"
+)
 
 // buildRow returns the story's row, and false when nothing of it is in the
 // window.
@@ -45,8 +49,8 @@ func buildRow(w Window, title string, s model.Story) (Row, bool) {
 	if len(row.Runs) == 0 && len(row.PullRequests) == 0 && len(row.ReviewWaits) == 0 && len(row.Marks) == 0 {
 		return Row{}, false
 	}
-	row.MissingHistory = missingHistory(w, row.Coverage, rowSources(w, row, s.Events))
-	row.LastActivity = lastActivity(w, row, announcements(s.Events))
+	row.MissingHistory = missingHistory(w, row.Coverage, rowSources(row))
+	row.LastActivity = lastActivity(w, row)
 	return row, true
 }
 
@@ -62,28 +66,65 @@ func projects(runs []model.Run) []string {
 	return out
 }
 
-// announcements maps each pod a start announcement names to the
-// announcements' times: a pod belongs to one attempt, so it identifies the
-// run whatever the run's key.
-func announcements(events []model.Event) map[string][]time.Time {
-	by := make(map[string][]time.Time)
+// announcement is a start announcement: when it was posted, and what it
+// names of its attempt.
+type announcement struct {
+	at                       time.Time
+	pod, taskName, namespace string
+}
+
+// announcementsIn returns the start announcements in the window.
+func announcementsIn(w Window, events []model.Event) []announcement {
+	var out []announcement
 	for _, e := range events {
-		if pod := e.Details[detailPod]; e.Kind == model.KindRunAnnounced && pod != "" {
-			by[pod] = append(by[pod], e.Time())
+		if e.Kind == model.KindRunAnnounced && w.Contains(e.Time()) {
+			out = append(out, announcement{
+				at: e.Time(), pod: e.Details[detailPod],
+				taskName: e.Details[detailTaskName], namespace: e.Details[detailNamespace],
+			})
 		}
 	}
-	return by
+	return out
+}
+
+// names reports whether a may announce r. A pod belongs to one attempt, so
+// it identifies the run whatever the run's key. An announcement naming no
+// pod names a Kelos Task, and so every attempt of it (a retry reuses the
+// name) in its namespace, when it states one, whose recorded times do not
+// rule out running when it was posted: ambiguous, as the collector's join
+// of it is.
+func (a announcement) names(r model.Run) bool {
+	if a.pod != "" {
+		return a.pod == r.Pod
+	}
+	if a.taskName == "" || a.taskName != r.TaskName || (a.namespace != "" && a.namespace != r.Key.Namespace) {
+		return false
+	}
+	return mayRunAt(r, a.at)
+}
+
+// mayRunAt reports whether the run's recorded times leave open that it ran
+// at t: not created or started after it, not ended before it.
+func mayRunAt(r model.Run, t time.Time) bool {
+	if r.Created != nil && r.Created.After(t) {
+		return false
+	}
+	if start, ok := r.Interval.Start.Time(); ok && start.After(t) {
+		return false
+	}
+	end, ok := r.Interval.End.Time()
+	return !ok || !end.Before(t)
 }
 
 // runsIn returns the runs that touch the window, through their extent or
-// their start announcement, and each earlier failed attempt of the same
+// a start announcement in it, and each earlier failed attempt of the same
 // Kelos Task as one of them: a failure stays visible while its retry runs.
 // They keep the story's order.
 func runsIn(w Window, s model.Story) []model.Run {
-	announced := announcements(s.Events)
+	announced := announcementsIn(w, s.Events)
 	in := make([]bool, len(s.Runs))
 	for i, r := range s.Runs {
-		in[i] = touches(w, runExtent(r)) || slices.ContainsFunc(announced[r.Pod], w.Contains)
+		in[i] = runTouches(w, r) || slices.ContainsFunc(announced, func(a announcement) bool { return a.names(r) })
 	}
 	for i, r := range s.Runs {
 		if !in[i] && r.Outcome == model.OutcomeFailed {
@@ -100,15 +141,15 @@ func runsIn(w Window, s model.Story) []model.Run {
 }
 
 // retriedIn reports whether a run in the window is a later attempt of the
-// same Kelos Task as failed: same Task name, another key, a later first
-// recorded time.
+// same Kelos Task as failed: same cluster, namespace and Task name, another
+// key, a later first recorded time.
 func retriedIn(failed model.Run, runs []model.Run, in []bool) bool {
 	at, ok := runAnchor(failed)
 	if failed.TaskName == "" || !ok {
 		return false
 	}
 	for i, r := range runs {
-		if !in[i] || r.TaskName != failed.TaskName || r.Key == failed.Key {
+		if !in[i] || r.Key == failed.Key || !sameTask(r, failed) {
 			continue
 		}
 		if t, ok := runAnchor(r); ok && t.After(at) {
@@ -118,6 +159,12 @@ func retriedIn(failed model.Run, runs []model.Run, in []bool) bool {
 	return false
 }
 
+// sameTask reports whether a and b are attempts of one Kelos Task: a name
+// is unique in its cluster and namespace only.
+func sameTask(a, b model.Run) bool {
+	return a.TaskName == b.TaskName && a.Key.Cluster == b.Key.Cluster && a.Key.Namespace == b.Key.Namespace
+}
+
 // marksIn returns the events of markKinds in the window.
 func marksIn(w Window, events []model.Event) []Mark {
 	out := []Mark{}
@@ -125,7 +172,10 @@ func marksIn(w Window, events []model.Event) []Mark {
 		if !markKinds[e.Kind] || !w.Contains(e.Time()) {
 			continue
 		}
-		out = append(out, Mark{Kind: e.Kind, At: e.Time(), Event: e.Key(), PR: e.Related.PR, Pod: e.Details[detailPod]})
+		out = append(out, Mark{
+			Kind: e.Kind, At: e.Time(), Event: e.Key(), Source: e.Source, Instance: e.Instance,
+			PR: e.Related.PR, Pod: e.Details[detailPod],
+		})
 	}
 	return out
 }
@@ -135,20 +185,17 @@ func hasMarkOf(marks []Mark, pr model.PRKey) bool {
 }
 
 // lastActivity is the latest time in the window the row shows anything.
-func lastActivity(w Window, row Row, announced map[string][]time.Time) time.Time {
+// A start announcement in it is one of the row's marks.
+func lastActivity(w Window, row Row) time.Time {
 	var last time.Time
 	see := func(t time.Time, ok bool) {
-		if ok {
-			if t.After(last) {
-				last = t
-			}
+		if ok && t.After(last) {
+			last = t
 		}
 	}
 	for _, r := range row.Runs {
 		see(latestIn(w, runExtent(r)))
-		for _, t := range announced[r.Pod] {
-			see(t, w.Contains(t))
-		}
+		see(latestIn(w, r.Interval))
 	}
 	for _, p := range row.PullRequests {
 		for _, period := range p.Periods {

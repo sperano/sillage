@@ -3,6 +3,7 @@ package overview
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"slices"
 	"strings"
 	"testing"
@@ -68,6 +69,36 @@ func TestPaginateRejectsForeignCursor(t *testing.T) {
 		if _, err := Paginate(afternoon, rows, Filter{}, cursor, 1); !errors.Is(err, ErrCursor) {
 			t.Errorf("cursor %q: error %v, want ErrCursor", cursor, err)
 		}
+	}
+}
+
+// A cursor names a place in the order of its page's window: rows move as
+// the window does, so another window's cursor is refused.
+func TestPaginateRejectsCursorOfAnotherWindow(t *testing.T) {
+	rows := buildAll(t, afternoon, Filter{})
+	page, err := Paginate(afternoon, rows, Filter{}, "", 1)
+	if err != nil || page.Next == "" {
+		t.Fatalf("first page: next %q, error %v", page.Next, err)
+	}
+	later := Window{From: afternoon.From.Add(time.Second), To: afternoon.To.Add(time.Second)}
+	if _, err := Paginate(later, rows, Filter{}, page.Next, 1); !errors.Is(err, ErrCursorWindow) {
+		t.Errorf("error %v, want ErrCursorWindow", err)
+	}
+}
+
+// A page size past the rows left after a cursor is the rest of them.
+func TestPaginateLargestLimit(t *testing.T) {
+	rows := buildAll(t, afternoon, Filter{})
+	first, err := Paginate(afternoon, rows, Filter{}, "", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rest, err := Paginate(afternoon, rows, Filter{}, first.Next, math.MaxInt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rest.Rows) != len(rows)-1 || rest.Next != "" {
+		t.Errorf("rest = %d rows, next %q; want the %d others, no next", len(rest.Rows), rest.Next, len(rows)-1)
 	}
 }
 

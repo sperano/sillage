@@ -9,7 +9,7 @@ import (
 // rowSources lists the coverage keys of the sources the row shows records
 // from: the Kelos cluster of each run, the GitHub instance of each pull
 // request and review wait, the source of each mark.
-func rowSources(w Window, row Row, events []model.Event) []string {
+func rowSources(row Row) []string {
 	var keys []string
 	add := func(source model.Source, instance string) {
 		k := model.Coverage{Source: source, Instance: instance}.Key()
@@ -26,10 +26,8 @@ func rowSources(w Window, row Row, events []model.Event) []string {
 	for _, rw := range row.ReviewWaits {
 		add(model.SourceGitHub, rw.PR.Instance)
 	}
-	for _, e := range events {
-		if markKinds[e.Kind] && w.Contains(e.Time()) {
-			add(e.Source, e.Instance)
-		}
+	for _, m := range row.Marks {
+		add(m.Source, m.Instance)
 	}
 	return keys
 }

@@ -53,6 +53,13 @@ func runExtent(r model.Run) model.Interval {
 	return r.Interval
 }
 
+// runTouches reports whether the run shows anything in the window: its
+// extent, or its own interval, whose known start in the window an extent
+// from an earlier creation to an unknown end does not show.
+func runTouches(w Window, r model.Run) bool {
+	return touches(w, runExtent(r)) || touches(w, r.Interval)
+}
+
 // runAnchor is the first recorded time of a run: its creation, start or
 // end.
 func runAnchor(r model.Run) (time.Time, bool) {

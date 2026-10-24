@@ -77,10 +77,13 @@ func (a *api) overviewPage(r *http.Request) (any, error) {
 		return nil, err
 	}
 	page, err := overview.Paginate(q.window, rows, q.filter, q.after, q.limit)
-	if errors.Is(err, overview.ErrCursor) {
+	switch {
+	case errors.Is(err, overview.ErrCursor):
 		return nil, badRequest("%s is not a cursor this API gave", paramAfter)
-	}
-	if err != nil {
+	case errors.Is(err, overview.ErrCursorWindow):
+		return nil, badRequest("%s is a cursor of another window: pass the %s and %s of the page that gave it",
+			paramAfter, paramFrom, paramTo)
+	case err != nil:
 		return nil, err
 	}
 	return page, nil

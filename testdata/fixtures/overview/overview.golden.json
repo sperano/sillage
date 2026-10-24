@@ -96,12 +96,16 @@
           "kind": "run.announced",
           "at": "2026-03-10T14:11:05Z",
           "event": "vikunja/vikunja.example.com/comments/20101",
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
           "pod": "vikunja-widgets-agent-cedar-201-aaaaa"
         },
         {
           "kind": "pr.opened",
           "at": "2026-03-10T14:33:00Z",
           "event": "github/github.example.com/pulls/21",
+          "source": "github",
+          "instance": "github.example.com",
           "pr": {
             "instance": "github.example.com",
             "repository": "example-org/widgets",
@@ -220,6 +224,8 @@
           "kind": "pr.opened",
           "at": "2026-03-10T14:21:00Z",
           "event": "github/github.example.com/pulls/22",
+          "source": "github",
+          "instance": "github.example.com",
           "pr": {
             "instance": "github.example.com",
             "repository": "example-org/widgets",
@@ -329,12 +335,16 @@
           "kind": "run.announced",
           "at": "2026-03-10T14:08:05Z",
           "event": "vikunja/vikunja.example.com/comments/20301",
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
           "pod": "vikunja-gadgets-agent-cedar-203-ccccc"
         },
         {
           "kind": "run.announced",
           "at": "2026-03-10T14:40:05Z",
           "event": "vikunja/vikunja.example.com/comments/20302",
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
           "pod": "vikunja-gadgets-agent-cedar-203-ddddd"
         }
       ],
@@ -426,6 +436,8 @@
           "kind": "pr.opened",
           "at": "2026-03-10T14:28:00Z",
           "event": "github/github.example.com/pulls/23",
+          "source": "github",
+          "instance": "github.example.com",
           "pr": {
             "instance": "github.example.com",
             "repository": "example-org/widgets",
@@ -436,6 +448,8 @@
           "kind": "pr.closed",
           "at": "2026-03-10T14:40:00Z",
           "event": "github/github.example.com/issues/events/82301",
+          "source": "github",
+          "instance": "github.example.com",
           "pr": {
             "instance": "github.example.com",
             "repository": "example-org/widgets",
@@ -504,6 +518,8 @@
           "kind": "pr.review_submitted",
           "at": "2026-03-10T14:10:00Z",
           "event": "github/github.example.com/reviews/82401",
+          "source": "github",
+          "instance": "github.example.com",
           "pr": {
             "instance": "github.example.com",
             "repository": "example-org/widgets",
@@ -514,6 +530,8 @@
           "kind": "pr.merged",
           "at": "2026-03-10T14:15:00Z",
           "event": "github/github.example.com/issues/events/82402",
+          "source": "github",
+          "instance": "github.example.com",
           "pr": {
             "instance": "github.example.com",
             "repository": "example-org/widgets",
@@ -523,7 +541,9 @@
         {
           "kind": "task.done",
           "at": "2026-03-10T14:16:00Z",
-          "event": "vikunja/vikunja.example.com/sha256:d218174fecbce9f2037243922e6306cc72a28cb5260e3fd74214d41a7d726f8e"
+          "event": "vikunja/vikunja.example.com/sha256:d218174fecbce9f2037243922e6306cc72a28cb5260e3fd74214d41a7d726f8e",
+          "source": "vikunja",
+          "instance": "vikunja.example.com"
         }
       ],
       "coverage": [
@@ -591,6 +611,8 @@
           "kind": "run.announced",
           "at": "2026-03-10T14:02:10Z",
           "event": "vikunja/vikunja.example.com/comments/20501",
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
           "pod": "vikunja-widgets-agent-maple-205-fffff"
         }
       ],

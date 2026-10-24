@@ -50,11 +50,16 @@ func matchesText(row Row, text string) bool {
 // rowKey is the row's root key: "vikunja.example.com/tasks/12".
 func rowKey(row Row) string { return rootKey(row.Root) }
 
+// rootKey is the root's key, empty for a root that names neither a task
+// nor a page.
 func rootKey(root model.Root) string {
-	if root.Task != nil {
+	switch {
+	case root.Task != nil:
 		return root.Task.String()
+	case root.Page != nil:
+		return root.Page.String()
 	}
-	return root.Page.String()
+	return ""
 }
 
 // Page is one page of an overview's rows.
@@ -64,27 +69,34 @@ type Page struct {
 	// Total is how many rows match, on every page.
 	Total int `json:"total"`
 	// Next is the cursor of the next page, empty on the last one. It
-	// names a place in the order, not the query: a client asks for the
-	// next page with the same filters and this page's Window, or the
-	// window's end, now by default, moves.
+	// names a place in the order of this page's Window: a client asks for
+	// the next page with the same filters and that window, since rows move
+	// in the order as the window's end, now by default, does. A cursor of
+	// another window is refused (ErrCursorWindow).
 	Next string `json:"next,omitempty"`
 }
 
 // ErrCursor is returned for a cursor Paginate did not make.
 var ErrCursor = errors.New("overview: not a cursor of this API")
 
+// ErrCursorWindow is returned for a cursor of a page of another window.
+var ErrCursorWindow = errors.New("overview: the cursor is of another window")
+
 // ErrLimit is returned for a page size below one.
 var ErrLimit = errors.New("overview: a page holds at least one row")
 
-// cursor is where a page ends: its last row's order.
+// cursor is where a page ends: its last row's order, in the window of the
+// page.
 type cursor struct {
-	At  time.Time `json:"at"`
-	Key string    `json:"key"`
+	From time.Time `json:"from"`
+	To   time.Time `json:"to"`
+	At   time.Time `json:"at"`
+	Key  string    `json:"key"`
 }
 
 // Paginate returns the rows f matches, most recently active first, then by
 // root key: at most limit of them, after the row the cursor after names
-// (from the first when empty).
+// (from the first when empty), which must be of a page of w.
 func Paginate(w Window, rows []Row, f Filter, after string, limit int) (Page, error) {
 	if limit < 1 {
 		return Page{}, ErrLimit
@@ -97,13 +109,16 @@ func Paginate(w Window, rows []Row, f Filter, after string, limit int) (Page, er
 		if err != nil {
 			return Page{}, err
 		}
+		if !c.From.Equal(w.From) || !c.To.Equal(w.To) {
+			return Page{}, ErrCursorWindow
+		}
 		start = sortIndex(matched, c)
 	}
-	end := min(start+limit, len(matched))
+	end := start + min(limit, len(matched)-start)
 	page := Page{Window: w, Rows: matched[start:end], Total: len(matched)}
 	if end < len(matched) {
 		last := matched[end-1]
-		page.Next = encodeCursor(cursor{At: last.LastActivity, Key: rowKey(last)})
+		page.Next = encodeCursor(cursor{From: w.From, To: w.To, At: last.LastActivity, Key: rowKey(last)})
 	}
 	return page, nil
 }
@@ -133,7 +148,7 @@ func decodeCursor(s string) (cursor, error) {
 		return cursor{}, ErrCursor
 	}
 	var c cursor
-	if err := json.Unmarshal(data, &c); err != nil || c.Key == "" || c.At.IsZero() {
+	if err := json.Unmarshal(data, &c); err != nil || c.Key == "" || c.At.IsZero() || c.From.IsZero() || c.To.IsZero() {
 		return cursor{}, ErrCursor
 	}
 	return c, nil

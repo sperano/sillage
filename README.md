@@ -71,7 +71,7 @@ stay behind the Authentik forward-auth in front of sillage.
 | `/api/v1/coverage` | Per source instance, the newest and stalest last read across stored roots |
 | `/api/v1/search?q=&limit=` | Roots by title or key, most recently active first (`q` at most 200 characters) |
 | `/api/v1/resolve?url=` | The roots whose stories hold what a Vikunja task, GitHub pull request or wiki page URL, or a Kelos Task (`[<namespace>/]<name>`, UID), points to; 404 if none |
-| `/api/v1/overview?from=&to=&project=&task=&executor=&review=&failed=&missing=&after=&limit=` | The tasks active in a window (default: the day before now, at most 31 days), one row each with its runs, pull request states, review waits, state changes and coverage; filtered, most recently active first, in pages of at most 200 (`after` is the previous page's `next`) |
+| `/api/v1/overview?from=&to=&project=&task=&executor=&review=&failed=&missing=&after=&limit=` | The tasks and wiki pages active in a window (default: the day before now, at most 31 days), one row each with its runs, pull request states, review waits, state changes and coverage; filtered, most recently active first, in pages of at most 200 (`after` is the previous page's `next`, sent with that page's `window` as `from` and `to`: a cursor of another window is a 400) |
 | `/api/v1/version` | The binary's version |
 
 A wiki URL by path (`/<locale>/<path>`) resolves only with the wiki source

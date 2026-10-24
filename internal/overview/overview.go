@@ -131,9 +131,12 @@ type ReviewWait struct {
 type Mark struct {
 	Kind model.EventKind `json:"kind"`
 	At   time.Time       `json:"at"`
-	// Event is the key of the event.
-	Event string       `json:"event"`
-	PR    *model.PRKey `json:"pr,omitempty"`
+	// Event is the key of the event; Source and Instance are where it was
+	// read, whose coverage says whether the row's history there is known.
+	Event    string       `json:"event"`
+	Source   model.Source `json:"source"`
+	Instance string       `json:"instance"`
+	PR       *model.PRKey `json:"pr,omitempty"`
 	// Pod is the pod a start announcement names.
 	Pod string `json:"pod,omitempty"`
 }
@@ -146,7 +149,7 @@ func Build(w Window, inputs []Input) ([]Row, error) {
 	for _, in := range inputs {
 		story, err := model.BuildStory(in.Root, onlyKinds(in.Records))
 		if err != nil {
-			return nil, fmt.Errorf("overview: %s: %w", rootKey(in.Root), err)
+			return nil, fmt.Errorf("overview: root %q: %w", rootKey(in.Root), err)
 		}
 		if row, ok := buildRow(w, in.Title, story); ok {
 			rows = append(rows, row)

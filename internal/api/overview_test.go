@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -100,12 +101,13 @@ func TestOverviewFilters(t *testing.T) {
 // A client following next sees every row once.
 func TestOverviewPages(t *testing.T) {
 	h := New(Config{Store: newFakeStore(t)})
+	const limit, total = 4, 6
 	var seen []int64
-	params := map[string]string{"limit": "4"}
-	for {
+	params := map[string]string{"limit": strconv.Itoa(limit)}
+	for range total {
 		page := getPage(t, h, afternoonPath(params))
-		if page.Total != 6 || len(page.Rows) > 4 {
-			t.Fatalf("page of %d rows, total %d; want at most 4, total 6", len(page.Rows), page.Total)
+		if page.Total != total || len(page.Rows) > limit {
+			t.Fatalf("page of %d rows, total %d; want at most %d, total %d", len(page.Rows), page.Total, limit, total)
 		}
 		seen = append(seen, pageTasks(page)...)
 		if page.Next == "" {
@@ -132,6 +134,17 @@ func TestOverviewDefaultWindow(t *testing.T) {
 	page = getPage(t, h, overviewPath(map[string]string{"from": "2026-03-10T14:30:00+01:00"}))
 	if want := time.Date(2026, 3, 10, 13, 30, 0, 0, time.UTC); !page.Window.From.Equal(want) {
 		t.Errorf("from = %s, want %s", page.Window.From, want)
+	}
+}
+
+// Following next without the page's window is refused: by default the
+// window ends now, and moves between two requests.
+func TestOverviewCursorOfAnotherWindow(t *testing.T) {
+	h := New(Config{Store: newFakeStore(t)})
+	page := getPage(t, h, afternoonPath(map[string]string{"limit": "1"}))
+	p := wantProblem(t, get(t, h, overviewPath(map[string]string{"after": page.Next})), http.StatusBadRequest)
+	if !strings.Contains(p.Detail, "another window") {
+		t.Errorf("detail = %q, want the cursor's window named", p.Detail)
 	}
 }
 

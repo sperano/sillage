@@ -141,3 +141,10 @@ func TestReviewWaits(t *testing.T) {
 		}
 	}
 }
+
+// An input naming no root is an error, not a panic.
+func TestBuildRejectsAnEmptyRoot(t *testing.T) {
+	if _, err := Build(afternoon, []Input{{}}); err == nil {
+		t.Error("Build accepted an input with no root")
+	}
+}
