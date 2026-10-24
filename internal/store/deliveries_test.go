@@ -159,6 +159,9 @@ const (
 	lockWaitDeadline = 10 * time.Second
 	// lockWaitPoll is how often the wait is looked for.
 	lockWaitPoll = 10 * time.Millisecond
+	// attemptDeadline bounds waiting for an attempt to reach its act or
+	// to return.
+	attemptDeadline = 10 * time.Second
 )
 
 // An attempt racing one whose act is running waits for its outcome, and
@@ -178,7 +181,13 @@ func TestAcceptDeliveryWaitsForARacingAttempt(t *testing.T) {
 			return errFull
 		})
 	}()
-	<-inAct
+	select {
+	case <-inAct:
+	case err := <-first:
+		t.Fatalf("the first attempt returned before its act: %v", err)
+	case <-time.After(attemptDeadline):
+		t.Fatal("the first attempt never reached its act")
+	}
 	var ran atomic.Bool
 	second := make(chan error, 1)
 	go func() {
@@ -192,11 +201,24 @@ func TestAcceptDeliveryWaitsForARacingAttempt(t *testing.T) {
 		t.Fatal("the second attempt's act ran while the first was undecided")
 	}
 	releaseFirst()
-	if err := <-first; err != errFull {
+	if err := receive(t, first, "the first attempt"); err != errFull {
 		t.Fatalf("the first attempt: %v, want its act's error", err)
 	}
-	if err := <-second; err != nil || !ran.Load() {
+	if err := receive(t, second, "the second attempt"); err != nil || !ran.Load() {
 		t.Errorf("the second attempt: %v, act ran %v; want it accepted once the first failed", err, ran.Load())
+	}
+}
+
+// receive returns what an attempt returned, failing the test if it has not
+// returned within attemptDeadline.
+func receive(t *testing.T, result <-chan error, attempt string) error {
+	t.Helper()
+	select {
+	case err := <-result:
+		return err
+	case <-time.After(attemptDeadline):
+		t.Fatalf("%s did not return", attempt)
+		return nil
 	}
 }
 
