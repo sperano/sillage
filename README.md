@@ -21,9 +21,9 @@ and the in-cluster endpoint of the phase markers Kelos runs' pods report
 (`internal/ingest/marker`), stored, joined to their runs and paired into
 the runs' phases in each story.
 The frontend's single-task timeline graph (`web/src/lib/timeline/`), which
-draws the phases under their run's bar, is rendered in tests from the
-fixture stories but not yet shown on the story page; its event list and
-detail panel list the phases. Nothing is deployed.
+draws the phases under their run's bar, and its event list and detail
+panel (`web/src/lib/story/`) are rendered in tests from the fixture
+stories but not yet shown on the story page. Nothing is deployed.
 
 ## Layout
 
