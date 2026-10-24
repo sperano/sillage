@@ -6,9 +6,14 @@
 // logged, and EnvRetention); Open connects to the Config's database through
 // pgx and applies the migrations embedded in the binary, recorded in
 // schema_migrations. Save stores one read's records about one root (see
-// its rules); the Reader methods (Story, SearchRoots, Coverage) serve the
-// API. Prune applies the Config's retention policy (by default keep
-// everything).
+// its rules). Commit is the collection loop's write: in one transaction,
+// one read stored by Save's rules, with the checkpoints it advanced, or
+// checkpoints alone; the read's coverage of each source instance it
+// carries replaces the root's stored coverage of that instance, and the
+// root's coverage of the other instances is kept. Checkpoints lists the
+// checkpoints back. The Reader methods (Story, SearchRoots, Coverage)
+// serve the API. Prune applies the Config's retention policy (by default
+// keep everything).
 //
 // Each record is stored as its model JSON, the source of truth read back
 // into a story, next to the columns that key it (events by source,

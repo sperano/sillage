@@ -31,10 +31,10 @@ func (a *assembly) kelosGaps(cov model.Coverage, recs model.Records) []model.Gap
 }
 
 // ttlGap is the time before the Task TTL: TaskRecords exist only for runs
-// that reported usage, so from the story's earliest record to the read
-// minus the TTL, runs may be missing.
+// that reported usage, so from the story's earliest record to the first
+// read minus the TTL, runs may be missing.
 func (a *assembly) ttlGap(read time.Time, recs model.Records) (model.Gap, bool) {
-	cutoff := read.Add(-a.cfg.KelosTaskTTL)
+	cutoff := a.ttlCutoff(read)
 	earliest, ok := earliestTime(recs)
 	if !ok || !earliest.Before(cutoff) {
 		return model.Gap{}, false

@@ -58,9 +58,9 @@ func TestTaskID(t *testing.T) {
 		{"12a", 0, false},
 	}
 	for _, tt := range tests {
-		got, ok := testConfig().taskID(map[string]string{testDomain + "/task": tt.value})
+		got, ok := testConfig().TaskID(map[string]string{testDomain + "/task": tt.value})
 		if got != tt.want || ok != tt.ok {
-			t.Errorf("taskID(%q) = %d, %v, want %d, %v", tt.value, got, ok, tt.want, tt.ok)
+			t.Errorf("TaskID(%q) = %d, %v, want %d, %v", tt.value, got, ok, tt.want, tt.ok)
 		}
 	}
 }

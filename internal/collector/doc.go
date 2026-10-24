@@ -12,6 +12,7 @@
 // be read contributes no record and a coverage without a read, so a story
 // never looks complete when it is not.
 //
-// It reads once and keeps nothing: storing, polling and webhooks come
-// later.
+// It reads once and keeps nothing. internal/reconcile reads it again and
+// again into the store, and passes back what the store kept: the runs
+// whose Tasks Kelos has since deleted, and since when Kelos was read.
 package collector

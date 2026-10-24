@@ -97,3 +97,25 @@ func TestPRRunsByBranchAndName(t *testing.T) {
 		}
 	}
 }
+
+func TestGitHubAnnouncementJoinsItsRun(t *testing.T) {
+	const announcer, name = "gordon", "pr-followup-widgets-7-c5301"
+	pr := pullRequest(7, taskBranch(104))
+	pr.Comments = []github.Comment{{
+		ID: 5301, User: &github.User{Login: announcer, Type: "Bot"}, CreatedAt: at(1),
+		Body: "AGENT `" + testAgent + "` IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR. KELOS TASK `" + name +
+			"`, POD `" + name + "-pod00`.\n\nCOFFEE TIME! REPORT TO FOLLOW.",
+	}}
+	cfg := testConfig()
+	cfg.GitHubAnnouncers = []string{announcer}
+	src := emptySources()
+	src.Vikunja = fixedVikunja{announcedTask(104, "", nil)}
+	// Neither a label nor a branch joins the run: only the announcement.
+	src.Kelos = fixedKelos{kelos.Snapshot{Tasks: []kelos.Task{task(name, "uid-announced", "", nil, 1, 2)}}}
+	src.GitHub = fixedGitHub{[]github.Snapshot{pr}}
+	s := collectWith(t, cfg, src, taskRoot(104), testRepo).Story
+	c, ok := linkBetween(s, runRef("uid-announced"), prRef(7))
+	if !ok || c.Confidence != model.ConfidenceIdentifier {
+		t.Errorf("run -> #7 = %+v (found %v), want an identifier from the pull request's announcement", c, ok)
+	}
+}
