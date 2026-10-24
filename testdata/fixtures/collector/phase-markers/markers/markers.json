@@ -368,6 +368,41 @@
       "emitter": "entrypoint",
       "kind": "agent",
       "edge": "start",
+      "span": "00000000000000000000000000109008",
+      "at": "2026-03-14T11:00:40.000Z",
+      "taskName": "vikunja-widgets-agent-opus-109"
+    },
+    "sender": {
+      "cluster": "cluster-a",
+      "namespace": "agents",
+      "serviceAccount": "default",
+      "pod": "vikunja-widgets-agent-opus-109-k3m8w",
+      "podUID": "22222222-0000-4000-8000-0000000109b1"
+    },
+    "receivedAt": "2026-03-14T11:00:40.060Z",
+    "join": {
+      "run": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-00000000109b"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+          "note": "no run is known for pod vikunja-widgets-agent-opus-109-k3m8w; the Task name the marker gives, vikunja-widgets-agent-opus-109, and its time, 2026-03-14T11:00:40Z, fit the interval of one run of that name only: uncertain"
+        }
+      ]
+    }
+  },
+  {
+    "report": {
+      "version": 1,
+      "emitter": "entrypoint",
+      "kind": "agent",
+      "edge": "start",
       "span": "00000000000000000000000000109006",
       "at": "2026-03-14T11:01:00.000Z",
       "taskName": "vikunja-widgets-agent-opus-109"

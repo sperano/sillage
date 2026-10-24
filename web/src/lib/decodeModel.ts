@@ -292,14 +292,19 @@ export const phase: Decoder<Phase> = (value, path) => {
 	return p as Phase;
 };
 
-// A phase with no end recorded is in progress while its run is unfinished,
-// and interrupted once it is not.
+// A phase with no end recorded is in progress only while its run is
+// unfinished, and only from the pod last seen with it: a retried Job's
+// earlier pod has its phases interrupted, its run still running.
 function checkPhasesOfRun(r: Run, path: string): void {
 	const unfinished = UNFINISHED_OUTCOMES.includes(r.outcome);
+	let live: string | undefined;
 	r.phases?.forEach((p, i) => {
-		if ((p.state === 'in-progress' && !unfinished) || (p.state === 'interrupted' && unfinished)) {
-			fail(`${path}.phases[${i}]`, `a ${p.state} phase of a ${r.outcome} run`);
+		if (p.state !== 'in-progress') return;
+		if (!unfinished) fail(`${path}.phases[${i}]`, `a ${p.state} phase of a ${r.outcome} run`);
+		if (live !== undefined && p.pod !== live) {
+			fail(`${path}.phases[${i}]`, `phases in progress from pods ${live} and ${p.pod}`);
 		}
+		live = p.pod;
 	});
 }
 

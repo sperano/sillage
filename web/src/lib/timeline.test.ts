@@ -43,7 +43,7 @@ test('the retry is a second run row', () => {
 test('a phase sits at its first recorded edge, an inconsistent pair at the earlier', () => {
 	const items = timelineItems(goldenStory('phase-markers'));
 	const phases = items.filter((i) => i.kind === 'phase');
-	expect(phases).toHaveLength(7);
+	expect(phases).toHaveLength(8);
 	const backwards = phases.find(
 		(i) =>
 			i.kind === 'phase' && i.phase.state === 'inconsistent' && i.phase.end?.kind === 'wiki-login'

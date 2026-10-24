@@ -274,7 +274,8 @@ func checkSecondPRAfterClose(t *testing.T, s model.Story) {
 }
 
 // phasesWant are the phases of phase-markers' failed attempt and of its
-// retry, in order: each state, and its edges' kinds ("" for none).
+// retry, in order: each state, and its edges' kinds ("" for none). The
+// retry's first agent span is its Job's first pod's.
 var phasesWant = [][]struct {
 	state      model.PhaseState
 	start, end model.MarkerKind
@@ -287,6 +288,7 @@ var phasesWant = [][]struct {
 		{model.PhaseInconsistent, model.MarkerWikiLogin, model.MarkerAgent},
 	},
 	{
+		{model.PhaseInterrupted, model.MarkerAgent, ""},
 		{model.PhaseInProgress, model.MarkerAgent, ""},
 		{model.PhaseStartNotRecorded, "", model.MarkerWikiLogin},
 	},
@@ -294,7 +296,8 @@ var phasesWant = [][]struct {
 
 // checkPhaseMarkers: a phase is never inferred from a pod or a gap, nor
 // closed at the run's end; each recorded edge stays, and an inconsistent
-// pair has no interval; a heuristic join never makes a phase certain.
+// pair has no interval; a heuristic join never makes a phase certain; a
+// retried Job's earlier pod is not shown running.
 func checkPhaseMarkers(t *testing.T, s model.Story) {
 	if len(s.Runs) != len(phasesWant) {
 		t.Fatalf("runs = %d, want the failed attempt and its retry", len(s.Runs))
@@ -311,6 +314,10 @@ func checkPhaseMarkers(t *testing.T, s model.Story) {
 			}
 			checkPhaseRecorded(t, run, p)
 		}
+		checkOneLivePod(t, run)
+	}
+	if dead, live := s.Runs[1].Phases[0], s.Runs[1].Phases[1]; dead.Pod == live.Pod {
+		t.Errorf("the retry's agent spans are both pod %s's, want the Job's two pods", dead.Pod)
 	}
 	first := s.Runs[0].Phases[0]
 	if first.Confidence != model.ConfidenceHeuristic || first.Pod == s.Runs[0].Pod {
@@ -348,10 +355,24 @@ func checkPhaseRecorded(t *testing.T, run model.Run, p model.Phase) {
 			t.Errorf("run %s phase %s: bound %+v, recorded %+v", run.Key, p.Span, b.bound, b.mark)
 		}
 	}
-	unfinished := run.Interval.End.State == model.BoundOpen
-	if p.End == nil && (p.Interval.End.State == model.BoundOpen) != unfinished {
-		t.Errorf("run %s phase %s with no end recorded ends %s, run ends %s", run.Key, p.Span,
-			p.Interval.End.State, run.Interval.End.State)
+	if p.Interval.End.State == model.BoundOpen && run.Interval.End.State != model.BoundOpen {
+		t.Errorf("run %s phase %s is open, run ends %s", run.Key, p.Span, run.Interval.End.State)
+	}
+}
+
+// checkOneLivePod fails t unless the open phases of run are all one pod's:
+// a start alone from any other pod is interrupted.
+func checkOneLivePod(t *testing.T, run model.Run) {
+	t.Helper()
+	live := ""
+	for _, p := range run.Phases {
+		if p.Interval == nil || p.Interval.End.State != model.BoundOpen {
+			continue
+		}
+		if live != "" && p.Pod != live {
+			t.Errorf("run %s has open phases from pods %s and %s", run.Key, live, p.Pod)
+		}
+		live = p.Pod
 	}
 }
 

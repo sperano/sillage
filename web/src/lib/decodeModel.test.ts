@@ -349,11 +349,15 @@ describe('a story the Go model would reject', () => {
 
 // The phase-markers story's first run holds, in order: a complete blocker
 // wait, an interrupted agent span, a complete wiki login and two
-// inconsistent pairs; its retry an agent span in progress and a login
-// whose start was not recorded.
+// inconsistent pairs; its retry the interrupted agent span of its Job's
+// first pod, the second pod's agent span in progress and a login whose
+// start was not recorded.
 const PHASE_STORY = 'phase-markers';
 const FAILED_RUN = 0;
 const RETRY = 1;
+const RETRY_DEAD_POD = 0;
+const RETRY_LIVE_POD = 1;
+const RETRY_LOGIN = 2;
 
 function phased(change: (story: unknown) => void): unknown {
 	const story = goldenStory(PHASE_STORY);
@@ -395,7 +399,7 @@ describe('a phase the Go model would not make', () => {
 		[
 			'a phase with no edge',
 			(s) => {
-				remove(s, phasePath(RETRY, 1, 'end'));
+				remove(s, phasePath(RETRY, RETRY_LOGIN, 'end'));
 			},
 			'a phase has a recorded edge'
 		],
@@ -436,12 +440,12 @@ describe('a phase the Go model would not make', () => {
 			'a in-progress phase of a failed run'
 		],
 		[
-			'an interrupted phase on a running run',
+			'phases in progress from two pods of one run',
 			(s) => {
-				set(s, ['runs', FAILED_RUN, 'outcome'], 'running');
-				set(s, ['runs', FAILED_RUN, 'interval', 'end'], { state: 'open' });
+				set(s, phasePath(RETRY, RETRY_DEAD_POD, 'state'), 'in-progress');
+				set(s, phasePath(RETRY, RETRY_DEAD_POD, 'interval', 'end'), { state: 'open' });
 			},
-			'a interrupted phase of a running run'
+			'phases in progress from pods'
 		],
 		['an empty list', (s) => set(s, ['runs', RETRY, 'phases'], []), 'at least one is required'],
 		[
@@ -457,6 +461,12 @@ describe('a phase the Go model would not make', () => {
 		expect(() => parseStory(phased(change))).toThrow(DecodeError);
 		expect(() => parseStory(phased(change))).toThrow(problem);
 	});
+});
+
+test('a retried Job’s earlier pod has its phase interrupted while the run runs', () => {
+	const phases = parseStory(goldenStory(PHASE_STORY)).runs[RETRY]?.phases ?? [];
+	expect(phases.map((p) => p.state)).toEqual(['interrupted', 'in-progress', 'start-not-recorded']);
+	expect(phases[RETRY_DEAD_POD]?.pod).not.toBe(phases[RETRY_LIVE_POD]?.pod);
 });
 
 interface EventContract {

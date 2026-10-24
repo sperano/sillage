@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -220,4 +221,70 @@ func TestBuildStoryRejectsBadMarkers(t *testing.T) {
 			"duplicate record"},
 		{"an invalid marker", Records{Runs: []Run{testRun(testPhaseRun)}, Markers: []Marker{invalid}}, "span"},
 	})
+}
+
+const (
+	testRetryPod = "task-42-fghij"
+	testRetryUID = "pod-uid-2"
+)
+
+// retryMarker is phaseMarker of testOtherSpan, from a retried Job's
+// second pod.
+func retryMarker(kind MarkerKind, edge MarkerEdge, minutes int) Marker {
+	m := phaseMarker(kind, edge, minutes)
+	m.Report.Span = testOtherSpan
+	m.Sender.Pod, m.Sender.PodUID = testRetryPod, testRetryUID
+	return m
+}
+
+// observedWith is a run.observed event of the running run naming pod,
+// observed at minute minutes.
+func observedWith(pod string, minutes int) Event {
+	run := testRunKey(testPhaseRun)
+	return Event{Source: SourceKelos, Instance: testCluster, ID: "tasks/task-42@" + pod, IDKind: IDSource,
+		Kind: KindRunObserved, ObservedAt: at(minutes), Actor: Account{Kind: ActorUnknown},
+		Related: Related{Run: &run}, Details: map[string]string{observedPodDetail: pod},
+		Evidence: Evidence{Source: SourceKelos, Instance: testCluster, Ref: "tasks/task-42"}}
+}
+
+// TestPhaseOfARetriedJobsEarlierPod: a start alone is in progress only
+// from the pod sillage last saw the running run with, by its own clock.
+func TestPhaseOfARetriedJobsEarlierPod(t *testing.T) {
+	start := phaseMarker(MarkerAgent, EdgeStart, 1)
+	for _, c := range []struct {
+		name    string
+		events  []Event
+		markers []Marker
+		want    map[string]PhaseState // by pod
+	}{
+		{"another pod's later marker", nil, []Marker{start, retryMarker(MarkerAgent, EdgeStart, 5)},
+			map[string]PhaseState{testPhasePod: PhaseInterrupted, testRetryPod: PhaseInProgress}},
+		{"another pod's earlier marker", nil, []Marker{start, retryMarker(MarkerAgent, EdgeEnd, 0)},
+			map[string]PhaseState{testPhasePod: PhaseInProgress, testRetryPod: PhaseStartNotRecorded}},
+		{"another pod observed later", []Event{observedWith(testRetryPod, 3)}, []Marker{start},
+			map[string]PhaseState{testPhasePod: PhaseInterrupted}},
+		{"another pod observed earlier", []Event{observedWith(testRetryPod, 0)}, []Marker{start},
+			map[string]PhaseState{testPhasePod: PhaseInProgress}},
+		{"its pod observed after another's marker", []Event{observedWith(testPhasePod, 6)},
+			[]Marker{start, retryMarker(MarkerAgent, EdgeEnd, 4)},
+			map[string]PhaseState{testPhasePod: PhaseInProgress, testRetryPod: PhaseStartNotRecorded}},
+		{"two pods seen at one instant", []Event{observedWith(testPhasePod, 3), observedWith(testRetryPod, 3)},
+			[]Marker{start}, map[string]PhaseState{testPhasePod: PhaseInterrupted}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			kelos := Coverage{Source: SourceKelos, Instance: testCluster, LastSuccessfulRead: timePtr(at(60))}
+			s, err := BuildStory(testRoot(), Records{Events: c.events, Runs: []Run{runningRun()},
+				Coverage: []Coverage{kelos}, Markers: c.markers})
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := make(map[string]PhaseState)
+			for _, p := range s.Runs[0].Phases {
+				got[p.Pod] = p.State
+			}
+			if !maps.Equal(got, c.want) {
+				t.Errorf("states by pod = %v, want %v", got, c.want)
+			}
+		})
+	}
 }

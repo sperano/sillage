@@ -340,6 +340,41 @@
       ],
       "phases": [
         {
+          "span": "00000000000000000000000000109008",
+          "pod": "vikunja-widgets-agent-opus-109-k3m8w",
+          "podUID": "22222222-0000-4000-8000-0000000109b1",
+          "state": "interrupted",
+          "start": {
+            "kind": "agent",
+            "emitter": "entrypoint",
+            "at": "2026-03-14T11:00:40Z"
+          },
+          "interval": {
+            "start": {
+              "state": "known",
+              "at": "2026-03-14T11:00:40Z"
+            },
+            "end": {
+              "state": "unknown"
+            }
+          },
+          "confidence": "heuristic",
+          "evidence": [
+            {
+              "source": "kelos",
+              "instance": "cluster-a",
+              "ref": "pods/agents/vikunja-widgets-agent-opus-109-k3m8w",
+              "note": "start of span 00000000000000000000000000109008 reported by entrypoint in pod vikunja-widgets-agent-opus-109-k3m8w, received 2026-03-14T11:00:40.06Z"
+            },
+            {
+              "source": "kelos",
+              "instance": "cluster-a",
+              "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+              "note": "no run is known for pod vikunja-widgets-agent-opus-109-k3m8w; the Task name the marker gives, vikunja-widgets-agent-opus-109, and its time, 2026-03-14T11:00:40Z, fit the interval of one run of that name only: uncertain"
+            }
+          ]
+        },
+        {
           "span": "00000000000000000000000000109006",
           "pod": "vikunja-widgets-agent-opus-109-r7q9t",
           "podUID": "22222222-0000-4000-8000-0000000109b2",

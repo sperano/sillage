@@ -405,8 +405,9 @@ describe('phases', () => {
 	test('a heuristic join is drawn and labelled uncertain', async () => {
 		const { container } = await show(golden(PHASED));
 		const uncertain = all(container, '[data-confidence="heuristic"]');
-		expect(uncertain).toHaveLength(1);
-		expect(uncertain[0]?.getAttribute('aria-label')).toContain('(uncertain)');
+		// The Job's first pod of each run, which no Kelos read named.
+		expect(uncertain).toHaveLength(2);
+		for (const mark of uncertain) expect(mark.getAttribute('aria-label')).toContain('(uncertain)');
 	});
 
 	test('nested phases stack on sub-tracks under the run bar, inside its row', async () => {

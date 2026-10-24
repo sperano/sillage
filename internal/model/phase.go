@@ -19,11 +19,13 @@ const (
 	// PhaseComplete: both edges recorded, of one kind, the end not before
 	// the start. Its interval is known to known.
 	PhaseComplete PhaseState = "complete"
-	// PhaseInProgress: only the start recorded, and the run had not ended
-	// at the last read. Its end is open.
+	// PhaseInProgress: only the start recorded, the run had not ended at
+	// the last read, and its pod is the last one sillage saw the run with.
+	// Its end is open.
 	PhaseInProgress PhaseState = "in-progress"
 	// PhaseInterrupted: only the start recorded, and the run is not
-	// running: no end was recorded. Its end is unknown.
+	// running, or another pod of the run (a retried Job's) was seen after
+	// it: no end was recorded. Its end is unknown.
 	PhaseInterrupted PhaseState = "interrupted"
 	// PhaseStartNotRecorded: only the end recorded. Its start is unknown.
 	PhaseStartNotRecorded PhaseState = "start-not-recorded"
@@ -70,6 +72,10 @@ type Phase struct {
 // have phases: pods push markers, so sillage cannot know what an emitter
 // failed to send.
 const PhaseMarkersNote = "phase markers: best effort; a missing marker is not a missing phase"
+
+// observedPodDetail is the run.observed detail naming the Task's pod at
+// the time.
+const observedPodDetail = "pod"
 
 // spanKey is one span of one pod.
 type spanKey struct{ podUID, span string }
@@ -118,7 +124,9 @@ func validateMarker(m Marker, runs map[RunKey]bool) error {
 }
 
 // addPhases replaces each run's phases with those its markers establish:
-// the markers of one pod and span, on one run, are one phase.
+// the markers of one pod and span, on one run, are one phase. A phase
+// with no end is open only while its run is unfinished and its pod is the
+// run's latest: a retried Job's earlier pod is not known to be running.
 func (r *Records) addPhases() {
 	byRun := make(map[RunKey]map[spanKey]*spanEdges)
 	for i := range r.Markers {
@@ -138,14 +146,57 @@ func (r *Records) addPhases() {
 			spans[k].end = m
 		}
 	}
+	latest := r.latestPods()
 	for i := range r.Runs {
 		run := &r.Runs[i]
 		run.Phases = nil
 		for _, edges := range byRun[run.Key] {
-			run.Phases = append(run.Phases, newPhase(*edges, run.Interval.End.State == BoundOpen))
+			pod := edges.start
+			if pod == nil {
+				pod = edges.end
+			}
+			live := run.Interval.End.State == BoundOpen && latest[run.Key] == pod.Sender.Pod
+			run.Phases = append(run.Phases, newPhase(*edges, live))
 		}
 		slices.SortFunc(run.Phases, comparePhases)
 	}
+}
+
+// sighting is the latest time sillage saw a run with a pod; pod is empty
+// when two pods were seen at that instant.
+type sighting struct {
+	pod string
+	at  time.Time
+}
+
+// latestPods names, for each run, the pod sillage last saw it with, by its
+// own clock: the pod a run.observed event names when it was observed, or
+// a marker's sender when it was received. A pod's clock never orders
+// pods, and two pods seen at one instant leave the run with none.
+func (r *Records) latestPods() map[RunKey]string {
+	seen := make(map[RunKey]sighting)
+	see := func(run RunKey, pod string, at time.Time) {
+		s, ok := seen[run]
+		switch {
+		case !ok || at.After(s.at):
+			seen[run] = sighting{pod, at}
+		case at.Equal(s.at) && pod != s.pod:
+			seen[run] = sighting{"", at}
+		}
+	}
+	for _, e := range r.Events {
+		if pod := e.Details[observedPodDetail]; e.Kind == KindRunObserved && e.Related.Run != nil && pod != "" {
+			see(*e.Related.Run, pod, e.ObservedAt)
+		}
+	}
+	for _, m := range r.Markers {
+		see(m.Join.Run, m.Sender.Pod, m.ReceivedAt)
+	}
+	latest := make(map[RunKey]string, len(seen))
+	for run, s := range seen {
+		latest[run] = s.pod
+	}
+	return latest
 }
 
 // notePhases adds PhaseMarkersNote to the Kelos coverage of each cluster
@@ -166,9 +217,10 @@ func (r *Records) notePhases() {
 	}
 }
 
-// newPhase pairs a span's edges. unfinished says whether the run had not
-// ended at the last read, which keeps a phase with no end open.
-func newPhase(e spanEdges, unfinished bool) Phase {
+// newPhase pairs a span's edges. live says whether the run had not ended
+// at the last read and the span's pod is its latest, which keeps a phase
+// with no end open.
+func newPhase(e spanEdges, live bool) Phase {
 	first := e.start
 	if first == nil {
 		first = e.end
@@ -187,12 +239,12 @@ func newPhase(e spanEdges, unfinished bool) Phase {
 	}
 	p.Evidence = uniqueEvidence(p.Evidence)
 	p.Start, p.End = phaseMark(e.start), phaseMark(e.end)
-	p.State, p.Interval = pair(p.Start, p.End, unfinished)
+	p.State, p.Interval = pair(p.Start, p.End, live)
 	return p
 }
 
 // pair returns what a span's recorded edges establish.
-func pair(start, end *PhaseMark, unfinished bool) (PhaseState, *Interval) {
+func pair(start, end *PhaseMark, live bool) (PhaseState, *Interval) {
 	switch {
 	case start != nil && end != nil:
 		if start.Kind != end.Kind || end.At.Before(start.At) {
@@ -201,7 +253,7 @@ func pair(start, end *PhaseMark, unfinished bool) (PhaseState, *Interval) {
 		return PhaseComplete, &Interval{Start: KnownAt(start.At), End: KnownAt(end.At)}
 	case end != nil:
 		return PhaseStartNotRecorded, &Interval{Start: UnknownBound(), End: KnownAt(end.At)}
-	case unfinished:
+	case live:
 		return PhaseInProgress, &Interval{Start: KnownAt(start.At), End: OpenEnd()}
 	}
 	return PhaseInterrupted, &Interval{Start: KnownAt(start.At), End: UnknownBound()}

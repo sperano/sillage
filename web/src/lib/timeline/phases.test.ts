@@ -19,7 +19,7 @@ describe('phaseSpans', () => {
 			'pair',
 			'pair'
 		]);
-		expect(phaseSpans(retry).map((s) => s.shape)).toEqual(['start', 'end']);
+		expect(phaseSpans(retry).map((s) => s.shape)).toEqual(['start', 'start', 'end']);
 	});
 
 	test('a run with no phases has none', () => {
@@ -47,7 +47,8 @@ describe('packPhases', () => {
 });
 
 test('a phase’s description says what is not recorded and who reported it', () => {
-	const [progress, late] = phaseSpans(retry);
+	const [dead, progress, late] = phaseSpans(retry);
+	expect(phaseDescription(dead!, 'utc')).toContain('end not recorded');
 	expect(phaseDescription(progress!, 'utc')).toContain('not ended at the last read');
 	expect(phaseDescription(late!, 'utc')).toContain('start not recorded');
 	expect(phaseDescription(late!, 'utc')).toContain('reported by wiki_gql in pod');
