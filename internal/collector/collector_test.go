@@ -6,7 +6,12 @@ import (
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/model/storytest"
 	"github.com/sperano/sillage/internal/source/github"
+	"github.com/sperano/sillage/internal/testzone"
 )
+
+// TestMain runs the tests outside UTC, so that output depending on the
+// host's zone fails here too.
+func TestMain(m *testing.M) { testzone.Main(m) }
 
 // storyCase is a fixture story assembled from its sources' responses.
 type storyCase struct {

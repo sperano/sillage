@@ -22,6 +22,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `cmd/sillage/` | The one binary: a server of `GET /healthz`, `GET /metrics`, the read API under `/api/`, the webhook ingest paths under `/ingest/` (off, answering 503, until the collection loop drains the reads they ask for) and the embedded frontend (its `index.html` for every other `GET` path without a file extension, so client-side routes deep-link), and, with `SILLAGE_DATABASE_URL` set, the collection loop into the store the API reads (`loopStore` adapts `store.Store` to `reconcile.Store`); and `sillage story`, which prints one story assembled from the live sources. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s, what the API answers `internal/api`'s, what a delivery does `internal/ingest`'s. |
 | `internal/model/` | Normalized events, runs, entities and links, and coverage. Source-independent. |
 | `internal/model/storytest/` | The invariant each fixture story exists for, asserted by the model's and the collector's tests. |
+| `internal/testzone/` | `TestMain` for the packages with golden files: their tests run with `time.Local` seven hours west of UTC, so output that depends on the host's zone fails on every machine. |
 | `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage; and names the roots a Kelos read points to. Read once, nothing kept: a caller passes what a store kept back in. |
 | `internal/source/vikunja/` | Read-only Vikunja client and its normalization into `model`. |
 | `internal/source/github/` | Read-only GitHub client and its normalization into `model`. |
@@ -170,6 +171,9 @@ change to the story JSON also changes `web/src/lib/model.ts` and
 - **An unknown interval stays unknown.** A gap between two records is never
   drawn or counted as work, waiting or idle time. A correlation the evidence
   does not establish is shown as uncertain, not as a causal link.
+- **A time read from a source never takes the host's zone.** A decoder that
+  puts times in `time.Local` (Kubernetes' `metav1.Time` does) has its times
+  converted to UTC; `model.BuildStory` turns every time into UTC.
 - Named constants, not magic numbers.
 - Files ≤ ~500 lines, functions ≤ ~50; compose small functions.
 - Tests live in sibling files: `foo.go` → `foo_test.go`, `foo.ts` →

@@ -91,7 +91,7 @@ func (b *runBuilder) taskOnly() {
 		return
 	}
 	if !t.CreationTimestamp.IsZero() {
-		created := t.CreationTimestamp.Time
+		created := utc(t.CreationTimestamp)
 		b.run.Created = &created
 		b.timesFromTask = true
 		b.fromTask("created", "metadata.creationTimestamp")
@@ -205,8 +205,13 @@ func bound(t *metav1.Time) model.Bound {
 	if t == nil || t.IsZero() {
 		return model.UnknownBound()
 	}
-	return model.KnownAt(t.Time)
+	return model.KnownAt(utc(*t))
 }
+
+// utc returns a decoded Kelos time in UTC. metav1.Time's decoder converts
+// every time to time.Local, so without it a run's times would take the
+// host's offset: the same instant, serialized differently on each host.
+func utc(t metav1.Time) time.Time { return t.UTC() }
 
 // effectiveModel sets the model: the TaskRecord's, else the Task's own
 // unless a WorkerPool, which is not read, sets it.
