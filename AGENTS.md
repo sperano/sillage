@@ -19,7 +19,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 
 | Path | What goes there |
 | --- | --- |
-| `cmd/sillage/` | The one binary: a server of `GET /healthz`, `GET /metrics`, the read API under `/api/` and the embedded frontend (its `index.html` for every other `GET` path without a file extension, so client-side routes deep-link), and, with `SILLAGE_DATABASE_URL` set, the collection loop into the store the API reads (`loopStore` adapts `store.Store` to `reconcile.Store`); and `sillage story`, which prints one story assembled from the live sources. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s, what the API answers `internal/api`'s. |
+| `cmd/sillage/` | The one binary: a server of `GET /healthz`, `GET /metrics`, the read API under `/api/`, the webhook ingest paths under `/ingest/` (off, answering 503, until the collection loop drains the reads they ask for) and the embedded frontend (its `index.html` for every other `GET` path without a file extension, so client-side routes deep-link), and, with `SILLAGE_DATABASE_URL` set, the collection loop into the store the API reads (`loopStore` adapts `store.Store` to `reconcile.Store`); and `sillage story`, which prints one story assembled from the live sources. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s, what the API answers `internal/api`'s, what a delivery does `internal/ingest`'s. |
 | `internal/model/` | Normalized events, runs, entities and links, and coverage. Source-independent. |
 | `internal/model/storytest/` | The invariant each fixture story exists for, asserted by the model's and the collector's tests. |
 | `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage; and names the roots a Kelos read points to. Read once, nothing kept: a caller passes what a store kept back in. |
@@ -34,6 +34,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/reconcile/storetest/` | The contract of `reconcile.Store`, asserted of the loop tests' fake and, against PostgreSQL, of `cmd/sillage`'s adapter: a store the loop's tests do not model fails it first. |
 | `internal/store/` | PostgreSQL persistence of `model` records, checkpoints and coverage; `migrations/` holds the numbered SQL files embedded and applied at startup (add one, never edit one that shipped). |
 | `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, search, link resolution, version. No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
+| `internal/ingest/` | The webhook receiver: `POST /ingest/vikunja` and `POST /ingest/github`, authenticated by their signatures alone (they bypass the forward-auth). Each authenticated attempt is recorded in the store as evidence that sillage received it (`model.Delivery`), and asks the collector to read the roots it names again; no record comes from a payload. `Queue` is the collector loop's end of those requests. |
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
 | `web/src/lib/` | The story types (`model.ts`), their key strings (`keys.ts`) and their runtime decoder, the read API client, the routes and the router. |
@@ -64,7 +65,8 @@ The frontend routes with the history API, not the hash, so that a link to
 it is a plain URL: `/` (the entry page; `/?q=` a search), `/task/<instance>/<id>`,
 `/page/<instance>/<id>/<locale>`, and `/open?url=<link>`, which resolves a
 Vikunja, Kelos, GitHub or wiki link to its story. The server must answer
-every non-API `GET` path with `index.html` for those deep links to load.
+every `GET` path outside `/api/`, `/ingest/`, `/healthz` and `/metrics`
+with `index.html` for those deep links to load.
 The API client (`web/src/lib/api.ts`) makes one request per call, never
 retries, and aborts what a navigation leaves behind.
 

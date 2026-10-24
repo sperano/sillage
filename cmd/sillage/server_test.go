@@ -20,7 +20,7 @@ func testHandler() http.Handler {
 	return newHandler(fstest.MapFS{
 		indexFile:         {Data: []byte(testIndex)},
 		"assets/app-1.js": {Data: []byte(testScript)},
-	}, api.New(api.Config{Version: "test"}), metrics)
+	}, api.New(api.Config{Version: "test"}), ingestUnavailable("test"), metrics)
 }
 
 func TestHealthz(t *testing.T) {

@@ -10,9 +10,9 @@ import (
 	"github.com/sperano/sillage/internal/source/kelos"
 )
 
-// DiscoveredLocale is the locale of a page a Kelos Task names: the wiki
-// spawner names a page by its id alone, which Wiki.js keeps unique across
-// locales, and the agents' wiki is in this locale.
+// DiscoveredLocale is the locale of a page a Kelos Task or a branch names:
+// the wiki spawner names a page by its id alone, which Wiki.js keeps
+// unique across locales, and the agents' wiki is in this locale.
 const DiscoveredLocale = "en"
 
 // Discovered is a root that a Kelos read names, with the runs that name
