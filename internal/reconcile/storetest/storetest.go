@@ -138,8 +138,8 @@ func runKept(t *testing.T, s reconcile.Store) {
 }
 
 // placeholderRekeyed commits the announcement of a run known only by
-// its pod, then the run as Kelos read it: the run, the announcement's
-// run and the correlations name the UID.
+// its pod, then the run as Kelos read it: the run and the
+// announcement's run name the UID, and no correlation names the pod.
 func placeholderRekeyed(t *testing.T, s reconcile.Store) {
 	placeholder := placeholderRun()
 	announcement := announcementOf("comments/900", 1, placeholder)
