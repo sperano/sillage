@@ -476,7 +476,7 @@
         {
           "start": "2026-03-14T10:30:00Z",
           "end": "2026-03-14T10:38:00Z",
-          "reason": "sillage was not collecting after its last cycle, which ended at 2026-03-14T10:30:00Z, until it restarted at 2026-03-14T10:38:00Z: what the source showed meanwhile, and no longer shows, is unknown; the phase markers pods sent meanwhile were not received"
+          "reason": "sillage was not collecting after its last cycle, which ended at 2026-03-14T10:30:00Z, until it restarted at 2026-03-14T10:38:00Z: what the source showed meanwhile, and no longer shows, is unknown; the phase markers pods sent meanwhile may not have been received"
         }
       ],
       "notes": [

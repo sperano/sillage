@@ -54,6 +54,7 @@ import {
 	type PageKey,
 	type Phase,
 	type PhaseMark,
+	type PhaseState,
 	type PullRequest,
 	type Ref,
 	type Related,
@@ -224,7 +225,7 @@ const phaseMark: Decoder<PhaseMark> = refine(
 
 // A start has no outcome and no attempts; an end has an outcome of its
 // kind, and attempts exactly when its kind counts them.
-function checkEdges({ start, end }: Phase, path: string): void {
+function checkEdges({ start, end }: PhaseFields, path: string): void {
 	if (!start && !end) fail(path, 'a phase has a recorded edge');
 	if (start && (start.outcome !== undefined || start.attempts !== undefined)) {
 		fail(`${path}.start`, 'a start has no outcome and no attempts');
@@ -248,10 +249,10 @@ function boundOf(b: Bound, mark: PhaseMark | undefined): boolean {
 
 // What the edges establish, as the Go model's pair: a known bound at each
 // recorded edge and nowhere else, and no interval when they do not pair.
-function checkPairing(p: Phase, path: string): void {
+function checkPairing(p: PhaseFields, path: string): void {
 	const { start, end, interval: i } = p;
 	const paired = start && end && start.kind === end.kind && compareTimes(end.at, start.at) >= 0;
-	const want: Record<Phase['state'], boolean> = {
+	const want: Record<PhaseState, boolean> = {
 		complete: !!paired,
 		'in-progress': !!start && !end && i?.end.state === 'open',
 		interrupted: !!start && !end && i?.end.state === 'unknown',
@@ -267,25 +268,29 @@ function checkPairing(p: Phase, path: string): void {
 	}
 }
 
-export const phase: Decoder<Phase> = refine(
-	object(
-		{
-			span: refine(text, (v, path) => {
-				if (!SPAN.test(v)) fail(path, `${JSON.stringify(v)} is not a span id`);
-			}),
-			pod: text,
-			podUID: text,
-			state: oneOf(PHASE_STATES),
-			confidence: oneOf(CONFIDENCES),
-			evidence: nonEmpty(array(evidence))
-		},
-		{ start: phaseMark, end: phaseMark, interval }
-	),
-	(p, path) => {
-		checkEdges(p, path);
-		checkPairing(p, path);
-	}
+const phaseFields = object(
+	{
+		span: refine(text, (v, path) => {
+			if (!SPAN.test(v)) fail(path, `${JSON.stringify(v)} is not a span id`);
+		}),
+		pod: text,
+		podUID: text,
+		state: oneOf(PHASE_STATES),
+		confidence: oneOf(CONFIDENCES),
+		evidence: nonEmpty(array(evidence))
+	},
+	{ start: phaseMark, end: phaseMark, interval }
 );
+// A phase's fields before its state is known to name its edges and interval.
+type PhaseFields = ReturnType<typeof phaseFields>;
+
+export const phase: Decoder<Phase> = (value, path) => {
+	const p = phaseFields(value, path);
+	checkEdges(p, path);
+	checkPairing(p, path);
+	// checkPairing established the edges and the interval its state names.
+	return p as Phase;
+};
 
 // A phase with no end recorded is in progress while its run is unfinished,
 // and interrupted once it is not.

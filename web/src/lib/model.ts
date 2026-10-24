@@ -249,23 +249,28 @@ export interface PhaseMark {
 	attempts?: number;
 }
 
-/**
- * A span of a run its pod reported with phase markers. It exists only where
- * a marker was received: no pod, gap or run interval makes one. Its
- * interval is absent when the edges are inconsistent; a heuristic
- * confidence makes it uncertain.
- */
-export interface Phase {
+interface PhaseFields {
 	span: string;
 	pod: string;
 	podUID: string;
-	state: PhaseState;
-	start?: PhaseMark;
-	end?: PhaseMark;
-	interval?: Interval;
 	confidence: Confidence;
 	evidence: Evidence[];
 }
+
+/**
+ * A span of a run its pod reported with phase markers. It exists only where
+ * a marker was received: no pod, gap or run interval makes one. Its state
+ * names the edges recorded: both (complete, or inconsistent, which has no
+ * interval), a start alone, or an end alone. A heuristic confidence makes
+ * it uncertain.
+ */
+export type Phase = PhaseFields &
+	(
+		| { state: 'complete'; start: PhaseMark; end: PhaseMark; interval: Interval }
+		| { state: 'in-progress' | 'interrupted'; start: PhaseMark; end?: never; interval: Interval }
+		| { state: 'start-not-recorded'; start?: never; end: PhaseMark; interval: Interval }
+		| { state: 'inconsistent'; start: PhaseMark; end: PhaseMark; interval?: never }
+	);
 
 /**
  * One Kelos Task attempt. Its times are the Kubernetes API server's and the

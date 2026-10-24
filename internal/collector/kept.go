@@ -17,9 +17,11 @@ type Kept struct {
 	// KelosSince is when Kelos was first read for the story; zero if never.
 	// A run whose Task Kelos deleted after it was read before then.
 	KelosSince time.Time
-	// Markers are the phase markers the store joined to runs; those
-	// joined to a run of the story become its phases. No source is read
-	// for them: pods push them to the store.
+	// Markers are phase markers joined to runs; those joined to a run of
+	// the story become its phases. No source is read for them: pods push
+	// them to the store. Only tests set them, so that the collector
+	// assembles the phase-markers fixture story: the loop passes none, and
+	// its stories get their phases when the store reads them.
 	Markers []model.Marker
 }
 

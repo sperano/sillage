@@ -30,10 +30,14 @@ export function stateText(state: PhaseState): string {
 	return named(stateTexts, state);
 }
 
-/** The phase's kind: its start's, else its end's. */
+/** The phase's first recorded edge: its start, else its end. */
+export function firstEdge(p: Phase): PhaseMark {
+	return p.state === 'start-not-recorded' ? p.end : p.start;
+}
+
+/** The phase's kind: its first recorded edge's. */
 export function phaseKind(p: Phase): MarkerKind {
-	// A decoded phase has at least one edge.
-	return (p.start ?? p.end)!.kind;
+	return firstEdge(p).kind;
 }
 
 /** How an end edge says its span ended: its outcome and, for a login, its attempts. */
@@ -59,20 +63,27 @@ function phaseTitle(p: Phase): string {
 	const kind = kindName(phaseKind(p));
 	switch (p.state) {
 		case 'complete':
-			return `${kind}: ${endText(p.end!)}`;
+			return `${kind}: ${endText(p.end)}`;
 		case 'start-not-recorded':
-			return `${kind}: ${endText(p.end!)}, start not recorded`;
+			return `${kind}: ${endText(p.end)}, start not recorded`;
 		case 'inconsistent':
-			return `inconsistent markers: ${kindName(p.start!.kind)} start, ${kindName(p.end!.kind)} end`;
-		default:
+			return `inconsistent markers: ${kindName(p.start.kind)} start, ${kindName(p.end.kind)} end`;
+		case 'in-progress':
+		case 'interrupted':
 			return `${kind}: ${stateText(p.state)}`;
 	}
 }
 
 /** The time of the phase's earlier recorded edge, as sent. */
 export function phaseFirstAt(p: Phase): string {
-	const { start, end } = p;
-	if (!start) return end!.at;
-	if (!end) return start.at;
-	return compareTimes(end.at, start.at) < 0 ? end.at : start.at;
+	switch (p.state) {
+		case 'start-not-recorded':
+			return p.end.at;
+		case 'in-progress':
+		case 'interrupted':
+			return p.start.at;
+		case 'complete':
+		case 'inconsistent':
+			return compareTimes(p.end.at, p.start.at) < 0 ? p.end.at : p.start.at;
+	}
 }

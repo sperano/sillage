@@ -6,7 +6,7 @@
 
 import { runKeyString } from '../keys';
 import type { Phase, Run } from '../model';
-import { kindName, phaseText, stateText } from '../phases';
+import { firstEdge, kindName, phaseKind, phaseText, stateText } from '../phases';
 import { phaseRef, type ItemRef } from '../timeline';
 import { formatFull, type Zone } from './time';
 import type { Scale } from './view';
@@ -52,7 +52,8 @@ function shapeOf(p: Phase): PhaseShape {
 			return 'end';
 		case 'inconsistent':
 			return 'pair';
-		default:
+		case 'in-progress':
+		case 'interrupted':
 			return 'start';
 	}
 }
@@ -76,7 +77,7 @@ export function phaseSpans(run: Run): PhaseSpan[] {
 
 /** What a phase drawn as ticks says next to them: its kind and its state. */
 function tickText(p: Phase): string {
-	const kind = kindName((p.start ?? p.end)!.kind);
+	const kind = kindName(phaseKind(p));
 	const uncertain = p.confidence === 'heuristic' ? ', uncertain' : '';
 	return p.state === 'inconsistent'
 		? `${stateText(p.state)}${uncertain}`
@@ -138,7 +139,7 @@ export function phaseDescription(span: PhaseSpan, zone: Zone): string {
 	const at = (t: number | undefined, missing: string) =>
 		t === undefined ? missing : formatFull(t, zone);
 	const end = phase.state === 'in-progress' ? 'not ended at the last read' : 'end not recorded';
-	const emitter = (phase.start ?? phase.end)!.emitter;
+	const emitter = firstEdge(phase).emitter;
 	return [
 		`Phase ${phaseText(phase)}`,
 		`start ${at(span.start, 'not recorded')}`,

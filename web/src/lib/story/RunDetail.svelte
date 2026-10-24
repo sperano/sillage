@@ -9,6 +9,7 @@
 	import Bounds from './Bounds.svelte';
 	import Correlations from './Correlations.svelte';
 	import EvidenceList from './EvidenceList.svelte';
+	import LinkButton from './LinkButton.svelte';
 	import Time from './Time.svelte';
 
 	let {
@@ -101,8 +102,8 @@
 	<ul class="phases" data-testid="phases">
 		{#each run.phases as phase (`${phase.podUID}/${phase.span}`)}
 			<li>
-				<button type="button" class="link" onclick={() => selection.select(phaseRef(run, phase))}
-					>{phaseText(phase)}</button
+				<LinkButton onclick={() => selection.select(phaseRef(run, phase))}
+					>{phaseText(phase)}</LinkButton
 				>
 			</li>
 		{/each}
@@ -112,15 +113,3 @@
 <h4>Evidence</h4>
 <EvidenceList evidence={run.evidence} />
 <Correlations {story} {items} {selection} subject={runRef(run)} />
-
-<style>
-	.link {
-		padding: 0;
-		border: none;
-		background: none;
-		color: LinkText;
-		font: inherit;
-		text-decoration: underline;
-		cursor: pointer;
-	}
-</style>

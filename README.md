@@ -136,7 +136,7 @@ start or of another kind leaves both edges with no interval. A phase
 carries its edges' emitter, its pod and its join, and is uncertain when
 either edge was joined by Task name and time. The Kelos coverage of a
 story with phases notes that markers are best effort, and a restart's gap
-on it that markers sent meanwhile were not received.
+on it that markers sent meanwhile may not have been received.
 
 The image builds both (no local `web/dist/` needed) and embeds the
 frontend:

@@ -166,9 +166,10 @@ func (l *Loop) load(ctx context.Context) error {
 }
 
 // lostMarkers ends the reason of a restart's gap on Kelos coverage: the
-// phase markers pods sent while sillage was down were not received, and
-// nothing sends them again.
-const lostMarkers = "; the phase markers pods sent meanwhile were not received"
+// phase markers pods sent meanwhile may not have been received (the
+// receiver serves whether or not this process collects, and nothing tells
+// sillage whether a pod sent one), and nothing sends them again.
+const lostMarkers = "; the phase markers pods sent meanwhile may not have been received"
 
 // restartReason is the reason of the gaps a restart at now opens.
 func restartReason(lastCycle, now time.Time) string {
