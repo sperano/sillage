@@ -134,27 +134,54 @@ func noteLimit(ctx context.Context, tx pgx.Tx, m model.Marker) error {
 // the order of their pod UID, span and edge. A run must be keyed by Task
 // UID.
 func (s *Store) RunMarkers(ctx context.Context, runs []model.RunKey) ([]model.Marker, error) {
-	var clusters, namespaces, uids []string
 	for _, k := range runs {
 		if err := k.Validate(); err != nil || k.UID == "" {
 			return nil, fmt.Errorf("store: run markers: run %s is not keyed by Task UID", k)
 		}
+	}
+	var out []model.Marker
+	err := s.read(ctx, func(tx pgx.Tx) error {
+		var err error
+		out, err = runMarkers(ctx, tx, runs)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("store: run markers: %w", err)
+	}
+	return out, nil
+}
+
+// runMarkers reads the markers joined to runs, each keyed by Task UID.
+func runMarkers(ctx context.Context, tx pgx.Tx, runs []model.RunKey) ([]model.Marker, error) {
+	var clusters, namespaces, uids []string
+	for _, k := range runs {
 		clusters, namespaces, uids = append(clusters, k.Cluster), append(namespaces, k.Namespace), append(uids, k.UID)
 	}
-	rows, err := s.pool.Query(ctx, `
+	rows, err := tx.Query(ctx, `
 		SELECT m.cluster, m.namespace, m.run_uid, m.confidence, m.join_evidence, m.body FROM markers m
 		JOIN unnest($1::text[], $2::text[], $3::text[]) AS t(c, n, u)
 			ON m.cluster = t.c AND m.namespace = t.n AND m.run_uid = t.u
 		ORDER BY m.pod_uid, m.span, m.edge DESC`,
 		clusters, namespaces, uids)
 	if err != nil {
-		return nil, fmt.Errorf("store: run markers: %w", err)
+		return nil, err
 	}
-	out, err := pgx.CollectRows(rows, scanJoinedMarker)
-	if err != nil {
-		return nil, fmt.Errorf("store: run markers: %w", err)
+	return pgx.CollectRows(rows, scanJoinedMarker)
+}
+
+// storyMarkers reads the markers joined to the story's runs keyed by Task
+// UID, which model.BuildStory pairs into their phases.
+func storyMarkers(ctx context.Context, tx pgx.Tx, runs []model.Run) ([]model.Marker, error) {
+	var keys []model.RunKey
+	for _, r := range runs {
+		if r.Key.UID != "" {
+			keys = append(keys, r.Key)
+		}
 	}
-	return out, nil
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	return runMarkers(ctx, tx, keys)
 }
 
 func scanJoinedMarker(row pgx.CollectableRow) (model.Marker, error) {
@@ -178,8 +205,9 @@ func scanJoinedMarker(row pgx.CollectableRow) (model.Marker, error) {
 }
 
 // addMarkerNotes adds to the root's Kelos coverage what its markers leave
-// unknown: how many markers of its cluster no run is known for, and which
-// pods of its runs passed the limit of markers.
+// unknown: that markers are best effort, when its runs have any (as
+// model.BuildStory notes it), how many markers of its cluster no run is
+// known for, and which pods of its runs passed the limit of markers.
 func addMarkerNotes(ctx context.Context, tx pgx.Tx, root int64, coverage []model.Coverage) error {
 	for i := range coverage {
 		c := &coverage[i]
@@ -194,6 +222,13 @@ func addMarkerNotes(ctx context.Context, tx pgx.Tx, root int64, coverage []model
 		if unattached > 0 {
 			c.Notes = append(c.Notes, fmt.Sprint(unattached)+unattachedNote)
 		}
+		phased, err := hasJoinedMarkers(ctx, tx, root, c.Instance)
+		if err != nil {
+			return err
+		}
+		if phased && !slices.Contains(c.Notes, model.PhaseMarkersNote) {
+			c.Notes = append(c.Notes, model.PhaseMarkersNote)
+		}
 		pods, err := limitedPods(ctx, tx, root, c.Instance)
 		if err != nil {
 			return err
@@ -204,6 +239,17 @@ func addMarkerNotes(ctx context.Context, tx pgx.Tx, root int64, coverage []model
 		slices.Sort(c.Notes)
 	}
 	return nil
+}
+
+// hasJoinedMarkers reports whether a marker is joined to one of the root's
+// runs in cluster.
+func hasJoinedMarkers(ctx context.Context, tx pgx.Tx, root int64, cluster string) (bool, error) {
+	var found bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM markers m
+		JOIN runs r ON r.cluster = m.cluster AND r.namespace = m.namespace AND r.uid = m.run_uid
+		JOIN root_runs rr ON rr.run_id = r.id
+		WHERE rr.root_id = $1 AND m.cluster = $2)`, root, cluster).Scan(&found)
+	return found, err
 }
 
 // limitedPods returns the pods, joined to the root's runs in cluster, that

@@ -21,6 +21,11 @@ source's own format (see `../vikunja/`, `../kelos/`, `../github/`,
   `example-org/widgets` (workspace `widgets`). A list without a file is
   empty.
 - `wiki/`: the page's replies, as in `../wiki/`.
+- `markers/`: `markers.json`, the phase markers the store joined to the
+  story's runs (`model.Marker`, with its join). No source is read for
+  them: the tests pass them to the collector as kept
+  (`collectortest.Markers`), and `cmd/sillage`'s record them before the
+  loop runs.
 
 A source a story has no directory for must not be read: the fake fails the
 test. `wiki-rooted-request` reads the wiki source's own
@@ -33,3 +38,4 @@ test. `wiki-rooted-request` reads the wiki source's own
 | `wiki-rooted-request` | page 57 | The follow-up run by its Task name and announced pod; the live edit to both agent-opus runs then running (ambiguous); another page's follow-up stays out. |
 | `failed-run-retry` | task 104 | Two attempts of one Task name: the failed one known only from its TaskRecord, so its announcement is joined by time (heuristic), the retry by its pod. Two runs, never merged. |
 | `announced-run-only` | task 105 | No Kelos object of the announced run: a run keyed by pod, its interval and outcome unknown, and a Kelos gap over it. No repository known, so GitHub is not read and says so. |
+| `phase-markers` | task 109 | The failed attempt from its TaskRecord, the retry from its running Task; the kept markers onto those two runs as phases, one of them joined by Task name and time (heuristic). In `cmd/sillage`, the markers recorded before the loop's first read join once it saves the runs. |

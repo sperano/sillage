@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sperano/sillage/internal/collector/collectortest"
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/kelos"
 )
@@ -121,4 +122,37 @@ func hasLink(s model.Story, a, b model.Ref) bool {
 		}
 	}
 	return false
+}
+
+// A kept marker joined to a run of the story becomes its phase; one joined
+// to a run the story lacks is left out, as a correlation pointing outside
+// it is.
+func TestRecollectPhasesOfKeptMarkers(t *testing.T) {
+	sc := storyCases["phase-markers"]
+	markers := collectortest.Markers(t, fixturesDir, sc.Dirs)
+	other := markers[0]
+	join := *other.Join
+	join.Run.UID = "00000000-0000-4000-8000-0000000000ff"
+	other.Join = &join
+	other.Sender.PodUID, other.Sender.Pod = "pod-uid-elsewhere", "another-task-pod"
+	res, err := newStoryCollector(t, sc.Dirs).Recollect(t.Context(), sc.Root, Kept{Markers: append(markers, other)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	phases := 0
+	for _, r := range res.Story.Runs {
+		for _, p := range r.Phases {
+			phases++
+			if p.PodUID == other.Sender.PodUID {
+				t.Errorf("run %s has the phase of a marker joined to another run", r.Key)
+			}
+		}
+	}
+	spans := make(map[string]bool)
+	for _, m := range markers {
+		spans[m.Sender.PodUID+"/"+m.Report.Span] = true
+	}
+	if phases != len(spans) {
+		t.Errorf("phases = %d, want one per span of the story's markers, %d", phases, len(spans))
+	}
 }

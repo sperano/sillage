@@ -44,8 +44,9 @@ func (s *Store) read(ctx context.Context, fn func(pgx.Tx) error) error {
 	return pgx.BeginTxFunc(ctx, s.pool, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}, fn)
 }
 
-// Story returns root's stored story, or ErrNotFound. Its Kelos coverage
-// notes what the phase markers leave unknown (see addMarkerNotes).
+// Story returns root's stored story, or ErrNotFound. Its runs have the
+// phases of the markers joined to them, and its Kelos coverage notes what
+// the phase markers leave unknown (see addMarkerNotes).
 func (s *Store) Story(ctx context.Context, root model.Root) (model.Story, error) {
 	if err := root.Validate(); err != nil {
 		return model.Story{}, fmt.Errorf("store: %w", err)
@@ -57,6 +58,9 @@ func (s *Store) Story(ctx context.Context, root model.Root) (model.Story, error)
 			return err
 		}
 		if recs, err = loadRecords(ctx, tx, id); err != nil {
+			return err
+		}
+		if recs.Markers, err = storyMarkers(ctx, tx, recs.Runs); err != nil {
 			return err
 		}
 		return addMarkerNotes(ctx, tx, id, recs.Coverage)

@@ -135,8 +135,9 @@ func (a *assembly) eventsOf(kind model.EventKind) []model.Event {
 }
 
 // build validates the records into the story. Correlations that point
-// outside the story (another task a candidate run belongs to) are left
-// out. It does not change the assembly.
+// outside the story (another task a candidate run belongs to), and kept
+// markers of runs outside it, are left out. It does not change the
+// assembly.
 func (a *assembly) build() (model.Story, error) {
 	recs := model.Records{
 		Events:       slices.Collect(maps.Values(a.events)),
@@ -151,5 +152,6 @@ func (a *assembly) build() (model.Story, error) {
 		recs.Coverage = append(recs.Coverage, cov)
 	}
 	recs.Correlations = a.links.within(recs.Refs(a.root))
+	recs.Markers = a.keptMarkers(recs.Runs)
 	return model.BuildStory(a.root, recs)
 }

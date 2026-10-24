@@ -14,6 +14,7 @@ import (
 	"github.com/sperano/sillage/internal/api"
 	"github.com/sperano/sillage/internal/collector"
 	"github.com/sperano/sillage/internal/collector/collectortest"
+	"github.com/sperano/sillage/internal/ingest/marker"
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/model/storytest"
 	"github.com/sperano/sillage/internal/overview"
@@ -250,6 +251,35 @@ func TestOverviewOverTheCollectedCorpus(t *testing.T) {
 					return servedOverview(t, srv.URL, w, api.MaxOverviewLimit, "").Rows
 				})
 			}
+		})
+	}
+}
+
+// TestPhasesOverTheCollectedCorpus records each corpus story's phase
+// markers, unjoined, before the collection loop has read anything, as a
+// pod reports them before sillage sees its Task; the loop's commit joins
+// them, and the stored story keeps the invariant its story exists for.
+func TestPhasesOverTheCollectedCorpus(t *testing.T) {
+	for _, name := range storytest.Names() {
+		story := collectortest.Stories[name]
+		markers := collectortest.Markers(t, corpusFixtures, story.Dirs)
+		if len(markers) == 0 {
+			continue
+		}
+		t.Run(name, func(t *testing.T) {
+			st := newTestStore(t)
+			for _, m := range markers {
+				m.Join = nil
+				if got, err := st.RecordMarker(t.Context(), m, marker.PerPodLimit); err != nil || got != store.MarkerStored {
+					t.Fatalf("marker %s %s: %s, %v", m.Report.Span, m.Report.Edge, got, err)
+				}
+			}
+			collectCorpusStory(t, st, story)
+			stored, err := st.Story(t.Context(), story.Root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			storytest.Check(t, name, stored)
 		})
 	}
 }

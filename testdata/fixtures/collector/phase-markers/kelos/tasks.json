@@ -1,0 +1,33 @@
+{
+  "apiVersion": "kelos.dev/v1alpha2",
+  "kind": "TaskList",
+  "metadata": {},
+  "items": [
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "Task",
+      "metadata": {
+        "name": "vikunja-widgets-agent-opus-109",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-00000000109b",
+        "creationTimestamp": "2026-03-14T11:00:00Z",
+        "labels": {
+          "vikunja.example.com/project": "widgets",
+          "vikunja.example.com/variant": "agent-opus",
+          "vikunja.example.com/task": "109"
+        }
+      },
+      "spec": {
+        "type": "claude-code",
+        "prompt": "Fabricated prompt: never read into a run.",
+        "branch": "kelos/vikunja-109"
+      },
+      "status": {
+        "phase": "Running",
+        "podName": "vikunja-widgets-agent-opus-109-r7q9t",
+        "jobName": "vikunja-widgets-agent-opus-109",
+        "startTime": "2026-03-14T11:00:15Z"
+      }
+    }
+  ]
+}

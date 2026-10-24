@@ -170,8 +170,8 @@ func TestMarkerBeforeItsTask(t *testing.T) {
 		got[0].Join.Evidence[0].Ref != "tasks/agents/"+testTaskName {
 		t.Fatalf("markers = %+v, want the marker joined by its pod", got)
 	}
-	if notes := kelosNotes(t, s, root); len(notes) != 0 {
-		t.Errorf("notes = %q once joined", notes)
+	if notes := kelosNotes(t, s, root); !slices.Equal(notes, []string{model.PhaseMarkersNote}) {
+		t.Errorf("notes = %q once joined, want only that markers are best effort", notes)
 	}
 }
 
@@ -266,5 +266,47 @@ func TestRecordMarkerRefusesInvalid(t *testing.T) {
 	}
 	if _, err := s.RunMarkers(t.Context(), []model.RunKey{podRunKey(testPod)}); err == nil {
 		t.Error("markers of a run keyed by pod were read")
+	}
+}
+
+// A story's phases and its best-effort note come from the markers at each
+// read: saving the story read back stores neither, so that they go with
+// the markers.
+func TestPhasesAreNotStored(t *testing.T) {
+	s := newTestStore(t, Retention{})
+	root := taskRoot(7)
+	mustSave(t, s, root, model.Records{Runs: []model.Run{taskRun("uid-1")}, Coverage: []model.Coverage{kelosCoverage(0)}})
+	mustRecord(t, s, marker(testPod, testPodUID, testSpan, model.EdgeStart, 1), testPerPod, MarkerStored)
+	story := mustStory(t, s, root)
+	if len(story.Runs) != 1 || len(story.Runs[0].Phases) != 1 {
+		t.Fatalf("runs = %+v, want one with the marker's phase", story.Runs)
+	}
+	mustSave(t, s, root, story.Records)
+	for _, q := range []string{
+		"SELECT count(*) FROM runs WHERE body ? 'phases'",
+		"SELECT count(*) FROM coverage WHERE body::text LIKE '%" + model.PhaseMarkersNote + "%'",
+	} {
+		var n int
+		if err := s.pool.QueryRow(t.Context(), q).Scan(&n); err != nil || n != 0 {
+			t.Errorf("%s = %d (%v), want 0", q, n, err)
+		}
+	}
+	if got := mustStory(t, s, root); len(got.Runs[0].Phases) != 1 || !slices.Equal(got.Coverage[0].Notes,
+		[]string{model.PhaseMarkersNote}) {
+		t.Errorf("story read again = %+v, want the phase and the note once", got)
+	}
+}
+
+func TestBatchHoldsNoMarkers(t *testing.T) {
+	s := newTestStore(t, Retention{})
+	m := marker(testPod, testPodUID, testSpan, model.EdgeStart, 1)
+	m.Join = &model.MarkerJoin{Run: uidKey("uid-1"), Confidence: model.ConfidenceIdentifier,
+		Evidence: []model.Evidence{kelosEvidence("tasks/agents/"+testTaskName, "status")}}
+	b := Batch{Root: taskRoot(7), Records: model.Records{Runs: []model.Run{taskRun("uid-1")}, Markers: []model.Marker{m}}}
+	if err := s.Save(t.Context(), b); err == nil {
+		t.Error("Save of a batch with markers succeeded, want an error")
+	}
+	if err := s.Commit(t.Context(), Commit{Batch: &b}); err == nil {
+		t.Error("Commit of a batch with markers succeeded, want an error")
 	}
 }

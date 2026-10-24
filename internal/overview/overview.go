@@ -188,6 +188,9 @@ func onlyKinds(recs model.Records) model.Records {
 	recs.Events = events
 	recs.Runs = ownRuns(recs.Runs, recs.Correlations)
 	recs.Correlations = nil
+	// A row says nothing of a run's phases, and a dropped run's markers
+	// would join a run the story lacks.
+	recs.Markers = nil
 	return recs
 }
 

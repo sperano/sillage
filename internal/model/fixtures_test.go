@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/sperano/sillage/internal/testzone"
@@ -145,6 +146,7 @@ func shuffled(recs Records, r *rand.Rand) Records {
 	shuffle(r, out.PullRequests)
 	shuffle(r, out.Correlations)
 	shuffle(r, out.Coverage)
+	shuffle(r, out.Markers)
 	for _, run := range out.Runs {
 		shuffle(r, run.Evidence)
 	}
@@ -157,6 +159,14 @@ func shuffled(recs Records, r *rand.Rand) Records {
 	for _, c := range out.Coverage {
 		shuffle(r, c.Gaps)
 		shuffle(r, c.Notes)
+	}
+	for i := range out.Markers {
+		if j := out.Markers[i].Join; j != nil {
+			join := *j
+			join.Evidence = slices.Clone(join.Evidence)
+			shuffle(r, join.Evidence)
+			out.Markers[i].Join = &join
+		}
 	}
 	return out
 }

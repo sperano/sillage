@@ -26,6 +26,7 @@ var invariants = map[string]func(*testing.T, model.Story){
 	"checks-after-force-push": checkChecksAfterForcePush,
 	"reopened-task":           checkReopenedTask,
 	"second-pr-after-close":   checkSecondPRAfterClose,
+	"phase-markers":           checkPhaseMarkers,
 }
 
 // Names returns the fixture stories that have an invariant, sorted.
@@ -270,6 +271,95 @@ func checkSecondPRAfterClose(t *testing.T, s model.Story) {
 	if len(eventsOfKind(s, model.KindTaskDone)) != 0 {
 		t.Error("the unmerged close invented task completion")
 	}
+}
+
+// phasesWant are the phases of phase-markers' failed attempt and of its
+// retry, in order: each state, and its edges' kinds ("" for none).
+var phasesWant = [][]struct {
+	state      model.PhaseState
+	start, end model.MarkerKind
+}{
+	{
+		{model.PhaseComplete, model.MarkerBlockerWait, model.MarkerBlockerWait},
+		{model.PhaseInterrupted, model.MarkerAgent, ""},
+		{model.PhaseComplete, model.MarkerWikiLogin, model.MarkerWikiLogin},
+		{model.PhaseInconsistent, model.MarkerWikiLogin, model.MarkerWikiLogin},
+		{model.PhaseInconsistent, model.MarkerWikiLogin, model.MarkerAgent},
+	},
+	{
+		{model.PhaseInProgress, model.MarkerAgent, ""},
+		{model.PhaseStartNotRecorded, "", model.MarkerWikiLogin},
+	},
+}
+
+// checkPhaseMarkers: a phase is never inferred from a pod or a gap, nor
+// closed at the run's end; each recorded edge stays, and an inconsistent
+// pair has no interval; a heuristic join never makes a phase certain.
+func checkPhaseMarkers(t *testing.T, s model.Story) {
+	if len(s.Runs) != len(phasesWant) {
+		t.Fatalf("runs = %d, want the failed attempt and its retry", len(s.Runs))
+	}
+	for i, run := range s.Runs {
+		want := phasesWant[i]
+		if len(run.Phases) != len(want) {
+			t.Fatalf("run %s phases = %+v, want %d", run.Key, run.Phases, len(want))
+		}
+		for j, p := range run.Phases {
+			if p.State != want[j].state || markKind(p.Start) != want[j].start || markKind(p.End) != want[j].end {
+				t.Errorf("run %s phase %d = %s %q..%q, want %+v", run.Key, j, p.State, markKind(p.Start),
+					markKind(p.End), want[j])
+			}
+			checkPhaseRecorded(t, run, p)
+		}
+	}
+	first := s.Runs[0].Phases[0]
+	if first.Confidence != model.ConfidenceHeuristic || first.Pod == s.Runs[0].Pod {
+		t.Errorf("the first pod's phase = %s from %s, want a heuristic join of a pod no run names", first.Confidence,
+			first.Pod)
+	}
+	kelos := coverageOf(s, model.SourceKelos)
+	if kelos == nil || !slices.Contains(kelos.Notes, model.PhaseMarkersNote) {
+		t.Error("Kelos coverage does not say phase markers are best effort")
+	}
+}
+
+// checkPhaseRecorded fails t unless each known bound of p is the time of
+// an edge its pod recorded: no bound comes from the run, a pod or a gap.
+func checkPhaseRecorded(t *testing.T, run model.Run, p model.Phase) {
+	t.Helper()
+	if p.Start == nil && p.End == nil {
+		t.Errorf("run %s phase %s has no recorded edge", run.Key, p.Span)
+	}
+	if len(p.Evidence) == 0 || p.Pod == "" || p.PodUID == "" {
+		t.Errorf("run %s phase %s: evidence %v from pod %q (uid %q)", run.Key, p.Span, p.Evidence, p.Pod, p.PodUID)
+	}
+	if p.Interval == nil {
+		if p.State != model.PhaseInconsistent || p.Start == nil || p.End == nil {
+			t.Errorf("run %s phase %s has no interval but is %s", run.Key, p.Span, p.State)
+		}
+		return
+	}
+	for _, b := range []struct {
+		bound model.Bound
+		mark  *model.PhaseMark
+	}{{p.Interval.Start, p.Start}, {p.Interval.End, p.End}} {
+		at, known := b.bound.Time()
+		if known != (b.mark != nil) || known && !at.Equal(b.mark.At) {
+			t.Errorf("run %s phase %s: bound %+v, recorded %+v", run.Key, p.Span, b.bound, b.mark)
+		}
+	}
+	unfinished := run.Interval.End.State == model.BoundOpen
+	if p.End == nil && (p.Interval.End.State == model.BoundOpen) != unfinished {
+		t.Errorf("run %s phase %s with no end recorded ends %s, run ends %s", run.Key, p.Span,
+			p.Interval.End.State, run.Interval.End.State)
+	}
+}
+
+func markKind(m *model.PhaseMark) model.MarkerKind {
+	if m == nil {
+		return ""
+	}
+	return m.Kind
 }
 
 func eventsForPR(s model.Story, kind model.EventKind, key model.PRKey) []model.Event {

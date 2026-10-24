@@ -162,8 +162,8 @@ func TestFreshness(t *testing.T) {
 		}
 	}
 	kelos := byKey["kelos/"+fixtureCluster]
-	if kelos.Roots != 6 || kelos.NeverRead != 1 || kelos.NewestRead == nil || kelos.OldestRead == nil ||
+	if kelos.Roots != 7 || kelos.NeverRead != 1 || kelos.NewestRead == nil || kelos.OldestRead == nil ||
 		kelos.OldestRead.After(*kelos.NewestRead) {
-		t.Errorf("kelos = %+v, want 6 roots, 1 never read, oldest read not after newest", kelos)
+		t.Errorf("kelos = %+v, want 7 roots, 1 never read, oldest read not after newest", kelos)
 	}
 }

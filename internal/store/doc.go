@@ -24,7 +24,9 @@
 // the Task name it gives and its time, inside exactly one run's interval,
 // as a heuristic; else not at all, until a later save of Kelos records
 // names its pod or Task name. RunMarkers reads back the markers joined to
-// runs. Story and Coverage add to a root's Kelos coverage how many markers
+// runs, and Story those of its runs, which model.BuildStory pairs into the
+// runs' phases (a batch holds no markers, so a run is saved without
+// its phases). Story and Coverage add to a root's Kelos coverage how many markers
 // of its cluster are unattached, and the pods of its runs that passed the
 // limit of markers. Prune applies the Config's retention policy (by default keep
 // everything).

@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 
+	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
@@ -64,8 +65,32 @@ var Repo = github.Repository{Owner: "example-org", Name: "widgets"}
 
 // Dirs names, under the fixtures directory, the responses of each source
 // a story reads; an empty one is a source the story must not read.
+// Markers holds the phase markers the store joined to the story's runs,
+// which no source is read for: a caller passes them back in (see
+// Markers).
 type Dirs struct {
-	Vikunja, Kelos, GitHub, Wiki string
+	Vikunja, Kelos, GitHub, Wiki, Markers string
+}
+
+// markersFile holds, in a story's Markers directory, its joined markers.
+const markersFile = "markers.json"
+
+// Markers returns the phase markers of dirs under fixtures, each with its
+// join; none without a Markers directory.
+func Markers(t testing.TB, fixtures string, dirs Dirs) []model.Marker {
+	t.Helper()
+	if dirs.Markers == "" {
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(fixtures, dirs.Markers, markersFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var markers []model.Marker
+	if err := json.Unmarshal(data, &markers); err != nil {
+		t.Fatalf("%s/%s: %v", dirs.Markers, markersFile, err)
+	}
+	return markers
 }
 
 // Clients are the real clients of every source, each answered from the
