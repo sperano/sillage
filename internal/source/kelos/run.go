@@ -136,7 +136,7 @@ func (b *runBuilder) labelSource() (map[string]string, func(field, path string),
 }
 
 func (b *runBuilder) taskLink(labels map[string]string, ref string) *model.Correlation {
-	id, ok := b.cfg.taskID(labels)
+	id, ok := b.cfg.TaskID(labels)
 	if !ok {
 		return nil
 	}

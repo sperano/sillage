@@ -1,9 +1,10 @@
 // Command sillage serves sillage's HTTP endpoints: a health check, the
-// read API over the store (internal/api, under /api/, which must stay
-// behind the Authentik forward-auth) and the embedded frontend. With
-// SILLAGE_DATABASE_URL set, it migrates and prunes the store at startup;
-// without, the API answers 503 for what it would read. The collector comes
-// later.
+// Prometheus metrics, the read API over the store (internal/api, under
+// /api/, which must stay behind the Authentik forward-auth) and the
+// embedded frontend. With SILLAGE_DATABASE_URL set, it migrates and prunes
+// the store at startup, then runs the collector, which keeps the store
+// current; without, nothing is collected and the API answers 503 for what
+// it would read.
 //
 // "sillage story -task <id>" (or "-page <id>") instead prints one story's
 // JSON, assembled from the live sources the environment configures.
@@ -93,7 +94,9 @@ func main() {
 	}
 }
 
-// run parses the configuration, listens and serves until ctx is done.
+// run parses the configuration, listens, starts the collector the
+// environment configures, and serves until ctx is done. The collector
+// stops with the server, and run waits for it.
 func run(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) error {
 	cfg, err := parseConfig(args, getenv, stderr)
 	if err != nil {
@@ -120,7 +123,19 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 		_ = ln.Close()
 		return err
 	}
-	return serve(ctx, ln, newHandler(web.FS(), apiHandler))
+	metrics, m := newMetrics()
+	collectCtx, stopCollecting := context.WithCancel(ctx)
+	defer stopCollecting()
+	wait, err := startCollector(collectCtx, getenv, st, m, slog.Default())
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
+	err = serve(ctx, ln, newHandler(web.FS(), apiHandler, metrics))
+	// The collector stops before the store closes.
+	stopCollecting()
+	wait()
+	return err
 }
 
 // parseConfig reads the configuration from the command line and the
