@@ -20,7 +20,8 @@ const (
 )
 
 // Secret is a webhook secret. It prints as [redacted] through fmt, with
-// any verb, and log/slog, so Secrets can be logged without leaking them.
+// any verb but %p, and log/slog, so Secrets can be logged without leaking
+// them.
 type Secret string
 
 // String implements fmt.Stringer.
@@ -28,7 +29,9 @@ func (Secret) String() string { return redacted }
 
 // Format implements fmt.Formatter, so that no verb prints the value: fmt
 // calls String only for %v, %s, %q, %x and %X, and prints a string's
-// value under any other.
+// value under any other. fmt calls no method for %p, which prints the
+// value of anything but a pointer, and go vet does not flag it for a
+// Formatter: never format a Secret with %p.
 func (Secret) Format(f fmt.State, _ rune) { _, _ = io.WriteString(f, redacted) }
 
 // LogValue implements slog.LogValuer.
