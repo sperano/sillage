@@ -118,6 +118,41 @@ func TestReviewWaitEnds(t *testing.T) {
 	}
 }
 
+// A request before the window whose pull request closes unanswered was
+// waiting until the close: it shows in the window when the close is in it
+// or after it, as a request never closed does, and the row's last activity
+// is the close or the window's end.
+func TestReviewWaitRequestedBeforeTheWindow(t *testing.T) {
+	const (
+		beforeWindow = -30
+		closeBefore  = -10
+		closeInside  = 30
+		closeAfter   = 90
+	)
+	request := prEvent(model.KindReviewRequested, beforeWindow, "owner-gh", map[string]string{"reviewer": "reviewer-gh"})
+	closed := func(min int) []model.Event { return []model.Event{prEvent(model.KindPRClosed, min, "owner-gh", nil)} }
+	for _, c := range []struct {
+		name  string
+		later []model.Event
+		shown bool
+		last  time.Time
+	}{
+		{"never closed", nil, true, afternoon.To},
+		{"closed inside the window", closed(closeInside), true, minute(closeInside)},
+		{"closed after the window", closed(closeAfter), true, afternoon.To},
+		{"closed before the window", closed(closeBefore), false, time.Time{}},
+	} {
+		waits := reviewWaits(afternoon, testPR, append([]model.Event{request}, c.later...))
+		if c.shown != (len(waits) == 1) {
+			t.Errorf("%s: waits = %+v, want shown %t", c.name, waits, c.shown)
+			continue
+		}
+		if last := lastActivity(afternoon, Row{ReviewWaits: waits}); !last.Equal(c.last) {
+			t.Errorf("%s: last activity %s, want %s", c.name, last, c.last)
+		}
+	}
+}
+
 func sameInterval(a, b model.Interval) bool {
 	return sameBound(a.Start, b.Start) && sameBound(a.End, b.End)
 }

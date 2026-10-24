@@ -207,7 +207,7 @@ func lastActivity(w Window, row Row) time.Time {
 		}
 	}
 	for _, rw := range row.ReviewWaits {
-		see(latestIn(w, rw.Interval))
+		see(latestIn(w, waitExtent(rw)))
 	}
 	for _, m := range row.Marks {
 		see(m.At, true)

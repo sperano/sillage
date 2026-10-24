@@ -99,11 +99,22 @@ func reviewWaits(w Window, pr model.PRKey, events []model.Event) []ReviewWait {
 			Interval: interval,
 			Closed:   closed,
 		}
-		if touches(w, wait.Interval) {
+		if touches(w, waitExtent(wait)) {
 			out = append(out, wait)
 		}
 	}
 	return out
+}
+
+// waitExtent is the span a review wait is known to show: its interval, or,
+// when the pull request closed unanswered, the interval ended at the close,
+// until which the request was still waiting. The wait keeps its unknown
+// end as served: nothing says it was answered then.
+func waitExtent(rw ReviewWait) model.Interval {
+	if rw.Closed == nil {
+		return rw.Interval
+	}
+	return model.Interval{Start: rw.Interval.Start, End: model.KnownAt(*rw.Closed)}
 }
 
 // waitInterval returns the wait from request to its answer among the
