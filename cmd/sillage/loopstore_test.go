@@ -215,9 +215,15 @@ func runOneCycle(t *testing.T, st *store.Store) {
 		Sources:  collector.Sources{Vikunja: loopVikunja{}, Kelos: loopKelos{}, GitHub: loopGitHub{}, Wiki: loopWiki{}},
 		Projects: loopProjects{},
 	}
+	runCycle(t, st, reconcile.DefaultConfig(), ccfg, src)
+}
+
+// runCycle runs a new loop of cfg over st, reading src as ccfg says,
+// until it completes a cycle, then stops it.
+func runCycle(t *testing.T, st *store.Store, cfg reconcile.Config, ccfg collector.Config, src reconcile.Sources) {
+	t.Helper()
 	reg := prometheus.NewRegistry()
-	loop, err := reconcile.New(reconcile.DefaultConfig(), ccfg, src, loopStore{st}, reconcile.NewMetrics(reg),
-		slog.New(slog.DiscardHandler))
+	loop, err := reconcile.New(cfg, ccfg, src, loopStore{st}, reconcile.NewMetrics(reg), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}

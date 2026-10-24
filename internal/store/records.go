@@ -50,9 +50,15 @@ func (w *saver) savePullRequest(p model.PullRequest) error {
 		ON CONFLICT DO NOTHING`, w.root, id)
 }
 
+// correlationBody is a stored correlation's body as a root's story holds
+// it (c the correlation, m its root_correlations row): flagged ambiguous
+// when that story's read found it so, whatever another story's found.
+const correlationBody = `jsonb_set(c.body, '{ambiguous}', to_jsonb(m.ambiguous))`
+
 // saveCorrelations upserts each correlation by the pair it links, after
 // following the records the batch's ends were stored as. One whose end was
-// dropped is dropped.
+// dropped is dropped. Whether it is ambiguous is kept for the root: the
+// root's latest read decides it, another root's read never does.
 func (w *saver) saveCorrelations(correlations []model.Correlation) error {
 	for _, c := range correlations {
 		c.From, c.To = w.ref(c.From), w.ref(c.To)
@@ -61,8 +67,9 @@ func (w *saver) saveCorrelations(correlations []model.Correlation) error {
 		}
 		id, err := w.upsertCorrelation(c)
 		if err == nil {
-			err = w.exec(`INSERT INTO root_correlations (root_id, correlation_id) VALUES ($1, $2)
-				ON CONFLICT DO NOTHING`, w.root, id)
+			err = w.exec(`INSERT INTO root_correlations (root_id, correlation_id, ambiguous) VALUES ($1, $2, $3)
+				ON CONFLICT (root_id, correlation_id) DO UPDATE SET ambiguous = EXCLUDED.ambiguous`,
+				w.root, id, c.Ambiguous)
 		}
 		if err != nil {
 			return fmt.Errorf("correlation %s: %w", c, err)
@@ -71,7 +78,10 @@ func (w *saver) saveCorrelations(correlations []model.Correlation) error {
 	return nil
 }
 
+// upsertCorrelation stores c by its pair, without its ambiguity, which
+// each root keeps (see saveCorrelations).
 func (w *saver) upsertCorrelation(c model.Correlation) (int64, error) {
+	c.Ambiguous = false
 	body, err := json.Marshal(c)
 	if err != nil {
 		return 0, err
@@ -87,7 +97,8 @@ func (w *saver) upsertCorrelation(c model.Correlation) (int64, error) {
 
 // repointCorrelations makes the stored correlations with an end at from
 // end at to instead. One that now duplicates a stored correlation is
-// folded into it: its stories keep the stored one.
+// folded into it: its stories keep the stored one, and a story that held
+// only the folded one takes its ambiguity.
 func (w *saver) repointCorrelations(from, to model.Ref) error {
 	rows, err := w.tx.Query(w.ctx, "SELECT id, body FROM correlations WHERE from_ref = $1 OR to_ref = $1",
 		from.String())
@@ -141,8 +152,8 @@ func (w *saver) repointCorrelation(id int64, c model.Correlation, from, to model
 	case err != nil:
 		return err
 	}
-	if err := w.exec(`INSERT INTO root_correlations (root_id, correlation_id)
-		SELECT root_id, $2 FROM root_correlations WHERE correlation_id = $1 ON CONFLICT DO NOTHING`,
+	if err := w.exec(`INSERT INTO root_correlations (root_id, correlation_id, ambiguous)
+		SELECT root_id, $2, ambiguous FROM root_correlations WHERE correlation_id = $1 ON CONFLICT DO NOTHING`,
 		id, existing); err != nil {
 		return err
 	}
