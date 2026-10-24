@@ -166,7 +166,7 @@ func stateOf(cp Checkpoint) (*state, error) {
 }
 
 // checkpoint returns the state as a checkpoint, in UID order.
-func (s *state) checkpoint() Checkpoint {
+func (s *state) checkpoint(cfg Config) Checkpoint {
 	cp := Checkpoint{
 		TasksVersion: s.tasksVersion, RecordsVersion: s.recordsVersion,
 		TasksSeenAt: s.tasksSeenAt, RecordsSeenAt: s.recordsSeenAt,
@@ -176,12 +176,12 @@ func (s *state) checkpoint() Checkpoint {
 		a := s.attempts[uid]
 		if a.task != nil {
 			task := *a.task
-			task.ObjectMeta = persistedMeta(task.ObjectMeta)
+			task.ObjectMeta = cfg.persistedMeta(task.ObjectMeta)
 			cp.Tasks = append(cp.Tasks, WatchedTask{Task: task, Deleted: a.deleted})
 		}
 		if a.record != nil {
 			record := *a.record
-			record.ObjectMeta = persistedMeta(record.ObjectMeta)
+			record.ObjectMeta = cfg.persistedMeta(record.ObjectMeta)
 			w := WatchedRecord{Record: record}
 			if a.task == nil {
 				since := a.awaitingTaskSince
@@ -193,13 +193,15 @@ func (s *state) checkpoint() Checkpoint {
 	return cp
 }
 
-// persistedMeta keeps the metadata a run is built from. Annotations and
-// managed fields are dropped: an annotation such as kubectl's
+// persistedMeta keeps the metadata a run is built from: of the
+// annotations, only the correlation annotations, so that a deleted Task
+// the watch holds still names what started it. Every other annotation and
+// the managed fields are dropped: an annotation such as kubectl's
 // last-applied-configuration can hold the prompt, which is never stored.
-func persistedMeta(m metav1.ObjectMeta) metav1.ObjectMeta {
+func (c Config) persistedMeta(m metav1.ObjectMeta) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name: m.Name, Namespace: m.Namespace, UID: m.UID, ResourceVersion: m.ResourceVersion,
-		CreationTimestamp: m.CreationTimestamp, Labels: m.Labels,
+		CreationTimestamp: m.CreationTimestamp, Labels: m.Labels, Annotations: c.keptAnnotations(m.Annotations),
 	}
 }
 

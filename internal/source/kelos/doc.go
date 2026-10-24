@@ -11,6 +11,15 @@
 // controller's start and completion times), never CPU time or the timing
 // of a phase of the agent's work.
 //
+// The spawners' correlation annotations on a Task (what started it: the
+// source and its instance, the repository, pull request, comment, review,
+// wiki page, branch, delivery) make its Origin, from which Normalize joins
+// the run to the wiki page and the pull request it names, as identifiers.
+// A TaskRecord does not copy annotations: a caller that needs them after
+// the Task's TTL keeps each Task's Origin when it first reads it (Origins)
+// and gives it back for the runs read from a TaskRecord alone (RecordOnlyRuns,
+// Snapshot.Remembered). No other annotation is read.
+//
 // A Reader lists both resources on every read. A Watcher lists them once,
 // then watches both from the lists' resourceVersions, so that it sees the
 // phases a Task passes through between two reads (each added, modified or

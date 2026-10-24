@@ -1,0 +1,155 @@
+{
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000003001"
+      },
+      "taskName": "pr-followup-widgets-41-c9101",
+      "pod": "pr-followup-widgets-41-c9101-x7k2p",
+      "job": "pr-followup-widgets-41-c9101",
+      "role": "unknown",
+      "created": "2026-03-14T08:00:00Z",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-14T08:00:20Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-03-14T08:20:00Z"
+        }
+      },
+      "outcome": "succeeded",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/pr-followup-widgets-41-c9101",
+          "note": "uid 00000000-0000-4000-8000-000000003001 supplies taskName (metadata.name), created (metadata.creationTimestamp), pod (status.podName), job (status.jobName), outcome (status.phase Succeeded), start (status.startTime), end (status.completionTime); times are lifecycle times (the API server's creation, the controller's start and completion), not CPU or phase timings; no TaskRecord found (Kelos writes one only for a completed Task that reported usage)"
+        }
+      ]
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000003002"
+      },
+      "taskName": "wiki-fu-widgets-57-c801",
+      "pod": "wiki-fu-widgets-57-c801-q4m8z",
+      "job": "wiki-fu-widgets-57-c801",
+      "role": "unknown",
+      "created": "2026-03-14T09:00:00Z",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-14T09:00:15Z"
+        },
+        "end": {
+          "state": "open"
+        }
+      },
+      "outcome": "running",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/wiki-fu-widgets-57-c801",
+          "note": "uid 00000000-0000-4000-8000-000000003002 supplies taskName (metadata.name), created (metadata.creationTimestamp), pod (status.podName), job (status.jobName), outcome (status.phase Running), start (status.startTime); times are lifecycle times (the API server's creation, the controller's start and completion), not CPU or phase timings; no TaskRecord found (Kelos writes one only for a completed Task that reported usage)"
+        }
+      ]
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000003003"
+      },
+      "taskName": "vikunja-merge-widgets-41-true",
+      "pod": "vikunja-merge-widgets-41-true-h3v9c",
+      "job": "vikunja-merge-widgets-41-true",
+      "role": "unknown",
+      "created": "2026-03-14T10:00:00Z",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-14T10:00:10Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-03-14T10:01:00Z"
+        }
+      },
+      "outcome": "succeeded",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-merge-widgets-41-true",
+          "note": "uid 00000000-0000-4000-8000-000000003003 supplies taskName (metadata.name), created (metadata.creationTimestamp), pod (status.podName), job (status.jobName), outcome (status.phase Succeeded), start (status.startTime), end (status.completionTime); times are lifecycle times (the API server's creation, the controller's start and completion), not CPU or phase timings; no TaskRecord found (Kelos writes one only for a completed Task that reported usage)"
+        }
+      ]
+    }
+  ],
+  "correlations": [
+    {
+      "from": {
+        "kind": "run",
+        "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000003001"
+      },
+      "to": {
+        "kind": "pr",
+        "id": "github.example.com/example-org/widgets/pull/41"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/pr-followup-widgets-41-c9101",
+          "note": "annotation vikunja.example.com/source=github, vikunja.example.com/source-instance=github.example.com, vikunja.example.com/repository=example-org/widgets, vikunja.example.com/pr=41"
+        }
+      ]
+    },
+    {
+      "from": {
+        "kind": "run",
+        "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000003002"
+      },
+      "to": {
+        "kind": "page",
+        "id": "wiki.example.com/pages/57/en"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/wiki-fu-widgets-57-c801",
+          "note": "annotation vikunja.example.com/source=wiki, vikunja.example.com/source-instance=Wiki.Example.com, vikunja.example.com/wiki-page=57, vikunja.example.com/wiki-locale=en, vikunja.example.com/wiki-path=widgets/design-notes"
+        }
+      ]
+    },
+    {
+      "from": {
+        "kind": "run",
+        "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000003003"
+      },
+      "to": {
+        "kind": "pr",
+        "id": "github.example.com/example-org/widgets/pull/41"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-merge-widgets-41-true",
+          "note": "annotation vikunja.example.com/source=github, vikunja.example.com/source-instance=github.example.com, vikunja.example.com/repository=example-org/widgets, vikunja.example.com/pr=41"
+        }
+      ]
+    }
+  ]
+}

@@ -24,12 +24,17 @@ type attempt struct {
 	// awaitingTaskSince is set when a watch received the record before
 	// any state of its Task: the Task may still arrive.
 	awaitingTaskSince time.Time
+	// remembered is the Origin a reader kept of the Task, for an attempt
+	// read from its TaskRecord alone.
+	remembered *Origin
 }
 
 // Normalize turns one read into model records: one run per Task UID, with
-// a Task and its TaskRecord merged into it, and a correlation from each run
-// to the Vikunja task its task label names. Two attempts that share a Task
-// name stay two runs: nothing is joined by name. Every record is
+// a Task and its TaskRecord merged into it, and the identifier
+// correlations from each run to the Vikunja task its task label names and
+// to the wiki page and the pull request its Origin names (the Task's
+// correlation annotations, else s.Remembered). Two attempts that share a
+// Task name stay two runs: nothing is joined by name. Every record is
 // validated; an invalid object fails the whole read, naming the object.
 func Normalize(cfg Config, s Snapshot) (model.Records, error) {
 	if err := cfg.Validate(); err != nil {
@@ -42,18 +47,18 @@ func Normalize(cfg Config, s Snapshot) (model.Records, error) {
 	return cfg.records(attempts)
 }
 
-// records builds and validates the run, and the task correlation when
-// there is one, of each attempt.
+// records builds and validates the run, and its correlations, of each
+// attempt.
 func (c Config) records(attempts []*attempt) (model.Records, error) {
 	recs := model.Records{Runs: []model.Run{}, Correlations: []model.Correlation{}}
 	var errs []error
 	for _, a := range attempts {
-		run, link := c.build(a)
+		run, links := c.build(a)
 		errs = append(errs, run.Validate())
 		recs.Runs = append(recs.Runs, run)
-		if link != nil {
+		for _, link := range links {
 			errs = append(errs, link.Validate())
-			recs.Correlations = append(recs.Correlations, *link)
+			recs.Correlations = append(recs.Correlations, link)
 		}
 	}
 	if err := errors.Join(errs...); err != nil {
@@ -85,7 +90,7 @@ func pair(cfg Config, s Snapshot) ([]*attempt, error) {
 		case uid == "":
 			errs = append(errs, fmt.Errorf("taskrecord %s: no spec.taskRef.uid", cfg.recordRef(r.Name)))
 		case a == nil:
-			byUID[uid] = &attempt{uid: uid, record: r}
+			byUID[uid] = &attempt{uid: uid, record: r, remembered: remembered(s, uid)}
 		case a.record == nil:
 			a.record = r
 		default:
@@ -98,6 +103,14 @@ func pair(cfg Config, s Snapshot) ([]*attempt, error) {
 	out := slices.Collect(maps.Values(byUID))
 	slices.SortFunc(out, func(a, b *attempt) int { return cmp.Compare(a.uid, b.uid) })
 	return out, nil
+}
+
+// remembered returns the Origin s.Remembered holds for uid, or nil.
+func remembered(s Snapshot, uid types.UID) *Origin {
+	if o, ok := s.Remembered[uid]; ok {
+		return &o
+	}
+	return nil
 }
 
 // taskRef locates a Task in evidence.

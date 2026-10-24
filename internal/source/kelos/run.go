@@ -44,22 +44,27 @@ type runBuilder struct {
 	timesFromTask, timesFromRecord bool
 }
 
-// build returns the attempt's run and, when its labels name a Vikunja
-// task, its correlation with that task. Fields only a Task holds (creation,
-// pod, job, message) come from the Task; the terminal interval, outcome,
-// model and usage come from the TaskRecord when there is one, else from
-// the Task; labels come from the Task, else the TaskRecord's copy.
-func (c Config) build(a *attempt) (model.Run, *model.Correlation) {
+// build returns the attempt's run and its correlations with the Vikunja
+// task its labels name and with what its Origin names. Fields only a Task
+// holds (creation, pod, job, message) come from the Task; the terminal
+// interval, outcome, model and usage come from the TaskRecord when there
+// is one, else from the Task; labels come from the Task, else the
+// TaskRecord's copy.
+func (c Config) build(a *attempt) (model.Run, []model.Correlation) {
 	b := &runBuilder{cfg: c, a: a}
-	b.run.Key = model.RunKey{Cluster: c.Cluster, Namespace: c.Namespace, UID: string(a.uid)}
+	b.run.Key = c.runKey(a.uid)
 	b.name()
 	b.taskOnly()
-	link := b.labels()
+	origin, annotated := c.origin(a)
+	links := b.labels(origin)
+	if annotated {
+		links = append(links, b.originLinks(origin)...)
+	}
 	b.lifecycle()
 	b.effectiveModel()
 	b.usage()
 	b.run.Evidence = b.evidence()
-	return b.run, link
+	return b.run, links
 }
 
 func (b *runBuilder) fromTask(field, path string) {
@@ -106,7 +111,7 @@ func (b *runBuilder) taskString(dst *string, value, field, path string) {
 // labels sets the agent, project and role from the Task's labels, else
 // the TaskRecord's copy, and returns the correlation with the Vikunja task
 // the task label names, if any.
-func (b *runBuilder) labels() *model.Correlation {
+func (b *runBuilder) labels(origin Origin) []model.Correlation {
 	labels, from, ref := b.labelSource()
 	labelValue := func(dst *string, name, field string) {
 		key := b.cfg.label(name)
@@ -122,7 +127,7 @@ func (b *runBuilder) labels() *model.Correlation {
 	if why != "" {
 		from("role", why)
 	}
-	return b.taskLink(labels, ref)
+	return b.taskLink(labels, ref, origin)
 }
 
 // labelSource returns the labels to read, how to note a field taken from
@@ -133,26 +138,6 @@ func (b *runBuilder) labelSource() (map[string]string, func(field, path string),
 	}
 	r := b.a.record
 	return r.Labels, b.fromRecord, b.cfg.recordRef(r.Name)
-}
-
-func (b *runBuilder) taskLink(labels map[string]string, ref string) *model.Correlation {
-	id, ok := b.cfg.TaskID(labels)
-	if !ok {
-		return nil
-	}
-	key := b.cfg.label(labelTask)
-	task := model.TaskKey{Instance: b.cfg.VikunjaInstance, ID: id}
-	return &model.Correlation{
-		From:       b.run.Key.Ref(),
-		To:         task.Ref(),
-		Confidence: model.ConfidenceIdentifier,
-		Evidence: []model.Evidence{{
-			Source:   model.SourceKelos,
-			Instance: b.cfg.Cluster,
-			Ref:      ref,
-			Note:     "label " + key + "=" + labels[key],
-		}},
-	}
 }
 
 // lifecycle sets the interval and outcome from the TaskRecord, which only

@@ -3,6 +3,8 @@ package kelos
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -80,14 +82,29 @@ func newTestReader(t *testing.T, client *dynamicfake.FakeDynamicClient) *Reader 
 }
 
 // readStory reads a story through the fake client.
+// A story's remembered.json, when it has one, holds the Origins a caller
+// kept of Tasks the read no longer lists, by Task UID.
 func readStory(t *testing.T, story string) Snapshot {
 	t.Helper()
 	s, err := newTestReader(t, newFakeClient(storyObjects(t, story)...)).Read(t.Context())
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}
+	data, err := os.ReadFile(filepath.Join(fixtureDir, story, rememberedFile))
+	if errors.Is(err, fs.ErrNotExist) {
+		return s
+	}
+	if err == nil {
+		err = json.Unmarshal(data, &s.Remembered)
+	}
+	if err != nil {
+		t.Fatalf("%s/%s: %v", story, rememberedFile, err)
+	}
 	return s
 }
+
+// rememberedFile holds a story's kept Origins.
+const rememberedFile = "remembered.json"
 
 // object returns a minimal object of kind in namespace.
 func object(kind, namespace, name string) *unstructured.Unstructured {

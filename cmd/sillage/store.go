@@ -6,8 +6,13 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/sperano/sillage/internal/collector"
 	"github.com/sperano/sillage/internal/store"
 )
+
+// The store keeps the collector's Kelos Task origins: the collector loop
+// passes it with collector.WithOriginMemory.
+var _ collector.OriginMemory = (*store.Store)(nil)
 
 // storeOpenTimeout bounds connecting, migrating and pruning at startup, so
 // that an unreachable database fails the start instead of hanging it.

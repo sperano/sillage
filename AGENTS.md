@@ -25,14 +25,14 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage; and names the roots a Kelos read points to. Read once, nothing kept: a caller passes what a store kept back in. |
 | `internal/source/vikunja/` | Read-only Vikunja client and its normalization into `model`. |
 | `internal/source/github/` | Read-only GitHub client and its normalization into `model`. |
-| `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and watcher (list, then watch with persisted checkpoints), and their normalization into `model`. |
+| `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and watcher (list, then watch with persisted checkpoints), and their normalization into `model`, with the identifier correlations the spawners' correlation annotations (a Task's `Origin`) name. |
 | `internal/source/wiki/` | Read-only Wiki.js client and its normalization into `model`. |
 | `internal/source/htmltext/` | Rendered comment HTML to plain text, shared by the sources that parse comments. |
 | `internal/source/kelostext/` | Requests (`/gordon`, `/kelos`) and Kelos start announcements in every form posted, shared by the sources that parse comments. |
 | `internal/reconcile/` | The collection loop: which roots to read and when, one Kelos read per cycle, freshness and gaps per root and source, the Prometheus metrics. Talks to the store through its `Store` and `Locker` interfaces. |
 | `internal/reconcile/pglock/` | The `Locker` as a PostgreSQL session advisory lock: one process collects at a time. |
 | `internal/reconcile/storetest/` | The contract of `reconcile.Store`, asserted of the loop tests' fake and, against PostgreSQL, of `cmd/sillage`'s adapter: a store the loop's tests do not model fails it first. |
-| `internal/store/` | PostgreSQL persistence of `model` records, checkpoints and coverage; `migrations/` holds the numbered SQL files embedded and applied at startup (add one, never edit one that shipped). |
+| `internal/store/` | PostgreSQL persistence of `model` records, checkpoints, coverage and Kelos Task origins (kept on first sight: a TaskRecord does not copy annotations); `migrations/` holds the numbered SQL files embedded and applied at startup (add one, never edit one that shipped). |
 | `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, search, link resolution, version. No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
 | `internal/ingest/` | The webhook receiver: `POST /ingest/vikunja` and `POST /ingest/github`, authenticated by their signatures alone (they bypass the forward-auth). Each authenticated attempt is recorded in the store as evidence that sillage received it (`model.Delivery`), and asks the collector to read the roots it names again; no record comes from a payload. `Queue` is the collector loop's end of those requests. |
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests. See its README. |

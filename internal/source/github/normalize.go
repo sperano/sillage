@@ -152,7 +152,7 @@ func (n *normalizer) comment(c Comment, idPrefix, path, notePrefix string) model
 // announcement when one of the announcers posted it, or a plain comment.
 // Kelos announces runs only there.
 func (n *normalizer) conversationComment(c Comment) model.Event {
-	e := n.comment(c, "issues/comments/", commentsPath(n.s.Repository, n.s.PullRequest.Number), "comment ")
+	e := n.comment(c, commentIDPrefix, commentsPath(n.s.Repository, n.s.PullRequest.Number), "comment ")
 	if e.Kind != model.KindComment || !n.announcer(c.User) {
 		return e
 	}
@@ -191,7 +191,7 @@ func (n *normalizer) reviewComments() {
 		if later {
 			c.CreatedAt = *r.SubmittedAt
 		}
-		e := n.comment(c, "pulls/comments/", path, "review comment ")
+		e := n.comment(c, reviewCommentIDPrefix, path, "review comment ")
 		if later {
 			e.Evidence.Note += "; time of review " + strconv.FormatInt(r.ID, 10) + "'s submission, not of its draft"
 		}
@@ -206,7 +206,7 @@ func submitted(r Review) bool {
 
 func (n *normalizer) review(r Review) model.Event {
 	id := strconv.FormatInt(r.ID, 10)
-	e := n.event(model.KindReviewSubmitted, "reviews/"+id, *r.SubmittedAt, r.User,
+	e := n.event(model.KindReviewSubmitted, reviewIDPrefix+id, *r.SubmittedAt, r.User,
 		pullPath(n.s.Repository, n.s.PullRequest.Number)+"/reviews", "review "+id)
 	e.Details = map[string]string{"state": strings.ToLower(r.State)}
 	return e
