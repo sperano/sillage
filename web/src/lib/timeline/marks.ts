@@ -75,6 +75,11 @@ export function eventLabel(e: Event): string {
 			return withDetail('request', detail(e, 'command'));
 		case 'run.announced':
 			return 'run announced';
+		case 'run.observed':
+			return withDetail(
+				`${detail(e, 'object') || 'object'} ${detail(e, 'change') || 'observed'}`,
+				detail(e, 'phase')
+			);
 		case 'pr.opened':
 			return 'PR opened';
 		case 'pr.review_requested':

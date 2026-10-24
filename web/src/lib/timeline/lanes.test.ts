@@ -182,6 +182,20 @@ describe('event placement', () => {
 		expect(subtitle('uid-other-cluster')).toBe('implementation · cluster-b/agents · succeeded');
 	});
 
+	test("a Kelos observation goes to its run's row", () => {
+		const r = run();
+		const e = event({ source: 'kelos', kind: 'run.observed', related: { run: r.key } });
+		const rows = buildRows(story({ runs: [r], events: [e] }));
+		const row = rows.find((x) => x.id === `run:${runKeyString(r.key)}`);
+		expect(row?.events).toEqual([e]);
+	});
+
+	test('a Kelos observation of a run the story lacks stays on the root', () => {
+		const e = event({ source: 'kelos', kind: 'run.observed', related: { run: run().key } });
+		const rows = buildRows(story({ events: [e] }));
+		expect(rows.map((x) => [x.id, x.events])).toEqual([['task:vikunja.example.com/tasks/1', [e]]]);
+	});
+
 	test('an automation run goes to the automation lane', () => {
 		const rows = buildRows(story({ runs: [run({ role: 'automation' })] }));
 		expect(inSection(rows, 'automation')).toHaveLength(1);
