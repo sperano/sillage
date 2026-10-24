@@ -324,7 +324,7 @@ func (r *storedRoot) upsert(recs model.Records) {
 	for _, run := range recs.Runs {
 		r.runs[run.Key] = run
 		if run.Key.UID != "" && run.Pod != "" {
-			r.rekey(model.RunKey{Cluster: run.Key.Cluster, Namespace: run.Key.Namespace, Pod: run.Pod})
+			r.rekey(model.RunKey{Cluster: run.Key.Cluster, Namespace: run.Key.Namespace, Pod: run.Pod}, run.Key)
 		}
 	}
 	for _, p := range recs.PullRequests {
@@ -338,9 +338,16 @@ func (r *storedRoot) upsert(recs model.Records) {
 	}
 }
 
-// rekey drops the run keyed by pod and its correlations.
-func (r *storedRoot) rekey(pod model.RunKey) {
+// rekey drops the run keyed by pod and its correlations, and points the
+// events that name it to uid.
+func (r *storedRoot) rekey(pod, uid model.RunKey) {
 	delete(r.runs, pod)
+	for key, e := range r.events {
+		if e.Related.Run != nil && *e.Related.Run == pod {
+			e.Related.Run = &uid
+			r.events[key] = e
+		}
+	}
 	for pair, c := range r.correlations {
 		if c.From == pod.Ref() || c.To == pod.Ref() {
 			delete(r.correlations, pair)

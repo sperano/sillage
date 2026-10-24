@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -272,15 +273,26 @@ func TestLoopOverTheStoreKeepsTheRestartGap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(story.Events) != len(first.Events) || len(story.Runs) != len(first.Runs) {
-		t.Errorf("after an unchanged read: %d events and %d runs, want %d and %d",
-			len(story.Events), len(story.Runs), len(first.Events), len(first.Runs))
+	if got, want := recordsJSON(t, story.Records), recordsJSON(t, first.Records); got != want {
+		t.Errorf("records after an unchanged read:\n%s\nwant the first read's:\n%s", got, want)
 	}
 	for _, source := range []model.Source{model.SourceVikunja, model.SourceKelos} {
 		if !hasRestartGap(story, source) {
 			t.Errorf("%s coverage = %+v, want the restart's gap", source, story.Coverage)
 		}
 	}
+}
+
+// recordsJSON is the JSON of recs but their coverage, which every read
+// advances.
+func recordsJSON(t *testing.T, recs model.Records) string {
+	t.Helper()
+	recs.Coverage = nil
+	b, err := json.Marshal(recs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }
 
 // hasRestartGap reports whether the story's coverage of source has a gap

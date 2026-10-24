@@ -9,6 +9,11 @@ import (
 // The fabricated instances and records the suite commits.
 const (
 	vikunjaHost = "vikunja.example.com"
+	githubHost  = "github.example.com"
+	repository  = "widgets/widgets"
+	prNumber    = 7
+	checkID     = 1001
+	headSHA     = "aaaa"
 	cluster     = "cluster-a"
 	namespace   = "agents"
 	taskID      = 42
@@ -41,6 +46,30 @@ func comment(id string, minute int) model.Event {
 		Actor:    model.Account{Login: "owner", Kind: model.ActorPerson},
 		Related:  model.Related{Task: ptr(taskKey())},
 		Evidence: vikunjaEvidence(),
+	}
+}
+
+// announcement is comment id announcing run, posted by the service
+// account at minute.
+func announcement(id string, minute int, run model.Run) model.Event {
+	e := comment(id, minute)
+	e.Kind = model.KindRunAnnounced
+	e.Actor = model.Account{Login: "kelos", Kind: model.ActorService}
+	e.Details = map[string]string{"pod": run.Pod, "taskName": run.TaskName}
+	e.Related.Run = &run.Key
+	return e
+}
+
+// pullRequest is the task's pull request, with one finished check on
+// its head commit.
+func pullRequest() model.PullRequest {
+	return model.PullRequest{
+		Key:    model.PRKey{Instance: githubHost, Repository: repository, Number: prNumber},
+		Branch: "kelos/vikunja-42",
+		Checks: []model.CheckRun{{
+			ID: checkID, SHA: headSHA, Name: "test", Conclusion: model.CheckSuccess,
+			Interval: model.Interval{Start: model.KnownAt(at(20)), End: model.KnownAt(at(25))},
+		}},
 	}
 }
 

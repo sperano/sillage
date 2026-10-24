@@ -105,8 +105,9 @@ go build ./...
 ```
 
 The store's, the collector lock's and `cmd/sillage`'s loop-store tests run
-against a real PostgreSQL named by `SILLAGE_TEST_DATABASE_URL` (each test
-in its own schema) and skip without it. Agent pods have none: say in the PR that they were skipped, or start a
+against a real PostgreSQL named by `SILLAGE_TEST_DATABASE_URL` and skip
+without it. The store and loop-store tests each run in their own schema;
+the lock tests take a random advisory-lock key each. Agent pods have none: say in the PR that they were skipped, or start a
 local one (the zonky `embedded-postgres-binaries` jars on Maven Central
 hold a relocatable PostgreSQL that runs without root).
 

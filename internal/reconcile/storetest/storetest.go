@@ -5,6 +5,8 @@
 package storetest
 
 import (
+	"bytes"
+	"encoding/json"
 	"slices"
 	"testing"
 
@@ -71,6 +73,33 @@ func runKeys(recs model.Records) []model.RunKey {
 	return out
 }
 
+// withoutCoverage is the story of recs' records but coverage, in the
+// story's order, so that two reads of the same records compare equal.
+func withoutCoverage(t *testing.T, recs model.Records) model.Story {
+	t.Helper()
+	recs.Coverage = nil
+	story, err := model.BuildStory(root(), recs)
+	if err != nil {
+		t.Fatalf("the stored story is invalid: %v", err)
+	}
+	return story
+}
+
+// sameJSON reports whether got and want have the same JSON, the form
+// the store keeps records in.
+func sameJSON(t *testing.T, got, want any) bool {
+	t.Helper()
+	g, err := json.Marshal(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return bytes.Equal(g, w)
+}
+
 func unknownRoot(t *testing.T, s reconcile.Store) {
 	recs := mustRecords(t, s)
 	if len(recs.Events)+len(recs.Runs)+len(recs.PullRequests)+len(recs.Correlations)+len(recs.Coverage) != 0 {
@@ -79,9 +108,10 @@ func unknownRoot(t *testing.T, s reconcile.Store) {
 }
 
 func recordsReadBack(t *testing.T, s reconcile.Store) {
-	announcement, run := comment("comments/900", 1), kelosRun()
+	run := kelosRun()
+	announcement, pr := announcement("comments/900", 1, run), pullRequest()
 	commitRecords(t, s, model.Records{
-		Events: []model.Event{announcement}, Runs: []model.Run{run},
+		Events: []model.Event{announcement}, Runs: []model.Run{run}, PullRequests: []model.PullRequest{pr},
 		Correlations: []model.Correlation{announces(announcement, run)},
 		Coverage:     []model.Coverage{coverage(model.SourceVikunja, vikunjaHost, 2)},
 	})
@@ -91,6 +121,9 @@ func recordsReadBack(t *testing.T, s reconcile.Store) {
 	}
 	if got := runKeys(recs); !slices.Equal(got, []model.RunKey{run.Key}) {
 		t.Errorf("runs = %v, want %s", got, run.Key)
+	}
+	if len(recs.PullRequests) != 1 || !sameJSON(t, recs.PullRequests[0], pr) {
+		t.Errorf("pull requests = %+v, want %+v with its check", recs.PullRequests, pr)
 	}
 	if len(recs.Correlations) != 1 || recs.Correlations[0].Pair() != announces(announcement, run).Pair() {
 		t.Errorf("correlations = %+v, want the announcement's", recs.Correlations)
@@ -110,19 +143,23 @@ func runKept(t *testing.T, s reconcile.Store) {
 	}
 }
 
+// placeholderRekeyed commits the announcement of a run known only by
+// its pod, then the run as Kelos read it: the run, the announcement's
+// run and the correlations name the UID.
 func placeholderRekeyed(t *testing.T, s reconcile.Store) {
-	announcement, placeholder := comment("comments/900", 1), placeholderRun()
+	placeholder := placeholderRun()
+	announcement := announcement("comments/900", 1, placeholder)
 	commitRecords(t, s, model.Records{
 		Events: []model.Event{announcement}, Runs: []model.Run{placeholder},
 		Correlations: []model.Correlation{announces(announcement, placeholder)},
 	})
-	commitRecords(t, s, model.Records{
-		Events: []model.Event{announcement}, Runs: []model.Run{kelosRun()},
-		Correlations: []model.Correlation{announces(announcement, kelosRun())},
-	})
+	commitRecords(t, s, model.Records{Runs: []model.Run{kelosRun()}})
 	recs := mustRecords(t, s)
 	if got := runKeys(recs); !slices.Equal(got, []model.RunKey{kelosRun().Key}) {
 		t.Errorf("runs = %v, want the run keyed by UID alone", got)
+	}
+	if len(recs.Events) != 1 || recs.Events[0].Related.Run == nil || *recs.Events[0].Related.Run != kelosRun().Key {
+		t.Errorf("events = %+v, want the announcement naming %s", recs.Events, kelosRun().Key)
 	}
 	for _, c := range recs.Correlations {
 		if c.From == placeholder.Key.Ref() || c.To == placeholder.Key.Ref() {
@@ -162,15 +199,15 @@ func coverageReplaced(t *testing.T, s reconcile.Store) {
 // coverageAlone commits what the loop commits for a read of an unchanged
 // task: coverage, and no record.
 func coverageAlone(t *testing.T, s reconcile.Store) {
+	announcement, run := announcement("comments/900", 1, kelosRun()), kelosRun()
 	commitRecords(t, s, model.Records{
-		Events: []model.Event{comment("comments/900", 1)}, Runs: []model.Run{kelosRun()},
+		Events: []model.Event{announcement}, Runs: []model.Run{run}, PullRequests: []model.PullRequest{pullRequest()},
+		Correlations: []model.Correlation{announces(announcement, run)},
 	})
-	before := mustRecords(t, s)
+	before := withoutCoverage(t, mustRecords(t, s))
 	commitRecords(t, s, model.Records{Coverage: []model.Coverage{coverage(model.SourceVikunja, vikunjaHost, 60)}})
-	after := mustRecords(t, s)
-	if !slices.Equal(eventKeys(after), eventKeys(before)) || !slices.Equal(runKeys(after), runKeys(before)) {
-		t.Errorf("records after a coverage commit = %v %v, want %v %v",
-			eventKeys(after), runKeys(after), eventKeys(before), runKeys(before))
+	if after := withoutCoverage(t, mustRecords(t, s)); !sameJSON(t, after, before) {
+		t.Errorf("records after a coverage commit = %+v, want %+v", after, before)
 	}
 }
 
