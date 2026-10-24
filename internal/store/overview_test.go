@@ -83,10 +83,11 @@ func TestActivityRoots(t *testing.T) {
 			[]int64{201, 202, 203, 204, 205, 206}},
 		{"one project", ActivityQuery{From: afternoon.From, To: afternoon.To, Project: "gadgets", Kinds: overview.Kinds},
 			[]int64{203}},
-		// The next morning: the pull requests still open and the run still
-		// running, nothing that ended.
+		// The next morning: the pull request still open and the run still
+		// running, nothing that ended: 202's pull request closed after the
+		// afternoon's window, the same day.
 		{"what stayed open", ActivityQuery{From: nextMorning.From, To: nextMorning.To, Kinds: overview.Kinds},
-			[]int64{201, 202, 203}},
+			[]int64{201, 203}},
 		{"nothing before", ActivityQuery{From: afternoon.From.AddDate(0, 0, -3), To: afternoon.From.AddDate(0, 0, -2),
 			Kinds: overview.Kinds}, []int64{}},
 	} {
