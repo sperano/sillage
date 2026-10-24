@@ -60,15 +60,21 @@
 		display: flex;
 		flex-direction: column;
 		font-size: 0.85rem;
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 	.sub,
 	.lane-label {
 		color: var(--ov-muted);
 		font-size: 0.7rem;
 	}
+	.lane-label {
+		overflow-wrap: anywhere;
+	}
 	.lanes {
 		list-style: none;
 		margin: 0;
 		padding: 0;
+		min-width: 0;
 	}
 </style>

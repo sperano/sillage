@@ -105,7 +105,8 @@ export interface Range {
  * Where a span goes in the window, in fractions of its width. A span with
  * both a start and a drawn end is a bar from left to right; one with only
  * one of them is a stub at that end (stub names the unknown side); one
- * with neither, or outside the window, is not drawn.
+ * with neither, or outside the window, is not drawn. The window's end is
+ * outside it, as is a span that ends at its start.
  */
 export interface Placement {
 	left: number;
@@ -123,9 +124,9 @@ function fraction(t: number, w: Range): number {
 export function place(s: OverviewSpan, w: Range): Placement | undefined {
 	const start = s.start;
 	const end = drawnEnd(s);
-	const inside = (t: number) => t >= w.start && t <= w.end;
+	const inside = (t: number) => t >= w.start && t < w.end;
 	if (start !== undefined && end !== undefined) {
-		if (end < w.start || start >= w.end) return undefined;
+		if (end <= w.start || start >= w.end) return undefined;
 		return {
 			left: Math.max(0, fraction(start, w)),
 			right: Math.min(1, fraction(end, w)),

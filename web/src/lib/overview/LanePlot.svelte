@@ -54,6 +54,8 @@
 			class="unknown"
 			style:left={pct(Math.max(0, at(u.start)))}
 			style:width={pct(Math.min(1, at(u.end)) - Math.max(0, at(u.start)))}
+			role="img"
+			aria-label={u.reason}
 			title={u.reason}
 		></span>
 	{/each}
@@ -63,7 +65,7 @@
 			class="bar {span.kind}"
 			class:stub-start={placement.stub === 'start'}
 			class:stub-end={placement.stub === 'end'}
-			class:open={span.endState === 'open' && !placement.clippedEnd}
+			class:open={span.endState === 'open' && span.openUntil !== undefined && !placement.clippedEnd}
 			class:failed={span.outcome === 'failed'}
 			style:left={pct(placement.left)}
 			style:width={placement.stub ? undefined : pct(placement.right - placement.left)}

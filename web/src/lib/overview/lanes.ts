@@ -5,16 +5,19 @@
 
 import { boundTime, type Run } from '../model';
 import { prKeyString } from '../keys';
-import { rootName } from '../roots';
+import { rootLabel, rootName, rootSegments } from '../roots';
 import type { Mark, OverviewRow } from './model';
 import {
 	announcedRun,
+	drawnEnd,
+	place,
 	prBars,
 	requestee,
 	runBars,
 	runLaneKey,
 	waitBar,
-	type OverviewSpan
+	type OverviewSpan,
+	type Range
 } from './spans';
 
 export interface Lane {
@@ -62,19 +65,36 @@ export function runLabel(run: Run, attempt: number | undefined): string {
 }
 
 const NO_BAR_NOTE = 'start and end unknown: no bar';
+const BEFORE_NOTE = 'before this window: no bar';
+const OUTSIDE_NOTE = 'outside this window: no bar';
 
-function runLane(row: OverviewRow, run: Run, label: string, owner?: OverviewRow): Lane {
+/**
+ * Why a run's spans draw nothing in the window: no known time, or all of
+ * them before it (an earlier failed attempt of a retry), or outside it.
+ * Undefined when one of them is drawn.
+ */
+function noBarNote(spans: readonly OverviewSpan[], range: Range): string | undefined {
+	if (spans.some((s) => place(s, range) !== undefined)) return undefined;
+	const known = spans.flatMap((s) => [s.start, drawnEnd(s)]).filter((t) => t !== undefined);
+	if (known.length === 0) return NO_BAR_NOTE;
+	return Math.max(...known) <= range.start ? BEFORE_NOTE : OUTSIDE_NOTE;
+}
+
+function runLane(
+	row: OverviewRow,
+	run: Run,
+	label: string,
+	range: Range,
+	owner?: OverviewRow
+): Lane {
 	const spans = runBars(row, run);
-	const drawable = spans.some(
-		(s) => s.start !== undefined || s.end !== undefined || s.openUntil !== undefined
-	);
 	return {
 		key: runLaneKey(run),
 		label,
 		spans,
 		marks: row.marks.filter((m) => announcedRun(row, m) === run),
 		owner,
-		note: drawable ? undefined : NO_BAR_NOTE
+		note: noBarNote(spans, range)
 	};
 }
 
@@ -96,9 +116,9 @@ export function collapsedLane(row: OverviewRow): Lane {
 }
 
 /** The row expanded: a lane per run, per pull request, per review wait, and the task's own marks. */
-export function expandedLanes(row: OverviewRow): Lane[] {
+export function expandedLanes(row: OverviewRow, range: Range): Lane[] {
 	const numbers = attempts(row.runs);
-	const lanes = row.runs.map((r) => runLane(row, r, runLabel(r, numbers.get(r))));
+	const lanes = row.runs.map((r) => runLane(row, r, runLabel(r, numbers.get(r)), range));
 	for (const pr of row.pullRequests) {
 		lanes.push({
 			key: `pr:${prKeyString(pr.key)}`,
@@ -133,15 +153,16 @@ export interface ExecutorGroup {
  * The rows' runs grouped by agent profile, in name order, the runs naming
  * none last; within a group, each run is its own lane, in start order.
  */
-export function byExecutor(rows: readonly OverviewRow[]): ExecutorGroup[] {
+export function byExecutor(rows: readonly OverviewRow[], range: Range): ExecutorGroup[] {
 	const groups = new Map<string | undefined, { run: Run; lane: Lane }[]>();
+	const titles = rowTitles(rows);
 	for (const row of rows) {
 		const numbers = attempts(row.runs);
-		const title = rowTitle(row);
+		const title = titles.get(row) ?? rowTitle(row);
 		for (const run of row.runs) {
 			const n = numbers.get(run);
 			const label = n === undefined ? title : `${title} · attempt ${n}`;
-			const lane = runLane(row, run, `${label} · ${run.outcome}`, row);
+			const lane = runLane(row, run, `${label} · ${run.outcome}`, range, row);
 			const group = groups.get(run.agent);
 			if (group) group.push({ run, lane });
 			else groups.set(run.agent, [{ run, lane }]);
@@ -166,4 +187,24 @@ function byName(a: string | undefined, b: string | undefined): number {
 /** A row's title, or its root's short name when it has none. */
 export function rowTitle(row: OverviewRow): string {
 	return row.title ?? rootName(row.root);
+}
+
+/**
+ * Each row's title among others, where nothing else names its task: the
+ * root's full name, instance included, for an untitled row whose short
+ * name another root shares ("task 201" on two Vikunja instances).
+ */
+export function rowTitles(rows: readonly OverviewRow[]): Map<OverviewRow, string> {
+	const roots = new Map<string, Set<string>>();
+	for (const row of rows) {
+		if (row.title !== undefined) continue;
+		const name = rootName(row.root);
+		roots.set(name, (roots.get(name) ?? new Set()).add(rootSegments(row.root)));
+	}
+	return new Map(
+		rows.map((row) => {
+			const shared = row.title === undefined && (roots.get(rootName(row.root))?.size ?? 0) > 1;
+			return [row, shared ? rootLabel(row.root) : rowTitle(row)];
+		})
+	);
 }

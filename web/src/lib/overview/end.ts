@@ -37,7 +37,18 @@ function goingAt(i: Interval, t: number): boolean {
 	const start = boundTime(i.start);
 	if (start === undefined || start >= t) return false;
 	const end = boundTime(i.end);
-	return end !== undefined ? end >= t : i.end.state === 'open';
+	return end !== undefined ? end > t : i.end.state === 'open';
+}
+
+/** Whether a run still queued at its last read was created before t: then it was waiting at t. */
+function queuedAt(run: Run, t: number): boolean {
+	const created = run.created === undefined ? undefined : Date.parse(run.created);
+	return (
+		run.outcome === 'waiting' &&
+		run.interval.end.state === 'open' &&
+		created !== undefined &&
+		created < t
+	);
 }
 
 const OPEN_NOTE = 'not ended at the last read';
@@ -85,7 +96,7 @@ export function endChips(row: OverviewRow, to: number): Chip[] {
  */
 function runChips(row: OverviewRow, run: Run, to: number): Chip[] {
 	const queued = run.outcome === 'waiting';
-	if (goingAt(run.interval, to) || (queued && run.interval.end.state === 'open')) {
+	if (goingAt(run.interval, to) || queuedAt(run, to)) {
 		return [
 			{
 				kind: queued ? 'waiting' : 'running',

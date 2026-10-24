@@ -3,6 +3,7 @@
 <script lang="ts">
 	import { rootSegments } from '../roots';
 	import { formatFull, formatMinute, MINUTE_MS, ticks } from '../timeline/time';
+	import { lastCursor, snapCursor } from './cursor';
 	import ExecutorGroupView from './ExecutorGroupView.svelte';
 	import { byExecutor } from './lanes';
 	import type { OverviewRow } from './model';
@@ -26,11 +27,9 @@
 
 	const id = $props.id();
 	const axis = $derived(ticks(range.start, range.end, MAX_TICKS, 'utc'));
-	const groups = $derived(grouping === 'executor' ? byExecutor(rows) : []);
+	const groups = $derived(grouping === 'executor' ? byExecutor(rows, range) : []);
 	const pick = (t: number) => {
-		// To the minute, as the slider moves it.
-		const minute = Math.round(t / MINUTE_MS) * MINUTE_MS;
-		cursor = Math.min(range.end - MINUTE_MS, Math.max(range.start, minute));
+		cursor = snapCursor(range, t);
 	};
 </script>
 
@@ -54,7 +53,7 @@
 			id="{id}-cursor"
 			type="range"
 			min={range.start}
-			max={range.end - MINUTE_MS}
+			max={lastCursor(range)}
 			step={MINUTE_MS}
 			value={cursor}
 			aria-valuetext={formatFull(cursor, 'utc')}

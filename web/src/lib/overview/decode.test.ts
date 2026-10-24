@@ -38,6 +38,30 @@ describe('parseOverviewPage', () => {
 		expect(() => parseOverviewPage(json)).toThrow(/open end/);
 	});
 
+	it('rejects one attempt twice: keyed by UID and by the pod it names', () => {
+		const json = withFirstRow((row) => {
+			const run = (row.runs as JSONObject[])[0]!;
+			const key = run.key as JSONObject;
+			const byPod = {
+				...run,
+				key: { cluster: key.cluster, namespace: key.namespace, pod: run.pod }
+			};
+			(row.runs as JSONObject[]).push(byPod);
+		});
+		expect(() => parseOverviewPage(json)).toThrow(/names the same pod/);
+	});
+
+	it('rejects a mark of another source than its event', () => {
+		const json = withFirstRow((row) => {
+			(row.marks as JSONObject[])[0]!.instance = 'other.example.com';
+		});
+		expect(() => parseOverviewPage(json)).toThrow(/another source or instance/);
+		const kind = withFirstRow((row) => {
+			(row.marks as JSONObject[])[0]!.source = 'kelos';
+		});
+		expect(() => parseOverviewPage(kind)).toThrow(/cannot come from kelos/);
+	});
+
 	it('rejects a window that ends before it starts', () => {
 		const json = overviewGoldenJSON() as { window: { from: string; to: string } };
 		json.window = { from: json.window.to, to: json.window.from };

@@ -45,6 +45,18 @@ describe('place', () => {
 		});
 	});
 
+	it('leaves out what ends at the window start or is known only at its end', () => {
+		expect(
+			place(span({ start: afternoon('13:30'), end: afternoon('14:00') }), range)
+		).toBeUndefined();
+		expect(place(span({ start: afternoon('15:00'), endState: 'unknown' }), range)).toBeUndefined();
+		expect(place(span({ end: afternoon('15:00') }), range)).toBeUndefined();
+		expect(place(span({ end: afternoon('14:00') }), range)).toMatchObject({
+			left: 0,
+			stub: 'start'
+		});
+	});
+
 	it('draws nothing with no known end, or outside the window', () => {
 		expect(place(span({ endState: 'unknown' }), range)).toBeUndefined();
 		expect(

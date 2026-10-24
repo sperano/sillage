@@ -20,16 +20,19 @@
 
 	let { row, range, cursor, onpick }: Props = $props();
 
+	const NO_EXECUTOR = 'no executor known';
+
 	const id = $props.id();
 	let expanded = $state(false);
 	const title = $derived(rowTitle(row));
-	const executors = $derived([...new Set(row.runs.flatMap((r) => (r.agent ? [r.agent] : [])))]);
 	const executorsText = $derived.by(() => {
 		if (row.runs.length === 0) return 'no run in this window';
-		return executors.length > 0 ? executors.join(', ') : 'no executor known';
+		const names = [...new Set(row.runs.flatMap((r) => (r.agent ? [r.agent] : [])))];
+		if (row.runs.some((r) => !r.agent)) names.push(NO_EXECUTOR);
+		return names.join(', ');
 	});
 	const unknown = $derived(rowUnknownSpans(row, range));
-	const lanes = $derived(expanded ? expandedLanes(row) : [collapsedLane(row)]);
+	const lanes = $derived(expanded ? expandedLanes(row, range) : [collapsedLane(row)]);
 	const chips = $derived(endChips(row, range.end));
 </script>
 

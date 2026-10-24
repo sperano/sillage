@@ -72,11 +72,24 @@ export function parseOverviewQuery(params: URLSearchParams): OverviewQuery {
 		missing: params.get(PARAMS.missing) === TRUE,
 		group: parseGrouping(params.get(PARAMS.group))
 	};
-	const from = text(PARAMS.from);
-	const to = text(PARAMS.to);
+	const from = canonicalTime(text(PARAMS.from));
+	const to = canonicalTime(text(PARAMS.to));
 	if (from) q.from = from;
 	if (to) q.to = to;
 	return q;
+}
+
+/** An RFC 3339 time, as the API reads one. */
+const RFC_3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/i;
+
+/**
+ * A URL's window bound as the form shows it and gives it back: in UTC, to
+ * the second, so that applying the form never moves the window. Anything
+ * else stays as it is, for the API to reject.
+ */
+function canonicalTime(time: string): string {
+	const field = RFC_3339.test(time) ? timeField(time) : '';
+	return field === '' ? time : `${field}Z`;
 }
 
 /** The parameters of the query's filters and window, without what is unset. */

@@ -4,13 +4,14 @@
 	import { count } from '../lib/format';
 	import { load } from '../lib/load.svelte';
 	import type { OverviewPage as Page } from '../lib/overview/model';
+	import { lastCursor } from '../lib/overview/cursor';
 	import OverviewChart from '../lib/overview/OverviewChart.svelte';
 	import OverviewFilters from '../lib/overview/OverviewFilters.svelte';
 	import OverviewSummary from '../lib/overview/OverviewSummary.svelte';
 	import type { OverviewQuery } from '../lib/overview/query';
 	import { sameRoot } from '../lib/roots';
 	import type { Router } from '../lib/router.svelte';
-	import { formatDate, formatMinute, MINUTE_MS } from '../lib/timeline/time';
+	import { formatDate, formatMinute } from '../lib/timeline/time';
 	import ErrorNotice from '../components/ErrorNotice.svelte';
 
 	let { api, router, query }: { api: Api; router: Router; query: OverviewQuery } = $props();
@@ -55,7 +56,7 @@
 			: { start: 0, end: 0 }
 	);
 	// The last minute of the window, until the reader moves it.
-	let cursor = $derived(Math.max(range.start, range.end - MINUTE_MS));
+	let cursor = $derived(lastCursor(range));
 	const executors = $derived(
 		[
 			...new Set(rows.flatMap((r) => r.runs.flatMap((run) => (run.agent ? [run.agent] : []))))

@@ -67,6 +67,14 @@ describe('the filter form', () => {
 		expect(timeField(undefined)).toBe('');
 	});
 
+	it('takes a URL window as the form shows it, so applying the form keeps it', () => {
+		const q = parseOverviewQuery(
+			new URLSearchParams('from=2026-03-10T14:00:30.750%2B01:00&to=yesterday')
+		);
+		expect([q.from, q.to]).toEqual(['2026-03-10T13:00:30Z', 'yesterday']);
+		expect(queryOfForm(form({ from: timeField(q.from) })).from).toBe(q.from);
+	});
+
 	it('reads its flags and grouping', () => {
 		const q = queryOfForm(form({ review: 'on', missing: 'on', group: 'executor' }));
 		expect([q.review, q.failed, q.missing, q.group]).toEqual([true, false, true, 'executor']);

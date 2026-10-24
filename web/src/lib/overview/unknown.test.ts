@@ -16,6 +16,15 @@ describe('rowUnknownSpans', () => {
 		expect(rowUnknownSpans(rowOfTask(page, 201), range)).toEqual([]);
 	});
 
+	it('counts the source of a mark, with no other record from it', () => {
+		const row = rowOfTask(page, 206);
+		const uncovered = { ...row, coverage: row.coverage.filter((c) => c.source !== 'vikunja') };
+		expect(rowSources(uncovered)).toContain('vikunja/vikunja.example.com');
+		expect(rowUnknownSpans(uncovered, range)).toEqual([
+			{ ...range, reason: 'vikunja/vikunja.example.com: no coverage recorded' }
+		]);
+	});
+
 	it('hatches the whole window for a source a row has records from but no coverage of', () => {
 		const row = rowOfTask(page, 203);
 		const uncovered = { ...row, coverage: row.coverage.filter((c) => c.source !== 'kelos') };

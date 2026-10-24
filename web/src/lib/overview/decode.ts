@@ -17,7 +17,8 @@ import {
 	timestamp,
 	unique
 } from '../check';
-import { coverageList, interval, prKey, root, run } from '../decodeModel';
+import { checkRunPods, coverageList, interval, prKey, root, run } from '../decodeModel';
+import { EVENT_KIND_SOURCES, SOURCES } from '../model';
 import { rootSegments } from '../roots';
 import {
 	MARK_KINDS,
@@ -49,15 +50,27 @@ const reviewWait: Decoder<ReviewWait> = object(
 	{ reviewer: text, team: text }
 );
 
-const mark: Decoder<Mark> = object(
-	{ kind: oneOf(MARK_KINDS), at: timestamp, event: text },
-	{ pr: prKey, pod: text }
+const mark: Decoder<Mark> = refine(
+	object(
+		{ kind: oneOf(MARK_KINDS), at: timestamp, event: text, source: oneOf(SOURCES), instance: text },
+		{ pr: prKey, pod: text }
+	),
+	(m, path) => {
+		const sources: readonly string[] = EVENT_KIND_SOURCES[m.kind];
+		if (!sources.includes(m.source)) fail(path, `kind ${m.kind} cannot come from ${m.source}`);
+		if (!m.event.startsWith(`${m.source}/${m.instance}/`)) {
+			fail(`${path}.event`, 'the event key names another source or instance');
+		}
+	}
 );
 
 const row: Decoder<OverviewRow> = object(
 	{
 		root,
-		runs: unique(array(run), (r) => JSON.stringify(r.key)),
+		runs: refine(
+			unique(array(run), (r) => JSON.stringify(r.key)),
+			checkRunPods
+		),
 		pullRequests: unique(array(pullRequest), (p) => JSON.stringify(p.key)),
 		reviewWaits: unique(array(reviewWait), (w) => w.request),
 		marks: unique(array(mark), (m) => m.event),

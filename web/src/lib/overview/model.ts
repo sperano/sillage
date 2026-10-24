@@ -4,7 +4,7 @@
 // and decode.test.ts decodes the golden overview
 // (testdata/fixtures/overview), so that a change on the Go side fails here.
 
-import type { Coverage, Interval, PRKey, Root, Run } from '../model';
+import type { Coverage, Interval, PRKey, Root, Run, Source } from '../model';
 
 /** A pull request's state at the end of the window. */
 export const PR_STATES = ['open', 'merged', 'closed', 'unknown'] as const;
@@ -54,6 +54,9 @@ export interface Mark {
 	at: string;
 	/** The event's key. */
 	event: string;
+	/** Where the event was read: its coverage says whether the row's history there is known. */
+	source: Source;
+	instance: string;
 	pr?: PRKey;
 	/** The pod a start announcement names. */
 	pod?: string;

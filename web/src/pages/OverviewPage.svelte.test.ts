@@ -106,11 +106,20 @@ test('a row with missing history says so, is hatched, and measures nothing', asy
 	await expect.element(state).toHaveTextContent('history incomplete');
 	await expect.element(state).not.toHaveTextContent(/idle/);
 	await expect
-		.element(page.getByTitle(/^kelos\/cluster-a: the Kelos watch expired/))
+		.element(page.getByRole('img', { name: /^kelos\/cluster-a: the Kelos watch expired/ }))
 		.toBeInTheDocument();
 	await expect
 		.element(page.getByRole('region', { name: 'Coverage' }))
 		.toHaveTextContent('1 task with incomplete history');
+});
+
+test('a row names its executors and says when a run names none', async () => {
+	const golden = overviewGoldenJSON() as { rows: { runs: { agent?: string }[] }[] };
+	delete golden.rows[2]!.runs[1]!.agent;
+	await renderOverview(DEFAULT_QUERY, { [OVERVIEW]: () => json(golden) });
+	await expect
+		.element(page.getByRole('listitem').filter({ hasText: 'Cache metrics' }).first())
+		.toHaveTextContent('agent-cedar, no executor known');
 });
 
 test('expanding a row labels each attempt, the failed one kept', async () => {
