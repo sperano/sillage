@@ -83,6 +83,15 @@ func TestRefusesTokens(t *testing.T) {
 	rec := httptest.NewRecorder()
 	hs.h.ServeHTTP(rec, req)
 	expectStatus(t, "basic authentication", rec, http.StatusUnauthorized)
+	if got := rec.Header().Get("WWW-Authenticate"); got != bearerScheme {
+		t.Errorf("a 401 challenges with %q, want %q", got, bearerScheme)
+	}
+	req = httptest.NewRequest(http.MethodPost, Path, strings.NewReader(body()))
+	req.Header.Set("Authorization", "bearer   "+hs.token)
+	rec = httptest.NewRecorder()
+	hs.h.ServeHTTP(rec, req)
+	expectStatus(t, "spaces after the scheme", rec, http.StatusAccepted)
+	expectStatus(t, "a space inside the token", hs.post(hs.token+" x", body()), http.StatusUnauthorized)
 	hs.reviewer.err = errors.New("API server unreachable")
 	rec = hs.post(fabricatedToken("new", testNow.Add(time.Hour)), body())
 	expectStatus(t, "a review failing", rec, http.StatusServiceUnavailable)
@@ -140,8 +149,15 @@ func TestRefusesBodies(t *testing.T) {
 			t.Errorf("%s: a marker was stored", c.name)
 		}
 	}
-	// A body of unknown length is cut at the limit.
+	// A body declared too large is refused before its token is reviewed.
 	hs := newHarness(t)
+	expectStatus(t, "a body declared too large", hs.post(fabricatedToken("unreviewed", testNow.Add(time.Hour)),
+		strings.Repeat("x", MaxBodyBytes+1)), http.StatusRequestEntityTooLarge)
+	if hs.reviewer.reviews != 0 {
+		t.Errorf("%d reviews for a body declared too large, want 0", hs.reviewer.reviews)
+	}
+	// A body of unknown length is cut at the limit.
+	hs = newHarness(t)
 	long := strings.Replace(body(), `"version":1`, `"version":1,"pad":"`+strings.Repeat("x", MaxBodyBytes)+`"`, 1)
 	req := httptest.NewRequest(http.MethodPost, Path, struct{ io.Reader }{strings.NewReader(long)})
 	req.ContentLength = -1

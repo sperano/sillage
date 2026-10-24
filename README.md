@@ -105,7 +105,8 @@ the roots deliveries name, both paths answer 503.
 `POST /ingest/marker` (`internal/ingest/marker`) takes the phase markers
 that wrappers in a Kelos run's pod report: one edge (`start` or `end`) of
 one span (`blocker-wait`, `wiki-login`, `agent`), a JSON object of at most
-4096 bytes with no content of any kind. It is meant for the in-cluster
+4096 bytes of named fields only (when, which Task, how the span ended),
+never a free-form payload such as a prompt or an output. It is meant for the in-cluster
 Service only. Each request carries the pod's projected ServiceAccount
 token (`Authorization: Bearer`, audience `sillage`), which sillage checks
 with a TokenReview: its own ServiceAccount needs `create` on
@@ -121,7 +122,9 @@ without a store, when the review or the store fails, or when too many
 reviews or bodies are in flight for a second (try again later). A stored marker is
 joined to its run by its pod, as an identifier, else by its Task name and
 time inside exactly one run, as a heuristic, else it stays unattached
-(counted in the stories' Kelos coverage) until a Kelos read names its pod.
+(counted in the stories' Kelos coverage); each later save of Kelos
+records joins it again both ways, so a run saved with its Task name and
+a matching interval attaches it even when no read ever names its pod.
 
 The image builds both (no local `web/dist/` needed) and embeds the
 frontend:

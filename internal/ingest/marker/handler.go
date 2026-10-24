@@ -91,6 +91,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
 	}
+	// A body declared too large costs no review.
+	if r.ContentLength > MaxBodyBytes {
+		h.refuse(r.Context(), w, tooLarge())
+		return
+	}
 	received := h.now()
 	id, err := h.auth.authenticate(r.Context(), r.Header.Get("Authorization"))
 	if err != nil {
@@ -114,9 +119,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // readReport reads and decodes the body, at most MaxBodyBytes, once a body
 // slot is free.
 func (h *Handler) readReport(w http.ResponseWriter, r *http.Request, received time.Time) (model.MarkerReport, error) {
-	if r.ContentLength > MaxBodyBytes {
-		return model.MarkerReport{}, tooLarge()
-	}
 	wait := time.NewTimer(bodySlotWait)
 	defer wait.Stop()
 	select {
@@ -162,6 +164,7 @@ func (h *Handler) refuse(ctx context.Context, w http.ResponseWriter, err error) 
 	switch ae.status {
 	case http.StatusUnauthorized:
 		o = outcomeUnauthorized
+		w.Header().Set("WWW-Authenticate", bearerScheme)
 	case http.StatusServiceUnavailable:
 		o, level = outcomeUnavailable, slog.LevelWarn
 	}

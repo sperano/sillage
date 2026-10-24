@@ -37,7 +37,9 @@ const (
 	// naming the pod a bound token was issued for.
 	extraPodName = "authentication.kubernetes.io/pod-name"
 	extraPodUID  = "authentication.kubernetes.io/pod-uid"
-	bearerScheme = "bearer"
+	// bearerScheme is matched without regard to case; a 401 challenges
+	// with it capitalized as RFC 6750 writes it.
+	bearerScheme = "Bearer"
 	jwtParts     = 3
 )
 
@@ -200,9 +202,11 @@ func only(values []string) (string, bool) {
 	return values[0], true
 }
 
-// bearer returns the token of an Authorization header.
+// bearer returns the token of an Authorization header, however many
+// spaces follow its scheme.
 func bearer(header string) (string, error) {
 	scheme, token, ok := strings.Cut(header, " ")
+	token = strings.TrimLeft(token, " ")
 	switch {
 	case !ok || !strings.EqualFold(scheme, bearerScheme) || token == "" || strings.ContainsAny(token, " \t"):
 		return "", unauthorized("a bearer token is required")
