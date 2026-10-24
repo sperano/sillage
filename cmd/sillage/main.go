@@ -126,9 +126,10 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 		_ = ln.Close()
 		return err
 	}
-	// The collector loop does not take the reads deliveries ask for (an
+	// The collection loop does not take the reads deliveries ask for (an
 	// ingest.Queue) yet: until it does, the ingest paths refuse every
-	// delivery.
+	// delivery. The handler is built before the collector starts, so that
+	// its failure leaves nothing running.
 	ingestHandler, err := newIngest(getenv, st, nil, nil)
 	if err != nil {
 		_ = ln.Close()
