@@ -344,7 +344,8 @@ func (r *storedRoot) rekey(pod, uid model.RunKey) {
 	delete(r.runs, pod)
 	for key, e := range r.events {
 		if e.Related.Run != nil && *e.Related.Run == pod {
-			e.Related.Run = &uid
+			run := uid
+			e.Related.Run = &run
 			r.events[key] = e
 		}
 	}

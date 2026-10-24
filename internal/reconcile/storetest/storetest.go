@@ -5,7 +5,6 @@
 package storetest
 
 import (
-	"bytes"
 	"encoding/json"
 	"slices"
 	"testing"
@@ -85,19 +84,14 @@ func withoutCoverage(t *testing.T, recs model.Records) model.Story {
 	return story
 }
 
-// sameJSON reports whether got and want have the same JSON, the form
-// the store keeps records in.
-func sameJSON(t *testing.T, got, want any) bool {
+// jsonOf is v's JSON, the form the store keeps records in.
+func jsonOf(t *testing.T, v any) string {
 	t.Helper()
-	g, err := json.Marshal(got)
+	b, err := json.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}
-	w, err := json.Marshal(want)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return bytes.Equal(g, w)
+	return string(b)
 }
 
 func unknownRoot(t *testing.T, s reconcile.Store) {
@@ -109,7 +103,7 @@ func unknownRoot(t *testing.T, s reconcile.Store) {
 
 func recordsReadBack(t *testing.T, s reconcile.Store) {
 	run := kelosRun()
-	announcement, pr := announcement("comments/900", 1, run), pullRequest()
+	announcement, pr := announcementOf("comments/900", 1, run), pullRequest()
 	commitRecords(t, s, model.Records{
 		Events: []model.Event{announcement}, Runs: []model.Run{run}, PullRequests: []model.PullRequest{pr},
 		Correlations: []model.Correlation{announces(announcement, run)},
@@ -122,8 +116,8 @@ func recordsReadBack(t *testing.T, s reconcile.Store) {
 	if got := runKeys(recs); !slices.Equal(got, []model.RunKey{run.Key}) {
 		t.Errorf("runs = %v, want %s", got, run.Key)
 	}
-	if len(recs.PullRequests) != 1 || !sameJSON(t, recs.PullRequests[0], pr) {
-		t.Errorf("pull requests = %+v, want %+v with its check", recs.PullRequests, pr)
+	if got, want := jsonOf(t, recs.PullRequests), jsonOf(t, []model.PullRequest{pr}); got != want {
+		t.Errorf("pull requests = %s, want %s", got, want)
 	}
 	if len(recs.Correlations) != 1 || recs.Correlations[0].Pair() != announces(announcement, run).Pair() {
 		t.Errorf("correlations = %+v, want the announcement's", recs.Correlations)
@@ -148,7 +142,7 @@ func runKept(t *testing.T, s reconcile.Store) {
 // run and the correlations name the UID.
 func placeholderRekeyed(t *testing.T, s reconcile.Store) {
 	placeholder := placeholderRun()
-	announcement := announcement("comments/900", 1, placeholder)
+	announcement := announcementOf("comments/900", 1, placeholder)
 	commitRecords(t, s, model.Records{
 		Events: []model.Event{announcement}, Runs: []model.Run{placeholder},
 		Correlations: []model.Correlation{announces(announcement, placeholder)},
@@ -159,7 +153,7 @@ func placeholderRekeyed(t *testing.T, s reconcile.Store) {
 		t.Errorf("runs = %v, want the run keyed by UID alone", got)
 	}
 	if len(recs.Events) != 1 || recs.Events[0].Related.Run == nil || *recs.Events[0].Related.Run != kelosRun().Key {
-		t.Errorf("events = %+v, want the announcement naming %s", recs.Events, kelosRun().Key)
+		t.Errorf("events = %s, want the announcement naming %s", jsonOf(t, recs.Events), kelosRun().Key)
 	}
 	for _, c := range recs.Correlations {
 		if c.From == placeholder.Key.Ref() || c.To == placeholder.Key.Ref() {
@@ -199,15 +193,15 @@ func coverageReplaced(t *testing.T, s reconcile.Store) {
 // coverageAlone commits what the loop commits for a read of an unchanged
 // task: coverage, and no record.
 func coverageAlone(t *testing.T, s reconcile.Store) {
-	announcement, run := announcement("comments/900", 1, kelosRun()), kelosRun()
+	announcement, run := announcementOf("comments/900", 1, kelosRun()), kelosRun()
 	commitRecords(t, s, model.Records{
 		Events: []model.Event{announcement}, Runs: []model.Run{run}, PullRequests: []model.PullRequest{pullRequest()},
 		Correlations: []model.Correlation{announces(announcement, run)},
 	})
-	before := withoutCoverage(t, mustRecords(t, s))
+	before := jsonOf(t, withoutCoverage(t, mustRecords(t, s)))
 	commitRecords(t, s, model.Records{Coverage: []model.Coverage{coverage(model.SourceVikunja, vikunjaHost, 60)}})
-	if after := withoutCoverage(t, mustRecords(t, s)); !sameJSON(t, after, before) {
-		t.Errorf("records after a coverage commit = %+v, want %+v", after, before)
+	if after := jsonOf(t, withoutCoverage(t, mustRecords(t, s))); after != before {
+		t.Errorf("records after a coverage commit = %s, want %s", after, before)
 	}
 }
 

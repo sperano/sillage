@@ -1,6 +1,7 @@
 package storetest
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/sperano/sillage/internal/model"
@@ -49,9 +50,9 @@ func comment(id string, minute int) model.Event {
 	}
 }
 
-// announcement is comment id announcing run, posted by the service
+// announcementOf is comment id announcing run, posted by the service
 // account at minute.
-func announcement(id string, minute int, run model.Run) model.Event {
+func announcementOf(id string, minute int, run model.Run) model.Event {
 	e := comment(id, minute)
 	e.Kind = model.KindRunAnnounced
 	e.Actor = model.Account{Login: "kelos", Kind: model.ActorService}
@@ -65,7 +66,7 @@ func announcement(id string, minute int, run model.Run) model.Event {
 func pullRequest() model.PullRequest {
 	return model.PullRequest{
 		Key:    model.PRKey{Instance: githubHost, Repository: repository, Number: prNumber},
-		Branch: "kelos/vikunja-42",
+		Branch: "kelos/vikunja-" + strconv.Itoa(taskID),
 		Checks: []model.CheckRun{{
 			ID: checkID, SHA: headSHA, Name: "test", Conclusion: model.CheckSuccess,
 			Interval: model.Interval{Start: model.KnownAt(at(20)), End: model.KnownAt(at(25))},
