@@ -32,6 +32,20 @@ func TestStoresTheMarkerWithItsVerifiedSender(t *testing.T) {
 	}
 }
 
+// A marker is received in UTC, whatever the host's zone: the store keeps
+// its body, which the story serves.
+func TestReceivesInUTC(t *testing.T) {
+	hs := newHarness(t)
+	hs.clock = testNow.In(time.FixedZone("west", westOfUTC))
+	expectStatus(t, "a start", hs.post(hs.token, body()), http.StatusAccepted)
+	if len(hs.store.markers) != 1 {
+		t.Fatalf("stored %d markers, want 1", len(hs.store.markers))
+	}
+	if got := hs.store.markers[0].ReceivedAt; got.Location() != time.UTC || !got.Equal(testNow) {
+		t.Errorf("received at %s, want %s", got, testNow)
+	}
+}
+
 func TestAnswersWhatTheStoreDid(t *testing.T) {
 	for _, c := range []struct {
 		result store.MarkerResult
@@ -184,6 +198,25 @@ func TestBoundsTheBodiesInFlight(t *testing.T) {
 	expectStatus(t, "a slot free", hs.post(hs.token, body()), http.StatusAccepted)
 	if len(hs.h.bodies) != maxBodiesInFlight-1 {
 		t.Errorf("%d slots held after the request, want %d", len(hs.h.bodies), maxBodiesInFlight-1)
+	}
+}
+
+// With every review slot held, a token not cached waits for one, then is
+// answered 503 without being reviewed.
+func TestBoundsTheReviewsInFlight(t *testing.T) {
+	hs := newHarness(t)
+	for range maxReviewsInFlight {
+		hs.h.auth.slots <- struct{}{}
+	}
+	expectStatus(t, "every slot held", hs.post(hs.token, body()), http.StatusServiceUnavailable)
+	if hs.reviewer.reviews != 0 || len(hs.store.markers) != 0 {
+		t.Errorf("%d reviews and %d markers without a review slot, want none",
+			hs.reviewer.reviews, len(hs.store.markers))
+	}
+	<-hs.h.auth.slots
+	expectStatus(t, "a slot free", hs.post(hs.token, body()), http.StatusAccepted)
+	if len(hs.h.auth.slots) != maxReviewsInFlight-1 {
+		t.Errorf("%d slots held after the request, want %d", len(hs.h.auth.slots), maxReviewsInFlight-1)
 	}
 }
 

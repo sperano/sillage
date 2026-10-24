@@ -112,11 +112,15 @@ type authenticator struct {
 	now       func() time.Time
 	cache     *verdictCache
 	slots     chan struct{}
+	// slotWait is how long a request waits for a review slot:
+	// reviewSlotWait.
+	slotWait time.Duration
 }
 
 func newAuthenticator(r Reviewer, namespace string, now func() time.Time) *authenticator {
 	return &authenticator{reviewer: r, namespace: namespace, now: now,
-		cache: newVerdictCache(maxCachedVerdicts), slots: make(chan struct{}, maxReviewsInFlight)}
+		cache: newVerdictCache(maxCachedVerdicts), slots: make(chan struct{}, maxReviewsInFlight),
+		slotWait: reviewSlotWait}
 }
 
 // authenticate returns the pod the request's token was issued for.
@@ -150,7 +154,7 @@ func (a *authenticator) authenticate(ctx context.Context, header string) (identi
 
 // review asks the reviewer about token, once a slot is free.
 func (a *authenticator) review(ctx context.Context, token string) (ReviewStatus, error) {
-	wait := time.NewTimer(reviewSlotWait)
+	wait := time.NewTimer(a.slotWait)
 	defer wait.Stop()
 	select {
 	case a.slots <- struct{}{}:

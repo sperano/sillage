@@ -28,6 +28,14 @@ const (
 	testSpan      = "5f0c2b3e9a7d4c1e8b6a2f4d3c1e0b9a"
 )
 
+// testSlotWait is how long a test's request waits for a slot, so that
+// one finding every slot held is answered at once.
+const testSlotWait = time.Millisecond
+
+// westOfUTC is the offset, in seconds, of a host zone seven hours west of
+// UTC.
+const westOfUTC = -7 * 60 * 60
+
 // testNow is when the tests' requests are received.
 var testNow = time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 
@@ -119,6 +127,7 @@ func newHarness(t *testing.T) *harness {
 	}
 	hs := &harness{h: h, reviewer: rev, store: st, clock: testNow, token: token}
 	h.now = func() time.Time { return hs.clock }
+	h.bodyWait, h.auth.slotWait = testSlotWait, testSlotWait
 	return hs
 }
 

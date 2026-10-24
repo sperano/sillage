@@ -63,6 +63,8 @@ type Handler struct {
 	// bodies holds a slot for each body being read: at most
 	// maxBodiesInFlight, however many requests arrive.
 	bodies chan struct{}
+	// bodyWait is how long a request waits for a body slot: bodySlotWait.
+	bodyWait time.Duration
 }
 
 // New returns the handler of Path, reviewing tokens with rev and storing
@@ -75,7 +77,7 @@ func New(cfg Config, rev Reviewer, st Store, m *Metrics, log *slog.Logger) (*Han
 		return nil, errors.New("marker: the Kelos cluster and namespace are required")
 	}
 	h := &Handler{cfg: cfg, store: st, metrics: m, log: log, now: time.Now,
-		bodies: make(chan struct{}, maxBodiesInFlight)}
+		bodies: make(chan struct{}, maxBodiesInFlight), bodyWait: bodySlotWait}
 	h.auth = newAuthenticator(rev, cfg.Namespace, func() time.Time { return h.now() })
 	return h, nil
 }
@@ -96,7 +98,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.refuse(r.Context(), w, tooLarge())
 		return
 	}
-	received := h.now()
+	// A marker's times are UTC, whatever the host's zone.
+	received := h.now().UTC()
 	id, err := h.auth.authenticate(r.Context(), r.Header.Get("Authorization"))
 	if err != nil {
 		h.refuse(r.Context(), w, err)
@@ -119,7 +122,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // readReport reads and decodes the body, at most MaxBodyBytes, once a body
 // slot is free.
 func (h *Handler) readReport(w http.ResponseWriter, r *http.Request, received time.Time) (model.MarkerReport, error) {
-	wait := time.NewTimer(bodySlotWait)
+	wait := time.NewTimer(h.bodyWait)
 	defer wait.Stop()
 	select {
 	case h.bodies <- struct{}{}:
