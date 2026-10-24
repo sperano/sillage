@@ -57,7 +57,7 @@ func (c Config) roleOf(labels map[string]string, taskName string) (model.RunRole
 		}
 		return model.RoleUnknown, ""
 	}
-	if _, ok := c.taskID(labels); !ok {
+	if _, ok := c.TaskID(labels); !ok {
 		return model.RoleUnknown, ""
 	}
 	if strings.HasPrefix(taskName, discussNamePrefix) {
@@ -66,9 +66,9 @@ func (c Config) roleOf(labels map[string]string, taskName string) (model.RunRole
 	return model.RoleImplementation, labelPath(taskKey) + " without " + roleKey
 }
 
-// taskID returns the Vikunja task id the task label holds, and whether it
-// holds one.
-func (c Config) taskID(labels map[string]string) (int64, bool) {
+// TaskID returns the Vikunja task id the task label of labels holds, and
+// whether it holds one.
+func (c Config) TaskID(labels map[string]string) (int64, bool) {
 	id, err := strconv.ParseInt(labels[c.label(labelTask)], 10, 64)
 	if err != nil || id <= 0 {
 		return 0, false
