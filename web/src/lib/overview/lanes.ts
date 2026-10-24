@@ -73,19 +73,25 @@ const STARTED_BEFORE_NOTE = 'started before this window, end unknown: no bar';
 const OUTSIDE_NOTE = 'outside this window: no bar';
 
 /**
- * Why a run's spans draw nothing in the window: no known time; every span
- * ended before it (an earlier failed attempt of a retry); one started
- * before it with its end unknown, so that it may run on in it; or they lie
- * outside it. Undefined when one of them is drawn.
+ * Why a run's spans draw nothing in the window: no known time; one was last
+ * known before it with no end known (its end unknown, or open at a read
+ * before it), so that it may run on in it; every span ended before it (an
+ * earlier failed attempt of a retry); or they lie outside it. Undefined
+ * when one of them is drawn.
  */
 function noBarNote(spans: readonly OverviewSpan[], range: Range): string | undefined {
 	if (spans.some((s) => place(s, range) !== undefined)) return undefined;
 	const dated = spans.filter((s) => s.start !== undefined || drawnEnd(s) !== undefined);
 	if (dated.length === 0) return NO_BAR_NOTE;
-	if (dated.every((s) => (drawnEnd(s) ?? Infinity) <= range.start)) return BEFORE_NOTE;
-	const startedBefore = (s: OverviewSpan) =>
-		drawnEnd(s) === undefined && s.start !== undefined && s.start < range.start;
-	return dated.some(startedBefore) ? STARTED_BEFORE_NOTE : OUTSIDE_NOTE;
+	if (dated.some((s) => mayRunOnInto(s, range))) return STARTED_BEFORE_NOTE;
+	if (dated.every((s) => s.end !== undefined && s.end <= range.start)) return BEFORE_NOTE;
+	return OUTSIDE_NOTE;
+}
+
+/** Whether a span was last known before the window with no end known: an open end is no end. */
+function mayRunOnInto(s: OverviewSpan, range: Range): boolean {
+	const lastKnown = s.start ?? drawnEnd(s);
+	return s.endState !== 'known' && lastKnown !== undefined && lastKnown < range.start;
 }
 
 function runLane(

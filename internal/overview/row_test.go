@@ -99,6 +99,31 @@ func TestPodlessAnnouncement(t *testing.T) {
 	}
 }
 
+// An announcement naming a pod brings in the run of that pod in its
+// namespace, when it states one: a pod name is unique in its namespace,
+// not across them.
+func TestPodAnnouncementInItsNamespace(t *testing.T) {
+	const pod = testTaskName + "-abcde"
+	r := testRun("later", model.KnownAt(minute(70)), model.KnownAt(minute(80)), model.OutcomeSucceeded)
+	r.Pod = pod
+	for _, c := range []struct {
+		name    string
+		details map[string]string
+		want    []string
+	}{
+		{"by pod", map[string]string{detailPod: pod}, []string{"later"}},
+		{"in its namespace", map[string]string{detailPod: pod, detailNamespace: testNamespace}, []string{"later"}},
+		{"in another namespace", map[string]string{detailPod: pod, detailNamespace: "others"}, []string{}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			s := model.Story{Runs: []model.Run{r}, Events: []model.Event{announcementAt(5, c.details)}}
+			if got := runUIDs(runsIn(afternoon, s)); !slices.Equal(got, c.want) {
+				t.Errorf("runs = %v, want %v", got, c.want)
+			}
+		})
+	}
+}
+
 // A run created before the window that starts in it shows from its start,
 // even with its end unknown, and is active then.
 func TestRunStartingInTheWindowAfterAnEarlierCreation(t *testing.T) {

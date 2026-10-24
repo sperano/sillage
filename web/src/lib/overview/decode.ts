@@ -53,7 +53,7 @@ const reviewWait: Decoder<ReviewWait> = object(
 const mark: Decoder<Mark> = refine(
 	object(
 		{ kind: oneOf(MARK_KINDS), at: timestamp, event: text, source: oneOf(SOURCES), instance: text },
-		{ pr: prKey, pod: text }
+		{ pr: prKey, pod: text, namespace: text }
 	),
 	(m, path) => {
 		const sources: readonly string[] = EVENT_KIND_SOURCES[m.kind];

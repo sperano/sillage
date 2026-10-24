@@ -82,6 +82,13 @@ describe('the filter form', () => {
 		expect([q.from, q.to]).toEqual(['2026-02-30T00:00:00Z', '2026-03-10T24:00:00Z']);
 	});
 
+	it('leaves an offset out of range as written instead of shifting the window', () => {
+		const q = parseOverviewQuery(
+			new URLSearchParams('from=2026-03-10T14:00:00%2B24:00&to=2026-03-10T15:00:00-10:60')
+		);
+		expect([q.from, q.to]).toEqual(['2026-03-10T14:00:00+24:00', '2026-03-10T15:00:00-10:60']);
+	});
+
 	it('reads its flags and grouping', () => {
 		const q = queryOfForm(form({ review: 'on', missing: 'on', group: 'executor' }));
 		expect([q.review, q.failed, q.missing, q.group]).toEqual([true, false, true, 'executor']);

@@ -137,8 +137,10 @@ type Mark struct {
 	Source   model.Source `json:"source"`
 	Instance string       `json:"instance"`
 	PR       *model.PRKey `json:"pr,omitempty"`
-	// Pod is the pod a start announcement names.
-	Pod string `json:"pod,omitempty"`
+	// Pod is the pod a start announcement names, and Namespace its
+	// namespace, when the announcement states one.
+	Pod       string `json:"pod,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // Build returns the row of each input with something in the window, in no

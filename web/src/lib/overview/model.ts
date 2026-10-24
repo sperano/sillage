@@ -60,6 +60,8 @@ export interface Mark {
 	pr?: PRKey;
 	/** The pod a start announcement names. */
 	pod?: string;
+	/** The namespace a start announcement states. */
+	namespace?: string;
 }
 
 /** One task or page in the window. */

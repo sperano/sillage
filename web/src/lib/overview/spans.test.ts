@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { afternoon, overviewGolden, rowOfTask } from '../testing/overview';
 import {
+	announcedRun,
 	barText,
 	describeSpan,
 	markLabel,
@@ -117,5 +118,15 @@ describe('barText', () => {
 		expect(barText(waitBar(rowOfTask(page, 201), rowOfTask(page, 201).reviewWaits[0]!))).toBe(
 			'review requested: owner-gh'
 		);
+	});
+});
+
+describe('announcedRun', () => {
+	it('joins a pod announcement to the run of its pod in the namespace it states', () => {
+		const c = rowOfTask(page, 203);
+		const mark = c.marks.find((m) => m.pod === c.runs[1]!.pod)!;
+		expect(announcedRun(c, mark)).toBe(c.runs[1]);
+		expect(announcedRun(c, { ...mark, namespace: c.runs[1]!.key.namespace })).toBe(c.runs[1]);
+		expect(announcedRun(c, { ...mark, namespace: 'others' })).toBeUndefined();
 	});
 });

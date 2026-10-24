@@ -55,6 +55,15 @@ describe('lanes', () => {
 		);
 	});
 
+	it('says a run open at a last read before the window may run on, not that it ended', () => {
+		const later = { start: afternoon('15:10'), end: afternoon('16:10') };
+		const [failed, retry] = expandedLanes(rowOfTask(page, 203), later);
+		expect([failed?.note, retry?.note]).toEqual([
+			'before this window: no bar',
+			'started before this window, end unknown: no bar'
+		]);
+	});
+
 	it('says why an earlier failed attempt before the window draws nothing', () => {
 		const late = { start: afternoon('14:38'), end: range.end };
 		const [failed, retry] = expandedLanes(rowOfTask(page, 203), late);

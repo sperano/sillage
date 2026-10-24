@@ -81,15 +81,16 @@ export function parseOverviewQuery(params: URLSearchParams): OverviewQuery {
 	return q;
 }
 
-/** An RFC 3339 time, as the API reads one, its offset captured. */
-const RFC_3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|([+-])(\d{2}):(\d{2}))$/;
+/** An RFC 3339 time, its offset (hours 00–23, minutes 00–59) captured. */
+const RFC_3339 =
+	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|([+-])([01]\d|2[0-3]):([0-5]\d))$/;
 const MINUTES_PER_HOUR = 60;
 
 /**
  * A URL's window bound as the form shows it and gives it back: in UTC, to
  * the second (a fraction of a second is dropped), so that applying the
- * form queries the window shown. Anything else, a date or time out of
- * range included, stays as it is, for the API to reject.
+ * form queries the window shown. Anything else, a date, time or offset
+ * out of range included, stays as it is, for the API to read or reject.
  */
 function canonicalTime(time: string): string {
 	const m = RFC_3339.exec(time);

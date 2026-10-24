@@ -182,9 +182,12 @@ export function markGlyph(kind: MarkKind): string {
 	}
 }
 
-/** The run a start announcement names, by its pod. */
+/** The run a start announcement names: by its pod, in its namespace when it states one. */
 export function announcedRun(row: OverviewRow, m: Mark): Run | undefined {
-	return m.pod === undefined ? undefined : row.runs.find((r) => r.pod === m.pod);
+	if (m.pod === undefined) return undefined;
+	return row.runs.find(
+		(r) => r.pod === m.pod && (m.namespace === undefined || m.namespace === r.key.namespace)
+	);
 }
 
 /** The key of a run, for its lane. */
