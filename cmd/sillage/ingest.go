@@ -25,7 +25,7 @@ func newIngest(getenv func(string) string, st *store.Store, sched ingest.Schedul
 	case st == nil:
 		off = "no database is configured ($" + store.EnvDatabaseURL + ")"
 	case sched == nil:
-		off = "no collector loop runs to read the roots deliveries name"
+		off = "the collection loop does not read the roots deliveries name yet"
 	default:
 		return buildIngest(getenv, secrets, st, sched, reg)
 	}

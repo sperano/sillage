@@ -74,8 +74,8 @@ func TestNewIngestUnavailable(t *testing.T) {
 	}{
 		{"no secret", map[string]string{}, &store.Store{}, &recordingScheduler{}, ingest.EnvGitHubSecret},
 		{"no store", ingestEnv(), nil, &recordingScheduler{}, store.EnvDatabaseURL},
-		// The store is never used: newIngest stops at the missing loop.
-		{"no collector loop", ingestEnv(), &store.Store{}, nil, "no collector loop"},
+		// The store is never used: newIngest stops at the missing scheduler.
+		{"no scheduler", ingestEnv(), &store.Store{}, nil, "collection loop does not read"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

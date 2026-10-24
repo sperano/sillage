@@ -93,8 +93,8 @@ refused before anything is read from it or recorded. Each authenticated
 attempt is recorded as evidence that sillage received it, not that Kelos
 received or acted on its own delivery. It then asks the collector to read
 the task or page it names again; nothing is written from the payload, and
-the periodic reads stay authoritative. Until the collector loop runs in
-this binary, both paths answer 503.
+the periodic reads stay authoritative. Until the collection loop reads
+the roots deliveries name, both paths answer 503.
 
 The image builds both (no local `web/dist/` needed) and embeds the
 frontend:
