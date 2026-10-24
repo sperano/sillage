@@ -1,0 +1,14 @@
+{
+  "total_count": 1,
+  "check_runs": [
+    {
+      "id": 9612,
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "name": "test",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-03-11T10:11:00Z",
+      "completed_at": "2026-03-11T10:13:00Z"
+    }
+  ]
+}

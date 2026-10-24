@@ -175,6 +175,9 @@ func TestNormalizeTwoPages(t *testing.T) {
 		!done.SourceTime.Equal(at(time.March, 2, 11, 30, 0)) {
 		t.Errorf("done = %+v", done)
 	}
+	if !strings.Contains(done.Evidence.Note, "does not retain earlier completion or reopen times") {
+		t.Errorf("done evidence = %q, want Vikunja's history limitation", done.Evidence.Note)
+	}
 	assertObservation(t, events[5], "bucket", "Done")
 	assertObservation(t, events[6], "label", "backend")
 	assertObservation(t, events[7], "assignee", fixtureAgent.Username)

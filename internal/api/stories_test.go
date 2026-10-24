@@ -161,7 +161,7 @@ func TestSearch(t *testing.T) {
 		{"/api/v1/search?q=%20RETRY%20", []string{"failed-run-retry"}},
 		{"/api/v1/search?q=tasks/105", []string{"announced-run-only"}},
 		{"/api/v1/search?q=nothing-matches", []string{}},
-		{"/api/v1/search?limit=2", []string{"announced-run-only", "discuss-no-pr"}},
+		{"/api/v1/search?limit=2", []string{"announced-run-only", "checks-after-force-push"}},
 	}
 	for _, tt := range tests {
 		var got SearchResponse

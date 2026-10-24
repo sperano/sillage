@@ -1,0 +1,15 @@
+{
+  "id": 107,
+  "project_id": 30,
+  "title": "Reopen a fabricated task",
+  "identifier": "#7",
+  "created": "2026-03-12T09:00:00Z",
+  "updated": "2026-03-12T11:00:00Z",
+  "created_by": { "id": 7, "username": "owner", "name": "Robin Owner" },
+  "done": true,
+  "done_at": "2026-03-12T11:00:00Z",
+  "labels": [],
+  "assignees": [],
+  "bucket_id": 0,
+  "buckets": []
+}
