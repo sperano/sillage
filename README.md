@@ -196,8 +196,8 @@ go build ./...
 
 The store's, the collector lock's and the loop's store tests need a
 PostgreSQL they may create schemas in, named by
-`SILLAGE_TEST_DATABASE_URL`; without it they skip. CI has no PostgreSQL yet,
-so it skips them: this command is local only.
+`SILLAGE_TEST_DATABASE_URL`; without it they skip. CI's Go job sets it to a
+PostgreSQL service, so `go test -race ./...` runs them there. Locally:
 
 ```sh
 SILLAGE_TEST_DATABASE_URL=postgres://sillage@localhost:5432/sillage_test?sslmode=disable go test -race ./internal/store ./internal/reconcile/... ./cmd/sillage
