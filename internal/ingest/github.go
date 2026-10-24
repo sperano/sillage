@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 
@@ -24,9 +25,17 @@ const (
 	githubPing = "ping"
 	// maxDeliveryIDLength bounds the delivery id kept (a GUID is 36).
 	maxDeliveryIDLength = 128
+	// maxEventLength bounds the event name kept (GitHub's longest is
+	// under 40).
+	maxEventLength = 64
 )
 
-var errNoDeliveryID = errors.New("the delivery has no " + githubDeliveryHeader + " or " + githubEventHeader + " header")
+var (
+	errNoDeliveryID   = errors.New("the delivery has no " + githubDeliveryHeader + " or " + githubEventHeader + " header")
+	errLongDeliveryID = fmt.Errorf("the delivery's %s header is longer than %d bytes", githubDeliveryHeader,
+		maxDeliveryIDLength)
+	errLongEvent = fmt.Errorf("the delivery's %s header is longer than %d bytes", githubEventHeader, maxEventLength)
+)
 
 // githubPR is a pull request as the payloads name it.
 type githubPR struct {
@@ -98,8 +107,13 @@ func (githubParser) signature(h http.Header) (prefix, value string) {
 
 func (githubParser) identify(h http.Header, _ []byte) (id, event string, err error) {
 	id, event = h.Get(githubDeliveryHeader), h.Get(githubEventHeader)
-	if id == "" || event == "" || len(id) > maxDeliveryIDLength {
+	switch {
+	case id == "" || event == "":
 		return "", "", errNoDeliveryID
+	case len(id) > maxDeliveryIDLength:
+		return "", "", errLongDeliveryID
+	case len(event) > maxEventLength:
+		return "", "", errLongEvent
 	}
 	return id, event, nil
 }

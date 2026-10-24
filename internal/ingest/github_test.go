@@ -18,15 +18,25 @@ func TestGitHubIdentify(t *testing.T) {
 	if id, event, err := g.identify(h, nil); err != nil || id != "d-1" || event != "check_run" {
 		t.Errorf("identify() = %q, %q, %v", id, event, err)
 	}
-	for _, change := range []func(http.Header){
-		func(h http.Header) { h.Del(githubDeliveryHeader) },
-		func(h http.Header) { h.Del(githubEventHeader) },
-		func(h http.Header) { h.Set(githubDeliveryHeader, strings.Repeat("x", maxDeliveryIDLength+1)) },
-	} {
+	h.Set(githubDeliveryHeader, strings.Repeat("x", maxDeliveryIDLength))
+	h.Set(githubEventHeader, strings.Repeat("x", maxEventLength))
+	if _, _, err := g.identify(h, nil); err != nil {
+		t.Errorf("identify() at the bounds = %v, want no error", err)
+	}
+	tests := []struct {
+		change func(http.Header)
+		want   error
+	}{
+		{func(h http.Header) { h.Del(githubDeliveryHeader) }, errNoDeliveryID},
+		{func(h http.Header) { h.Del(githubEventHeader) }, errNoDeliveryID},
+		{func(h http.Header) { h.Set(githubDeliveryHeader, strings.Repeat("x", maxDeliveryIDLength+1)) }, errLongDeliveryID},
+		{func(h http.Header) { h.Set(githubEventHeader, strings.Repeat("x", maxEventLength+1)) }, errLongEvent},
+	}
+	for _, tt := range tests {
 		h := h.Clone()
-		change(h)
-		if _, _, err := g.identify(h, nil); !errors.Is(err, errNoDeliveryID) {
-			t.Errorf("identify(%v) = %v, want errNoDeliveryID", h, err)
+		tt.change(h)
+		if _, _, err := g.identify(h, nil); !errors.Is(err, tt.want) {
+			t.Errorf("identify(%v) = %v, want %v", h, err, tt.want)
 		}
 	}
 }
