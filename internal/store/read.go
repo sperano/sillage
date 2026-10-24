@@ -81,7 +81,7 @@ func loadRecords(ctx context.Context, tx pgx.Tx, root int64) (model.Records, err
 	if recs.PullRequests, err = loadPullRequests(ctx, tx, root); err != nil {
 		return recs, err
 	}
-	if recs.Correlations, err = queryJSON[model.Correlation](ctx, tx, `SELECT c.body FROM correlations c
+	if recs.Correlations, err = queryJSON[model.Correlation](ctx, tx, "SELECT "+correlationBody+` FROM correlations c
 		JOIN root_correlations m ON m.correlation_id = c.id WHERE m.root_id = $1`, root); err != nil {
 		return recs, err
 	}

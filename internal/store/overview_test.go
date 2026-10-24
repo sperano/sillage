@@ -159,7 +159,7 @@ func TestActivityOverviewOfTheCorpus(t *testing.T) {
 func corpusDays(inputs []overview.Input) []time.Time {
 	var days []time.Time
 	add := func(t time.Time, ok bool) {
-		if d := t.UTC().Truncate(24 * time.Hour); ok && !slices.ContainsFunc(days, d.Equal) {
+		if d := t.UTC().Truncate(day); ok && !slices.ContainsFunc(days, d.Equal) {
 			days = append(days, d)
 		}
 	}

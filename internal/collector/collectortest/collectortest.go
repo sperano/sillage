@@ -82,13 +82,23 @@ func KelosConfig() kelos.Config {
 	return kelos.Config{Cluster: Cluster, Namespace: Namespace, LabelDomain: VikunjaHost, VikunjaInstance: VikunjaHost}
 }
 
+// Report is where the fake reports each request it refuses, answered 404.
+type Report struct {
+	// Elsewhere gets the requests the story's responses are not for: of
+	// another task or page, or of a source the story reads nothing from.
+	// A test that reads only the story fails them; the collection loop
+	// also reads the other roots Kelos names.
+	Elsewhere func(format string, args ...any)
+	// Broken gets every other one: a request no source answers, or a
+	// response the story's directory lacks.
+	Broken func(format string, args ...any)
+}
+
 // New returns the clients of every source, answered from dirs under
-// fixtures. A request the responses are not for (another task or page, a
-// source the story must not read, a missing file) goes to unexpected,
-// t.Errorf for a test that reads only the story, and is answered 404.
-func New(t testing.TB, fixtures string, dirs Dirs, unexpected func(format string, args ...any)) Clients {
+// fixtures; each request refused goes to report.
+func New(t testing.TB, fixtures string, dirs Dirs, report Report) Clients {
 	t.Helper()
-	hc := routedClient(t, newFake(t, fixtures, dirs, unexpected))
+	hc := routedClient(t, newFake(t, fixtures, dirs, report))
 	gh, err := github.NewClient(github.Config{
 		APIURL: "http://" + GitHubHost + GitHubAPIPath, Instance: GitHubHost, Token: Token,
 	}, hc)
@@ -125,19 +135,19 @@ func routedClient(t testing.TB, h http.Handler) *http.Client {
 
 // fake answers each host from its story directory.
 type fake struct {
-	t          testing.TB
-	fixtures   string
-	dirs       Dirs
-	unexpected func(format string, args ...any)
-	mux        *http.ServeMux
+	t        testing.TB
+	fixtures string
+	dirs     Dirs
+	report   Report
+	mux      *http.ServeMux
 	// task and page are the ids of the task and the page the story's
 	// responses hold; 0 without.
 	task, page int64
 }
 
-func newFake(t testing.TB, fixtures string, dirs Dirs, unexpected func(format string, args ...any)) *fake {
+func newFake(t testing.TB, fixtures string, dirs Dirs, report Report) *fake {
 	t.Helper()
-	f := &fake{t: t, fixtures: fixtures, dirs: dirs, unexpected: unexpected, mux: http.NewServeMux()}
+	f := &fake{t: t, fixtures: fixtures, dirs: dirs, report: report, mux: http.NewServeMux()}
 	if dirs.Vikunja != "" {
 		f.task = f.taskID()
 	}
@@ -147,7 +157,7 @@ func newFake(t testing.TB, fixtures string, dirs Dirs, unexpected func(format st
 	vk := func(name func(*http.Request) string) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			if id, err := strconv.ParseInt(r.PathValue("id"), 10, 64); f.dirs.Vikunja != "" && (err != nil || id != f.task) {
-				f.refuse(w, r, "the story's responses are of task %d", f.task)
+				f.refuse(w, r, f.report.Elsewhere, "the story's responses are of task %d", f.task)
 				return
 			}
 			f.serve(w, r, f.dirs.Vikunja, name(r), emptyList)
@@ -183,15 +193,15 @@ func (f *fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.t.Errorf("%s %s: Authorization %q", r.Method, r.URL, got)
 	}
 	if _, pattern := f.mux.Handler(r); pattern == "" {
-		f.refuse(w, r, "no source answers it")
+		f.refuse(w, r, f.report.Broken, "no source answers it")
 		return
 	}
 	f.mux.ServeHTTP(w, r)
 }
 
-// refuse reports an unexpected request, saying why, and answers 404.
-func (f *fake) refuse(w http.ResponseWriter, r *http.Request, why string, args ...any) {
-	f.unexpected("%s %s%s: "+why, append([]any{r.Method, r.Host, r.URL}, args...)...)
+// refuse reports a request to report, saying why, and answers 404.
+func (f *fake) refuse(w http.ResponseWriter, r *http.Request, report func(string, ...any), why string, args ...any) {
+	report("%s %s%s: "+why, append([]any{r.Method, r.Host, r.URL}, args...)...)
 	http.NotFound(w, r)
 }
 
@@ -199,7 +209,7 @@ func (f *fake) refuse(w http.ResponseWriter, r *http.Request, why string, args .
 // none and empty is set.
 func (f *fake) serve(w http.ResponseWriter, r *http.Request, dir, name, empty string) {
 	if dir == "" {
-		f.refuse(w, r, "the story reads nothing from %s", r.Host)
+		f.refuse(w, r, f.report.Elsewhere, "the story reads nothing from %s", r.Host)
 		return
 	}
 	body, err := os.ReadFile(filepath.Join(f.fixtures, dir, name))
@@ -208,7 +218,7 @@ func (f *fake) serve(w http.ResponseWriter, r *http.Request, dir, name, empty st
 	case os.IsNotExist(err) && empty != "":
 		body = []byte(empty)
 	default:
-		f.refuse(w, r, "no response %s/%s: %v", dir, name, err)
+		f.refuse(w, r, f.report.Broken, "no response %s/%s: %v", dir, name, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -235,7 +245,7 @@ func (f *fake) serveWiki(w http.ResponseWriter, r *http.Request) {
 		"SillagePage": req.Variables.ID, "SillageHistory": req.Variables.ID, "SillageVersion": req.Variables.PageID,
 	}
 	if id, ok := asked[req.OperationName]; ok && f.dirs.Wiki != "" && id != f.page {
-		f.refuse(w, r, "wiki %s of page %d, the story's responses are of page %d", req.OperationName, id, f.page)
+		f.refuse(w, r, f.report.Elsewhere, "wiki %s of page %d, the story's responses are of page %d", req.OperationName, id, f.page)
 		return
 	}
 	files := map[string]string{

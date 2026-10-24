@@ -17,9 +17,13 @@ import (
 // directory, each written for one invariant of the single-task story.
 const corpusDir = "../../testdata/fixtures/stories"
 
-// sweepStep is the length of each window of a corpus story's day the
-// sweep builds.
-const sweepStep = time.Hour
+const (
+	// sweepStep is the length of each window of a corpus story's day the
+	// sweep builds.
+	sweepStep = time.Hour
+	// day is a UTC day: the sweep's span, and a whole-day window's.
+	day = 24 * time.Hour
+)
 
 // corpusCase is what the overview of one corpus story must show: in the
 // window from at for an hour, unless span says otherwise.
@@ -38,7 +42,7 @@ var corpusCases = map[string]corpusCase{
 	"wiki-rooted-request":     {"2026-03-04T15:00:00Z", 0, checkCorpusWikiRooted},
 	"failed-run-retry":        {"2026-03-05T14:00:00Z", 0, checkCorpusRetry},
 	"announced-run-only":      {"2026-01-12T14:00:00Z", 0, checkCorpusAnnounced},
-	"checks-after-force-push": {"2026-03-11T00:00:00Z", 24 * time.Hour, checkCorpusChecksOnly},
+	"checks-after-force-push": {"2026-03-11T00:00:00Z", day, checkCorpusChecksOnly},
 	"reopened-task":           {"2026-03-12T11:00:00Z", 0, checkCorpusReopened},
 	"second-pr-after-close":   {"2026-03-13T09:00:00Z", 0, checkCorpusSecondPR},
 }
@@ -105,8 +109,8 @@ func TestCorpusSweep(t *testing.T) {
 	for _, name := range storytest.Names() {
 		t.Run(name, func(t *testing.T) {
 			in := loadCorpus(t, name)
-			from := corpusCases[name].window(t).From.Truncate(24 * time.Hour)
-			for start := from; start.Before(from.Add(24 * time.Hour)); start = start.Add(sweepStep) {
+			from := corpusCases[name].window(t).From.Truncate(day)
+			for start := from; start.Before(from.Add(day)); start = start.Add(sweepStep) {
 				w := Window{From: start, To: start.Add(sweepStep)}
 				rows := corpusRows(t, w, in)
 				for _, row := range rows {
@@ -274,7 +278,7 @@ func checkCorpusReopened(t *testing.T, w Window, rows []Row) {
 	if got := marksOf(onlyRow(t, rows)); got != string(model.KindTaskDone) {
 		t.Errorf("marks = %q, want one completion", got)
 	}
-	earlier := Window{From: w.From.Add(-24 * time.Hour), To: w.From}
+	earlier := Window{From: w.From.Add(-day), To: w.From}
 	if got := corpusRows(t, earlier, loadCorpus(t, "reopened-task")); len(got) != 0 {
 		t.Errorf("the day before the last completion: rows = %+v, want none", got)
 	}

@@ -138,7 +138,7 @@ func activeRoots(ctx context.Context, tx pgx.Tx, q ActivityQuery, kinds []string
 // activityCorrelationsSQL selects the correlations of the roots $1 with a
 // run at an end: the overview tells by them a root's own runs from the
 // candidates of its records.
-const activityCorrelationsSQL = `SELECT m.root_id, c.body FROM root_correlations m
+const activityCorrelationsSQL = "SELECT m.root_id, " + correlationBody + ` FROM root_correlations m
 	JOIN correlations c ON c.id = m.correlation_id
 	WHERE m.root_id = ANY($1) AND (c.body->'from'->>'kind' = 'run' OR c.body->'to'->>'kind' = 'run')`
 

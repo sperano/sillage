@@ -55,7 +55,7 @@ func testConfig() Config {
 // each answered from dirs; any other request fails the test.
 func newStoryCollector(t *testing.T, dirs storyDirs) *Collector {
 	t.Helper()
-	cl := collectortest.New(t, fixturesDir, dirs, t.Errorf)
+	cl := collectortest.New(t, fixturesDir, dirs, collectortest.Report{Elsewhere: t.Errorf, Broken: t.Errorf})
 	c, err := New(testConfig(), Sources{Vikunja: cl.Vikunja, Kelos: cl.Kelos, GitHub: cl.GitHub, Wiki: cl.Wiki})
 	if err != nil {
 		t.Fatal(err)

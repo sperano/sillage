@@ -75,14 +75,10 @@ func (p corpusProjects) ChangedTasks(_ context.Context, project int64, _ time.Ti
 	return []vikunja.TaskChange{{ID: p.task.ID, Updated: corpusUpdated}}, nil
 }
 
-// collectCorpusStory runs one cycle of the collection loop over st, the
-// story's responses read by the real clients: Kelos names the roots its
-// runs point to, and the project listing the story's task. Reads of the
-// other roots the runs name fail, as a source without them would answer.
-func collectCorpusStory(t *testing.T, st *store.Store, story collectortest.Story) {
-	t.Helper()
-	cl := collectortest.New(t, corpusFixtures, story.Dirs, t.Logf)
-	ccfg := collector.Config{
+// corpusCollectorConfig is the collector configuration the corpus's
+// responses follow.
+func corpusCollectorConfig() collector.Config {
+	return collector.Config{
 		VikunjaInstance: collectortest.VikunjaHost, VikunjaServiceAccount: collectortest.ServiceAccount,
 		VikunjaAgentUsers: []string{collectortest.Agent},
 		Kelos:             collectortest.KelosConfig(),
@@ -91,13 +87,75 @@ func collectCorpusStory(t *testing.T, st *store.Store, story collectortest.Story
 		Workspaces:     map[string]github.Repository{collectortest.Workspace: collectortest.Repo},
 		KelosTaskTTL:   collector.DefaultKelosTaskTTL,
 	}
+}
+
+// collectCorpusStory runs one cycle of the collection loop over st, the
+// story's responses read by the real clients: Kelos names the roots its
+// runs point to, and the project listing the story's task. Reads of the
+// other roots the runs name fail, as a source without them would answer,
+// and are logged; any other request refused fails the test.
+func collectCorpusStory(t *testing.T, st *store.Store, story collectortest.Story) {
+	t.Helper()
+	cl := collectortest.New(t, corpusFixtures, story.Dirs, collectortest.Report{Elsewhere: t.Logf, Broken: t.Errorf})
 	cfg := reconcile.DefaultConfig()
 	cfg.VikunjaProjects = []int64{corpusProject}
 	src := reconcile.Sources{
 		Sources:  collector.Sources{Vikunja: cl.Vikunja, Kelos: cl.Kelos, GitHub: cl.GitHub, Wiki: cl.Wiki},
 		Projects: corpusProjects{task: story.Root.Task},
 	}
-	runCycle(t, st, cfg, ccfg, src)
+	runCycle(t, st, cfg, corpusCollectorConfig(), src)
+}
+
+// checkRootCollected fails the test unless st holds story's root with the
+// runs, events and pull requests the collector assembles of it from the
+// same responses, every request of which must be the story's. It asks for
+// no repository besides those the runs name, as the loop does.
+func checkRootCollected(t *testing.T, st *store.Store, story collectortest.Story) {
+	t.Helper()
+	cl := collectortest.New(t, corpusFixtures, story.Dirs, collectortest.Report{Elsewhere: t.Errorf, Broken: t.Errorf})
+	c, err := collector.New(corpusCollectorConfig(), collector.Sources{
+		Vikunja: cl.Vikunja, Kelos: cl.Kelos, GitHub: cl.GitHub, Wiki: cl.Wiki,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := c.Collect(t.Context(), story.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(want.Story.Events) == 0 {
+		t.Fatalf("the collector assembles no event of %s", rootKey(story.Root))
+	}
+	got, err := st.Story(t.Context(), story.Root)
+	if err != nil {
+		t.Fatalf("%s is not stored: %v", rootKey(story.Root), err)
+	}
+	if g, w := recordKeys(got.Records), recordKeys(want.Story.Records); !slices.Equal(g, w) {
+		t.Errorf("%s stored with\n%v\nwant the collector's\n%v", rootKey(story.Root), g, w)
+	}
+}
+
+// recordKeys returns the keys of recs' runs, events and pull requests,
+// sorted. An event the source gives no id is named by its source and kind:
+// its fingerprint holds when it was observed, which differs from one read
+// to the next.
+func recordKeys(recs model.Records) []string {
+	var keys []string
+	for _, r := range recs.Runs {
+		keys = append(keys, r.Key.Ref().String())
+	}
+	for _, e := range recs.Events {
+		if e.IDKind == model.IDFingerprint {
+			keys = append(keys, string(model.RefEvent)+":"+string(e.Source)+"/"+e.Instance+" "+string(e.Kind))
+			continue
+		}
+		keys = append(keys, e.Ref().String())
+	}
+	for _, p := range recs.PullRequests {
+		keys = append(keys, p.Key.Ref().String())
+	}
+	slices.Sort(keys)
+	return keys
 }
 
 // liveChecks are what the overview served from a collected corpus story
@@ -150,8 +208,9 @@ func rootKey(root model.Root) string {
 
 // TestOverviewOverTheCollectedCorpus runs the collection loop over each
 // story of the edge-case corpus into PostgreSQL, then asks GET
-// /api/v1/overview for every hour of the stored records' days. It serves
-// the overview of the stories the store holds, read whole: Activity, over
+// /api/v1/overview for every hour of the stored records' days. The loop
+// stores each story's root with what the collector assembles of it. The
+// API serves the overview of the stories the store holds, read whole: Activity, over
 // what the loop committed, misses nothing a row needs; a walk of its
 // cursors, one row a page, gives the same rows; and every row says its
 // history is missing, since the loop first read Kelos months after the
@@ -161,6 +220,7 @@ func TestOverviewOverTheCollectedCorpus(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			st := newTestStore(t)
 			collectCorpusStory(t, st, collectortest.Stories[name])
+			checkRootCollected(t, st, collectortest.Stories[name])
 			h, err := newAPI(func(string) string { return "" }, st)
 			if err != nil {
 				t.Fatal(err)

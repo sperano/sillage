@@ -46,10 +46,10 @@ func rowSources(row Row) []string {
 // (its root's, or one it has records from) has no coverage at all. Every
 // source in the root's coverage counts, not only those the row has records
 // from: a source left unread, for want of a repository or after a failure,
-// leaves no records, so its absence from the row says nothing. The time after a source's last read
-// inside the window is unknown too, and shown so, but not counted here:
-// with a window ending now, every source's last read is a little before
-// its end.
+// leaves no records, so its absence from the row says nothing. The time
+// after a source's last read inside the window is unknown too, and shown
+// so, but not counted here: with a window ending now, every source's last
+// read is a little before its end.
 func missingHistory(w Window, coverage []model.Coverage, sources []string) bool {
 	covered := make(map[string]bool, len(coverage))
 	for _, c := range coverage {
