@@ -10,7 +10,12 @@ import (
 	"time"
 
 	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/testzone"
 )
+
+// TestMain runs the tests outside UTC, so that output depending on the
+// host's zone fails here too.
+func TestMain(m *testing.M) { testzone.Main(m) }
 
 // The overview fixture set: fabricated stories of seven tasks over one
 // afternoon, and the golden overview of its window.
