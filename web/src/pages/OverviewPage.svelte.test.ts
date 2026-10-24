@@ -113,6 +113,21 @@ test('a review whose answer is unknown is named apart, not counted as requested'
 	await expect.element(state).toHaveTextContent('review requested: owner-gh, answer unknown');
 });
 
+test('with only unknown review answers, no request is said not to wait', async () => {
+	const body = overviewGoldenJSON() as {
+		rows: { reviewWaits: { interval: { end: unknown } }[] }[];
+	};
+	for (const row of body.rows) {
+		for (const w of row.reviewWaits) w.interval.end = { state: 'unknown' };
+	}
+	await renderOverview(DEFAULT_QUERY, { [OVERVIEW]: () => json(body) });
+	const card = page.getByRole('region', { name: "At the window's end" });
+	await expect.element(card).toHaveTextContent('No review request was known to be waiting.');
+	await expect
+		.element(card)
+		.toHaveTextContent('Review answer unknown: Health check, Docs navigation');
+});
+
 test('a row with missing history says so, is hatched, and measures nothing', async () => {
 	await renderOverview(DEFAULT_QUERY);
 	const state = page.getByRole('list', { name: "State of Storage cleanup at the window's end" });

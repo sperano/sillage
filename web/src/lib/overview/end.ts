@@ -51,14 +51,18 @@ function queuedAt(run: Run, t: number): boolean {
 	);
 }
 
+/** A review wait's state at an instant, when it had one. */
+export type ReviewState = 'requested' | 'unknown';
+
 const OPEN_NOTE = 'not ended at the last read';
 
 /**
- * A review wait's state at t: requested when it had started and not been
- * answered by t, or not at the last read; unknown when its pull request
- * closed after the request with no answer recorded; none otherwise.
+ * A review wait's state at t: requested when it started before t and had
+ * not been answered by t (an open end counts as not answered); unknown
+ * when its pull request closed after the request with no answer recorded;
+ * none otherwise.
  */
-export function reviewStateAt(w: ReviewWait, t: number): 'requested' | 'unknown' | undefined {
+export function reviewStateAt(w: ReviewWait, t: number): ReviewState | undefined {
 	if (goingAt(w.interval, t)) return 'requested';
 	const start = boundTime(w.interval.start);
 	if (start !== undefined && start < t && w.interval.end.state === 'unknown') return 'unknown';

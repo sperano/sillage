@@ -7,7 +7,7 @@
 	import { rowTitles } from './lanes';
 	import type { OverviewRow } from './model';
 	import type { Range } from './spans';
-	import { reviewStateAt } from './end';
+	import { reviewStateAt, type ReviewState } from './end';
 	import { instantOf } from './state';
 
 	interface Props {
@@ -28,7 +28,7 @@
 	const runs = $derived(instant.executing.reduce((n, e) => n + e.runs.length, 0));
 	// As the rows' state chips say: a request not answered at the last read
 	// counts; one whose answer is unknown is named apart, never counted.
-	const reviewsIn = (state: 'requested' | 'unknown') =>
+	const reviewsIn = (state: ReviewState) =>
 		rows.filter((r) => r.reviewWaits.some((w) => reviewStateAt(w, range.end) === state));
 	const reviewing = $derived(reviewsIn('requested'));
 	const reviewUnknown = $derived(reviewsIn('unknown'));
@@ -53,7 +53,15 @@
 	<section class="card" aria-label="At the window's end">
 		<h2>At the window's end · {formatMinute(range.end, 'utc')} UTC</h2>
 		<p class="big">{count(reviewing.length, 'task')} with a review requested</p>
-		<p>{reviewing.length > 0 ? names(reviewing) : 'No review request was waiting.'}</p>
+		<p>
+			{#if reviewing.length > 0}
+				{names(reviewing)}
+			{:else if reviewUnknown.length > 0}
+				No review request was known to be waiting.
+			{:else}
+				No review request was waiting.
+			{/if}
+		</p>
 		{#if reviewUnknown.length > 0}
 			<p class="unknown">Review answer unknown: {names(reviewUnknown)}</p>
 		{/if}

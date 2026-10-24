@@ -128,7 +128,8 @@
 	.note {
 		color: var(--ov-muted);
 	}
-	.chip.missing {
+	.chip.missing,
+	.chip.unknown {
 		border: 1px dashed var(--ov-unknown);
 	}
 	.visually-hidden {
