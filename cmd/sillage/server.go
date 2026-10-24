@@ -10,22 +10,28 @@ import (
 	"github.com/sperano/sillage/internal/api"
 )
 
-// healthzPath answers 200 while the process can serve HTTP. It checks no
-// dependency: a source being down must not make sillage look dead.
-const healthzPath = "/healthz"
+const (
+	// healthzPath answers 200 while the process can serve HTTP. It checks
+	// no dependency: a source being down must not make sillage look dead.
+	healthzPath = "/healthz"
+	// metricsPath serves the Prometheus metrics. Who may reach it is the
+	// deployment's decision.
+	metricsPath = "/metrics"
+)
 
 // indexFile is the frontend's entry page, served for every path that is
 // none of its files.
 const indexFile = "index.html"
 
-// newHandler routes sillage's endpoints: the health check, the read API
-// under api.Prefix (all of it, its unknown paths too), and frontend for
-// every other GET path. The frontend's pattern takes every method, as a
-// method-specific "GET /" would conflict with the API's subtree: it
-// refuses the others itself.
-func newHandler(frontend fs.FS, apiHandler http.Handler) http.Handler {
+// newHandler routes sillage's endpoints: the health check, the metrics,
+// the read API under api.Prefix (all of it, its unknown paths too), and
+// frontend for every other GET path. The frontend's pattern takes every
+// method, as a method-specific "GET /" would conflict with the API's
+// subtree: it refuses the others itself.
+func newHandler(frontend fs.FS, apiHandler, metrics http.Handler) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+healthzPath, handleHealthz)
+	mux.Handle("GET "+metricsPath, metrics)
 	mux.Handle(api.Prefix, apiHandler)
 	mux.Handle("/", frontendHandler(frontend))
 	return mux

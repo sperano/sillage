@@ -16,10 +16,11 @@ const (
 )
 
 func testHandler() http.Handler {
+	metrics, _ := newMetrics()
 	return newHandler(fstest.MapFS{
 		indexFile:         {Data: []byte(testIndex)},
 		"assets/app-1.js": {Data: []byte(testScript)},
-	}, api.New(api.Config{Version: "test"}))
+	}, api.New(api.Config{Version: "test"}), metrics)
 }
 
 func TestHealthz(t *testing.T) {

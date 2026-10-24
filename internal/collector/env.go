@@ -78,24 +78,63 @@ func hostOf(baseURL string) (string, error) {
 	return strings.ToLower(u.Hostname()), nil
 }
 
-// Open returns a collector of the sources e configures. The Kubernetes
-// client is the in-cluster one, else the kubeconfig's current context.
-func (e EnvConfig) Open() (*Collector, error) {
+// Clients are the clients of the live sources an EnvConfig configures.
+type Clients struct {
+	Vikunja *vikunja.Client
+	Kelos   *kelos.Reader
+	GitHub  *github.Client
+	Wiki    *wiki.Client
+}
+
+// Sources returns the clients as a collector reads them. A client that
+// is not set stays nil, rather than become a non-nil interface holding a
+// nil pointer, so that New refuses it.
+func (c Clients) Sources() Sources {
+	var s Sources
+	if c.Vikunja != nil {
+		s.Vikunja = c.Vikunja
+	}
+	if c.Kelos != nil {
+		s.Kelos = c.Kelos
+	}
+	if c.GitHub != nil {
+		s.GitHub = c.GitHub
+	}
+	if c.Wiki != nil {
+		s.Wiki = c.Wiki
+	}
+	return s
+}
+
+// OpenClients returns the clients of the sources e configures. The
+// Kubernetes client is the in-cluster one, else the kubeconfig's current
+// context.
+func (e EnvConfig) OpenClients() (Clients, error) {
 	dyn, err := kelos.NewDynamicClient()
 	if err != nil {
-		return nil, err
+		return Clients{}, err
 	}
 	reader, err := kelos.NewReader(dyn, e.Collector.Kelos)
 	if err != nil {
-		return nil, err
+		return Clients{}, err
 	}
 	gh, err := github.NewClient(e.GitHub, nil)
 	if err != nil {
-		return nil, err
+		return Clients{}, err
 	}
 	wk, err := wiki.NewClient(e.Wiki, nil)
 	if err != nil {
+		return Clients{}, err
+	}
+	return Clients{Vikunja: vikunja.NewClient(e.Vikunja, nil), Kelos: reader, GitHub: gh, Wiki: wk}, nil
+}
+
+// Open returns a collector of the sources e configures, through
+// OpenClients.
+func (e EnvConfig) Open() (*Collector, error) {
+	clients, err := e.OpenClients()
+	if err != nil {
 		return nil, err
 	}
-	return New(e.Collector, Sources{Vikunja: vikunja.NewClient(e.Vikunja, nil), Kelos: reader, GitHub: gh, Wiki: wk})
+	return New(e.Collector, clients.Sources())
 }

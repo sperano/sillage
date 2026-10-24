@@ -16,7 +16,7 @@ const maxPRNumber = math.MaxInt32
 // that instance adds its evidence; one naming another host (the chart's
 // view of the instance may differ from sillage's) does not move the link.
 func (b *runBuilder) taskLink(labels map[string]string, ref string, origin Origin) []model.Correlation {
-	id, ok := b.cfg.taskID(labels)
+	id, ok := b.cfg.TaskID(labels)
 	if !ok {
 		return nil
 	}

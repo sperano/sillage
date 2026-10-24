@@ -9,24 +9,25 @@ being down never blocks anything.
 
 ## Status
 
-Pre-alpha. A Go binary that answers `GET /healthz`, serves a placeholder
-page and the read-only JSON API under `/api/v1/`; the normalized model
-(`internal/model`) with fabricated fixture stories
+Pre-alpha. A Go binary that answers `GET /healthz` and `GET /metrics`,
+serves a placeholder page and the read-only JSON API under `/api/v1/`; the
+normalized model (`internal/model`) with fabricated fixture stories
 (`testdata/fixtures/stories/`); a read-only client per source; `sillage
-story`, which assembles one story from the live sources and prints it; and
-a PostgreSQL store (`internal/store`) that nothing writes to yet. The
-frontend's single-task timeline graph (`web/src/lib/timeline/`) is
-rendered in tests from the fixture stories but not yet shown on the story
-page. Nothing is deployed.
+story`, which assembles one story from the live sources and prints it; a
+PostgreSQL store (`internal/store`); and the collection loop, which keeps
+it current. The frontend's single-task
+timeline graph (`web/src/lib/timeline/`) is rendered in tests from the
+fixture stories but not yet shown on the story page. Nothing is deployed.
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
-| `cmd/sillage/` | The binary: health check, read API and embedded frontend (the collector, eventually). |
+| `cmd/sillage/` | The binary: health check, metrics, read API, embedded frontend and the collector. |
 | `internal/model/` | Normalized events, runs, entities and coverage. |
 | `internal/source/{vikunja,github,kelos,wiki}/` | One read-only source each. |
 | `internal/collector/` | Joins the sources' records into one story. |
+| `internal/reconcile/` | The collection loop: reads the sources periodically into the store, with freshness and gaps; `pglock/`, its PostgreSQL lock. |
 | `internal/store/` | PostgreSQL persistence, with its migrations embedded. |
 | `internal/api/` | Read-only JSON API over the store. |
 | `testdata/fixtures/` | Fabricated test data, shared by Go and web tests. |
@@ -112,14 +113,53 @@ credential:
 | Variable | Meaning |
 | --- | --- |
 | `SILLAGE_VIKUNJA_URL`, `SILLAGE_VIKUNJA_TOKEN` | Vikunja base URL and a read-only API token. |
-| `SILLAGE_VIKUNJA_SERVICE_ACCOUNT` | Username that posts Kelos start announcements (default `kelos`). |
+| `SILLAGE_VIKUNJA_SERVICE_ACCOUNT` | Username that posts Kelos start announcements (default `gordon`). |
 | `SILLAGE_VIKUNJA_AGENT_USERS` | Agents' Vikunja usernames, comma-separated: their comments are an agent's, and only theirs and the service account's are followed to the wiki pages they link (a discussion's deliverable). |
 | `SILLAGE_KELOS_CLUSTER`, `SILLAGE_KELOS_NAMESPACE` | Name given to the cluster, and the namespace read; the Kubernetes credentials are the in-cluster ones, else the kubeconfig's current context. |
 | `SILLAGE_KELOS_LABEL_DOMAIN`, `SILLAGE_KELOS_VIKUNJA_INSTANCE` | The spawners' label prefix, and the Vikunja host the task label names (must be `SILLAGE_VIKUNJA_URL`'s). |
 | `SILLAGE_KELOS_TASK_TTL` | How long Kelos keeps a finished Task (default `72h`): runs that ended longer ago than that may be missing. |
 | `SILLAGE_GITHUB_TOKEN`, `SILLAGE_GITHUB_API_URL` | A read-only token, and the API (default `https://api.github.com`). |
+| `SILLAGE_GITHUB_ANNOUNCERS` | GitHub logins whose pull request comments are parsed as start announcements, comma-separated. |
 | `SILLAGE_WIKI_URL`, `SILLAGE_WIKI_TOKEN`, `SILLAGE_WIKI_AGENT_USERS` | Wiki.js base URL, a read-only key, and the agents' wiki user ids. |
 | `SILLAGE_WORKSPACES` | `<workspace>=<owner>/<repository>` pairs, comma-separated: where a run's workspace (or Vikunja project) works. Without a match and without `-repo`, GitHub is not read. |
+
+## Collect into the store
+
+With `SILLAGE_DATABASE_URL` set, the server also runs the collector: it
+reads the sources with the settings above, assembles the story of every
+root they name, and commits what changed to the store the API reads.
+
+Each cycle reads the Kelos namespace once, and lists the tasks of the
+configured Vikunja projects changed since the last listing. It reads a
+root that is new, whose Kelos runs changed, whose task changed, or that
+Kelos still names and that has a Kelos gap open or was not read for the
+refresh interval. A story whose records did not change writes none; its
+coverage still advances. Once a source of a root has been read
+successfully, a failed read leaves a gap, from that source's last
+successful read to its next, with the reason (`timeout`, `rate_limited`,
+`server_error`, `failed`): a failed Kelos read, which serves every root,
+leaves one on every root's Kelos coverage. A restart leaves one on every
+source of every root that was read successfully before. A source never
+read successfully gets no gap: nothing is known of it, and its coverage
+has no last successful read. One process collects at a time, under a
+PostgreSQL advisory lock: another reads nothing, says so in its log, and
+tries again.
+
+| Variable | Meaning |
+| --- | --- |
+| `SILLAGE_DATABASE_URL` | The store's PostgreSQL URL. Unset, the collector does not run. |
+| `SILLAGE_VIKUNJA_PROJECTS` | Vikunja project ids whose changed tasks are read, comma-separated. Unset, only the tasks Kelos names are. |
+| `SILLAGE_COLLECT_INTERVAL` | Time between two cycles (default `5m`). |
+| `SILLAGE_ROOT_REFRESH_INTERVAL` | How long a root Kelos still names is left unread when nothing says it changed (default `1h`): reviews, checks and comments change no run. |
+| `SILLAGE_LOCK_RETRY_INTERVAL` | How often a process without the lock tries to take it (default `1m`). |
+
+Every interval is spread by up to 10% either way. `GET /metrics` serves,
+besides the Go runtime's and the process's, each source instance's last
+successful read (`sillage_source_last_success_timestamp_seconds`), failed
+reads by reason (`sillage_source_read_errors_total`) and read durations
+(`sillage_source_read_duration_seconds`), the records committed
+(`sillage_records_written_total`), store errors, cycles, roots and whether
+this process holds the lock. Who may reach it is the deployment's decision.
 
 ## Test
 
@@ -135,12 +175,13 @@ go test -race ./...
 go build ./...
 ```
 
-The store's tests need a PostgreSQL they may create schemas in, named by
+The store's, the collector lock's and the loop's store tests need a
+PostgreSQL they may create schemas in, named by
 `SILLAGE_TEST_DATABASE_URL`; without it they skip. CI has no PostgreSQL yet,
 so it skips them: this command is local only.
 
 ```sh
-SILLAGE_TEST_DATABASE_URL=postgres://sillage@localhost:5432/sillage_test?sslmode=disable go test -race ./internal/store
+SILLAGE_TEST_DATABASE_URL=postgres://sillage@localhost:5432/sillage_test?sslmode=disable go test -race ./internal/store ./internal/reconcile/... ./cmd/sillage
 ```
 
 Web, from `web/`:
@@ -159,6 +200,9 @@ Then, from the repository root, with the frontend built:
 ```sh
 go vet -tags=webdist ./... && go test -tags=webdist ./...
 ```
+
+The PostgreSQL tests run when `SILLAGE_TEST_DATABASE_URL` names a database
+they may use, and are skipped otherwise.
 
 ## License
 

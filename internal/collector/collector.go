@@ -93,10 +93,16 @@ type Result struct {
 // or records BuildStory rejects, which is a collector bug. A source that
 // fails is reported in Result.Failures instead.
 func (c *Collector) Collect(ctx context.Context, root model.Root, repos ...github.Repository) (Result, error) {
+	return c.collect(ctx, root, Kept{}, repos)
+}
+
+func (c *Collector) collect(ctx context.Context, root model.Root, kept Kept, repos []github.Repository) (
+	Result, error) {
 	if err := root.Validate(); err != nil {
 		return Result{}, err
 	}
 	a := newAssembly(c, root)
+	a.kept = kept
 	if root.Task != nil {
 		if err := a.collectTask(ctx, *root.Task, repos); err != nil {
 			return Result{}, err
