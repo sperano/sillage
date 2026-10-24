@@ -89,15 +89,16 @@ func announcementsIn(w Window, events []model.Event) []announcement {
 
 // names reports whether a may announce r. A pod belongs to one attempt, so
 // it identifies the run whatever the run's key. An announcement naming no
-// pod names a Kelos Task, and so every attempt of it (a retry reuses the
-// name) in its namespace, when it states one, whose recorded times do not
-// rule out running when it was posted: ambiguous, as the collector's join
-// of it is.
+// pod names a Kelos Task, and so, as the collector joins it, every attempt
+// of it whose pod is unknown (a retry reuses the name): ambiguous. Of
+// those, it names here only the ones in its namespace, when it states one,
+// whose recorded times do not rule out running when it was posted.
 func (a announcement) names(r model.Run) bool {
 	if a.pod != "" {
 		return a.pod == r.Pod
 	}
-	if a.taskName == "" || a.taskName != r.TaskName || (a.namespace != "" && a.namespace != r.Key.Namespace) {
+	if a.taskName == "" || a.taskName != r.TaskName || r.Pod != "" ||
+		(a.namespace != "" && a.namespace != r.Key.Namespace) {
 		return false
 	}
 	return mayRunAt(r, a.at)

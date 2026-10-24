@@ -18,7 +18,6 @@ func testRun(uid string, start, end model.Bound, outcome model.Outcome) model.Ru
 	return model.Run{
 		Key:      model.RunKey{Cluster: testCluster, Namespace: testNamespace, UID: uid},
 		TaskName: testTaskName,
-		Pod:      testTaskName + "-" + uid,
 		Interval: model.Interval{Start: start, End: end},
 		Outcome:  outcome,
 	}
@@ -62,13 +61,22 @@ func TestRetryOfTheSameTaskOnly(t *testing.T) {
 }
 
 // An announcement naming no pod brings in every attempt of its Task name
-// whose recorded times leave open that it ran then, ambiguous as it is.
+// whose pod is unknown and whose recorded times leave open that it ran
+// then, ambiguous as it is.
 func TestPodlessAnnouncement(t *testing.T) {
+	created := minute(65)
+	createdAfter := testRun("created-after", model.UnknownBound(), model.UnknownBound(), model.OutcomeUnknown)
+	createdAfter.Created = &created
+	withPod := testRun("with-pod", model.UnknownBound(), model.UnknownBound(), model.OutcomeUnknown)
+	withPod.Pod = testTaskName + "-abcde"
 	runs := []model.Run{
 		testRun("unknown", model.UnknownBound(), model.UnknownBound(), model.OutcomeUnknown),
 		testRun("ended-before", model.KnownAt(minute(-90)), model.KnownAt(minute(-70)), model.OutcomeSucceeded),
 		testRun("across", model.KnownAt(minute(-30)), model.UnknownBound(), model.OutcomeUnknown),
 		testRun("later", model.KnownAt(minute(30)), model.KnownAt(minute(40)), model.OutcomeSucceeded),
+		testRun("started-after", model.KnownAt(minute(70)), model.KnownAt(minute(80)), model.OutcomeSucceeded),
+		createdAfter,
+		withPod,
 	}
 	for _, c := range []struct {
 		name    string
