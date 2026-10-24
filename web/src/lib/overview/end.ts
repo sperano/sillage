@@ -53,6 +53,18 @@ function queuedAt(run: Run, t: number): boolean {
 
 const OPEN_NOTE = 'not ended at the last read';
 
+/**
+ * A review wait's state at t: requested when it had started and not been
+ * answered by t, or not at the last read; unknown when its pull request
+ * closed after the request with no answer recorded; none otherwise.
+ */
+export function reviewStateAt(w: ReviewWait, t: number): 'requested' | 'unknown' | undefined {
+	if (goingAt(w.interval, t)) return 'requested';
+	const start = boundTime(w.interval.start);
+	if (start !== undefined && start < t && w.interval.end.state === 'unknown') return 'unknown';
+	return undefined;
+}
+
 function reviewText(w: ReviewWait): string {
 	const who = w.reviewer ?? (w.team === undefined ? undefined : `team ${w.team}`);
 	return who === undefined ? 'review requested' : `review requested: ${who}`;
@@ -69,15 +81,7 @@ export function endChips(row: OverviewRow, to: number): Chip[] {
 			note: 'a failure stays here while a retry runs'
 		});
 	}
-	for (const w of row.reviewWaits) {
-		if (goingAt(w.interval, to)) {
-			chips.push({
-				kind: 'review',
-				text: reviewText(w),
-				note: w.interval.end.state === 'open' ? OPEN_NOTE : undefined
-			});
-		}
-	}
+	chips.push(...row.reviewWaits.flatMap((w) => reviewChips(w, to)));
 	chips.push(...prChips(row));
 	chips.push(...doneChips(row));
 	if (row.missingHistory) {
@@ -113,6 +117,30 @@ function runChips(row: OverviewRow, run: Run, to: number): Chip[] {
 	return [];
 }
 
+/** A review wait's chip at the window's end: requested, unknown, or none once answered. */
+function reviewChips(w: ReviewWait, to: number): Chip[] {
+	switch (reviewStateAt(w, to)) {
+		case 'requested':
+			return [
+				{
+					kind: 'review',
+					text: reviewText(w),
+					note: w.interval.end.state === 'open' ? OPEN_NOTE : undefined
+				}
+			];
+		case 'unknown':
+			return [
+				{
+					kind: 'unknown',
+					text: `${reviewText(w)}, answer unknown`,
+					note: 'its pull request closed with no answer recorded'
+				}
+			];
+		case undefined:
+			return [];
+	}
+}
+
 function prChips(row: OverviewRow): Chip[] {
 	return row.pullRequests.flatMap((pr): Chip[] => {
 		const name = `PR #${pr.key.number}`;
@@ -134,20 +162,28 @@ function prChips(row: OverviewRow): Chip[] {
 /**
  * The task's completion in the window, or, when a pull request was closed
  * without a merge and no completion was recorded, that the task was not
- * marked done: the close does not close it.
+ * marked done: the close does not close it. With part of the row's history
+ * unknown, a completion could be there: then it is unknown.
  */
 function doneChips(row: OverviewRow): Chip[] {
 	if (row.marks.some((m) => m.kind === 'task.done')) {
 		return [{ kind: 'done', text: 'task marked done' }];
 	}
-	if (row.pullRequests.some((p) => p.state === 'closed')) {
+	if (!row.pullRequests.some((p) => p.state === 'closed')) return [];
+	if (row.missingHistory) {
 		return [
 			{
-				kind: 'not-done',
-				text: 'task not marked done',
-				note: 'a pull request closed without a merge leaves its task open'
+				kind: 'unknown',
+				text: 'task completion unknown',
+				note: 'a pull request closed without a merge; the incomplete history could hold a completion'
 			}
 		];
 	}
-	return [];
+	return [
+		{
+			kind: 'not-done',
+			text: 'task not marked done',
+			note: 'a pull request closed without a merge leaves its task open'
+		}
+	];
 }

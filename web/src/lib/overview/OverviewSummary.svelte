@@ -7,7 +7,7 @@
 	import { rowTitles } from './lanes';
 	import type { OverviewRow } from './model';
 	import type { Range } from './spans';
-	import { endChips } from './end';
+	import { reviewStateAt } from './end';
 	import { instantOf } from './state';
 
 	interface Props {
@@ -26,10 +26,12 @@
 
 	const instant = $derived(instantOf(rows, cursor));
 	const runs = $derived(instant.executing.reduce((n, e) => n + e.runs.length, 0));
-	// As the rows' state chips say: a request not answered at the last read counts.
-	const reviewing = $derived(
-		rows.filter((r) => endChips(r, range.end).some((c) => c.kind === 'review'))
-	);
+	// As the rows' state chips say: a request not answered at the last read
+	// counts; one whose answer is unknown is named apart, never counted.
+	const reviewsIn = (state: 'requested' | 'unknown') =>
+		rows.filter((r) => r.reviewWaits.some((w) => reviewStateAt(w, range.end) === state));
+	const reviewing = $derived(reviewsIn('requested'));
+	const reviewUnknown = $derived(reviewsIn('unknown'));
 	const missing = $derived(rows.filter((r) => r.missingHistory));
 </script>
 
@@ -52,6 +54,9 @@
 		<h2>At the window's end · {formatMinute(range.end, 'utc')} UTC</h2>
 		<p class="big">{count(reviewing.length, 'task')} with a review requested</p>
 		<p>{reviewing.length > 0 ? names(reviewing) : 'No review request was waiting.'}</p>
+		{#if reviewUnknown.length > 0}
+			<p class="unknown">Review answer unknown: {names(reviewUnknown)}</p>
+		{/if}
 	</section>
 	<section class="card" aria-label="Coverage">
 		<h2>Coverage</h2>

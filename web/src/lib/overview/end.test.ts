@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Run } from '../model';
 import { afternoon, overviewGolden, rowOfTask } from '../testing/overview';
-import { endChips } from './end';
+import type { ReviewWait } from './model';
+import { endChips, reviewStateAt } from './end';
 
 const page = overviewGolden();
 const end = afternoon('15:00');
@@ -63,5 +64,50 @@ describe('endChips', () => {
 	it('notes that an open item is only known until the last read', () => {
 		const running = endChips(rowOfTask(page, 203), end).find((c) => c.kind === 'running');
 		expect(running?.note).toBe('not ended at the last read');
+	});
+
+	it('says a review whose pull request closed with no answer is unknown, not answered', () => {
+		const row = rowOfTask(page, 201);
+		const wait: ReviewWait = {
+			...row.reviewWaits[0]!,
+			interval: { ...row.reviewWaits[0]!.interval, end: { state: 'unknown' } }
+		};
+		expect(endChips({ ...row, reviewWaits: [wait] }, end)[0]).toEqual({
+			kind: 'unknown',
+			text: 'review requested: owner-gh, answer unknown',
+			note: 'its pull request closed with no answer recorded'
+		});
+	});
+
+	it('does not assert a task open when its history could hold the completion', () => {
+		const row = { ...rowOfTask(page, 204), missingHistory: true };
+		expect(endChips(row, end).map((c) => `${c.kind}: ${c.text}`)).toEqual([
+			'pr-closed: PR #23 closed, not merged',
+			'unknown: task completion unknown',
+			'missing: history incomplete'
+		]);
+	});
+});
+
+describe('reviewStateAt', () => {
+	const wait = rowOfTask(page, 201).reviewWaits[0]!;
+	const ending = (state: 'open' | 'unknown'): ReviewWait => ({
+		...wait,
+		interval: { ...wait.interval, end: { state } }
+	});
+	const answered: ReviewWait = {
+		...wait,
+		interval: { ...wait.interval, end: { state: 'known', at: '2026-03-10T14:40:00Z' } }
+	};
+
+	it('is requested from the request until the answer, or the last read', () => {
+		expect(reviewStateAt(answered, afternoon('14:38'))).toBe('requested');
+		expect(reviewStateAt(answered, afternoon('14:40'))).toBeUndefined();
+		expect(reviewStateAt(ending('open'), end)).toBe('requested');
+	});
+
+	it('is unknown after the request when the answer is, and nothing before it', () => {
+		expect(reviewStateAt(ending('unknown'), end)).toBe('unknown');
+		expect(reviewStateAt(ending('unknown'), afternoon('14:34'))).toBeUndefined();
 	});
 });
