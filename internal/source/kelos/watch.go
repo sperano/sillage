@@ -274,7 +274,7 @@ func (w *Watcher) commit(ctx context.Context, st *state, changed []*attempt, obs
 		return err
 	}
 	st.prune(st.lastSeen())
-	data, err := json.Marshal(st.checkpoint())
+	data, err := json.Marshal(st.checkpoint(w.cfg))
 	if err != nil {
 		return fmt.Errorf("kelos: encode checkpoint: %w", err)
 	}

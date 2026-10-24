@@ -1,0 +1,50 @@
+{
+  "description": "Three observed GitHub heads around a force push keep all of their check results; moving the branch never erases an earlier SHA's evidence.",
+  "root": {
+    "task": { "instance": "vikunja.example.com", "id": 106 }
+  },
+  "events": [],
+  "runs": [],
+  "pullRequests": [
+    {
+      "key": { "instance": "github.example.com", "repository": "example-org/widgets", "number": 61 },
+      "branch": "kelos/vikunja-106",
+      "checks": [
+        {
+          "id": 9611,
+          "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "test",
+          "interval": {
+            "start": { "state": "known", "at": "2026-03-11T10:01:00Z" },
+            "end": { "state": "known", "at": "2026-03-11T10:03:00Z" }
+          },
+          "conclusion": "failure"
+        },
+        {
+          "id": 9612,
+          "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "name": "test",
+          "interval": {
+            "start": { "state": "known", "at": "2026-03-11T10:11:00Z" },
+            "end": { "state": "known", "at": "2026-03-11T10:13:00Z" }
+          },
+          "conclusion": "success"
+        },
+        {
+          "id": 9613,
+          "sha": "cccccccccccccccccccccccccccccccccccccccc",
+          "name": "test",
+          "interval": {
+            "start": { "state": "known", "at": "2026-03-11T10:21:00Z" },
+            "end": { "state": "known", "at": "2026-03-11T10:23:00Z" }
+          },
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "correlations": [],
+  "coverage": [
+    { "source": "github", "instance": "github.example.com", "lastSuccessfulRead": "2026-03-11T10:30:00Z" }
+  ]
+}

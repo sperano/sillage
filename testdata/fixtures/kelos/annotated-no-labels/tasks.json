@@ -1,0 +1,98 @@
+{
+  "apiVersion": "kelos.dev/v1alpha2",
+  "kind": "TaskList",
+  "metadata": {},
+  "items": [
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "Task",
+      "metadata": {
+        "name": "pr-followup-widgets-41-c9101",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000003001",
+        "creationTimestamp": "2026-03-14T08:00:00Z",
+        "annotations": {
+          "vikunja.example.com/source": "github",
+          "vikunja.example.com/source-instance": "github.example.com",
+          "vikunja.example.com/repository": "example-org/widgets",
+          "vikunja.example.com/pr": "41",
+          "vikunja.example.com/event": "issue_comment",
+          "vikunja.example.com/comment": "9101",
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"spec\":{\"prompt\":\"Fabricated prompt: never read.\"}}"
+        }
+      },
+      "spec": {
+        "type": "claude-code",
+        "prompt": "Fabricated prompt: never read into a run.",
+        "branch": "kelos/vikunja-301"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "jobName": "pr-followup-widgets-41-c9101",
+        "podName": "pr-followup-widgets-41-c9101-x7k2p",
+        "startTime": "2026-03-14T08:00:20Z",
+        "completionTime": "2026-03-14T08:20:00Z"
+      }
+    },
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "Task",
+      "metadata": {
+        "name": "wiki-fu-widgets-57-c801",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000003002",
+        "creationTimestamp": "2026-03-14T09:00:00Z",
+        "annotations": {
+          "vikunja.example.com/source": "wiki",
+          "vikunja.example.com/source-instance": "Wiki.Example.com",
+          "vikunja.example.com/repository": "example-org/widgets",
+          "vikunja.example.com/wiki-page": "57",
+          "vikunja.example.com/wiki-path": "widgets/design-notes",
+          "vikunja.example.com/wiki-locale": "en",
+          "vikunja.example.com/comment": "801",
+          "vikunja.example.com/delivery": "wiki-801"
+        }
+      },
+      "spec": {
+        "type": "claude-code",
+        "prompt": "Fabricated prompt: never read into a run.",
+        "branch": "kelos/wiki-57"
+      },
+      "status": {
+        "phase": "Running",
+        "jobName": "wiki-fu-widgets-57-c801",
+        "podName": "wiki-fu-widgets-57-c801-q4m8z",
+        "startTime": "2026-03-14T09:00:15Z"
+      }
+    },
+    {
+      "apiVersion": "kelos.dev/v1alpha2",
+      "kind": "Task",
+      "metadata": {
+        "name": "vikunja-merge-widgets-41-true",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000003003",
+        "creationTimestamp": "2026-03-14T10:00:00Z",
+        "annotations": {
+          "vikunja.example.com/source": "github",
+          "vikunja.example.com/source-instance": "github.example.com",
+          "vikunja.example.com/repository": "example-org/widgets",
+          "vikunja.example.com/pr": "41",
+          "vikunja.example.com/event": "pull_request",
+          "vikunja.example.com/branch": "kelos/vikunja-301"
+        }
+      },
+      "spec": {
+        "type": "claude-code",
+        "prompt": "Fabricated prompt: never read into a run."
+      },
+      "status": {
+        "phase": "Succeeded",
+        "jobName": "vikunja-merge-widgets-41-true",
+        "podName": "vikunja-merge-widgets-41-true-h3v9c",
+        "startTime": "2026-03-14T10:00:10Z",
+        "completionTime": "2026-03-14T10:01:00Z"
+      }
+    }
+  ]
+}

@@ -65,6 +65,9 @@ func testRelist(t *testing.T, expire func(*harness, *watch.FakeWatcher)) {
 	if len(gaps) != 1 || gaps[0].Reason != GapWatchExpired || !gaps[0].Start.Equal(recordsSeen) || !gaps[0].End.Equal(relist) {
 		t.Errorf("gaps = %+v, want watch expired from %v to %v", gaps, recordsSeen, relist)
 	}
+	if len(gaps) == 1 && b.Records.Coverage[0].Known(gaps[0].Start.Add(gaps[0].End.Sub(gaps[0].Start)/2)) {
+		t.Error("the expired watch's gap is reported as known instead of unknown")
+	}
 	runs := map[string]model.Run{}
 	for _, r := range b.Records.Runs {
 		runs[r.Key.UID] = r

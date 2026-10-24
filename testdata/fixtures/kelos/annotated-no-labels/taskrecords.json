@@ -1,0 +1,6 @@
+{
+  "apiVersion": "kelos.dev/v1alpha2",
+  "kind": "TaskRecordList",
+  "metadata": {},
+  "items": []
+}

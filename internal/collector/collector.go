@@ -50,17 +50,23 @@ type Collector struct {
 	now func() time.Time
 	// wikiURL matches a URL of the wiki in a comment.
 	wikiURL *regexp.Regexp
+	// origins keeps and recalls the Tasks' origins; nil without one.
+	origins OriginMemory
 }
 
 // New returns a collector reading src as cfg describes.
-func New(cfg Config, src Sources) (*Collector, error) {
+func New(cfg Config, src Sources, opts ...Option) (*Collector, error) {
 	if src.Vikunja == nil || src.Kelos == nil || src.GitHub == nil || src.Wiki == nil {
 		return nil, errors.New("collector: every source needs a client")
 	}
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
-	return &Collector{cfg: cfg, src: src, now: time.Now, wikiURL: wikiURLPattern(cfg.WikiInstance)}, nil
+	c := &Collector{cfg: cfg, src: src, now: time.Now, wikiURL: wikiURLPattern(cfg.WikiInstance)}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c, nil
 }
 
 // Failure is a source read that failed: its source contributes no record

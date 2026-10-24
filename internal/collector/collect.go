@@ -35,6 +35,7 @@ func (a *assembly) collectTask(ctx context.Context, key model.TaskKey, repos []g
 	a.announcedRuns()
 	a.prRuns()
 	a.actorRuns()
+	a.requestLinks()
 	return nil
 }
 
@@ -60,6 +61,7 @@ func (a *assembly) collectPage(ctx context.Context, key model.PageKey, repos []g
 	a.announcedRuns()
 	a.prRuns()
 	a.actorRuns()
+	a.requestLinks()
 	return nil
 }
 

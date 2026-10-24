@@ -1,0 +1,60 @@
+{
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-000000003101"
+      },
+      "taskName": "pr-followup-widgets-41-p7001",
+      "agent": "agent-opus",
+      "role": "pr-follow-up",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-12T11:10:05Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-03-12T11:30:00Z"
+        }
+      },
+      "outcome": "succeeded",
+      "model": "model-a",
+      "usage": {
+        "costUSD": "0.250",
+        "inputTokens": 1200,
+        "outputTokens": 80
+      },
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "taskrecords/agents/00000000-0000-4000-8000-000000003101",
+          "note": "uid 00000000-0000-4000-8000-000000003101 supplies taskName (spec.taskRef.name), agent (metadata.labels[vikunja.example.com/variant]), role (metadata.labels[vikunja.example.com/role] pr-followup), outcome (spec.phase Succeeded), start (spec.startTime), end (spec.completionTime), model (spec.model), usage (spec.usage); times are the controller's lifecycle times (start and completion), not CPU or phase timings; Task not found (deleted after its TTL): created, pod, job and message unknown"
+        }
+      ]
+    }
+  ],
+  "correlations": [
+    {
+      "from": {
+        "kind": "run",
+        "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000003101"
+      },
+      "to": {
+        "kind": "pr",
+        "id": "github.example.com/example-org/widgets/pull/41"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/pr-followup-widgets-41-p7001",
+          "note": "annotation vikunja.example.com/source=github, vikunja.example.com/source-instance=github.example.com, vikunja.example.com/repository=example-org/widgets, vikunja.example.com/pr=41; read from the Task at 2026-03-12T11:10:00Z and kept by sillage: the Task is gone, and its TaskRecord does not copy annotations"
+        }
+      ]
+    }
+  ]
+}

@@ -13,7 +13,12 @@ import (
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/model/storytest"
 	"github.com/sperano/sillage/internal/store"
+	"github.com/sperano/sillage/internal/testzone"
 )
+
+// TestMain runs the tests outside UTC, so that output depending on the
+// host's zone fails here too.
+func TestMain(m *testing.M) { testzone.Main(m) }
 
 // storyPath is the API path of root's story.
 func storyPath(root model.Root) string {
@@ -156,7 +161,7 @@ func TestSearch(t *testing.T) {
 		{"/api/v1/search?q=%20RETRY%20", []string{"failed-run-retry"}},
 		{"/api/v1/search?q=tasks/105", []string{"announced-run-only"}},
 		{"/api/v1/search?q=nothing-matches", []string{}},
-		{"/api/v1/search?limit=2", []string{"announced-run-only", "discuss-no-pr"}},
+		{"/api/v1/search?limit=2", []string{"announced-run-only", "checks-after-force-push"}},
 	}
 	for _, tt := range tests {
 		var got SearchResponse

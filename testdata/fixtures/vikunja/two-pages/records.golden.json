@@ -132,7 +132,7 @@
         "source": "vikunja",
         "instance": "vikunja.example.com",
         "ref": "GET /api/v1/tasks/4201?expand=buckets",
-        "note": "done, done_at"
+        "note": "done is true; done_at is the latest completion time; Vikunja does not retain earlier completion or reopen times"
       }
     },
     {

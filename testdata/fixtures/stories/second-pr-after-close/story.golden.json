@@ -1,0 +1,120 @@
+{
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 108
+    }
+  },
+  "events": [
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "pulls/7062",
+      "idKind": "source",
+      "kind": "pr.opened",
+      "sourceTime": "2026-03-13T09:00:00Z",
+      "observedAt": "2026-03-13T10:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 62
+        }
+      },
+      "details": {
+        "branch": "kelos/vikunja-108"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/62"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/events/8621",
+      "idKind": "source",
+      "kind": "pr.closed",
+      "sourceTime": "2026-03-13T09:20:00Z",
+      "observedAt": "2026-03-13T10:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 62
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/62/timeline"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "pulls/7063",
+      "idKind": "source",
+      "kind": "pr.opened",
+      "sourceTime": "2026-03-13T09:30:00Z",
+      "observedAt": "2026-03-13T10:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 63
+        }
+      },
+      "details": {
+        "branch": "kelos/vikunja-108"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/63"
+      }
+    }
+  ],
+  "runs": [],
+  "pullRequests": [
+    {
+      "key": {
+        "instance": "github.example.com",
+        "repository": "example-org/widgets",
+        "number": 62
+      },
+      "branch": "kelos/vikunja-108",
+      "checks": []
+    },
+    {
+      "key": {
+        "instance": "github.example.com",
+        "repository": "example-org/widgets",
+        "number": 63
+      },
+      "branch": "kelos/vikunja-108",
+      "checks": []
+    }
+  ],
+  "correlations": [],
+  "coverage": [
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "lastSuccessfulRead": "2026-03-13T10:00:00Z"
+    }
+  ]
+}

@@ -45,6 +45,6 @@ test('shades a row wherever one of its sources is unknown', () => {
 	const chart = chartOf('announced-run-only');
 	const run = chart.rows.find((r) => r.row.id.startsWith('run:'))!;
 	expect(run.unknown.map((u) => u.reason)).toContain(
-		"kelos/cluster-a: before the collector's first read; Tasks and TaskRecords of this period had expired"
+		'kelos/cluster-a: Kelos deletes a finished Task after the configured TTL: a run before then is read only from its TaskRecord, which only a run that reported usage leaves'
 	);
 });
