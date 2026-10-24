@@ -36,8 +36,8 @@ type ActivityQuery struct {
 }
 
 // RootActivity is one root and the records an overview reads of it: its
-// runs, its pull requests without their checks, the events of the query's
-// kinds, and its coverage.
+// runs and the correlations that link them, its pull requests without
+// their checks, the events of the query's kinds, and its coverage.
 type RootActivity struct {
 	RootSummary
 	Records model.Records
@@ -135,6 +135,13 @@ func activeRoots(ctx context.Context, tx pgx.Tx, q ActivityQuery, kinds []string
 	return ids, out, nil
 }
 
+// activityCorrelationsSQL selects the correlations of the roots $1 with a
+// run at an end: the overview tells by them a root's own runs from the
+// candidates of its records.
+const activityCorrelationsSQL = `SELECT m.root_id, c.body FROM root_correlations m
+	JOIN correlations c ON c.id = m.correlation_id
+	WHERE m.root_id = ANY($1) AND (c.body->'from'->>'kind' = 'run' OR c.body->'to'->>'kind' = 'run')`
+
 // loadActivity reads the records of the roots ids name into out, which
 // holds them in the same order.
 func loadActivity(ctx context.Context, tx pgx.Tx, ids []int64, kinds []string, out []RootActivity) error {
@@ -153,6 +160,11 @@ func loadActivity(ctx context.Context, tx pgx.Tx, ids []int64, kinds []string, o
 		WHERE m.root_id = ANY($1) AND e.kind = ANY($2)`, func(root int64, body []byte) error {
 		return appendJSON(&at[root].Events, body)
 	}, ids, kinds); err != nil {
+		return err
+	}
+	if err := forEachBody(ctx, tx, activityCorrelationsSQL, func(root int64, body []byte) error {
+		return appendJSON(&at[root].Correlations, body)
+	}, ids); err != nil {
 		return err
 	}
 	if err := forEachBody(ctx, tx, `SELECT root_id, body FROM coverage WHERE root_id = ANY($1)`,

@@ -3,8 +3,10 @@
 Fabricated source responses from which `internal/collector`'s tests
 assemble each story of `../stories/`, through the real clients: Vikunja,
 GitHub and Wiki.js answered by one `httptest` server routed by host,
-Kelos by client-go's fake dynamic client. Each assembled story must keep
+Kelos by client-go's fake dynamic client (`internal/collector/collectortest`,
+which also names each story's directories). Each assembled story must keep
 the invariant of `internal/model/storytest` its story exists for.
+`cmd/sillage`'s tests run the collection loop over the same responses.
 
 One directory per story, one subdirectory per source it reads, each in its
 source's own format (see `../vikunja/`, `../kelos/`, `../github/`,
