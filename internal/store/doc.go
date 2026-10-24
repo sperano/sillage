@@ -15,7 +15,9 @@
 // serve the API. KeepOrigins and RecallOrigins keep, apart from any story,
 // what started each Kelos Task (its correlation annotations, opaque JSON)
 // from the first read that saw it, since a TaskRecord does not copy them.
-// Prune applies the Config's retention policy (by default keep
+// AcceptDelivery, RecordDelivery and DeliveryAccepted keep the webhook
+// delivery attempts the ingest paths received, apart from every story's
+// records. Prune applies the Config's retention policy (by default keep
 // everything).
 //
 // Each record is stored as its model JSON, the source of truth read back

@@ -1,10 +1,13 @@
 // Command sillage serves sillage's HTTP endpoints: a health check, the
 // Prometheus metrics, the read API over the store (internal/api, under
-// /api/, which must stay behind the Authentik forward-auth) and the
-// embedded frontend. With SILLAGE_DATABASE_URL set, it migrates and prunes
-// the store at startup, then runs the collector, which keeps the store
-// current; without, nothing is collected and the API answers 503 for what
-// it would read.
+// /api/, which must stay behind the Authentik forward-auth), the webhook
+// ingest paths (internal/ingest, under /ingest/, authenticated by each
+// delivery's signature) and the embedded frontend. With
+// SILLAGE_DATABASE_URL set, it migrates and prunes the store at startup,
+// then runs the collector, which keeps the store current; without,
+// nothing is collected and the API answers 503 for what it would read.
+// The collector does not take the reads deliveries ask for yet; until it
+// does, the ingest paths answer 503 to every delivery and record nothing.
 //
 // "sillage story -task <id>" (or "-page <id>") instead prints one story's
 // JSON, assembled from the live sources the environment configures.
@@ -123,6 +126,15 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 		_ = ln.Close()
 		return err
 	}
+	// The collection loop does not take the reads deliveries ask for (an
+	// ingest.Queue) yet: until it does, the ingest paths refuse every
+	// delivery. The handler is built before the collector starts, so that
+	// its failure leaves nothing running.
+	ingestHandler, err := newIngest(getenv, st, nil, nil)
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
 	metrics, m := newMetrics()
 	collectCtx, stopCollecting := context.WithCancel(ctx)
 	defer stopCollecting()
@@ -131,7 +143,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 		_ = ln.Close()
 		return err
 	}
-	err = serve(ctx, ln, newHandler(web.FS(), apiHandler, metrics))
+	err = serve(ctx, ln, newHandler(web.FS(), apiHandler, ingestHandler, metrics))
 	// The collector stops before the store closes.
 	stopCollecting()
 	wait()
