@@ -34,7 +34,7 @@ var afternoon = Window{
 // The fixture tasks, by id.
 const (
 	taskA = 201 // review requested, unanswered
-	taskB = 202 // review requested, unanswered
+	taskB = 202 // review requested, unanswered; closed after the window
 	taskC = 203 // failed run, then a retry still running
 	taskD = 204 // pull request closed without a merge
 	taskE = 205 // run known from its announcement only, Kelos gap

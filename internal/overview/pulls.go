@@ -1,6 +1,8 @@
 package overview
 
 import (
+	"time"
+
 	"github.com/sperano/sillage/internal/model"
 )
 
@@ -80,19 +82,22 @@ func stateAt(w Window, events []model.Event) PRState {
 // touch the window, as the single-task timeline draws them: from each
 // request to the requested reviewer's review or the request's removal.
 // With no answer, a wait is open at the last read, unless the pull request
-// was merged, or closed and not reopened, since: then its end is unknown.
+// was merged, or closed and not reopened, since: then its end is unknown,
+// and Closed says when that happened.
 func reviewWaits(w Window, pr model.PRKey, events []model.Event) []ReviewWait {
 	var out []ReviewWait
 	for i, request := range events {
 		if request.Kind != model.KindReviewRequested {
 			continue
 		}
+		interval, closed := waitInterval(request, events[i+1:])
 		wait := ReviewWait{
 			PR:       pr,
 			Reviewer: request.Details["reviewer"],
 			Team:     request.Details["team"],
 			Request:  request.Key(),
-			Interval: waitInterval(request, events[i+1:]),
+			Interval: interval,
+			Closed:   closed,
 		}
 		if touches(w, wait.Interval) {
 			out = append(out, wait)
@@ -101,17 +106,20 @@ func reviewWaits(w Window, pr model.PRKey, events []model.Event) []ReviewWait {
 	return out
 }
 
-func waitInterval(request model.Event, after []model.Event) model.Interval {
+// waitInterval returns the wait from request to its answer among the
+// events after it and, when the pull request closed before any answer,
+// the time it did.
+func waitInterval(request model.Event, after []model.Event) (model.Interval, *time.Time) {
 	start := model.KnownAt(request.Time())
 	for _, e := range after {
 		if answers(request, e) {
-			return model.Interval{Start: start, End: model.KnownAt(e.Time())}
+			return model.Interval{Start: start, End: model.KnownAt(e.Time())}, nil
 		}
 	}
-	if closedAfter(after) {
-		return model.Interval{Start: start, End: model.UnknownBound()}
+	if closed, ok := closedAt(after); ok {
+		return model.Interval{Start: start, End: model.UnknownBound()}, &closed
 	}
-	return model.Interval{Start: start, End: model.OpenEnd()}
+	return model.Interval{Start: start, End: model.OpenEnd()}, nil
 }
 
 // answers reports whether e answers request: the requested reviewer's own
@@ -139,19 +147,20 @@ func requestee(e model.Event) string {
 	return ""
 }
 
-// closedAfter reports whether the events end with the pull request merged,
-// or closed and not reopened.
-func closedAfter(events []model.Event) bool {
+// closedAt returns when the events left the pull request merged, or
+// closed and not reopened: its merge, or its last close.
+func closedAt(events []model.Event) (time.Time, bool) {
+	var at time.Time
 	closed := false
 	for _, e := range events {
 		switch e.Kind {
 		case model.KindPRMerged:
-			return true
+			return e.Time(), true
 		case model.KindPRClosed:
-			closed = true
+			at, closed = e.Time(), true
 		case model.KindPRReopened:
-			closed = false
+			at, closed = time.Time{}, false
 		}
 	}
-	return closed
+	return at, closed
 }

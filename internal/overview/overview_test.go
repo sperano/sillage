@@ -128,16 +128,29 @@ func TestFailureStaysWithItsRetry(t *testing.T) {
 	}
 }
 
-// Review waits: A's and B's requests are still open at the last read.
+// Review waits: A's request is still open at the last read; B's pull
+// request closed after the window with the request unanswered, so its end
+// is unknown and Closed says when.
 func TestReviewWaits(t *testing.T) {
 	rows := buildAll(t, afternoon, Filter{ReviewRequested: true})
 	if got, want := taskIDs(rows), []int64{taskA, taskB}; !slices.Equal(got, want) {
 		t.Fatalf("rows with a review wait = %v, want %v", got, want)
 	}
+	closedB := at(t, "15:02")
 	for _, row := range rows {
 		w := row.ReviewWaits[0]
-		if w.Reviewer != "owner-gh" || w.Interval.End.State != model.BoundOpen {
-			t.Errorf("task %d: wait %+v, want owner-gh's, open", row.Root.Task.ID, w)
+		if w.Reviewer != "owner-gh" {
+			t.Errorf("task %d: wait %+v, want owner-gh's", row.Root.Task.ID, w)
+		}
+		switch row.Root.Task.ID {
+		case taskA:
+			if w.Interval.End.State != model.BoundOpen || w.Closed != nil {
+				t.Errorf("task A: wait %+v, want open, not closed", w)
+			}
+		case taskB:
+			if w.Interval.End.State != model.BoundUnknown || w.Closed == nil || !w.Closed.Equal(closedB) {
+				t.Errorf("task B: wait %+v, want an unknown end, closed at %s", w, closedB)
+			}
 		}
 	}
 }

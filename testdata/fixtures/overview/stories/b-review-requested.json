@@ -1,5 +1,5 @@
 {
-  "description": "Agent birch runs 14:08-14:22, opens pull request 22 and requests the owner's review at 14:22; nobody answers before the last read.",
+  "description": "Agent birch runs 14:08-14:22, opens pull request 22 and requests the owner's review at 14:22; nobody answers, and the pull request is closed at 15:02, after the window.",
   "title": "Docs navigation",
   "root": {
     "task": {
@@ -93,6 +93,32 @@
       },
       "details": {
         "reviewer": "owner-gh"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/events/82202",
+      "idKind": "source",
+      "kind": "pr.closed",
+      "sourceTime": "2026-03-10T15:02:00Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 22
+        }
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/22/timeline",
+        "note": "event 82202, closed"
       }
     }
   ],

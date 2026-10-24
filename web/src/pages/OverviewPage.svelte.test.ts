@@ -100,11 +100,30 @@ test('a pull request closed without a merge leaves its task open', async () => {
 	await expect.element(state).not.toHaveTextContent('task marked done');
 });
 
+test('a review whose pull request closed after the window is still requested at its end', async () => {
+	await renderOverview(DEFAULT_QUERY);
+	const card = page.getByRole('region', { name: "At the window's end" });
+	await expect.element(card).toHaveTextContent('2 tasks with a review requested');
+	const state = page.getByRole('list', { name: "State of Docs navigation at the window's end" });
+	await expect.element(state).toHaveTextContent('review requested: owner-gh');
+	await expect.element(state).not.toHaveTextContent('answer unknown');
+});
+
+/** A review wait's end and close time, as a test rewrites them. */
+interface WaitJSON {
+	interval: { end: unknown };
+	closed?: string;
+}
+
+/** Closes a review wait's pull request unanswered before the window's end. */
+function closeUnanswered(w: WaitJSON): void {
+	w.interval.end = { state: 'unknown' };
+	w.closed = '2026-03-10T14:50:00Z';
+}
+
 test('a review whose answer is unknown is named apart, not counted as requested', async () => {
-	const body = overviewGoldenJSON() as {
-		rows: { reviewWaits: { interval: { end: unknown } }[] }[];
-	};
-	body.rows[0]!.reviewWaits[0]!.interval.end = { state: 'unknown' };
+	const body = overviewGoldenJSON() as { rows: { reviewWaits: WaitJSON[] }[] };
+	closeUnanswered(body.rows[0]!.reviewWaits[0]!);
 	await renderOverview(DEFAULT_QUERY, { [OVERVIEW]: () => json(body) });
 	const card = page.getByRole('region', { name: "At the window's end" });
 	await expect.element(card).toHaveTextContent('1 task with a review requested');
@@ -114,12 +133,8 @@ test('a review whose answer is unknown is named apart, not counted as requested'
 });
 
 test('with only unknown review answers, no request is said not to wait', async () => {
-	const body = overviewGoldenJSON() as {
-		rows: { reviewWaits: { interval: { end: unknown } }[] }[];
-	};
-	for (const row of body.rows) {
-		for (const w of row.reviewWaits) w.interval.end = { state: 'unknown' };
-	}
+	const body = overviewGoldenJSON() as { rows: { reviewWaits: WaitJSON[] }[] };
+	for (const row of body.rows) row.reviewWaits.forEach(closeUnanswered);
 	await renderOverview(DEFAULT_QUERY, { [OVERVIEW]: () => json(body) });
 	const card = page.getByRole('region', { name: "At the window's end" });
 	await expect.element(card).toHaveTextContent('No review request was known to be waiting.');

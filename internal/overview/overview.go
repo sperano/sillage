@@ -125,6 +125,10 @@ type ReviewWait struct {
 	// Request is the key of the request event.
 	Request  string         `json:"request"`
 	Interval model.Interval `json:"interval"`
+	// Closed is the merge, or the close not followed by a reopening, that
+	// left the request unanswered: until then it was waiting, after it its
+	// answer is unknown. Set exactly when the interval's end is unknown.
+	Closed *time.Time `json:"closed,omitempty"`
 }
 
 // Mark is one state change in the window.

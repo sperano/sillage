@@ -63,7 +63,7 @@ story's invariant, and the collector does not assemble them.
 | Task | What it shows |
 | --- | --- |
 | 201 | A run waiting 30 s before it starts, a pull request, a review request unanswered at the last read. |
-| 202 | The same, ending before 14:25. |
+| 202 | The same, ending before 14:25; its pull request closed after the window with the request unanswered. |
 | 203 | A failed run alongside 201's run, under the same agent profile; its retry, same Kelos Task name, still running. |
 | 204 | A pull request closed without a merge; the task is never marked done. |
 | 205 | A run known from its announcement only, inside a Kelos gap: missing history. |

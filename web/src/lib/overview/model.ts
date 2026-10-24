@@ -34,6 +34,12 @@ export interface ReviewWait {
 	/** The request event's key. */
 	request: string;
 	interval: Interval;
+	/**
+	 * The merge, or the close not followed by a reopening, that left the
+	 * request unanswered: waiting until then, its answer unknown after.
+	 * Set exactly when the interval's end is unknown.
+	 */
+	closed?: string;
 }
 
 /** The event kinds a row shows as marks, as the Go overview's markKinds. */

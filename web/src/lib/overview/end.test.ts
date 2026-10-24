@@ -31,6 +31,10 @@ describe('endChips', () => {
 		expect(chips(201)).toEqual(['review: review requested: owner-gh', 'pr-open: PR #21 open']);
 	});
 
+	it('shows a review still requested at the end when its pull request closed only after it', () => {
+		expect(chips(202)).toEqual(['review: review requested: owner-gh', 'pr-open: PR #22 open']);
+	});
+
 	it('says when a run and the history are unknown, and nothing more', () => {
 		expect(chips(205)).toEqual(['unknown: run state unknown', 'missing: history incomplete']);
 	});
@@ -70,7 +74,8 @@ describe('endChips', () => {
 		const row = rowOfTask(page, 201);
 		const wait: ReviewWait = {
 			...row.reviewWaits[0]!,
-			interval: { ...row.reviewWaits[0]!.interval, end: { state: 'unknown' } }
+			interval: { ...row.reviewWaits[0]!.interval, end: { state: 'unknown' } },
+			closed: '2026-03-10T14:50:00Z'
 		};
 		expect(endChips({ ...row, reviewWaits: [wait] }, end)[0]).toEqual({
 			kind: 'unknown',
@@ -91,10 +96,12 @@ describe('endChips', () => {
 
 describe('reviewStateAt', () => {
 	const wait = rowOfTask(page, 201).reviewWaits[0]!;
-	const ending = (state: 'open' | 'unknown'): ReviewWait => ({
+	const open: ReviewWait = { ...wait, interval: { ...wait.interval, end: { state: 'open' } } };
+	const closed: ReviewWait = {
 		...wait,
-		interval: { ...wait.interval, end: { state } }
-	});
+		interval: { ...wait.interval, end: { state: 'unknown' } },
+		closed: '2026-03-10T14:50:00Z'
+	};
 	const answered: ReviewWait = {
 		...wait,
 		interval: { ...wait.interval, end: { state: 'known', at: '2026-03-10T14:40:00Z' } }
@@ -103,11 +110,13 @@ describe('reviewStateAt', () => {
 	it('is requested from the request until the answer, or the last read', () => {
 		expect(reviewStateAt(answered, afternoon('14:38'))).toBe('requested');
 		expect(reviewStateAt(answered, afternoon('14:40'))).toBeUndefined();
-		expect(reviewStateAt(ending('open'), end)).toBe('requested');
+		expect(reviewStateAt(open, end)).toBe('requested');
 	});
 
-	it('is unknown after the request when the answer is, and nothing before it', () => {
-		expect(reviewStateAt(ending('unknown'), end)).toBe('unknown');
-		expect(reviewStateAt(ending('unknown'), afternoon('14:34'))).toBeUndefined();
+	it('is requested until its pull request closed unanswered, unknown from then, nothing before', () => {
+		expect(reviewStateAt(closed, afternoon('14:34'))).toBeUndefined();
+		expect(reviewStateAt(closed, afternoon('14:49'))).toBe('requested');
+		expect(reviewStateAt(closed, afternoon('14:50'))).toBe('unknown');
+		expect(reviewStateAt(closed, end)).toBe('unknown');
 	});
 });

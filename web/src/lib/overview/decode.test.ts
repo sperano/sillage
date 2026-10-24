@@ -62,6 +62,21 @@ describe('parseOverviewPage', () => {
 		expect(() => parseOverviewPage(kind)).toThrow(/cannot come from kelos/);
 	});
 
+	it('takes a close time exactly with an unknown end, and not before the request', () => {
+		const wait = (row: JSONObject) => (row.reviewWaits as JSONObject[])[0]!;
+		const unclosed = withFirstRow((row) => {
+			(wait(row).interval as JSONObject).end = { state: 'unknown' };
+		});
+		expect(() => parseOverviewPage(unclosed)).toThrow(/close time exactly when/);
+		const open = withFirstRow((row) => (wait(row).closed = '2026-03-10T14:50:00Z'));
+		expect(() => parseOverviewPage(open)).toThrow(/close time exactly when/);
+		const early = withFirstRow((row) => {
+			(wait(row).interval as JSONObject).end = { state: 'unknown' };
+			wait(row).closed = '2026-03-10T14:00:00Z';
+		});
+		expect(() => parseOverviewPage(early)).toThrow(/closed before the request/);
+	});
+
 	it('rejects a window that ends before it starts', () => {
 		const json = overviewGoldenJSON() as { window: { from: string; to: string } };
 		json.window = { from: json.window.to, to: json.window.from };

@@ -45,9 +45,17 @@ const pullRequest: Decoder<OverviewPullRequest> = object({
 	state: oneOf(PR_STATES)
 });
 
-const reviewWait: Decoder<ReviewWait> = object(
-	{ pr: prKey, request: text, interval },
-	{ reviewer: text, team: text }
+const reviewWait: Decoder<ReviewWait> = refine(
+	object({ pr: prKey, request: text, interval }, { reviewer: text, team: text, closed: timestamp }),
+	(w, path) => {
+		if ((w.closed !== undefined) !== (w.interval.end.state === 'unknown')) {
+			fail(path, 'a close time exactly when the end is unknown');
+		}
+		const start = w.interval.start.at;
+		if (w.closed !== undefined && start !== undefined && compareTimes(w.closed, start) < 0) {
+			fail(`${path}.closed`, 'closed before the request');
+		}
+	}
 );
 
 const mark: Decoder<Mark> = refine(

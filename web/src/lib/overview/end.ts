@@ -58,15 +58,16 @@ const OPEN_NOTE = 'not ended at the last read';
 
 /**
  * A review wait's state at t: requested when it started before t and had
- * not been answered by t (an open end counts as not answered); unknown
- * when its pull request closed after the request with no answer recorded;
- * none otherwise.
+ * not been answered by t (an open end counts as not answered), nor its
+ * pull request closed; unknown once its pull request closed with no answer
+ * recorded; none otherwise.
  */
 export function reviewStateAt(w: ReviewWait, t: number): ReviewState | undefined {
 	if (goingAt(w.interval, t)) return 'requested';
 	const start = boundTime(w.interval.start);
-	if (start !== undefined && start < t && w.interval.end.state === 'unknown') return 'unknown';
-	return undefined;
+	if (start === undefined || start >= t || w.interval.end.state !== 'unknown') return undefined;
+	const closed = w.closed === undefined ? undefined : Date.parse(w.closed);
+	return closed !== undefined && closed > t ? 'requested' : 'unknown';
 }
 
 function reviewText(w: ReviewWait): string {

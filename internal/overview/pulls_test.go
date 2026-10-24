@@ -71,25 +71,44 @@ func TestReviewWaitEnds(t *testing.T) {
 	reviewer := map[string]string{"reviewer": "reviewer-gh"}
 	team := map[string]string{"team": "core"}
 	request := prEvent(model.KindReviewRequested, 5, "owner-gh", reviewer)
+	const unclosed = -1
 	for _, c := range []struct {
 		name  string
 		later []model.Event
 		want  model.BoundState
+		// closed is the minute past 14:00 the wait's Closed names, or unclosed.
+		closed int
 	}{
-		{"the reviewer's review", []model.Event{prEvent(model.KindReviewSubmitted, 20, "reviewer-gh", nil)}, model.BoundKnown},
-		{"another account's review", []model.Event{prEvent(model.KindReviewSubmitted, 20, "other-gh", nil)}, model.BoundOpen},
-		{"the request's removal", []model.Event{prEvent(model.KindReviewRequestRemoved, 20, "owner-gh", reviewer)}, model.BoundKnown},
-		{"merged unanswered", []model.Event{prEvent(model.KindPRMerged, 20, "owner-gh", nil)}, model.BoundUnknown},
-		{"closed unanswered", []model.Event{prEvent(model.KindPRClosed, 20, "owner-gh", nil)}, model.BoundUnknown},
+		{"the reviewer's review", []model.Event{prEvent(model.KindReviewSubmitted, 20, "reviewer-gh", nil)}, model.BoundKnown, unclosed},
+		{"another account's review", []model.Event{prEvent(model.KindReviewSubmitted, 20, "other-gh", nil)}, model.BoundOpen, unclosed},
+		{"the request's removal", []model.Event{prEvent(model.KindReviewRequestRemoved, 20, "owner-gh", reviewer)}, model.BoundKnown, unclosed},
+		{"merged unanswered", []model.Event{prEvent(model.KindPRMerged, 20, "owner-gh", nil)}, model.BoundUnknown, 20},
+		{"closed unanswered", []model.Event{prEvent(model.KindPRClosed, 20, "owner-gh", nil)}, model.BoundUnknown, 20},
 		{"closed, then reopened", []model.Event{
 			prEvent(model.KindPRClosed, 20, "owner-gh", nil),
 			prEvent(model.KindPRReopened, 25, "owner-gh", nil),
-		}, model.BoundOpen},
+		}, model.BoundOpen, unclosed},
+		{"closed, reopened, closed again", []model.Event{
+			prEvent(model.KindPRClosed, 20, "owner-gh", nil),
+			prEvent(model.KindPRReopened, 25, "owner-gh", nil),
+			prEvent(model.KindPRClosed, 40, "owner-gh", nil),
+		}, model.BoundUnknown, 40},
+		{"answered, then merged", []model.Event{
+			prEvent(model.KindReviewSubmitted, 20, "reviewer-gh", nil),
+			prEvent(model.KindPRMerged, 30, "owner-gh", nil),
+		}, model.BoundKnown, unclosed},
 	} {
 		events := append([]model.Event{request}, c.later...)
 		waits := reviewWaits(afternoon, testPR, events)
 		if len(waits) != 1 || waits[0].Interval.End.State != c.want {
 			t.Errorf("%s: waits = %+v, want one ending %s", c.name, waits, c.want)
+			continue
+		}
+		switch closed := waits[0].Closed; {
+		case c.closed == unclosed && closed != nil:
+			t.Errorf("%s: closed at %s, want unset", c.name, closed)
+		case c.closed != unclosed && (closed == nil || !closed.Equal(minute(c.closed))):
+			t.Errorf("%s: closed at %v, want %s", c.name, closed, minute(c.closed))
 		}
 	}
 	teamRequest := prEvent(model.KindReviewRequested, 5, "owner-gh", team)
