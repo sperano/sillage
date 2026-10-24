@@ -106,7 +106,7 @@ func TestBuildIngestServesDeliveries(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, ingest.PathVikunja, bytes.NewReader(body))
 	r.Header.Set("X-Vikunja-Signature", hex.EncodeToString(mac.Sum(nil)))
 	rec := httptest.NewRecorder()
-	newHandler(nil, http.NotFoundHandler(), h).ServeHTTP(rec, r)
+	newHandler(nil, http.NotFoundHandler(), h, http.NotFoundHandler()).ServeHTTP(rec, r)
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("status = %d (%s), want 202", rec.Code, rec.Body)
 	}

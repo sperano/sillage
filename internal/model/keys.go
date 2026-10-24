@@ -145,6 +145,18 @@ func (r Root) Validate() error {
 	return errors.New("root: neither a task nor a page is set")
 }
 
+// Ref returns a reference to the root's task or page; the zero Ref when
+// neither is set.
+func (r Root) Ref() Ref {
+	switch {
+	case r.Task != nil:
+		return r.Task.Ref()
+	case r.Page != nil:
+		return r.Page.Ref()
+	}
+	return Ref{}
+}
+
 // RefKind is the kind of record a Ref points to.
 type RefKind string
 
