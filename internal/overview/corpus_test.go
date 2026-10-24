@@ -136,12 +136,24 @@ func checkRowInWindow(t *testing.T, w Window, row Row) {
 	}
 }
 
-// checkMarksShown asserts that each event of a mark kind in w is a mark of
-// the window's one row.
+// wantMarkKinds are the events a row must show as marks, written apart
+// from markKinds so that a kind dropped from it fails the sweep.
+var wantMarkKinds = []model.EventKind{
+	model.KindTaskDone,
+	model.KindRunAnnounced,
+	model.KindPROpened,
+	model.KindPRMerged,
+	model.KindPRClosed,
+	model.KindPRReopened,
+	model.KindReviewSubmitted,
+}
+
+// checkMarksShown asserts that each event of a wanted mark kind in w is a
+// mark of the window's one row.
 func checkMarksShown(t *testing.T, w Window, events []model.Event, rows []Row) {
 	t.Helper()
 	for _, e := range events {
-		if !markKinds[e.Kind] || !w.Contains(e.Time()) {
+		if !slices.Contains(wantMarkKinds, e.Kind) || !w.Contains(e.Time()) {
 			continue
 		}
 		if len(rows) != 1 || !slices.ContainsFunc(rows[0].Marks, func(m Mark) bool { return m.Event == e.Key() }) {

@@ -27,9 +27,10 @@
 // check runs by id per commit; correlations by the pair they link) and
 // that its rules need. Records are shared: a root's story is the records
 // its saves added (root_events, root_runs, ...), so a run that two stories
-// name is stored once. Coverage is per root and source instance, and so
-// is whether a correlation is ambiguous: the collector decides it per
-// story, so one pair can be ambiguous in one story and certain in another.
+// name is stored once. Coverage is per root and source instance; whether a
+// correlation is ambiguous is per root and correlation: the collector
+// decides it per story, so one pair can be ambiguous in one story and
+// certain in another.
 //
 // The migration runner is this package's own (migrate.go, under two
 // hundred lines): embedded, numbered, forward-only SQL files, applied with
