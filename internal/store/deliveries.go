@@ -4,11 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/sperano/sillage/internal/model"
 )
+
+// rollbackTimeout bounds rolling back an acceptance, which runs even once
+// its caller's context is done.
+const rollbackTimeout = 5 * time.Second
 
 // ErrAlreadyAccepted is returned by AcceptDelivery when an earlier
 // attempt of the same delivery was accepted: nothing is recorded, and the
@@ -49,16 +54,20 @@ func (s *Store) AcceptDelivery(ctx context.Context, d model.Delivery, act func()
 	if err != nil {
 		return fmt.Errorf("store: accept delivery %s: %w", d.ID, err)
 	}
-	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), rollbackTimeout)
+		defer cancel()
+		_ = tx.Rollback(ctx) // after a commit, pgx.ErrTxClosed
+	}()
 	var id int64
 	// The conflict target is the partial index of accepted attempts alone,
 	// so that a conflict on the time of an attempt recorded otherwise is an
 	// error, not taken for an earlier acceptance.
 	err = tx.QueryRow(ctx, `INSERT INTO delivery_attempts
 		(source, instance, delivery_id, event_type, received_at, outcome, detail)
-		VALUES ($1, $2, $3, $4, $5, $6, NULL)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (source, instance, delivery_id) WHERE outcome = 'accepted' DO NOTHING RETURNING id`,
-		string(d.Source), d.Instance, d.ID, d.Event, d.ReceivedAt, string(d.Outcome)).Scan(&id)
+		string(d.Source), d.Instance, d.ID, d.Event, d.ReceivedAt, string(d.Outcome), nullable(d.Detail)).Scan(&id)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return ErrAlreadyAccepted
@@ -85,14 +94,10 @@ func (s *Store) RecordDelivery(ctx context.Context, d model.Delivery) error {
 	if err := d.Validate(); err != nil {
 		return fmt.Errorf("store: %w", err)
 	}
-	var detail *string
-	if d.Detail != "" {
-		detail = &d.Detail
-	}
 	_, err := s.pool.Exec(ctx, `INSERT INTO delivery_attempts
 		(source, instance, delivery_id, event_type, received_at, outcome, detail)
 		VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`,
-		string(d.Source), d.Instance, d.ID, d.Event, d.ReceivedAt, string(d.Outcome), detail)
+		string(d.Source), d.Instance, d.ID, d.Event, d.ReceivedAt, string(d.Outcome), nullable(d.Detail))
 	if err != nil {
 		return fmt.Errorf("store: record delivery %s: %w", d.ID, err)
 	}

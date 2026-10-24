@@ -20,7 +20,7 @@ const (
 )
 
 // Secret is a webhook secret. It prints as [redacted] through fmt, with
-// any verb, and log/slog, so a Secrets can be logged without leaking it.
+// any verb, and log/slog, so Secrets can be logged without leaking them.
 type Secret string
 
 // String implements fmt.Stringer.

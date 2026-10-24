@@ -48,7 +48,7 @@ func accept(ctx context.Context, s *Store, d model.Delivery) error {
 	return s.AcceptDelivery(ctx, d, func() error { return nil })
 }
 
-func TestRecordDelivery(t *testing.T) {
+func TestDeliveryAttempts(t *testing.T) {
 	s := newTestStore(t, Retention{})
 	ctx := t.Context()
 	failed := delivery("d-1", 0, model.DeliveryFailed)
@@ -94,6 +94,7 @@ func TestAcceptDeliveryActFails(t *testing.T) {
 	s := newTestStore(t, Retention{})
 	ctx := t.Context()
 	errFull := errors.New("queue full")
+	// act's error is returned as it is, not wrapped.
 	if err := s.AcceptDelivery(ctx, delivery("d-1", 0, model.DeliveryAccepted), func() error { return errFull }); err != errFull {
 		t.Fatalf("AcceptDelivery = %v, want act's error as it is", err)
 	}
@@ -150,6 +151,74 @@ func TestAcceptDeliveryRace(t *testing.T) {
 	}
 	if accepted != 1 || acts.Load() != 1 {
 		t.Errorf("%d racing attempts were accepted and %d acts ran, want 1 and 1", accepted, acts.Load())
+	}
+}
+
+const (
+	// lockWaitDeadline bounds waiting for an attempt to wait on another.
+	lockWaitDeadline = 10 * time.Second
+	// lockWaitPoll is how often the wait is looked for.
+	lockWaitPoll = 10 * time.Millisecond
+)
+
+// An attempt racing one whose act is running waits for its outcome, and
+// is accepted once that act fails.
+func TestAcceptDeliveryWaitsForARacingAttempt(t *testing.T) {
+	s := newTestStore(t, Retention{})
+	ctx := t.Context()
+	inAct, release := make(chan struct{}), make(chan struct{})
+	releaseFirst := sync.OnceFunc(func() { close(release) })
+	t.Cleanup(releaseFirst)
+	errFull := errors.New("queue full")
+	first := make(chan error, 1)
+	go func() {
+		first <- s.AcceptDelivery(ctx, delivery("d-1", 0, model.DeliveryAccepted), func() error {
+			close(inAct)
+			<-release
+			return errFull
+		})
+	}()
+	<-inAct
+	var ran atomic.Bool
+	second := make(chan error, 1)
+	go func() {
+		second <- s.AcceptDelivery(ctx, delivery("d-1", 1, model.DeliveryAccepted), func() error {
+			ran.Store(true)
+			return nil
+		})
+	}()
+	waitForLockWait(t, s)
+	if ran.Load() {
+		t.Fatal("the second attempt's act ran while the first was undecided")
+	}
+	releaseFirst()
+	if err := <-first; err != errFull {
+		t.Fatalf("the first attempt: %v, want its act's error", err)
+	}
+	if err := <-second; err != nil || !ran.Load() {
+		t.Errorf("the second attempt: %v, act ran %v; want it accepted once the first failed", err, ran.Load())
+	}
+}
+
+// waitForLockWait waits until an insert of a delivery attempt waits on a
+// lock.
+func waitForLockWait(t *testing.T, s *Store) {
+	t.Helper()
+	deadline := time.Now().Add(lockWaitDeadline)
+	for {
+		var waiting bool
+		err := s.pool.QueryRow(t.Context(), `SELECT EXISTS (SELECT 1 FROM pg_stat_activity
+			WHERE wait_event_type = 'Lock' AND query LIKE 'INSERT INTO delivery_attempts%')`).Scan(&waiting)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if waiting {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("no attempt waited on the one undecided")
+		}
+		time.Sleep(lockWaitPoll)
 	}
 }
 
