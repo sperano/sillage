@@ -34,12 +34,16 @@ func rowSources(w Window, row Row, events []model.Event) []string {
 	return keys
 }
 
-// missingHistory reports whether part of the window is unknown for one of
-// the row's sources: a gap overlaps it, a source was never read or not
-// since before the window, or a source the row has records from has no
-// coverage at all. The time after a source's last read inside the window
-// is unknown too, and shown so, but not counted here: with a window ending
-// now, every source's last read is a little before its end.
+// missingHistory reports whether part of the window is unknown for the
+// row: a gap of any source of the root overlaps it, a source of the root
+// was never read or not since before the window, or a source the row has
+// records from has no coverage at all. Every source in the root's coverage
+// counts, not only those the row has records from: a source left unread,
+// for want of a repository or after a failure, leaves no records, so its
+// absence from the row says nothing. The time after a source's last read
+// inside the window is unknown too, and shown so, but not counted here:
+// with a window ending now, every source's last read is a little before
+// its end.
 func missingHistory(w Window, coverage []model.Coverage, sources []string) bool {
 	covered := make(map[string]bool, len(coverage))
 	for _, c := range coverage {
