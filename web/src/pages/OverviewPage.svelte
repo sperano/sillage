@@ -26,13 +26,19 @@
 	// new first page starts without them.
 	let extra: { after: Page; pages: Page[] } | undefined = $state.raw();
 	const later = $derived(extra !== undefined && extra.after === firstPage ? extra.pages : []);
-	/** The next page's request: in flight, or failed. */
-	let more: { state: 'idle' | 'loading' } | { state: 'failed'; error: unknown } = $state.raw({
-		state: 'idle'
-	});
+	type More = { state: 'idle' | 'loading' } | { state: 'failed'; error: unknown };
+	// The next page's request, for the first page it extends: a new first
+	// page starts idle, whatever happened to the old one's.
+	let request: { after: Page; more: More } | undefined = $state.raw();
+	const more: More = $derived(
+		request !== undefined && request.after === firstPage ? request.more : { state: 'idle' }
+	);
 	let controller: AbortController | undefined;
-	// Leaving the page aborts the next page's request.
-	$effect(() => () => controller?.abort());
+	// A new first page, or leaving the page, aborts the next page's request.
+	$effect(() => {
+		void firstPage;
+		return () => controller?.abort();
+	});
 
 	// A task that moved between two pages' requests is shown once, where it was first.
 	const rows = $derived(
@@ -71,14 +77,17 @@
 		controller = new AbortController();
 		const signal = controller.signal;
 		const q = { ...query, from: base.window.from, to: base.window.to };
-		more = { state: 'loading' };
+		request = { after: base, more: { state: 'loading' } };
+		// Only the latest request for the first page shown settles: a newer
+		// request, or a first page that changed meanwhile, drops this one.
+		const current = () => !signal.aborted && base === firstPage;
 		try {
 			const page = await api.overview(q, next, signal);
-			// A first page that changed meanwhile drops what extended the old one.
-			if (base === firstPage) extra = { after: base, pages: [...later, page] };
-			more = { state: 'idle' };
+			if (!current()) return;
+			extra = { after: base, pages: [...later, page] };
+			request = { after: base, more: { state: 'idle' } };
 		} catch (error) {
-			if (!isAbort(error) && !signal.aborted) more = { state: 'failed', error };
+			if (current() && !isAbort(error)) request = { after: base, more: { state: 'failed', error } };
 		}
 	}
 

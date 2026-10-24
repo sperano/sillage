@@ -6,7 +6,7 @@ import { memoryHistory } from '../lib/history';
 import { DEFAULT_QUERY, overviewHref, type OverviewQuery } from '../lib/overview/query';
 import { Router } from '../lib/router.svelte';
 import { afternoon, overviewGoldenJSON } from '../lib/testing/overview';
-import { fakeServer, json, problem } from '../testing/fakeServer';
+import { fakeServer, HANG, json, problem } from '../testing/fakeServer';
 import OverviewPage from './OverviewPage.svelte';
 
 const OVERVIEW = `${API_BASE}/overview`;
@@ -28,8 +28,8 @@ async function renderOverview(
 	const history = memoryHistory(overviewHref(query));
 	const router = new Router(history);
 	const server = fakeServer(handlers);
-	await render(OverviewPage, { api: server.api, router, query });
-	return { history, server };
+	const { rerender } = await render(OverviewPage, { api: server.api, router, query });
+	return { history, server, rerender };
 }
 
 /** The golden overview's JSON, as a page whose next page is after cursor-1. */
@@ -174,6 +174,36 @@ test('a failed next page says so and can be asked again', async () => {
 	await expect.element(more).toBeEnabled();
 	await more.click();
 	await expect.element(more).not.toBeInTheDocument();
+});
+
+test('new filters abort the next page in flight, and start idle', async () => {
+	const { server, rerender } = await renderOverview(DEFAULT_QUERY, {
+		[OVERVIEW]: (url) => (url.searchParams.get('after') === null ? json(firstOfTwo()) : HANG)
+	});
+	const more = page.getByRole('button', { name: 'Load more tasks' });
+	await more.click();
+	await expect.element(page.getByRole('button', { name: 'Loading more tasks…' })).toBeDisabled();
+	await rerender({ query: { ...DEFAULT_QUERY, failed: true } });
+	await expect.element(page.getByText(/6 tasks matching the filters/)).toBeVisible();
+	await expect.element(more).toBeEnabled();
+	const [, next, refiltered] = server.requests;
+	expect(next?.path).toContain('after=cursor-1');
+	expect(next?.signal.aborted).toBe(true);
+	expect(refiltered?.path).toBe(`${OVERVIEW}?failed=true`);
+});
+
+test('a next page that failed for other filters is not reported for the new ones', async () => {
+	const { rerender } = await renderOverview(DEFAULT_QUERY, {
+		[OVERVIEW]: (url) =>
+			url.searchParams.get('after') === null
+				? json(firstOfTwo())
+				: problem(503, 'Service Unavailable', 'reading the store failed')
+	});
+	await page.getByRole('button', { name: 'Load more tasks' }).click();
+	await expect.element(page.getByRole('alert')).toBeVisible();
+	await rerender({ query: { ...DEFAULT_QUERY, failed: true } });
+	await expect.element(page.getByText(/6 tasks matching the filters/)).toBeVisible();
+	await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
 });
 
 test('a task a later page repeats is shown once', async () => {
