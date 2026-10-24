@@ -14,7 +14,8 @@ import (
 // metrics, never recorded outcomes.
 const (
 	// outcomeRefused: not authenticated (no secret, too large, unsigned,
-	// badly signed) or with no delivery id.
+	// badly signed), or authenticated but with no GitHub delivery id or
+	// event, or one too long.
 	outcomeRefused model.DeliveryOutcome = "refused"
 	// outcomeBusy: refused unread, while every slot for reading a body was
 	// held, or because its sender gave up waiting for one; nothing is known
@@ -36,9 +37,11 @@ func NewMetrics(reg prometheus.Registerer) (*Metrics, error) {
 		Namespace: "sillage",
 		Name:      "webhook_deliveries_total",
 		Help: "Webhook delivery attempts sillage received, by source and outcome: accepted (their roots' reads " +
-			"were asked for), ignored, rejected, failed; refused (not authenticated) or busy (not read: every " +
-			"body slot held, or the sender gave up waiting), neither recorded. They count what sillage received, not what any other " +
-			"subscriber received or did.",
+			"were asked for), ignored (no root, or a duplicate), rejected (unreadable payload), failed (not " +
+			"every read was asked for, or the attempt was not recorded: some reads may have been); refused (not " +
+			"authenticated, or a GitHub delivery id or event missing or too long) or busy (not read: every " +
+			"body slot held, or the sender gave up waiting), neither recorded. They count what sillage " +
+			"received, not what any other subscriber received or did.",
 	}, []string{"source", "outcome"})}
 	if err := reg.Register(m.deliveries); err != nil {
 		return nil, fmt.Errorf("ingest: registering the metrics: %w", err)

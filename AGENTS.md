@@ -65,7 +65,8 @@ The frontend routes with the history API, not the hash, so that a link to
 it is a plain URL: `/` (the entry page; `/?q=` a search), `/task/<instance>/<id>`,
 `/page/<instance>/<id>/<locale>`, and `/open?url=<link>`, which resolves a
 Vikunja, Kelos, GitHub or wiki link to its story. The server must answer
-every non-API `GET` path with `index.html` for those deep links to load.
+every `GET` path outside `/api/`, `/ingest/`, `/healthz` and `/metrics`
+with `index.html` for those deep links to load.
 The API client (`web/src/lib/api.ts`) makes one request per call, never
 retries, and aborts what a navigation leaves behind.
 

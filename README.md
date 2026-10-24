@@ -88,8 +88,9 @@ authentication: `X-Hub-Signature-256` under
 `SILLAGE_GITHUB_WEBHOOK_SECRET`, `X-Vikunja-Signature` under
 `SILLAGE_VIKUNJA_WEBHOOK_SECRET`. A source without a secret refuses every
 delivery. A request that is too large (25 MB from GitHub, 5 MB from
-Vikunja), unsigned or badly signed is
-refused before anything is read from it or recorded. Each authenticated
+Vikunja), unsigned or badly signed is refused, once its body, read up to
+that limit, is checked (unread when it declares a larger one); nothing of
+it is recorded or acted on. Each authenticated
 attempt is recorded as evidence that sillage received it, not that Kelos
 received or acted on its own delivery. It then asks the collector to read
 the task or page it names again; nothing is written from the payload, and

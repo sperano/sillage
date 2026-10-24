@@ -20,7 +20,8 @@ const (
 	DeliveryIgnored DeliveryOutcome = "ignored"
 	// DeliveryRejected: the payload could not be read.
 	DeliveryRejected DeliveryOutcome = "rejected"
-	// DeliveryFailed: sillage could not ask for the read.
+	// DeliveryFailed: sillage could not ask for every read, or could not
+	// record that it did; it can have asked for some.
 	DeliveryFailed DeliveryOutcome = "failed"
 )
 
@@ -47,8 +48,9 @@ type Delivery struct {
 	// identified by the SHA-256 of their body, which carries the time
 	// Vikunja sent it: a retry of the same send has the same id.
 	ID string `json:"id"`
-	// Event is the source's event name (GitHub's X-GitHub-Event, Vikunja's
-	// event_name), empty when the payload could not be read.
+	// Event is the source's event name: GitHub's X-GitHub-Event header,
+	// or the event_name in Vikunja's body, empty when that body could not
+	// be read.
 	Event      string          `json:"event,omitempty"`
 	ReceivedAt time.Time       `json:"receivedAt"`
 	Outcome    DeliveryOutcome `json:"outcome"`
