@@ -157,7 +157,7 @@ func TestMarkSourceWithoutCoverage(t *testing.T) {
 		t.Errorf("mark = %+v, want its source and instance", m)
 	}
 	if !row.MissingHistory {
-		t.Error("a completion from a source with no coverage leaves the history complete")
+		t.Error("history is complete despite a completion source with no coverage")
 	}
 }
 

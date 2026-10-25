@@ -140,15 +140,27 @@ func TestActivityRootsEventKinds(t *testing.T) {
 	}
 }
 
-func TestActivityTooManyRoots(t *testing.T) {
+func TestActivityErrors(t *testing.T) {
 	s := newTestStore(t, Retention{})
 	saveOverviewFixtures(t, s)
 	w := fixtureHour(10, 14)
-	if _, err := s.Activity(t.Context(), ActivityQuery{From: w.From, To: w.To, Kinds: overview.Kinds, Limit: 2}); !errors.Is(err, ErrTooManyRoots) {
-		t.Errorf("error = %v, want ErrTooManyRoots", err)
-	}
-	if _, err := s.Activity(t.Context(), ActivityQuery{From: w.To, To: w.From}); err == nil {
-		t.Error("a window ending before it starts was accepted")
+	for _, test := range []struct {
+		name        string
+		query       ActivityQuery
+		wantTooMany bool
+	}{
+		{"too many roots", ActivityQuery{From: w.From, To: w.To, Kinds: overview.Kinds, Limit: 2}, true},
+		{"window ending before it starts", ActivityQuery{From: w.To, To: w.From}, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := s.Activity(t.Context(), test.query)
+			if err == nil {
+				t.Fatal("Activity() accepted an invalid query")
+			}
+			if test.wantTooMany && !errors.Is(err, ErrTooManyRoots) {
+				t.Errorf("error = %v, want ErrTooManyRoots", err)
+			}
+		})
 	}
 }
 
