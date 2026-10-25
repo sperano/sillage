@@ -80,8 +80,9 @@ func (a *assembly) podCandidates(e model.Event, name, pod string, matches, rival
 	if outlived {
 		candidates = matches
 	}
-	ambiguous := outlived || len(rivals) > 0 || len(namespaces(candidates)) != 1
-	note := sharedPodNote(e, candidates, outlived)
+	in := namespaces(candidates)
+	ambiguous := outlived || len(rivals) > 0 || len(in) != 1
+	note := sharedPodNote(e, candidates, in, outlived)
 	if len(rivals) > 0 {
 		note += "; an attempt of " + name + " read without its Task, which names no pod, may be its run"
 	}
@@ -97,28 +98,29 @@ func (a *assembly) podCandidates(e model.Event, name, pod string, matches, rival
 		join(r, note)
 	}
 	for _, r := range rivals {
-		join(r, rivalNote(e, name, r, candidates))
+		join(r, rivalNote(e, name, r, in))
 	}
 }
 
 // rivalNote says why r, an attempt of Task name that names no pod, is a
-// candidate of an announcement whose pod's runs are candidates.
-func rivalNote(e model.Event, name string, r model.Run, candidates []model.Run) string {
+// candidate of an announcement whose pod's runs, in namespaces in, are
+// candidates.
+func rivalNote(e model.Event, name string, r model.Run, in []string) string {
 	timing := "may have been running when it was posted"
 	if knownPostedDuring(e, r) {
 		timing = "was running when it was posted"
 	}
-	return " but no namespace; runs of it are in " + strings.Join(namespaces(candidates), ", ") +
+	return " but no namespace; runs of it are in " + strings.Join(in, ", ") +
 		", and this attempt of " + name + ", read without its Task, names no pod and " + timing
 }
 
-// sharedPodNote says why candidates, runs of the pod an announcement
-// naming no namespace names, are its candidates: it was posted while
-// they were running, when its time and their bounds all say so; it may
-// have been, when one of those is unknown; outlived, it was posted while
-// none was.
-func sharedPodNote(e model.Event, candidates []model.Run, outlived bool) string {
-	in := strings.Join(namespaces(candidates), ", ")
+// sharedPodNote says why candidates, runs in namespaces ns of the pod an
+// announcement naming no namespace names, are its candidates: it was
+// posted while they were running, when its time and their bounds all say
+// so; it may have been, when one of those is unknown; outlived, it was
+// posted while none was.
+func sharedPodNote(e model.Event, candidates []model.Run, ns []string, outlived bool) string {
+	in := strings.Join(ns, ", ")
 	switch {
 	case outlived:
 		return " but no namespace; runs of it are in " + in + ", and it was posted while none of them was running"
@@ -131,11 +133,12 @@ func sharedPodNote(e model.Event, candidates []model.Run, outlived bool) string 
 
 // podContradicted reports whether an announcement naming no namespace
 // was posted while none of matches, the runs of its pod, was running,
-// unless they are all in the collector's namespace (podElsewhere). The pod
-// alone does not make them its run then: a run of the collector's
+// unless they are all in the collector's namespace (podElsewhere). The
+// pod alone does not make them its run then: a run of the collector's
 // namespace read without its Task names no pod, and may be the one.
 func (a *assembly) podContradicted(e model.Event, ns string, matches []model.Run, matchNS []string) bool {
-	return a.podElsewhere(ns, matchNS) && !slices.ContainsFunc(matches, func(r model.Run) bool { return couldHavePosted(e, r) })
+	posted := func(r model.Run) bool { return couldHavePosted(e, r) }
+	return a.podElsewhere(ns, matchNS) && !slices.ContainsFunc(matches, posted)
 }
 
 // podElsewhere reports whether an announcement naming namespace ns names
@@ -185,7 +188,7 @@ func knownPostedDuring(e model.Event, r model.Run) bool {
 
 // namespaces lists the namespaces of runs, sorted, each once.
 func namespaces(runs []model.Run) []string {
-	var out []string
+	out := make([]string, 0, len(runs))
 	for _, r := range runs {
 		out = append(out, r.Key.Namespace)
 	}
