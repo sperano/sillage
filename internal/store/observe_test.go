@@ -117,3 +117,52 @@ func TestObservationCorrelationFollowsRange(t *testing.T) {
 		t.Errorf("correlations = %+v, want one from the stored observation %s", story.Correlations, first.Key())
 	}
 }
+
+// completionRead is a read of task 7 at minute read: its completion
+// observation and, when it saw the task done, the completion at minute 5.
+func completionRead(done bool, read int) []model.Event {
+	value := model.DoneFalse
+	if done {
+		value = model.DoneTrue
+	}
+	events := []model.Event{observation(7, model.KindTaskCompletionObserved, model.DetailDone, value, read)}
+	if done {
+		e := observation(7, model.KindTaskDone, "", "", read)
+		e.ID, e.SourceTime, e.Details = model.Fingerprint(at(5), "tasks/7", "done", ""), ptr(at(5)), nil
+		events = append(events, e)
+	}
+	return events
+}
+
+// TestReopeningKeptAcrossReads reads a task not done, done twice, then not
+// done twice, with nothing else to observe: each read's completion
+// observation keeps the reads apart, so the reopening is still in the
+// story read back.
+func TestReopeningKeptAcrossReads(t *testing.T) {
+	s := newTestStore(t, Retention{})
+	root := taskRoot(7)
+	for _, read := range [][]model.Event{
+		completionRead(false, 0), completionRead(true, 10), completionRead(true, 20),
+		completionRead(false, 30), completionRead(false, 40),
+	} {
+		mustSave(t, s, root, model.Records{Events: read})
+	}
+	story := mustStory(t, s, root)
+	var seen []model.Event
+	for _, e := range story.Events {
+		if e.Kind == model.KindTaskCompletionObserved {
+			seen = append(seen, e)
+		}
+	}
+	got := ranges(model.Story{Records: model.Records{Events: seen}})
+	want := []observedRange{
+		{model.DoneFalse, at(0), at(0)}, {model.DoneTrue, at(10), at(20)}, {model.DoneFalse, at(30), at(40)},
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("completion observations = %+v, want %+v", got, want)
+	}
+	c, ok := story.CompletionAt(at(50))
+	if !ok || c.State != model.CompletionReopened || !c.Reopened.After.Equal(at(20)) || !c.Reopened.By.Equal(at(30)) {
+		t.Errorf("completion = %+v, want reopened after minute 20, by minute 30", c)
+	}
+}

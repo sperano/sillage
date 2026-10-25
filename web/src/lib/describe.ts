@@ -40,6 +40,7 @@ const eventLabels: Record<EventKind, (d: Details) => string> = {
 	'task.bucket_observed': (d) => `Seen in bucket ${d.bucket ?? '(unnamed)'}`,
 	'task.label_observed': (d) => `Seen with label ${d.label ?? '(unnamed)'}`,
 	'task.assignee_observed': (d) => `Seen assigned to ${d.assignee ?? '(unnamed)'}`,
+	'task.completion_observed': (d) => (d.done === 'true' ? 'Seen done' : 'Seen not done'),
 	'task.done': () => 'Task marked done',
 	'page.created': () => 'Page created',
 	'page.edited': (d) =>

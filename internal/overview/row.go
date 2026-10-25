@@ -36,6 +36,7 @@ func buildRow(w Window, title string, s model.Story) (Row, bool) {
 		PullRequests: []PullRequest{},
 		ReviewWaits:  []ReviewWait{},
 		Marks:        marksIn(w, s.Events),
+		Completion:   completionIn(w, s),
 		Coverage:     s.Coverage,
 	}
 	byPR := prEvents(s.Events)
@@ -46,7 +47,8 @@ func buildRow(w Window, title string, s model.Story) (Row, bool) {
 		}
 		row.ReviewWaits = append(row.ReviewWaits, reviewWaits(w, pr.Key, events)...)
 	}
-	if len(row.Runs) == 0 && len(row.PullRequests) == 0 && len(row.ReviewWaits) == 0 && len(row.Marks) == 0 {
+	if len(row.Runs) == 0 && len(row.PullRequests) == 0 && len(row.ReviewWaits) == 0 && len(row.Marks) == 0 &&
+		row.Completion == nil {
 		return Row{}, false
 	}
 	row.MissingHistory = missingHistory(w, row.Coverage, rowSources(row))
@@ -212,5 +214,22 @@ func lastActivity(w Window, row Row) time.Time {
 	for _, m := range row.Marks {
 		see(m.At, true)
 	}
+	if c := row.Completion; c != nil && c.Reopened != nil {
+		see(c.Reopened.By, w.Contains(c.Reopened.By))
+	}
 	return last
+}
+
+// completionIn returns the task's completion at the window's end, when it
+// was completed in the window or the read that first saw it reopened is in
+// it.
+func completionIn(w Window, s model.Story) *model.TaskCompletion {
+	c, ok := s.CompletionAt(w.To)
+	if !ok {
+		return nil
+	}
+	if w.Contains(c.DoneAt) || (c.Reopened != nil && w.Contains(c.Reopened.By)) {
+		return &c
+	}
+	return nil
 }

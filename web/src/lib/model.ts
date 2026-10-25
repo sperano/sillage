@@ -59,6 +59,7 @@ export const EVENT_KIND_SOURCES = {
 	'task.bucket_observed': ['vikunja'],
 	'task.label_observed': ['vikunja'],
 	'task.assignee_observed': ['vikunja'],
+	'task.completion_observed': ['vikunja'],
 	'task.done': ['vikunja'],
 	'page.created': ['wiki'],
 	'page.edited': ['wiki'],
@@ -87,8 +88,15 @@ export const EVENT_KINDS = Object.freeze(Object.keys(EVENT_KIND_SOURCES) as Even
 export const OBSERVED_KINDS = [
 	'task.bucket_observed',
 	'task.label_observed',
-	'task.assignee_observed'
+	'task.assignee_observed',
+	'task.completion_observed'
 ] as const satisfies readonly EventKind[];
+
+/**
+ * A completion observation's "done" detail, as the Go model's DetailDone:
+ * what the read saw of the task.
+ */
+export const DONE_VALUES = ['true', 'false'] as const;
 
 /** Where an event id comes from: the source, or a fingerprint when it has none. */
 export const ID_KINDS = ['source', 'fingerprint'] as const;

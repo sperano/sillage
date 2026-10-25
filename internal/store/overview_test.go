@@ -16,7 +16,7 @@ import (
 )
 
 // overviewStoriesDir holds the overview fixture set: one afternoon of
-// seven tasks, one file each.
+// eight tasks, one file each.
 const overviewStoriesDir = "../../testdata/fixtures/overview/stories"
 
 type overviewFixture struct {
@@ -80,7 +80,7 @@ func TestActivityRoots(t *testing.T) {
 		want []int64
 	}{
 		{"the afternoon", ActivityQuery{From: afternoon.From, To: afternoon.To, Kinds: overview.Kinds},
-			[]int64{201, 202, 203, 204, 205, 206}},
+			[]int64{201, 202, 203, 204, 205, 206, 208}},
 		{"one project", ActivityQuery{From: afternoon.From, To: afternoon.To, Project: "gadgets", Kinds: overview.Kinds},
 			[]int64{203}},
 		// The next morning: the pull request still open and the run still

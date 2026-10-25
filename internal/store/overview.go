@@ -156,10 +156,7 @@ func loadActivity(ctx context.Context, tx pgx.Tx, ids []int64, kinds []string, o
 	}, ids); err != nil {
 		return err
 	}
-	if err := forEachBody(ctx, tx, `SELECT m.root_id, e.body FROM root_events m JOIN events e ON e.id = m.event_id
-		WHERE m.root_id = ANY($1) AND e.kind = ANY($2)`, func(root int64, body []byte) error {
-		return appendJSON(&at[root].Events, body)
-	}, ids, kinds); err != nil {
+	if err := loadActivityEvents(ctx, tx, ids, kinds, at); err != nil {
 		return err
 	}
 	if err := forEachBody(ctx, tx, activityCorrelationsSQL, func(root int64, body []byte) error {
@@ -172,6 +169,30 @@ func loadActivity(ctx context.Context, tx pgx.Tx, ids []int64, kinds []string, o
 		return err
 	}
 	return loadActivityPullRequests(ctx, tx, ids, at)
+}
+
+// loadActivityEvents reads the events of the kinds of the roots, each
+// observation with its last observed time, as loadEvents does: a task's
+// completion at an instant needs the last read that still saw it done.
+func loadActivityEvents(ctx context.Context, tx pgx.Tx, ids []int64, kinds []string, at map[int64]*model.Records) error {
+	rows, err := tx.Query(ctx, `SELECT m.root_id, e.body, e.observed_at, e.last_observed_at
+		FROM root_events m JOIN events e ON e.id = m.event_id
+		WHERE m.root_id = ANY($1) AND e.kind = ANY($2)`, ids, kinds)
+	if err != nil {
+		return err
+	}
+	var root int64
+	var body []byte
+	var first, last time.Time
+	_, err = pgx.ForEachRow(rows, []any{&root, &body, &first, &last}, func() error {
+		e, err := decodeStoredEvent(body, first, last)
+		if err != nil {
+			return err
+		}
+		at[root].Events = append(at[root].Events, e)
+		return nil
+	})
+	return err
 }
 
 // loadActivityPullRequests reads the pull requests of the roots, without

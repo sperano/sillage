@@ -13,15 +13,17 @@ import (
 )
 
 const (
-	actionDone             = "done"
-	actionBucketObserved   = "bucket_observed"
-	actionLabelObserved    = "label_observed"
-	actionAssigneeObserved = "assignee_observed"
+	actionDone               = "done"
+	actionBucketObserved     = "bucket_observed"
+	actionLabelObserved      = "label_observed"
+	actionAssigneeObserved   = "assignee_observed"
+	actionCompletionObserved = "completion_observed"
 )
 
 // Normalize turns one read of a task into source-independent model records:
-// creation, comments, the current done mark, and one observation per current
-// bucket, label and assignee. Every event is validated.
+// creation, comments, the current done mark, what the read saw of the
+// task's completion, and one observation per current bucket, label and
+// assignee. Every event is validated.
 func Normalize(s Snapshot, serviceAccount string) (model.Records, error) {
 	n := normalizer{
 		s:              s,
@@ -177,6 +179,14 @@ func (n *normalizer) taskDone() model.Event {
 }
 
 func (n *normalizer) observeState() {
+	// Every read records one, done or not: a read that saw the task not
+	// done after one that saw it done is the only trace of a reopening.
+	done := model.DoneFalse
+	if n.s.Task.Done {
+		done = model.DoneTrue
+	}
+	n.events = append(n.events, n.observation(
+		model.KindTaskCompletionObserved, actionCompletionObserved, done, model.DetailDone, done, "done"))
 	for _, bucket := range buckets(n.s.Task) {
 		value := bucket.Title
 		if value == "" {

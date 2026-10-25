@@ -1,0 +1,125 @@
+{
+  "description": "The owner marked the task done at 13:40, before the window. The reads from 13:45 to 14:30 saw it done, the reads from 14:40 to 15:05 saw it not done: it was reopened after 14:30 and by 14:40, at a time Vikunja does not record. Nothing else happened in the window.",
+  "title": "Retry banner",
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 208
+    }
+  },
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "tasks/208",
+      "idKind": "source",
+      "kind": "task.created",
+      "sourceTime": "2026-03-10T12:30:00Z",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "login": "owner",
+        "kind": "person"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 208
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/208",
+        "note": "created, created_by"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:a70bdfe50f0b4aff2c864f6f08f00b996769f9ce11d0c14272be07dcd33a3fcc",
+      "idKind": "fingerprint",
+      "kind": "task.done",
+      "sourceTime": "2026-03-10T13:40:00Z",
+      "observedAt": "2026-03-10T14:30:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 208
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/208",
+        "note": "done, done_at"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:2c86238a75ea3ef589c5a11ff08240807dd47ddcb2311181e3bd78bee07fab3e",
+      "idKind": "fingerprint",
+      "kind": "task.completion_observed",
+      "observedAt": "2026-03-10T13:45:00Z",
+      "lastObservedAt": "2026-03-10T14:30:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 208
+        }
+      },
+      "details": {
+        "done": "true"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/208",
+        "note": "done"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:55d0e2be45558297e1fdee4c756db84472270423d6129e082a30ba995414d2ad",
+      "idKind": "fingerprint",
+      "kind": "task.completion_observed",
+      "observedAt": "2026-03-10T14:40:00Z",
+      "lastObservedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 208
+        }
+      },
+      "details": {
+        "done": "false"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/208",
+        "note": "done"
+      }
+    }
+  ],
+  "runs": [],
+  "pullRequests": [],
+  "correlations": [],
+  "coverage": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+    }
+  ]
+}

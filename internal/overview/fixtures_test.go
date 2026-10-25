@@ -17,7 +17,7 @@ import (
 // host's zone fails here too.
 func TestMain(m *testing.M) { testzone.Main(m) }
 
-// The overview fixture set: fabricated stories of seven tasks over one
+// The overview fixture set: fabricated stories of eight tasks over one
 // afternoon, and the golden overview of its window.
 const (
 	fixturesDir = "../../testdata/fixtures/overview"
@@ -40,6 +40,7 @@ const (
 	taskE = 205 // run known from its announcement only, Kelos gap
 	taskF = 206 // merged and done in the window, ran before it
 	taskG = 207 // the day before: outside the window
+	taskH = 208 // done before the window, seen reopened in it
 )
 
 // fixtureStory is one fixture file: a story's records, its title and

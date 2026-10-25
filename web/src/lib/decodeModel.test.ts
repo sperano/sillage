@@ -190,6 +190,14 @@ describe('a story the Go model would reject', () => {
 			'is before observedAt'
 		],
 		[
+			'a completion observation that says neither done nor not done',
+			(s) => {
+				set(s, ['events', OBSERVED_EVENT, 'kind'], 'task.completion_observed');
+				set(s, ['events', OBSERVED_EVENT, 'details'], { done: 'yes' });
+			},
+			'a completion observation is "true" or "false"'
+		],
+		[
 			'a fingerprint id that is not one',
 			(s) => set(s, ['events', 1, 'id'], 'sha256:ABC'),
 			'is not a fingerprint'

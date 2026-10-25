@@ -14,8 +14,10 @@
 // while a retry of the same Kelos Task runs, even when it ended before the
 // window. A run the story holds only as one of several candidates for a
 // record (two concurrent runs of one agent profile) is not the row's.
-// Comments, observations and webhook deliveries are not rows' content:
-// they belong to the single-task story.
+// A task's completion is its state at the window's end: done, or reopened
+// when a read after the completion saw it not done. Comments, the other
+// observations and webhook deliveries are not rows' content: they belong
+// to the single-task story.
 package overview
 
 import (
@@ -48,6 +50,7 @@ type Input struct {
 // only: callers pass it on, never change it.
 var Kinds = []model.EventKind{
 	model.KindTaskDone,
+	model.KindTaskCompletionObserved,
 	model.KindRunAnnounced,
 	model.KindPROpened,
 	model.KindPRMerged,
@@ -78,6 +81,12 @@ type Row struct {
 	// openings, merges, closes, reopenings and reviews, and start
 	// announcements.
 	Marks []Mark `json:"marks"`
+	// Completion is the task's completion at the window's end when it
+	// changed in the window: completed in it, or seen reopened in it
+	// (the read that first saw it not done, after the completion, is in
+	// it). A completion recorded in the window and reopened later is done
+	// here; one reopened in it reads reopened, whenever it was completed.
+	Completion *model.TaskCompletion `json:"completion,omitempty"`
 	// Coverage is the root's coverage, for every source instance.
 	Coverage []model.Coverage `json:"coverage"`
 	// MissingHistory says that part of the window is unknown for one of the

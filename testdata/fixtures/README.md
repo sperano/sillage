@@ -46,7 +46,7 @@ story, and assert the invariant the story exists for:
 | `failed-run-retry` | A retry with the same Task name and a new UID is a second run, never merged with the failed one. |
 | `announced-run-only` | A run known only from its start announcement is keyed by pod, its interval and outcome stay unknown despite a later agent comment, and Kelos coverage marks the period unknown. |
 | `checks-after-force-push` | Checks from three observed GitHub heads remain in the story across a force push; a later head never replaces an earlier SHA's results. |
-| `reopened-task` | After completion, reopening and a second completion, Vikunja exposes only the latest `done_at`; the story states that limitation and invents no earlier event. |
+| `reopened-task` | After completion, reopening and a second completion, Vikunja exposes only the latest `done_at`; the story states that limitation and invents no earlier event, and since its one read saw the task done, it reads done, not reopened. |
 | `second-pr-after-close` | A closed-unmerged pull request followed by a second pull request on the same branch does not complete the task. |
 | `phase-markers` | A run's phases come only from its markers: a complete pair is known to known, a start alone is in progress while the run runs and its pod is the last one seen with it, and interrupted once it ended or a retried Job's next pod was seen (never closed at its end), an end alone has an unknown start, an end before its start or of another kind keeps both edges with no interval; a marker joined by Task name and time makes its phase uncertain. The store joins the markers as the fixture does. |
 
@@ -73,7 +73,7 @@ fails the web tests until the frontend takes it.
 
 ## Overview
 
-`overview/` holds the multi-task overview's set: seven fabricated tasks over
+`overview/` holds the multi-task overview's set: eight fabricated tasks over
 one afternoon (2026-03-10, the window 14:00 to 15:00 UTC), one story file
 each under `overview/stories/` (`input.json`'s fields plus a `title`), and
 `overview.golden.json`, the overview of that window, unfiltered, on one
@@ -93,6 +93,7 @@ story's invariant, and the collector does not assemble them.
 | 205 | A run known from its announcement only, inside a Kelos gap: missing history. |
 | 206 | Ran before the window; approved, merged and marked done in it. |
 | 207 | The day before: no row. |
+| 208 | Marked done before the window; reads saw it done until 14:30, not done from 14:40: a row only for that reopening, whose time is not recorded. |
 
 At 14:25, 201, 203 and 204 are executing. To change the set, edit the
 story files and run `go test ./internal/overview -run TestOverviewGolden

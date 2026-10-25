@@ -54,6 +54,9 @@
     "task.bucket_observed": [
       "vikunja"
     ],
+    "task.completion_observed": [
+      "vikunja"
+    ],
     "task.created": [
       "vikunja"
     ],
@@ -67,6 +70,7 @@
   "observedKinds": [
     "task.assignee_observed",
     "task.bucket_observed",
+    "task.completion_observed",
     "task.label_observed"
   ],
   "fields": [

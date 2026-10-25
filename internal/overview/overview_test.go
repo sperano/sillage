@@ -49,7 +49,7 @@ func TestOverviewGolden(t *testing.T) {
 // latest time in the window; the day before has no row.
 func TestRowsInWindowMostRecentFirst(t *testing.T) {
 	rows := buildAll(t, afternoon, Filter{})
-	want := []int64{taskA, taskB, taskC, taskD, taskF, taskE}
+	want := []int64{taskA, taskB, taskC, taskD, taskH, taskF, taskE}
 	if got := taskIDs(rows); !slices.Equal(got, want) {
 		t.Errorf("rows = %v, want %v", got, want)
 	}
@@ -92,6 +92,48 @@ func TestMergeAndCompletionStayApart(t *testing.T) {
 	}
 	if f.PullRequests[0].State != PRMerged {
 		t.Errorf("F's pull request is %s, want merged", f.PullRequests[0].State)
+	}
+}
+
+// F was marked done in the window and the read after it still saw it
+// done; H, done before the window, has a row only because a read in the
+// window saw it reopened, between the last read seeing it done and that
+// read.
+func TestCompletionAtTheWindowEnd(t *testing.T) {
+	rows := buildAll(t, afternoon, Filter{})
+	f, h := rowOf(t, rows, taskF), rowOf(t, rows, taskH)
+	if f.Completion == nil || f.Completion.State != model.CompletionDone || f.Completion.Reopened != nil {
+		t.Errorf("F's completion = %+v, want done", f.Completion)
+	}
+	c := h.Completion
+	if c == nil || c.State != model.CompletionReopened || c.Reopened == nil {
+		t.Fatalf("H's completion = %+v, want reopened", c)
+	}
+	if !c.DoneAt.Equal(at(t, "13:40")) || !c.Reopened.After.Equal(at(t, "14:30")) || !c.Reopened.By.Equal(at(t, "14:40")) {
+		t.Errorf("H's completion = %+v, want done at 13:40, reopened after 14:30 and by 14:40", c)
+	}
+	if len(h.Marks) != 0 || len(h.Runs) != 0 || !h.LastActivity.Equal(at(t, "14:40")) {
+		t.Errorf("H: marks %v, runs %v, last activity %s; want only the reopening, at 14:40",
+			h.Marks, h.Runs, h.LastActivity)
+	}
+	for _, row := range rows {
+		if id := row.Root.Task.ID; id != taskF && id != taskH && row.Completion != nil {
+			t.Errorf("task %d: completion %+v, want none in the window", id, row.Completion)
+		}
+	}
+}
+
+// Before the read that saw H reopened, H reads done, but not in a window
+// holding neither its completion nor that read.
+func TestCompletionBeforeTheReopening(t *testing.T) {
+	early := Window{From: at(t, "13:30"), To: at(t, "14:35")}
+	h := rowOf(t, buildAll(t, early, Filter{}), taskH)
+	if h.Completion == nil || h.Completion.State != model.CompletionDone {
+		t.Errorf("H's completion to 14:35 = %+v, want done", h.Completion)
+	}
+	between := Window{From: at(t, "14:00"), To: at(t, "14:35")}
+	if ids := taskIDs(buildAll(t, between, Filter{})); slices.Contains(ids, taskH) {
+		t.Errorf("rows from 14:00 to 14:35 = %v: H changed nothing in it", ids)
 	}
 }
 

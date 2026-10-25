@@ -5,6 +5,7 @@
 
 import { boundTime, type Interval, type Run } from '../model';
 import { prKeyString } from '../keys';
+import { formatFull } from '../timeline/time';
 import type { OverviewRow, ReviewWait } from './model';
 import { runLastRead, runStateAt } from './state';
 
@@ -18,6 +19,7 @@ export type ChipKind =
 	| 'pr-merged'
 	| 'pr-closed'
 	| 'done'
+	| 'reopened'
 	| 'not-done'
 	| 'missing';
 
@@ -177,16 +179,33 @@ function prChips(row: OverviewRow): Chip[] {
 	});
 }
 
+/** A time of a row, as the overview shows it: in UTC. */
+function utc(t: string): string {
+	return formatFull(Date.parse(t), 'utc');
+}
+
 /**
- * The task's completion in the window, or, when a pull request was closed
+ * The task's completion at the window's end when it changed in the window:
+ * marked done, or reopened since, which Vikunja records no time for: the
+ * note says between which reads. Otherwise, when a pull request was closed
  * without a merge and no completion was recorded, that the task was not
  * marked done: the close does not close it. With part of the row's history
  * unknown, a completion could be there: then it is unknown.
  */
 function doneChips(row: OverviewRow): Chip[] {
-	if (row.marks.some((m) => m.kind === 'task.done')) {
-		return [{ kind: 'done', text: 'task marked done' }];
+	const c = row.completion;
+	if (c?.reopened !== undefined) {
+		const { after, by } = c.reopened;
+		const seenDone = after === c.doneAt ? '' : `, seen done until ${utc(after)}`;
+		return [
+			{
+				kind: 'reopened',
+				text: 'task reopened',
+				note: `marked done ${utc(c.doneAt)}${seenDone}, seen not done ${utc(by)}: when it was reopened is not recorded`
+			}
+		];
 	}
+	if (c?.state === 'done') return [{ kind: 'done', text: 'task marked done' }];
 	if (!row.pullRequests.some((p) => p.state === 'closed')) return [];
 	if (row.missingHistory) {
 		return [

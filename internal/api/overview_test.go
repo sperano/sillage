@@ -101,7 +101,7 @@ func TestOverviewFilters(t *testing.T) {
 // A client following next sees every row once.
 func TestOverviewPages(t *testing.T) {
 	h := New(Config{Store: newFakeStore(t)})
-	const limit, total = 4, 6
+	const limit, total = 4, 7
 	var seen []int64
 	params := map[string]string{"limit": strconv.Itoa(limit)}
 	for range total {
@@ -115,7 +115,7 @@ func TestOverviewPages(t *testing.T) {
 		}
 		params["after"] = page.Next
 	}
-	if want := []int64{201, 202, 203, 204, 206, 205}; !slices.Equal(seen, want) {
+	if want := []int64{201, 202, 203, 204, 208, 206, 205}; !slices.Equal(seen, want) {
 		t.Errorf("pages = %v, want %v", seen, want)
 	}
 }
@@ -128,8 +128,8 @@ func TestOverviewDefaultWindow(t *testing.T) {
 	if !page.Window.To.Equal(now) || !page.Window.From.Equal(now.Add(-DefaultOverviewWindow)) {
 		t.Errorf("window = %+v, want the day before %s", page.Window, now)
 	}
-	if page.Total != 6 {
-		t.Errorf("total = %d, want the afternoon's 6 rows", page.Total)
+	if page.Total != 7 {
+		t.Errorf("total = %d, want the afternoon's 7 rows", page.Total)
 	}
 	page = getPage(t, h, overviewPath(map[string]string{"from": "2026-03-10T14:30:00+01:00"}))
 	if want := time.Date(2026, 3, 10, 13, 30, 0, 0, time.UTC); !page.Window.From.Equal(want) {

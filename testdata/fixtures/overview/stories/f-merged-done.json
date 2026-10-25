@@ -1,5 +1,5 @@
 {
-  "description": "Agent birch ran 13:20-13:45, before the window; the owner approves pull request 24 at 14:10 and merges it at 14:15, and the task is marked done at 14:16.",
+  "description": "Agent birch ran 13:20-13:45, before the window; the owner approves pull request 24 at 14:10 and merges it at 14:15, and the task is marked done at 14:16. The read at 15:05 saw it done.",
   "title": "Login banner",
   "root": {
     "task": {
@@ -143,6 +143,32 @@
         "instance": "vikunja.example.com",
         "ref": "GET /api/v1/tasks/206",
         "note": "done, done_at"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:b4aa251e4a302cbf134ed4409822bd4e2ccdf55a9032357860361ae007b73bc9",
+      "idKind": "fingerprint",
+      "kind": "task.completion_observed",
+      "observedAt": "2026-03-10T15:05:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 206
+        }
+      },
+      "details": {
+        "done": "true"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/206",
+        "note": "done"
       }
     }
   ],

@@ -70,6 +70,33 @@ export interface Mark {
 	namespace?: string;
 }
 
+/** A task's completion states, as the Go model's CompletionState. */
+export const COMPLETION_STATES = ['done', 'reopened'] as const;
+export type CompletionState = (typeof COMPLETION_STATES)[number];
+
+/**
+ * What the records say of a reopening: Vikunja records no time for it,
+ * only that it came after one time and no later than another.
+ */
+export interface Reopening {
+	/** The latest of the completion and the reads after it that still saw the task done. */
+	after: string;
+	/** The first read after that which saw the task not done. */
+	by: string;
+	/** The key of that read's completion observation. */
+	observation: string;
+}
+
+/** A task's latest completion before the window's end, and whether it was reopened since. */
+export interface TaskCompletion {
+	state: CompletionState;
+	/** The task.done event's key, and its time. */
+	done: string;
+	doneAt: string;
+	/** Set exactly when the state is reopened. */
+	reopened?: Reopening;
+}
+
 /** One task or page in the window. */
 export interface OverviewRow {
 	root: Root;
@@ -81,6 +108,11 @@ export interface OverviewRow {
 	pullRequests: OverviewPullRequest[];
 	reviewWaits: ReviewWait[];
 	marks: Mark[];
+	/**
+	 * The task's completion at the window's end, when it changed in the
+	 * window: completed in it, or seen reopened in it.
+	 */
+	completion?: TaskCompletion;
 	coverage: Coverage[];
 	/** Part of the window is unknown for one of the row's sources. */
 	missingHistory: boolean;

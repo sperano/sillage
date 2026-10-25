@@ -23,6 +23,40 @@ describe('endChips', () => {
 		expect(chips(206)).toEqual(['pr-merged: PR #24 merged', 'done: task marked done']);
 	});
 
+	it('says a task done, then seen not done, was reopened, and that its time is not recorded', () => {
+		expect(chips(208)).toEqual(['reopened: task reopened']);
+		expect(endChips(rowOfTask(page, 208), end)[0]?.note).toBe(
+			'marked done 2026-03-10 13:40:00 UTC, seen done until 2026-03-10 14:30:00 UTC, ' +
+				'seen not done 2026-03-10 14:40:00 UTC: when it was reopened is not recorded'
+		);
+	});
+
+	it('names no read seeing a reopened task done when only its completion did', () => {
+		const row = rowOfTask(page, 208);
+		const c = row.completion!;
+		const reopened = { ...c.reopened!, after: c.doneAt };
+		const chip = endChips({ ...row, completion: { ...c, reopened } }, end)[0];
+		expect(chip?.note).toBe(
+			'marked done 2026-03-10 13:40:00 UTC, seen not done 2026-03-10 14:40:00 UTC: ' +
+				'when it was reopened is not recorded'
+		);
+	});
+
+	it('says a reopened task is reopened, not "not marked done", beside a closed pull request', () => {
+		const closed = rowOfTask(page, 204);
+		const row = { ...closed, completion: rowOfTask(page, 208).completion };
+		expect(endChips(row, end).map((c) => `${c.kind}: ${c.text}`)).toEqual([
+			'pr-closed: PR #23 closed, not merged',
+			'reopened: task reopened'
+		]);
+	});
+
+	it('takes the completion from the row, not from its marks', () => {
+		const row = { ...rowOfTask(page, 206), completion: undefined };
+		expect(chips(206)).toContain('done: task marked done');
+		expect(endChips(row, end).map((c) => c.kind)).toEqual(['pr-merged']);
+	});
+
 	it('keeps a failure beside the retry still running', () => {
 		expect(chips(203)).toEqual(['running: running', 'failed: a run failed']);
 	});

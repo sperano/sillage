@@ -122,6 +122,7 @@
 	}
 	.chip.failed,
 	.chip.pr-closed,
+	.chip.reopened,
 	.chip.not-done {
 		background: color-mix(in srgb, var(--ov-failure) 20%, var(--ov-bg));
 	}

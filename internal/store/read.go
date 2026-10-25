@@ -106,21 +106,27 @@ func loadEvents(ctx context.Context, tx pgx.Tx, root int64) ([]model.Event, erro
 		return nil, err
 	}
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (model.Event, error) {
-		var e model.Event
 		var body []byte
 		var first, last time.Time
 		if err := row.Scan(&body, &first, &last); err != nil {
-			return e, err
+			return model.Event{}, err
 		}
-		if err := json.Unmarshal(body, &e); err != nil {
-			return e, err
-		}
-		if last.After(first) {
-			last = last.UTC()
-			e.LastObservedAt = &last
-		}
-		return e, nil
+		return decodeStoredEvent(body, first, last)
 	})
+}
+
+// decodeStoredEvent decodes a stored event's body with its row's first and last
+// observed times: an observation a later read saw again has the last.
+func decodeStoredEvent(body []byte, first, last time.Time) (model.Event, error) {
+	var e model.Event
+	if err := json.Unmarshal(body, &e); err != nil {
+		return e, err
+	}
+	if last.After(first) {
+		last = last.UTC()
+		e.LastObservedAt = &last
+	}
+	return e, nil
 }
 
 func loadPullRequests(ctx context.Context, tx pgx.Tx, root int64) ([]model.PullRequest, error) {

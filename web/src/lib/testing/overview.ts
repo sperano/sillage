@@ -1,6 +1,6 @@
 // The golden overview the Go tests check (testdata/fixtures/overview), for
-// the web tests to decode and render: the afternoon of seven fabricated
-// tasks, 14:00 to 15:00 UTC on 2026-03-10, six of them active in it.
+// the web tests to decode and render: the afternoon of eight fabricated
+// tasks, 14:00 to 15:00 UTC on 2026-03-10, seven of them active in it.
 
 import { parseOverviewPage } from '../overview/decode';
 import type { OverviewPage, OverviewRow } from '../overview/model';

@@ -12,6 +12,8 @@ const (
 	testCluster   = "cluster-a"
 	testNamespace = "agents"
 	testTaskName  = "vikunja-widgets-agent-cedar-301"
+	// testTaskNumber is the Vikunja task testTaskName runs for.
+	testTaskNumber = 301
 )
 
 func testRun(uid string, start, end model.Bound, outcome model.Outcome) model.Run {
@@ -156,5 +158,49 @@ func TestMarkSourceWithoutCoverage(t *testing.T) {
 	}
 	if !row.MissingHistory {
 		t.Error("a completion from a source with no coverage leaves the history complete")
+	}
+}
+
+// completionStory is a task completed at minute done, seen done by a read
+// then, and seen not done by a read at minute open.
+func completionStory(done, open int) model.Story {
+	task := model.TaskKey{Instance: "vikunja.example.com", ID: testTaskNumber}
+	doneAt := minute(done)
+	seen := func(id string, read int, value string) model.Event {
+		return model.Event{
+			ID: id, Kind: model.KindTaskCompletionObserved, ObservedAt: minute(read),
+			Related: model.Related{Task: &task}, Details: map[string]string{model.DetailDone: value},
+		}
+	}
+	return model.Story{Root: model.Root{Task: &task}, Records: model.Records{Events: []model.Event{
+		{ID: "done", Kind: model.KindTaskDone, SourceTime: &doneAt, ObservedAt: minute(done), Related: model.Related{Task: &task}},
+		seen("seen-done", done, model.DoneTrue),
+		seen("seen-open", open, model.DoneFalse),
+	}}}
+}
+
+// A row's completion is the one at the window's end, when it changed in
+// the window.
+func TestCompletionIn(t *testing.T) {
+	for _, c := range []struct {
+		name       string
+		done, open int
+		want       model.CompletionState
+	}{
+		{"done and reopened in the window", 10, 40, model.CompletionReopened},
+		{"done in the window, reopened after it", 10, 70, model.CompletionDone},
+		{"done before the window, reopened in it", -30, 20, model.CompletionReopened},
+		{"done before the window, reopened before it", -30, -10, ""},
+		{"done before the window, reopened after it", -30, 70, ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got := completionIn(afternoon, completionStory(c.done, c.open))
+			switch {
+			case c.want == "" && got != nil:
+				t.Errorf("completion = %+v, want none", got)
+			case c.want != "" && (got == nil || got.State != c.want):
+				t.Errorf("completion = %+v, want %s", got, c.want)
+			}
+		})
 	}
 }

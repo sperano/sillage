@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sperano/sillage/internal/model"
 )
@@ -237,7 +238,8 @@ func checkChecksAfterForcePush(t *testing.T, s model.Story) {
 
 // checkReopenedTask: a final Vikunja read exposes only the latest done_at;
 // the story states that source limitation instead of fabricating the first
-// completion or the reopen.
+// completion or the reopen. The read saw the task done, and no read saw it
+// not done after a completion: it reads done, not reopened.
 func checkReopenedTask(t *testing.T, s model.Story) {
 	done := eventsOfKind(s, model.KindTaskDone)
 	if len(done) != 1 {
@@ -245,6 +247,14 @@ func checkReopenedTask(t *testing.T, s model.Story) {
 	}
 	if !strings.Contains(done[0].Evidence.Note, "does not retain earlier completion or reopen times") {
 		t.Errorf("done evidence = %q, want the source limitation", done[0].Evidence.Note)
+	}
+	seen := eventsOfKind(s, model.KindTaskCompletionObserved)
+	if len(seen) != 1 || seen[0].Details[model.DetailDone] != model.DoneTrue {
+		t.Errorf("completion observations = %v, want the one read, seeing it done", seen)
+	}
+	c, ok := s.CompletionAt(done[0].ObservedAt.Add(time.Nanosecond))
+	if !ok || c.State != model.CompletionDone || c.Reopened != nil {
+		t.Errorf("completion after the read = %+v, want done: no read saw the reopening", c)
 	}
 }
 

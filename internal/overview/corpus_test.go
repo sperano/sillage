@@ -302,10 +302,15 @@ func checkCorpusChecksOnly(t *testing.T, w Window, rows []Row) {
 	}
 }
 
-// One completion, at the latest done_at: none invented before it.
+// One completion, at the latest done_at: none invented before it, and,
+// since the one read saw the task done, no reopening either.
 func checkCorpusReopened(t *testing.T, w Window, rows []Row) {
-	if got := marksOf(onlyRow(t, rows)); got != string(model.KindTaskDone) {
+	row := onlyRow(t, rows)
+	if got := marksOf(row); got != string(model.KindTaskDone) {
 		t.Errorf("marks = %q, want one completion", got)
+	}
+	if c := row.Completion; c == nil || c.State != model.CompletionDone {
+		t.Errorf("completion = %+v, want done", c)
 	}
 	earlier := Window{From: w.From.Add(-day), To: w.From}
 	if got := corpusRows(t, earlier, loadCorpus(t, "reopened-task")); len(got) != 0 {

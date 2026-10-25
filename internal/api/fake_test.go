@@ -20,7 +20,7 @@ import (
 const storiesDir = "../../testdata/fixtures/stories"
 
 // overviewStoriesDir holds the overview fixture set: one afternoon of
-// seven tasks, one file each.
+// eight tasks, one file each.
 const overviewStoriesDir = "../../testdata/fixtures/overview/stories"
 
 // goldenFile is each fixture story's model.BuildStory output.
