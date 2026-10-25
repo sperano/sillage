@@ -76,6 +76,8 @@ const activeRootsSQL = "SELECT o.id, " + rootColumns + ` FROM roots o
 					AND COALESCE((SELECT s.kind FROM root_events sm JOIN events s ON s.id = sm.event_id
 						WHERE sm.root_id = o.id AND s.kind IN ('pr.opened', 'pr.reopened', 'pr.merged', 'pr.closed')
 							AND s.at < $1 AND s.body->'related'->'pr' = e.body->'related'->'pr'
+						-- Equal timestamps do not establish causal order. Descending kind order
+						-- prefers reopened/opened to merged/closed, keeping this query conservative.
 						ORDER BY s.at DESC, s.kind DESC LIMIT 1), '') NOT IN ('pr.merged', 'pr.closed')))
 	ORDER BY o.ref LIMIT $5`
 
