@@ -2,7 +2,9 @@ package collector
 
 import (
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/kelos"
@@ -391,4 +393,61 @@ func TestNamespacelessAnnouncementIsNoAttemptOfASharedTaskName(t *testing.T) {
 		s := recollectFrom(t, statingNamespace(announced, testNamespace), here, kept)
 		checkLinks(t, s, announcementRef(3), model.ConfidenceHeuristic, false, runRef("uid-here"))
 	})
+}
+
+// timeless has every announcement of snap carry no time.
+func timeless(snap vikunja.Snapshot) vikunja.Snapshot {
+	snap.Comments = slices.Clone(snap.Comments)
+	for i := range snap.Comments {
+		snap.Comments[i].Created, snap.Comments[i].Updated = time.Time{}, time.Time{}
+	}
+	return snap
+}
+
+// checkNotes fails unless every correlation from ref to a run has
+// evidence whose note says want.
+func checkNotes(t *testing.T, s model.Story, ref model.Ref, want string) {
+	t.Helper()
+	for _, c := range linksFrom(s, ref) {
+		if !slices.ContainsFunc(c.Evidence, func(ev model.Evidence) bool { return strings.Contains(ev.Note, want) }) {
+			t.Errorf("%s: evidence %v, want a note saying %q", c, c.Evidence, want)
+		}
+	}
+}
+
+func TestNamespacelessAnnouncementOfASharedPodStatesOnlyTheTimingRead(t *testing.T) {
+	const (
+		running    = "were running"
+		mayHaveRun = "may have been running when it was posted"
+	)
+	here := kelos.Snapshot{Tasks: []kelos.Task{task(retryName, "uid-here", "", nil, 60, 80)}}
+	unended := keptRun(otherNamespace, "uid-there", sharedPod, 2, 9)
+	unended.Interval.End = model.UnknownBound()
+	tests := map[string]struct {
+		announced vikunja.Snapshot
+		there     model.Run
+		say, not  string
+	}{
+		"bounds and time known": {announcedTask(104, retryName, map[int]string{65: sharedPod}),
+			keptRun(otherNamespace, "uid-there", sharedPod, 2, 90), running, mayHaveRun},
+		"no time": {timeless(announcedTask(104, retryName, map[int]string{65: sharedPod})),
+			keptRun(otherNamespace, "uid-there", sharedPod, 2, 90), mayHaveRun, running},
+		"a run's end unknown": {announcedTask(104, retryName, map[int]string{65: sharedPod}), unended,
+			mayHaveRun, running},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			s := recollectFrom(t, tt.announced, here, Kept{Runs: []model.Run{tt.there}})
+			checkLinks(t, s, announcementRef(65), model.ConfidenceHeuristic, true, runRef("uid-here"),
+				otherRunRef("uid-there"))
+			checkNotes(t, s, announcementRef(65), tt.say)
+			for _, c := range linksFrom(s, announcementRef(65)) {
+				for _, ev := range c.Evidence {
+					if strings.Contains(ev.Note, tt.not) {
+						t.Errorf("%s: note %q says %q", c, ev.Note, tt.not)
+					}
+				}
+			}
+		})
+	}
 }

@@ -265,21 +265,35 @@ func (a *assembly) podMatches(e model.Event, pod string, matches []model.Run, ma
 		return
 	}
 	candidates := slices.DeleteFunc(slices.Clone(matches), func(r model.Run) bool { return !couldHavePosted(e, r) })
-	candidateNS := namespaces(candidates)
-	note := " but no namespace; it was posted while runs of it in " + strings.Join(candidateNS, ", ") +
-		" were running"
-	if len(candidates) == 0 {
-		candidates, candidateNS = matches, matchNS
-		note = " but no namespace; runs of it are in " + strings.Join(matchNS, ", ") +
-			", and it was posted while none of them was running"
+	outlived := len(candidates) == 0
+	if outlived {
+		candidates = matches
 	}
-	ambiguous := len(candidateNS) != 1
+	note := sharedPodNote(e, candidates, outlived)
+	ambiguous := len(namespaces(candidates)) != 1
 	for _, r := range candidates {
 		a.addRun(r)
 		a.links.heuristic(e.Ref(), r.Key.Ref(), ambiguous, a.announcementEvidence(e, "names pod "+pod+note))
 		if related {
 			a.links.heuristic(r.Key.Ref(), on, ambiguous, onEv)
 		}
+	}
+}
+
+// sharedPodNote says why candidates, runs of the pod an announcement
+// naming no namespace names, are its candidates: it was posted while
+// they were running, when its time and their bounds all say so; it may
+// have been, when one of those is unknown; outlived, it was posted while
+// none was.
+func sharedPodNote(e model.Event, candidates []model.Run, outlived bool) string {
+	in := strings.Join(namespaces(candidates), ", ")
+	switch {
+	case outlived:
+		return " but no namespace; runs of it are in " + in + ", and it was posted while none of them was running"
+	case slices.ContainsFunc(candidates, func(r model.Run) bool { return !knownPostedDuring(e, r) }):
+		return " but no namespace; runs of it are in " + in + ", which may have been running when it was posted"
+	default:
+		return " but no namespace; it was posted while runs of it in " + in + " were running"
 	}
 }
 
@@ -306,6 +320,15 @@ func couldHavePosted(e model.Event, r model.Run) bool {
 	}
 	end, ok := r.Interval.End.Time()
 	return !ok || !e.SourceTime.After(end)
+}
+
+// knownPostedDuring reports whether announcement e's time and both ends
+// of run r are known, and put its time within r.
+func knownPostedDuring(e model.Event, r model.Run) bool {
+	start, startKnown := r.Interval.Start.Time()
+	end, endKnown := r.Interval.End.Time()
+	return e.SourceTime != nil && startKnown && endKnown &&
+		!e.SourceTime.Before(start) && !e.SourceTime.After(end)
 }
 
 // namespaces lists the namespaces of runs, sorted, each once.
