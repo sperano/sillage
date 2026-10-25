@@ -89,7 +89,7 @@ describe('requests', () => {
 	test('overview sends the filters and the cursor, and decodes the page', async () => {
 		const fetchFn = answering(() => json(overviewGoldenJSON()));
 		const api = createApi({ fetch: fetchFn });
-		expect((await api.overview(DEFAULT_QUERY)).rows).toHaveLength(6);
+		expect((await api.overview(DEFAULT_QUERY)).rows).toHaveLength(7);
 		await api.overview({ ...DEFAULT_QUERY, project: 'widgets', failed: true }, 'next-page');
 		expect(requested(fetchFn)).toEqual([
 			`${API_BASE}/overview`,

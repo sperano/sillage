@@ -27,6 +27,7 @@ import {
 	BOUND_STATES,
 	CHECK_CONCLUSIONS,
 	CONFIDENCES,
+	DONE_VALUES,
 	EVENT_KINDS,
 	EVENT_KIND_SOURCES,
 	ID_KINDS,
@@ -147,6 +148,7 @@ export const event: Decoder<Event> = refine(
 			fail(`${path}.id`, `${JSON.stringify(e.id)} is not a fingerprint`);
 		}
 		checkLastObserved(e, path);
+		checkCompletion(e, path);
 	}
 );
 
@@ -159,6 +161,18 @@ function checkLastObserved(e: Event, path: string): void {
 	const at = `${path}.lastObservedAt`;
 	if (!observedKinds.includes(e.kind)) fail(at, `kind ${e.kind} is no state seen by polling`);
 	if (compareTimes(e.lastObservedAt, e.observedAt) < 0) fail(at, 'is before observedAt');
+}
+
+const doneValues: readonly string[] = DONE_VALUES;
+
+// checkCompletion mirrors the Go model's validateCompletion: a completion
+// observation says what its read saw.
+function checkCompletion(e: Event, path: string): void {
+	if (e.kind !== 'task.completion_observed') return;
+	const done = e.details?.done;
+	if (done === undefined || !doneValues.includes(done)) {
+		fail(`${path}.details.done`, 'a completion observation is "true" or "false"');
+	}
 }
 
 const boundFields = object({ state: oneOf(BOUND_STATES) }, { at: timestamp });

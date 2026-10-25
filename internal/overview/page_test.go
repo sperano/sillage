@@ -16,7 +16,7 @@ func TestFilters(t *testing.T) {
 		filter Filter
 		want   []int64
 	}{
-		{"none", Filter{}, []int64{taskA, taskB, taskC, taskD, taskF, taskE}},
+		{"none", Filter{}, []int64{taskA, taskB, taskC, taskD, taskH, taskF, taskE}},
 		{"project", Filter{Project: "gadgets"}, []int64{taskC}},
 		{"title, any case", Filter{Task: "CACHE"}, []int64{taskC}},
 		{"key", Filter{Task: "tasks/204"}, []int64{taskD}},

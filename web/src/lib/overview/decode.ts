@@ -21,13 +21,16 @@ import { checkRunPods, coverageList, interval, prKey, root, run } from '../decod
 import { EVENT_KIND_SOURCES, SOURCES } from '../model';
 import { rootSegments } from '../roots';
 import {
+	COMPLETION_STATES,
 	MARK_KINDS,
 	PR_STATES,
 	type Mark,
 	type OverviewPage,
 	type OverviewPullRequest,
 	type OverviewRow,
+	type Reopening,
 	type ReviewWait,
+	type TaskCompletion,
 	type Window
 } from './model';
 
@@ -72,6 +75,31 @@ const mark: Decoder<Mark> = refine(
 	}
 );
 
+const reopening: Decoder<Reopening> = refine(
+	object({ after: timestamp, by: timestamp, observation: text }),
+	(r, path) => {
+		if (compareTimes(r.by, r.after) <= 0)
+			fail(`${path}.by`, 'seen reopened only after it was seen done');
+	}
+);
+
+const completionFields = object(
+	{ state: oneOf(COMPLETION_STATES), done: text, doneAt: timestamp },
+	{ reopened: reopening }
+);
+
+const completion: Decoder<TaskCompletion> = (value, path) => {
+	const { state, done, doneAt, reopened } = completionFields(value, path);
+	if (state === 'done' && reopened === undefined) return { state, done, doneAt };
+	if (state === 'reopened' && reopened !== undefined) {
+		if (compareTimes(reopened.after, doneAt) < 0) {
+			fail(`${path}.reopened.after`, 'before the completion');
+		}
+		return { state, done, doneAt, reopened };
+	}
+	return fail(path, 'a reopening exactly when the state is reopened');
+};
+
 const row: Decoder<OverviewRow> = object(
 	{
 		root,
@@ -86,7 +114,7 @@ const row: Decoder<OverviewRow> = object(
 		missingHistory: bool,
 		lastActivity: timestamp
 	},
-	{ title: text, projects: array(text) }
+	{ title: text, projects: array(text), completion }
 );
 
 const page: Decoder<OverviewPage> = refine(

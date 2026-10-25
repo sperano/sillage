@@ -61,6 +61,8 @@ export function eventLabel(e: Event): string {
 			return withDetail('label observed', detail(e, 'label'));
 		case 'task.assignee_observed':
 			return withDetail('assignee observed', detail(e, 'assignee'));
+		case 'task.completion_observed':
+			return detail(e, 'done') === 'true' ? 'done observed' : 'not done observed';
 		case 'task.done':
 			return 'task done';
 		case 'page.created':

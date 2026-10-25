@@ -17,6 +17,7 @@ const TITLES = [
 	'Docs navigation',
 	'Cache metrics',
 	'Route rules',
+	'Retry banner',
 	'Login banner',
 	'Storage cleanup'
 ];
@@ -51,7 +52,7 @@ async function moveCursor(clock: string) {
 test('shows a row per task, each linking to its story', async () => {
 	await renderOverview(DEFAULT_QUERY);
 	await expect
-		.element(page.getByText(/2026-03-10 14:00 to 2026-03-10 15:00 UTC: 6 tasks/))
+		.element(page.getByText(/2026-03-10 14:00 to 2026-03-10 15:00 UTC: 7 tasks/))
 		.toBeVisible();
 	const tasks = page.getByRole('list', { name: 'Tasks' });
 	for (const title of TITLES) {
@@ -233,7 +234,7 @@ test('loads the next page for the first page window', async () => {
 				? json({ ...first, rows: rest, next: undefined })
 				: json(first)
 	});
-	await expect.element(page.getByText(/6 tasks, 2 loaded/)).toBeVisible();
+	await expect.element(page.getByText(/7 tasks, 2 loaded/)).toBeVisible();
 	await page.getByRole('button', { name: 'Load more tasks' }).click();
 	await expect.element(page.getByRole('link', { name: 'Storage cleanup' })).toBeVisible();
 	expect(server.requests.map((r) => r.path)).toEqual([
@@ -267,7 +268,7 @@ test('new filters abort the next page in flight, and start idle', async () => {
 	await more.click();
 	await expect.element(page.getByRole('button', { name: 'Loading more tasks…' })).toBeDisabled();
 	await rerender({ query: { ...DEFAULT_QUERY, failed: true } });
-	await expect.element(page.getByText(/6 tasks matching the filters/)).toBeVisible();
+	await expect.element(page.getByText(/7 tasks matching the filters/)).toBeVisible();
 	await expect.element(more).toBeEnabled();
 	const [, next, refiltered] = server.requests;
 	expect(next?.path).toContain('after=cursor-1');
@@ -285,7 +286,7 @@ test('a next page that failed for other filters is not reported for the new ones
 	await page.getByRole('button', { name: 'Load more tasks' }).click();
 	await expect.element(page.getByRole('alert')).toBeVisible();
 	await rerender({ query: { ...DEFAULT_QUERY, failed: true } });
-	await expect.element(page.getByText(/6 tasks matching the filters/)).toBeVisible();
+	await expect.element(page.getByText(/7 tasks matching the filters/)).toBeVisible();
 	await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
 	await expect.element(page.getByRole('button', { name: 'Load more tasks' })).toBeEnabled();
 });

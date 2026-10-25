@@ -16,7 +16,7 @@ import (
 )
 
 // overviewStoriesDir holds the overview fixture set: one afternoon of
-// seven tasks, one file each.
+// eight tasks, one file each.
 const overviewStoriesDir = "../../testdata/fixtures/overview/stories"
 
 type overviewFixture struct {
@@ -80,7 +80,7 @@ func TestActivityRoots(t *testing.T) {
 		want []int64
 	}{
 		{"the afternoon", ActivityQuery{From: afternoon.From, To: afternoon.To, Kinds: overview.Kinds},
-			[]int64{201, 202, 203, 204, 205, 206}},
+			[]int64{201, 202, 203, 204, 205, 206, 208}},
 		{"one project", ActivityQuery{From: afternoon.From, To: afternoon.To, Project: "gadgets", Kinds: overview.Kinds},
 			[]int64{203}},
 		// The next morning: the pull request still open and the run still
@@ -93,6 +93,29 @@ func TestActivityRoots(t *testing.T) {
 		if got := activityIDs(t, s, c.q); !slices.Equal(got, c.want) {
 			t.Errorf("%s: roots = %v, want %v", c.name, got, c.want)
 		}
+	}
+}
+
+// TestActivityRootsCompletionReads: every read of a task records its
+// completion observation, so one selects its root only when it saw the
+// task not done after a completion, the read a row shows as a reopening.
+func TestActivityRootsCompletionReads(t *testing.T) {
+	s := newTestStore(t, Retention{})
+	for task, reads := range map[int64][][]model.Event{
+		// Never done, first read in the window.
+		7: {completionRead(7, false, 10)},
+		// Done at minute 5, first read in the window, still done.
+		8: {completionRead(8, true, 6)},
+		// Done at minute 5, then a read in the window saw it not done.
+		9: {completionRead(9, true, 6), completionRead(9, false, 20)},
+	} {
+		for _, read := range reads {
+			mustSave(t, s, taskRoot(task), model.Records{Events: read})
+		}
+	}
+	q := ActivityQuery{From: at(6), To: at(30), Kinds: overview.Kinds}
+	if got, want := activityIDs(t, s, q), []int64{9}; !slices.Equal(got, want) {
+		t.Errorf("roots = %v, want %v", got, want)
 	}
 }
 

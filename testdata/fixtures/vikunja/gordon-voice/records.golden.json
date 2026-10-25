@@ -188,6 +188,32 @@
     {
       "source": "vikunja",
       "instance": "vikunja.example.com",
+      "id": "sha256:83701b9b4fa6e334a84f717df6a05e607bc9876a41c9c31eca6115d00bc232cb",
+      "idKind": "fingerprint",
+      "kind": "task.completion_observed",
+      "observedAt": "2026-03-06T12:00:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4220
+        }
+      },
+      "details": {
+        "done": "false"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4220?expand=buckets",
+        "note": "done"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
       "id": "sha256:7e512b460bd14f47ade8a1c59955ca7394382830a2b38ce93c11f653e99f4033",
       "idKind": "fingerprint",
       "kind": "task.bucket_observed",

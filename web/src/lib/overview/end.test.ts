@@ -1,14 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import type { Run } from '../model';
 import { afternoon, CLOSED_UNANSWERED, overviewGolden, rowOfTask } from '../testing/overview';
-import type { ReviewWait } from './model';
+import type { OverviewRow, ReviewWait, TaskCompletion } from './model';
 import { endChips, reviewStateAt } from './end';
 
 const page = overviewGolden();
 const end = afternoon('15:00');
 
+type ReopenedCompletion = Extract<TaskCompletion, { state: 'reopened' }>;
+
 function chips(id: number): string[] {
 	return endChips(rowOfTask(page, id), end).map((c) => `${c.kind}: ${c.text}`);
+}
+
+/** The golden row of a task its golden overview holds as reopened, and that completion. */
+function reopenedRow(id: number): { row: OverviewRow; completion: ReopenedCompletion } {
+	const row = rowOfTask(page, id);
+	const completion = row.completion;
+	if (completion?.state !== 'reopened') throw new Error(`task ${id} is not reopened in the golden`);
+	return { row, completion };
 }
 
 describe('endChips', () => {
@@ -21,6 +31,39 @@ describe('endChips', () => {
 
 	it('shows a merge and a completion apart', () => {
 		expect(chips(206)).toEqual(['pr-merged: PR #24 merged', 'done: task marked done']);
+	});
+
+	it('says a task done, then seen not done, was reopened, and that its time is not recorded', () => {
+		expect(chips(208)).toEqual(['reopened: task reopened']);
+		expect(endChips(rowOfTask(page, 208), end)[0]?.note).toBe(
+			'marked done 2026-03-10 13:40:00 UTC, seen done until 2026-03-10 14:30:00 UTC, ' +
+				'seen not done 2026-03-10 14:40:00 UTC: when it was reopened is not recorded'
+		);
+	});
+
+	it('names no read seeing a reopened task done when only its completion did', () => {
+		const { row, completion: c } = reopenedRow(208);
+		const reopened = { ...c.reopened, after: c.doneAt };
+		const chip = endChips({ ...row, completion: { ...c, reopened } }, end)[0];
+		expect(chip?.note).toBe(
+			'marked done 2026-03-10 13:40:00 UTC, seen not done 2026-03-10 14:40:00 UTC: ' +
+				'when it was reopened is not recorded'
+		);
+	});
+
+	it('says a reopened task is reopened, not "not marked done", beside a closed pull request', () => {
+		const closed = rowOfTask(page, 204);
+		const row = { ...closed, completion: reopenedRow(208).completion };
+		expect(endChips(row, end).map((c) => `${c.kind}: ${c.text}`)).toEqual([
+			'pr-closed: PR #23 closed, not merged',
+			'reopened: task reopened'
+		]);
+	});
+
+	it('takes the completion from the row, not from its marks', () => {
+		const row = { ...rowOfTask(page, 206), completion: undefined };
+		expect(chips(206)).toContain('done: task marked done');
+		expect(endChips(row, end).map((c) => c.kind)).toEqual(['pr-merged']);
 	});
 
 	it('keeps a failure beside the retry still running', () => {

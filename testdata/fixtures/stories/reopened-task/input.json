@@ -1,5 +1,5 @@
 {
-  "description": "A task was completed, reopened and completed again before Sillage read it. Vikunja exposes only the current done state and latest done_at, so the earlier completion and reopen are explicitly unavailable rather than invented.",
+  "description": "A task was completed, reopened and completed again before Sillage read it. Vikunja exposes only the current done state and latest done_at, so the earlier completion and reopen are explicitly unavailable rather than invented: the one read saw it done, and nothing says it was reopened.",
   "root": {
     "task": { "instance": "vikunja.example.com", "id": 107 }
   },
@@ -19,6 +19,23 @@
         "instance": "vikunja.example.com",
         "ref": "GET /api/v1/tasks/107",
         "note": "done is true; done_at is the latest completion time; Vikunja does not retain earlier completion or reopen times"
+      }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:787f55d3ef204190289a0e0b13ebdaa9b90ce43b8a342031b767afa4d41ec863",
+      "idKind": "fingerprint",
+      "kind": "task.completion_observed",
+      "observedAt": "2026-03-12T11:05:00Z",
+      "actor": { "kind": "unknown" },
+      "related": { "task": { "instance": "vikunja.example.com", "id": 107 } },
+      "details": { "done": "true" },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/107?expand=buckets",
+        "note": "done"
       }
     }
   ],

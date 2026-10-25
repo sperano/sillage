@@ -23,6 +23,11 @@ const (
 	// KindTaskAssigneeObserved: the task was seen assigned to an account
 	// (details: "assignee", and "assigneeId" when Vikunja supplies one).
 	KindTaskAssigneeObserved EventKind = "task.assignee_observed"
+	// KindTaskCompletionObserved: a read saw the task done or not (details:
+	// "done", "true" or "false"). Every read of a task records one, so a
+	// read that saw it not done after one that saw it done says it was
+	// reopened in between: Vikunja records no time for a reopening.
+	KindTaskCompletionObserved EventKind = "task.completion_observed"
 	// KindTaskDone: the task was marked done. A pull request's merge is a
 	// separate event, never this one.
 	KindTaskDone EventKind = "task.done"
@@ -76,9 +81,10 @@ const (
 // observedKinds are the kinds of a state seen by polling: they have no
 // source time, and the store keeps one record per unchanged value.
 var observedKinds = map[EventKind]bool{
-	KindTaskBucketObserved:   true,
-	KindTaskLabelObserved:    true,
-	KindTaskAssigneeObserved: true,
+	KindTaskBucketObserved:     true,
+	KindTaskLabelObserved:      true,
+	KindTaskAssigneeObserved:   true,
+	KindTaskCompletionObserved: true,
 }
 
 // Observed reports whether k is a state seen by polling rather than a
@@ -87,25 +93,26 @@ func (k EventKind) Observed() bool { return observedKinds[k] }
 
 // kindSources lists the sources each kind can come from.
 var kindSources = map[EventKind][]Source{
-	KindTaskCreated:          {SourceVikunja},
-	KindTaskBucketObserved:   {SourceVikunja},
-	KindTaskLabelObserved:    {SourceVikunja},
-	KindTaskAssigneeObserved: {SourceVikunja},
-	KindTaskDone:             {SourceVikunja},
-	KindPageCreated:          {SourceWiki},
-	KindPageEdited:           {SourceWiki},
-	KindPageMoved:            {SourceWiki},
-	KindComment:              {SourceVikunja, SourceWiki, SourceGitHub},
-	KindRequest:              {SourceVikunja, SourceWiki, SourceGitHub},
-	KindRunAnnounced:         {SourceVikunja, SourceWiki, SourceGitHub},
-	KindRunObserved:          {SourceKelos},
-	KindPROpened:             {SourceGitHub},
-	KindReviewRequested:      {SourceGitHub},
-	KindReviewRequestRemoved: {SourceGitHub},
-	KindReviewSubmitted:      {SourceGitHub},
-	KindPRMerged:             {SourceGitHub},
-	KindPRClosed:             {SourceGitHub},
-	KindPRReopened:           {SourceGitHub},
+	KindTaskCreated:            {SourceVikunja},
+	KindTaskBucketObserved:     {SourceVikunja},
+	KindTaskLabelObserved:      {SourceVikunja},
+	KindTaskAssigneeObserved:   {SourceVikunja},
+	KindTaskCompletionObserved: {SourceVikunja},
+	KindTaskDone:               {SourceVikunja},
+	KindPageCreated:            {SourceWiki},
+	KindPageEdited:             {SourceWiki},
+	KindPageMoved:              {SourceWiki},
+	KindComment:                {SourceVikunja, SourceWiki, SourceGitHub},
+	KindRequest:                {SourceVikunja, SourceWiki, SourceGitHub},
+	KindRunAnnounced:           {SourceVikunja, SourceWiki, SourceGitHub},
+	KindRunObserved:            {SourceKelos},
+	KindPROpened:               {SourceGitHub},
+	KindReviewRequested:        {SourceGitHub},
+	KindReviewRequestRemoved:   {SourceGitHub},
+	KindReviewSubmitted:        {SourceGitHub},
+	KindPRMerged:               {SourceGitHub},
+	KindPRClosed:               {SourceGitHub},
+	KindPRReopened:             {SourceGitHub},
 }
 
 // IDKind says where an event id comes from.
@@ -251,6 +258,9 @@ func (e Event) validate() error {
 		return errors.New("observed time is required")
 	}
 	if err := e.validateObserved(); err != nil {
+		return err
+	}
+	if err := e.validateCompletion(); err != nil {
 		return err
 	}
 	if err := e.Actor.validate(); err != nil {

@@ -12,6 +12,15 @@ function withFirstRow(change: (row: JSONObject) => void): unknown {
 	return page;
 }
 
+/** The golden overview's JSON, the reopened task's completion handed to change. */
+function withReopened(change: (completion: JSONObject) => void): unknown {
+	const page = overviewGoldenJSON() as { rows: JSONObject[] };
+	const row = page.rows.find((r) => (r.root as { task?: { id: number } }).task?.id === 208);
+	if (row === undefined) throw new Error('the golden overview has no task 208');
+	change(row.completion as JSONObject);
+	return page;
+}
+
 describe('parseOverviewPage', () => {
 	it('decodes the golden overview unchanged', () => {
 		const json = overviewGoldenJSON();
@@ -77,6 +86,23 @@ describe('parseOverviewPage', () => {
 			wait(row).closed = '2026-03-10T14:00:00Z';
 		});
 		expect(() => parseOverviewPage(early)).toThrow(/closed before the request/);
+	});
+
+	it('takes a reopening exactly with a reopened state, after the completion and its last read', () => {
+		const done = withReopened((c) => (c.state = 'done'));
+		expect(() => parseOverviewPage(done)).toThrow(/reopening exactly when/);
+		const bare = withReopened((c) => delete c.reopened);
+		expect(() => parseOverviewPage(bare)).toThrow(/reopening exactly when/);
+		const early = withReopened((c) => {
+			(c.reopened as JSONObject).after = '2026-03-10T13:00:00Z';
+		});
+		expect(() => parseOverviewPage(early)).toThrow(/before the completion/);
+		const unseen = withReopened((c) => {
+			(c.reopened as JSONObject).by = (c.reopened as JSONObject).after;
+		});
+		expect(() => parseOverviewPage(unseen)).toThrow(/only after it was seen done/);
+		const state = withReopened((c) => (c.state = 'open'));
+		expect(() => parseOverviewPage(state)).toThrow(DecodeError);
 	});
 
 	it('rejects a window that ends before it starts', () => {

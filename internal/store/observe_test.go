@@ -2,6 +2,7 @@ package store
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -115,5 +116,54 @@ func TestObservationCorrelationFollowsRange(t *testing.T) {
 	story := mustStory(t, s, root)
 	if len(story.Correlations) != 1 || story.Correlations[0].From != first.Ref() {
 		t.Errorf("correlations = %+v, want one from the stored observation %s", story.Correlations, first.Key())
+	}
+}
+
+// completionRead is a read of task at minute read: its completion
+// observation and, when it saw the task done, the completion at minute 5.
+func completionRead(task int64, done bool, read int) []model.Event {
+	value := model.DoneFalse
+	if done {
+		value = model.DoneTrue
+	}
+	events := []model.Event{observation(task, model.KindTaskCompletionObserved, model.DetailDone, value, read)}
+	if done {
+		e := observation(task, model.KindTaskDone, "", "", read)
+		e.ID, e.SourceTime, e.Details = model.Fingerprint(at(5), fmt.Sprintf("tasks/%d", task), "done", ""), ptr(at(5)), nil
+		events = append(events, e)
+	}
+	return events
+}
+
+// TestReopeningKeptAcrossReads reads a task not done, done twice, then not
+// done twice, with nothing else to observe: each read's completion
+// observation keeps the reads apart, so the reopening is still in the
+// story read back.
+func TestReopeningKeptAcrossReads(t *testing.T) {
+	s := newTestStore(t, Retention{})
+	root := taskRoot(7)
+	for _, read := range [][]model.Event{
+		completionRead(7, false, 0), completionRead(7, true, 10), completionRead(7, true, 20),
+		completionRead(7, false, 30), completionRead(7, false, 40),
+	} {
+		mustSave(t, s, root, model.Records{Events: read})
+	}
+	story := mustStory(t, s, root)
+	var seen []model.Event
+	for _, e := range story.Events {
+		if e.Kind == model.KindTaskCompletionObserved {
+			seen = append(seen, e)
+		}
+	}
+	got := ranges(model.Story{Records: model.Records{Events: seen}})
+	want := []observedRange{
+		{model.DoneFalse, at(0), at(0)}, {model.DoneTrue, at(10), at(20)}, {model.DoneFalse, at(30), at(40)},
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("completion observations = %+v, want %+v", got, want)
+	}
+	c, ok := story.CompletionAt(at(50))
+	if !ok || c.State != model.CompletionReopened || !c.Reopened.After.Equal(at(20)) || !c.Reopened.By.Equal(at(30)) {
+		t.Errorf("completion = %+v, want reopened after minute 20, by minute 30", c)
 	}
 }

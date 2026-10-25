@@ -92,7 +92,8 @@ func TestEventValidateObserved(t *testing.T) {
 
 func TestEventKindObserved(t *testing.T) {
 	for kind := range kindSources {
-		want := kind == KindTaskBucketObserved || kind == KindTaskLabelObserved || kind == KindTaskAssigneeObserved
+		want := kind == KindTaskBucketObserved || kind == KindTaskLabelObserved || kind == KindTaskAssigneeObserved ||
+			kind == KindTaskCompletionObserved
 		if got := kind.Observed(); got != want {
 			t.Errorf("%s.Observed() = %v, want %v", kind, got, want)
 		}
@@ -157,6 +158,9 @@ func TestEventValidateKindSources(t *testing.T) {
 				e.Kind, e.Source = kind, source
 				if kind.Observed() {
 					e.SourceTime = nil
+				}
+				if kind == KindTaskCompletionObserved {
+					e.Details = map[string]string{DetailDone: DoneTrue}
 				}
 				want := "cannot come from " + string(source)
 				if slices.Contains(allowed, source) {

@@ -144,6 +144,7 @@ func TestNormalizeTwoPages(t *testing.T) {
 		model.KindRunAnnounced,
 		model.KindComment,
 		model.KindTaskDone,
+		model.KindTaskCompletionObserved,
 		model.KindTaskBucketObserved,
 		model.KindTaskLabelObserved,
 		model.KindTaskAssigneeObserved,
@@ -178,9 +179,10 @@ func TestNormalizeTwoPages(t *testing.T) {
 	if !strings.Contains(done.Evidence.Note, "does not retain earlier completion or reopen times") {
 		t.Errorf("done evidence = %q, want Vikunja's history limitation", done.Evidence.Note)
 	}
-	assertObservation(t, events[5], "bucket", "Done")
-	assertObservation(t, events[6], "label", "backend")
-	assertObservation(t, events[7], "assignee", fixtureAgent.Username)
+	assertObservation(t, events[5], model.DetailDone, model.DoneTrue)
+	assertObservation(t, events[6], "bucket", "Done")
+	assertObservation(t, events[7], "label", "backend")
+	assertObservation(t, events[8], "assignee", fixtureAgent.Username)
 }
 
 func assertObservation(t *testing.T, event model.Event, detail, value string) {
@@ -193,9 +195,13 @@ func assertObservation(t *testing.T, event model.Event, detail, value string) {
 
 func TestNormalizeNoComments(t *testing.T) {
 	events := storyRecords(t, "no-comments", 4203).Events
-	if got, want := kinds(events), []model.EventKind{model.KindTaskCreated}; !slices.Equal(got, want) {
+	want := []model.EventKind{model.KindTaskCreated, model.KindTaskCompletionObserved}
+	if got := kinds(events); !slices.Equal(got, want) {
 		t.Errorf("kinds = %v, want %v", got, want)
 	}
+	// A read seeing the task not done says so: after a read seeing it done,
+	// that is the only trace of a reopening.
+	assertObservation(t, events[1], model.DetailDone, model.DoneFalse)
 }
 
 func TestNormalizeUnparseableAnnouncement(t *testing.T) {
@@ -229,7 +235,9 @@ func TestNormalizeAnnouncementNeedsServiceAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []model.EventKind{model.KindTaskCreated, model.KindComment, model.KindRunAnnounced}
+	want := []model.EventKind{
+		model.KindTaskCreated, model.KindComment, model.KindRunAnnounced, model.KindTaskCompletionObserved,
+	}
 	if got := kinds(records.Events); !slices.Equal(got, want) {
 		t.Errorf("with service account: kinds = %v, want %v", got, want)
 	}
@@ -237,7 +245,9 @@ func TestNormalizeAnnouncementNeedsServiceAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want = []model.EventKind{model.KindTaskCreated, model.KindComment, model.KindComment}
+	want = []model.EventKind{
+		model.KindTaskCreated, model.KindComment, model.KindComment, model.KindTaskCompletionObserved,
+	}
 	if got := kinds(records.Events); !slices.Equal(got, want) {
 		t.Errorf("without service account: kinds = %v, want %v", got, want)
 	}

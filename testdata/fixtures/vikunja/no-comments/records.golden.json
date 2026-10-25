@@ -24,6 +24,32 @@
         "ref": "GET /api/v1/tasks/4203?expand=buckets",
         "note": "created, created_by"
       }
+    },
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "sha256:8dd9afb6c4f1f798fa938def0bde8c76abd4aae48adfdd3838e246b8cafc6ea0",
+      "idKind": "fingerprint",
+      "kind": "task.completion_observed",
+      "observedAt": "2026-03-06T12:00:00Z",
+      "actor": {
+        "kind": "unknown"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 4203
+        }
+      },
+      "details": {
+        "done": "false"
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/4203?expand=buckets",
+        "note": "done"
+      }
     }
   ]
 }

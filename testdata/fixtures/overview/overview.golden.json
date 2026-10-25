@@ -483,6 +483,38 @@
       "root": {
         "task": {
           "instance": "vikunja.example.com",
+          "id": 208
+        }
+      },
+      "title": "Retry banner",
+      "runs": [],
+      "pullRequests": [],
+      "reviewWaits": [],
+      "marks": [],
+      "completion": {
+        "state": "reopened",
+        "done": "vikunja/vikunja.example.com/sha256:a70bdfe50f0b4aff2c864f6f08f00b996769f9ce11d0c14272be07dcd33a3fcc",
+        "doneAt": "2026-03-10T13:40:00Z",
+        "reopened": {
+          "after": "2026-03-10T14:30:00Z",
+          "by": "2026-03-10T14:40:00Z",
+          "observation": "vikunja/vikunja.example.com/sha256:55d0e2be45558297e1fdee4c756db84472270423d6129e082a30ba995414d2ad"
+        }
+      },
+      "coverage": [
+        {
+          "source": "vikunja",
+          "instance": "vikunja.example.com",
+          "lastSuccessfulRead": "2026-03-10T15:05:00Z"
+        }
+      ],
+      "missingHistory": false,
+      "lastActivity": "2026-03-10T14:40:00Z"
+    },
+    {
+      "root": {
+        "task": {
+          "instance": "vikunja.example.com",
           "id": 206
         }
       },
@@ -548,6 +580,11 @@
           "instance": "vikunja.example.com"
         }
       ],
+      "completion": {
+        "state": "done",
+        "done": "vikunja/vikunja.example.com/sha256:d218174fecbce9f2037243922e6306cc72a28cb5260e3fd74214d41a7d726f8e",
+        "doneAt": "2026-03-10T14:16:00Z"
+      },
       "coverage": [
         {
           "source": "github",
@@ -641,5 +678,5 @@
       "lastActivity": "2026-03-10T14:02:10Z"
     }
   ],
-  "total": 6
+  "total": 7
 }
