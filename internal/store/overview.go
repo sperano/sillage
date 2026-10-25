@@ -66,6 +66,8 @@ const activeRootsSQL = "SELECT o.id, " + rootColumns + ` FROM roots o
 		AND (EXISTS (SELECT 1 FROM root_runs m JOIN runs r ON r.id = m.run_id ` + runBounds + `
 				WHERE m.root_id = o.id AND ((b.first >= $1 AND b.first < $2) OR (b.start >= $1 AND b.start < $2)
 					OR (b.last >= $1 AND b.last < $2) OR (b.first < $1 AND (b.end_state = 'open' OR b.last >= $2))))
+			-- Keep ordinary kinds uncorrelated so PostgreSQL can build one hashed
+			-- subplan from events_kind_at; completion observations stay correlated.
 			OR o.id IN (SELECT m.root_id FROM events e JOIN root_events m ON m.event_id = e.id
 				WHERE e.kind = ANY($4) AND e.kind <> 'task.completion_observed' AND e.at >= $1 AND e.at < $2)
 			OR EXISTS (SELECT 1 FROM root_events m JOIN events e ON e.id = m.event_id
