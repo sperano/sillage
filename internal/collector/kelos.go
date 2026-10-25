@@ -199,8 +199,8 @@ func (a *assembly) announcedRuns() {
 	}
 }
 
-// announcedPod joins an announcement naming pod, in namespace ns or in
-// none when ns is empty, to the runs whose pod it names (podMatches);
+// announcedPod joins an announcement naming pod, in ns or in any when ns
+// is empty, to the runs whose pod it names (podMatches);
 // else to the attempt of its Task name it was posted from, when its time
 // singles one out (a heuristic: a Task gone leaves a TaskRecord, which
 // names no pod); else to a run keyed by that pod, built from the
@@ -208,7 +208,7 @@ func (a *assembly) announcedRuns() {
 func (a *assembly) announcedPod(e model.Event, ns, name, pod string) {
 	matches := a.runsWhere(func(r model.Run) bool { return r.Pod == pod && inNamespace(r, ns) })
 	if len(matches) > 0 {
-		a.podMatches(e, pod, matches, ns != "")
+		a.podMatches(e, pod, matches)
 		return
 	}
 	if r, ok := a.announcedAttempt(e, ns, name); ok {
@@ -227,14 +227,14 @@ func (a *assembly) announcedPod(e model.Event, ns, name, pod string) {
 
 // podMatches joins an announcement to matches, the runs of the pod it
 // names. The pod identifies its run in the namespace the announcement
-// names, or, when it names none, in the only namespace a run of that pod
-// is in. Across namespaces, the pod name alone does not: the runs the
-// announcement was posted during are heuristic candidates, unambiguous
-// when they are in one namespace; when it was posted during none, every
-// match is an ambiguous candidate.
-func (a *assembly) podMatches(e model.Event, pod string, matches []model.Run, named bool) {
+// names (announcedPod keeps only its runs), or, when it names none, in
+// the only namespace a run of that pod is in. Across namespaces, the pod
+// name alone does not: the runs the announcement was posted during are
+// heuristic candidates, unambiguous when they are in one namespace; when
+// it was posted during none, every match is an ambiguous candidate.
+func (a *assembly) podMatches(e model.Event, pod string, matches []model.Run) {
 	on, onEv, related := a.relatedOf(e)
-	if named || len(namespaces(matches)) == 1 {
+	if len(namespaces(matches)) == 1 {
 		ev := a.announcementEvidence(e, "names pod "+pod)
 		for _, r := range matches {
 			a.addRun(r)
