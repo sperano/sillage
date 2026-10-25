@@ -151,7 +151,12 @@ func (l *Loop) load(ctx context.Context) error {
 		}
 	}
 	reason := restartReason(lastCycle, l.now())
-	err = l.openGaps(ctx, func(st *sourceState) bool { return st.openAfter(lastCycle, reason) })
+	err = l.openGaps(ctx, func(st *sourceState) bool {
+		if st.Source == model.SourceKelos {
+			return st.openAfter(lastCycle, reason+lostMarkers)
+		}
+		return st.openAfter(lastCycle, reason)
+	})
 	if err != nil {
 		return fmt.Errorf("committing the restart's gaps: %w", err)
 	}
@@ -159,6 +164,12 @@ func (l *Loop) load(ctx context.Context) error {
 	l.log.Info("collector started", "roots", len(l.roots), "lastCycle", lastCycle)
 	return nil
 }
+
+// lostMarkers ends the reason of a restart's gap on Kelos coverage: the
+// phase markers pods sent meanwhile may not have been received (the
+// receiver serves whether or not this process collects, and nothing tells
+// sillage whether a pod sent one), and nothing sends them again.
+const lostMarkers = "; the phase markers pods sent meanwhile may not have been received"
 
 // restartReason is the reason of the gaps a restart at now opens.
 func restartReason(lastCycle, now time.Time) string {

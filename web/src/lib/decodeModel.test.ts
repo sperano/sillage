@@ -347,6 +347,128 @@ describe('a story the Go model would reject', () => {
 	});
 });
 
+// The phase-markers story's first run holds, in order: a complete blocker
+// wait, an interrupted agent span, a complete wiki login and two
+// inconsistent pairs; its retry the interrupted agent span of its Job's
+// first pod, the second pod's agent span in progress and a login whose
+// start was not recorded.
+const PHASE_STORY = 'phase-markers';
+const FAILED_RUN = 0;
+const RETRY = 1;
+const RETRY_DEAD_POD = 0;
+const RETRY_LIVE_POD = 1;
+const RETRY_LOGIN = 2;
+
+function phased(change: (story: unknown) => void): unknown {
+	const story = goldenStory(PHASE_STORY);
+	change(story);
+	return story;
+}
+
+function phasePath(run: number, phase: number, ...rest: Path): Path {
+	return ['runs', run, 'phases', phase, ...rest];
+}
+
+describe('a phase the Go model would not make', () => {
+	test.each<[string, (story: unknown) => void, string]>([
+		[
+			'an unknown kind',
+			(s) => set(s, phasePath(FAILED_RUN, 2, 'start', 'kind'), 'wiki-request'),
+			'unknown value'
+		],
+		[
+			'another kind’s emitter',
+			(s) => set(s, phasePath(FAILED_RUN, 2, 'start', 'emitter'), 'entrypoint'),
+			'is emitted by wiki_gql'
+		],
+		[
+			'a start with an outcome',
+			(s) => set(s, phasePath(FAILED_RUN, 2, 'start', 'outcome'), 'ok'),
+			'a start has no outcome'
+		],
+		[
+			'an end with another kind’s outcome',
+			(s) => set(s, phasePath(FAILED_RUN, 2, 'end', 'outcome'), 'unblocked'),
+			'one of its outcomes'
+		],
+		[
+			'a login end without attempts',
+			(s) => remove(s, phasePath(FAILED_RUN, 2, 'end', 'attempts')),
+			'counts its attempts'
+		],
+		[
+			'a phase with no edge',
+			(s) => {
+				remove(s, phasePath(RETRY, RETRY_LOGIN, 'end'));
+			},
+			'a phase has a recorded edge'
+		],
+		[
+			'an interrupted phase closed at a time no edge recorded',
+			(s) =>
+				set(s, phasePath(FAILED_RUN, 1, 'interval', 'end'), {
+					state: 'known',
+					at: '2026-03-14T10:40:00Z'
+				}),
+			'do not make a phase interrupted'
+		],
+		[
+			'an interval on an inconsistent pair',
+			(s) =>
+				set(s, phasePath(FAILED_RUN, 3, 'interval'), {
+					start: { state: 'unknown' },
+					end: { state: 'unknown' }
+				}),
+			'only an inconsistent phase, has no interval'
+		],
+		[
+			'an inconsistent pair called complete',
+			(s) => set(s, phasePath(FAILED_RUN, 4, 'state'), 'complete'),
+			'do not make a phase complete'
+		],
+		[
+			'a bound off its edge',
+			(s) => set(s, phasePath(FAILED_RUN, 2, 'interval', 'start', 'at'), '2026-03-14T10:06:01Z'),
+			'a known bound is a recorded edge'
+		],
+		[
+			'a phase in progress on an ended run',
+			(s) => {
+				set(s, ['runs', RETRY, 'outcome'], 'failed');
+				set(s, ['runs', RETRY, 'interval', 'end'], { state: 'known', at: '2026-03-14T11:20:00Z' });
+			},
+			'a in-progress phase of a failed run'
+		],
+		[
+			'phases in progress from two pods of one run',
+			(s) => {
+				set(s, phasePath(RETRY, RETRY_DEAD_POD, 'state'), 'in-progress');
+				set(s, phasePath(RETRY, RETRY_DEAD_POD, 'interval', 'end'), { state: 'open' });
+			},
+			'phases in progress from pods'
+		],
+		['an empty list', (s) => set(s, ['runs', RETRY, 'phases'], []), 'at least one is required'],
+		[
+			'a span twice',
+			(s) => {
+				const phases = get(s, ['runs', RETRY, 'phases']) as unknown[];
+				phases.push(structuredClone(phases[0]));
+			},
+			'duplicate'
+		],
+		['a short span id', (s) => set(s, phasePath(RETRY, 0, 'span'), 'abc'), 'not a span id']
+	])('%s fails', (_, change, problem) => {
+		expect(() => parseStory(phased(change))).toThrow(DecodeError);
+		expect(() => parseStory(phased(change))).toThrow(problem);
+	});
+});
+
+test('a retried Job’s earlier pod has its phase interrupted while the run runs', () => {
+	const phases = parseStory(goldenStory(PHASE_STORY)).runs[RETRY]?.phases ?? [];
+	expect(phases.map((p) => p.state)).toEqual(['interrupted', 'in-progress', 'start-not-recorded']);
+	expect(phases[RETRY_DEAD_POD]?.pod).not.toBe(phases[RETRY_LIVE_POD]?.pod);
+});
+
 interface EventContract {
 	kinds: Record<string, string[]>;
 	observedKinds: string[];

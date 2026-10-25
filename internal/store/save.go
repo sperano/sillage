@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -46,15 +47,28 @@ type Batch struct {
 // stored as the GitHub source reported them, never derived one from the
 // other.
 func (s *Store) Save(ctx context.Context, b Batch) error {
-	story, err := model.BuildStory(b.Root, b.Records)
+	story, err := b.story()
 	if err != nil {
-		return fmt.Errorf("store: %w", err)
+		return err
 	}
 	err = s.write(ctx, func(tx pgx.Tx) error { return newSaver(ctx, tx, coverageMerge).save(b.Title, story) })
 	if err != nil {
 		return fmt.Errorf("store: save %s: %w", rootRef(b.Root), err)
 	}
 	return nil
+}
+
+// story builds the batch's story. A batch holds no phase markers: they
+// are RecordMarker's, and a run is stored without the phases they make.
+func (b Batch) story() (model.Story, error) {
+	if len(b.Records.Markers) > 0 {
+		return model.Story{}, errors.New("store: a batch holds no phase markers: RecordMarker records them")
+	}
+	story, err := model.BuildStory(b.Root, b.Records)
+	if err != nil {
+		return model.Story{}, fmt.Errorf("store: %w", err)
+	}
+	return story, nil
 }
 
 // coverageRule is how a save combines a root's coverage of one source

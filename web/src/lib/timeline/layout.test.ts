@@ -16,7 +16,9 @@ import {
 	type Placed,
 	type Point
 } from './layout';
+import { packPhases, PHASE_TRACK_PX, phaseSpans } from './phases';
 import { scaleOf } from './view';
+import { golden } from '../testing/goldens';
 
 const T0 = Date.parse('2026-03-01T10:00:00Z');
 const MINUTE = 60_000;
@@ -107,7 +109,7 @@ describe('groupPoints', () => {
 const eventLabelOf = (p: Placed) => (p.kind === 'point' ? p.point.label : '');
 
 describe('layoutRow', () => {
-	const row = (spans: Span[], events = [] as Row['events']): Row => ({
+	const row = (spans: Span[], events = [] as Row['events'], phases = [] as Row['phases']): Row => ({
 		id: 'r',
 		section: 'runs',
 		title: 't',
@@ -115,7 +117,21 @@ describe('layoutRow', () => {
 		sources: [],
 		events,
 		spans,
+		phases,
 		order: 0
+	});
+
+	test('gives a row with no phases no sub-track, and a row with nested phases two', () => {
+		const run = golden('phase-markers').runs[0]!;
+		const plain = layoutRow(row([span({})]), 0, scale, new Set(), String);
+		const phased = layoutRow(row([span({})], [], phaseSpans(run)), 0, scale, new Set(), String);
+		expect(plain.phases).toEqual([]);
+		const tracks = new Set(packPhases(phaseSpans(run), scale).map((p) => p.track)).size;
+		expect(tracks).toBeGreaterThan(1);
+		expect(phased.height - plain.height).toBe(tracks * PHASE_TRACK_PX);
+		expect(phased.labelY - plain.labelY).toBe(tracks * PHASE_TRACK_PX);
+		expect(phased.markY).toBe(plain.markY);
+		expect(phased.phaseY).toBeGreaterThan(phased.markY);
 	});
 
 	test('stacks overlapping bars on separate tracks', () => {

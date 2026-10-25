@@ -204,6 +204,74 @@ export interface Usage {
 	outputTokens?: number;
 }
 
+/** What part of a run a phase marker's span covers, and the wrapper that sends it. */
+export const MARKER_KIND_EMITTERS = {
+	'blocker-wait': 'wait_for_blockers',
+	'wiki-login': 'wiki_gql',
+	agent: 'entrypoint'
+} as const;
+export type MarkerKind = keyof typeof MARKER_KIND_EMITTERS;
+export type MarkerEmitter = (typeof MARKER_KIND_EMITTERS)[MarkerKind];
+// Frozen, as the decoder checks against it.
+export const MARKER_KINDS = Object.freeze(Object.keys(MARKER_KIND_EMITTERS) as MarkerKind[]);
+
+/** How a span ended, by kind: an end edge's outcome is one of its kind's. */
+export const MARKER_KIND_OUTCOMES = {
+	'blocker-wait': ['unblocked', 'task-missing', 'timed-out', 'failed'],
+	'wiki-login': ['ok', 'rejected', 'unavailable'],
+	agent: ['succeeded', 'failed', 'limit-hit', 'terminated']
+} as const satisfies Record<MarkerKind, readonly string[]>;
+export type MarkerOutcome = (typeof MARKER_KIND_OUTCOMES)[MarkerKind][number];
+
+/** The kind whose end counts its attempts. */
+export const ATTEMPTS_KIND: MarkerKind = 'wiki-login';
+
+/**
+ * What a run's markers establish of one span: both edges (complete), a
+ * start only while the run runs (in progress) or after it ended
+ * (interrupted), an end only, or two edges that do not pair.
+ */
+export const PHASE_STATES = [
+	'complete',
+	'in-progress',
+	'interrupted',
+	'start-not-recorded',
+	'inconsistent'
+] as const;
+export type PhaseState = (typeof PHASE_STATES)[number];
+
+/** One recorded edge of a phase, by the pod's clock; outcome and attempts are an end's. */
+export interface PhaseMark {
+	kind: MarkerKind;
+	emitter: MarkerEmitter;
+	at: string;
+	outcome?: MarkerOutcome;
+	attempts?: number;
+}
+
+interface PhaseFields {
+	span: string;
+	pod: string;
+	podUID: string;
+	confidence: Confidence;
+	evidence: Evidence[];
+}
+
+/**
+ * A span of a run its pod reported with phase markers. It exists only where
+ * a marker was received: no pod, gap or run interval makes one. Its state
+ * names the edges recorded: both (complete, or inconsistent, which has no
+ * interval), a start alone, or an end alone. A heuristic confidence makes
+ * it uncertain.
+ */
+export type Phase = PhaseFields &
+	(
+		| { state: 'complete'; start: PhaseMark; end: PhaseMark; interval: Interval }
+		| { state: 'in-progress' | 'interrupted'; start: PhaseMark; end?: never; interval: Interval }
+		| { state: 'start-not-recorded'; start?: never; end: PhaseMark; interval: Interval }
+		| { state: 'inconsistent'; start: PhaseMark; end: PhaseMark; interval?: never }
+	);
+
 /**
  * One Kelos Task attempt. Its times are the Kubernetes API server's and the
  * Kelos controller's lifecycle times, not a measure of the agent's work.
@@ -225,6 +293,8 @@ export interface Run {
 	model?: string;
 	usage?: Usage;
 	evidence: Evidence[];
+	/** The spans its pods reported, by their first recorded edge; absent without markers. */
+	phases?: Phase[];
 }
 
 /** A check run's result, as GitHub names it, or pending. */

@@ -45,6 +45,7 @@ var corpusCases = map[string]corpusCase{
 	"checks-after-force-push": {"2026-03-11T00:00:00Z", day, checkCorpusChecksOnly},
 	"reopened-task":           {"2026-03-12T11:00:00Z", 0, checkCorpusReopened},
 	"second-pr-after-close":   {"2026-03-13T09:00:00Z", 0, checkCorpusSecondPR},
+	"phase-markers":           {"2026-03-14T10:00:00Z", 0, checkCorpusPhases},
 }
 
 func (c corpusCase) window(t *testing.T) Window {
@@ -190,6 +191,7 @@ const (
 	corpusFailedRun    = "00000000-0000-4000-8000-00000000104a"
 	corpusRetryRun     = "00000000-0000-4000-8000-00000000104b"
 	corpusAnnouncedPod = "vikunja-widgets-agent-opus-105-x8z2w"
+	corpusPhasedRun    = "00000000-0000-4000-8000-00000000109a"
 	corpusMergedPR     = 7
 	corpusClosedPR     = 62
 	corpusSecondPR     = 63
@@ -255,6 +257,21 @@ func checkCorpusRetry(t *testing.T, w Window, rows []Row) {
 	if got := runUIDs(onlyRow(t, corpusRows(t, before, loadCorpus(t, "failed-run-retry"))).Runs); !slices.Equal(got,
 		[]string{corpusFailedRun}) {
 		t.Errorf("the hour before: runs = %v, want the failure alone", got)
+	}
+}
+
+// Phase markers change nothing in a row: the first attempt is in its
+// hour, without phases, and sillage's downtime in it is missing history.
+func checkCorpusPhases(t *testing.T, _ Window, rows []Row) {
+	row := onlyRow(t, rows)
+	if got := runUIDs(row.Runs); !slices.Equal(got, []string{corpusPhasedRun}) {
+		t.Fatalf("runs = %v, want the first attempt", got)
+	}
+	if len(row.Runs[0].Phases) != 0 {
+		t.Errorf("run phases = %+v, want none in an overview row", row.Runs[0].Phases)
+	}
+	if !row.MissingHistory {
+		t.Error("sillage's downtime in the window leaves the history complete")
 	}
 }
 

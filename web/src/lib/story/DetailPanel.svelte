@@ -5,6 +5,7 @@
 	import type { LinkConfig } from '../links';
 	import CheckDetail from './CheckDetail.svelte';
 	import EventDetail from './EventDetail.svelte';
+	import PhaseDetail from './PhaseDetail.svelte';
 	import RunDetail from './RunDetail.svelte';
 
 	let {
@@ -27,13 +28,15 @@
 <section class="detail-panel" aria-labelledby="detail-heading">
 	<h2 id="detail-heading">Detail</h2>
 	{#if !item}
-		<p>Select an event, a run or a check to see its details.</p>
+		<p>Select an event, a run, a check or a phase to see its details.</p>
 	{:else if item.kind === 'event'}
 		<EventDetail {story} {items} {selection} event={item.event} {links} {timeZone} />
 	{:else if item.kind === 'run'}
 		<RunDetail {story} {items} {selection} run={item.run} {links} {timeZone} />
-	{:else}
+	{:else if item.kind === 'check'}
 		<CheckDetail pr={item.pr} check={item.check} {timeZone} />
+	{:else}
+		<PhaseDetail run={item.run} phase={item.phase} {selection} {timeZone} />
 	{/if}
 </section>
 

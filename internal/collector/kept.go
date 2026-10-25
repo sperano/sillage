@@ -17,6 +17,12 @@ type Kept struct {
 	// KelosSince is when Kelos was first read for the story; zero if never.
 	// A run whose Task Kelos deleted after it was read before then.
 	KelosSince time.Time
+	// Markers are phase markers joined to runs; those joined to a run of
+	// the story become its phases. No source is read for them: pods push
+	// them to the store. Only tests set them, so that the collector
+	// assembles the phase-markers fixture story: the loop passes none, and
+	// its stories get their phases when the store reads them.
+	Markers []model.Marker
 }
 
 // Recollect is Collect for a root whose records a store already holds.
@@ -65,4 +71,19 @@ func (a *assembly) ttlCutoff(read time.Time) time.Time {
 		since = read
 	}
 	return since.Add(-a.cfg.KelosTaskTTL)
+}
+
+// keptMarkers returns the kept markers joined to one of runs.
+func (a *assembly) keptMarkers(runs []model.Run) []model.Marker {
+	in := make(map[model.RunKey]bool, len(runs))
+	for _, r := range runs {
+		in[r.Key] = true
+	}
+	var out []model.Marker
+	for _, m := range a.kept.Markers {
+		if m.Join != nil && in[m.Join.Run] {
+			out = append(out, m)
+		}
+	}
+	return out
 }

@@ -1,0 +1,647 @@
+{
+  "description": "Phase markers on a failed run and its retry: a complete blocker wait from the Job's first pod, which no Kelos read named, joined by Task name and time (uncertain); an agent span never ended (interrupted once the run failed); a wiki login nested in it; an end before its start and a kind mismatch (inconsistent); on the retry, the agent span of the Job's first pod, which no Kelos read named, never ended (interrupted once the Job's second pod reported), the second pod's agent span in progress, and a login whose start was not received. Sillage was down for part of the first run.",
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 109
+    }
+  },
+  "events": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "id": "tasks/109",
+      "idKind": "source",
+      "kind": "task.created",
+      "sourceTime": "2026-03-14T09:55:00Z",
+      "observedAt": "2026-03-14T10:00:10Z",
+      "actor": {
+        "login": "owner",
+        "kind": "person"
+      },
+      "related": {
+        "task": {
+          "instance": "vikunja.example.com",
+          "id": 109
+        }
+      },
+      "evidence": {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "ref": "GET /api/v1/tasks/109",
+        "note": "created, created_by"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-00000000109b"
+      },
+      "taskName": "vikunja-widgets-agent-opus-109",
+      "pod": "vikunja-widgets-agent-opus-109-r7q9t",
+      "job": "vikunja-widgets-agent-opus-109",
+      "agent": "agent-opus",
+      "project": "widgets",
+      "role": "implementation",
+      "created": "2026-03-14T11:00:00Z",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-14T11:00:15Z"
+        },
+        "end": {
+          "state": "open"
+        }
+      },
+      "outcome": "running",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+          "note": "uid 00000000-0000-4000-8000-00000000109b: phase Running, podName, startTime"
+        }
+      ]
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-00000000109a"
+      },
+      "taskName": "vikunja-widgets-agent-opus-109",
+      "pod": "vikunja-widgets-agent-opus-109-p1x2c",
+      "job": "vikunja-widgets-agent-opus-109",
+      "agent": "agent-opus",
+      "project": "widgets",
+      "role": "implementation",
+      "created": "2026-03-14T10:00:00Z",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-03-14T10:00:20Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-03-14T10:40:00Z"
+        }
+      },
+      "outcome": "failed",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+          "note": "uid 00000000-0000-4000-8000-00000000109a: phase Failed, podName, startTime, completionTime"
+        }
+      ]
+    }
+  ],
+  "pullRequests": [],
+  "correlations": [
+    {
+      "from": {
+        "kind": "run",
+        "id": "cluster-a/agents/uid/00000000-0000-4000-8000-00000000109a"
+      },
+      "to": {
+        "kind": "task",
+        "id": "vikunja.example.com/tasks/109"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+          "note": "label vikunja-task=109"
+        }
+      ]
+    },
+    {
+      "from": {
+        "kind": "run",
+        "id": "cluster-a/agents/uid/00000000-0000-4000-8000-00000000109b"
+      },
+      "to": {
+        "kind": "task",
+        "id": "vikunja.example.com/tasks/109"
+      },
+      "confidence": "identifier",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+          "note": "label vikunja-task=109"
+        }
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "source": "vikunja",
+      "instance": "vikunja.example.com",
+      "lastSuccessfulRead": "2026-03-14T11:30:00Z"
+    },
+    {
+      "source": "kelos",
+      "instance": "cluster-a",
+      "lastSuccessfulRead": "2026-03-14T11:30:00Z",
+      "gaps": [
+        {
+          "start": "2026-03-14T10:30:00Z",
+          "end": "2026-03-14T10:38:00Z",
+          "reason": "sillage was not collecting after its last cycle, which ended at 2026-03-14T10:30:00Z, until it restarted at 2026-03-14T10:38:00Z: what the source showed meanwhile, and no longer shows, is unknown; the phase markers pods sent meanwhile may not have been received"
+        }
+      ]
+    }
+  ],
+  "markers": [
+    {
+      "report": {
+        "version": 1,
+        "emitter": "wait_for_blockers",
+        "kind": "blocker-wait",
+        "edge": "start",
+        "span": "00000000000000000000000000109001",
+        "at": "2026-03-14T10:00:30.120Z",
+        "taskName": "vikunja-widgets-agent-opus-109"
+      },
+      "sender": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "serviceAccount": "default",
+        "pod": "vikunja-widgets-agent-opus-109-e4v1c",
+        "podUID": "22222222-0000-4000-8000-0000000109a0"
+      },
+      "receivedAt": "2026-03-14T10:00:30.180Z",
+      "join": {
+        "run": {
+          "cluster": "cluster-a",
+          "namespace": "agents",
+          "uid": "00000000-0000-4000-8000-00000000109a"
+        },
+        "confidence": "heuristic",
+        "evidence": [
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+            "note": "no run is known for pod vikunja-widgets-agent-opus-109-e4v1c; the Task name the marker gives, vikunja-widgets-agent-opus-109, and its time, 2026-03-14T10:00:30.12Z, fit the interval of one run of that name only: uncertain"
+          }
+        ]
+      }
+    },
+    {
+      "report": {
+        "version": 1,
+        "emitter": "wait_for_blockers",
+        "kind": "blocker-wait",
+        "edge": "end",
+        "span": "00000000000000000000000000109001",
+        "at": "2026-03-14T10:04:00.500Z",
+        "taskName": "vikunja-widgets-agent-opus-109",
+        "outcome": "unblocked"
+      },
+      "sender": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "serviceAccount": "default",
+        "pod": "vikunja-widgets-agent-opus-109-e4v1c",
+        "podUID": "22222222-0000-4000-8000-0000000109a0"
+      },
+      "receivedAt": "2026-03-14T10:04:00.560Z",
+      "join": {
+        "run": {
+          "cluster": "cluster-a",
+          "namespace": "agents",
+          "uid": "00000000-0000-4000-8000-00000000109a"
+        },
+        "confidence": "heuristic",
+        "evidence": [
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+            "note": "no run is known for pod vikunja-widgets-agent-opus-109-e4v1c; the Task name the marker gives, vikunja-widgets-agent-opus-109, and its time, 2026-03-14T10:04:00.5Z, fit the interval of one run of that name only: uncertain"
+          }
+        ]
+      }
+    },
+    {
+      "report": {
+        "version": 1,
+        "emitter": "entrypoint",
+        "kind": "agent",
+        "edge": "start",
+        "span": "00000000000000000000000000109002",
+        "at": "2026-03-14T10:05:10.000Z",
+        "taskName": "vikunja-widgets-agent-opus-109"
+      },
+      "sender": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "serviceAccount": "default",
+        "pod": "vikunja-widgets-agent-opus-109-p1x2c",
+        "podUID": "22222222-0000-4000-8000-0000000109a1"
+      },
+      "receivedAt": "2026-03-14T10:05:10.040Z",
+      "join": {
+        "run": {
+          "cluster": "cluster-a",
+          "namespace": "agents",
+          "uid": "00000000-0000-4000-8000-00000000109a"
+        },
+        "confidence": "identifier",
+        "evidence": [
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+            "note": "pod vikunja-widgets-agent-opus-109-p1x2c named by tasks/agents/vikunja-widgets-agent-opus-109 status.podName"
+          },
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "pods/agents/vikunja-widgets-agent-opus-109-p1x2c",
+            "note": "marker token verified by a TokenReview for pod vikunja-widgets-agent-opus-109-p1x2c (uid 22222222-0000-4000-8000-0000000109a1)"
+          }
+        ]
+      }
+    },
+    {
+      "report": {
+        "version": 1,
+        "emitter": "wiki_gql",
+        "kind": "wiki-login",
+        "edge": "start",
+        "span": "00000000000000000000000000109003",
+        "at": "2026-03-14T10:06:00.250Z",
+        "taskName": "vikunja-widgets-agent-opus-109"
+      },
+      "sender": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "serviceAccount": "default",
+        "pod": "vikunja-widgets-agent-opus-109-p1x2c",
+        "podUID": "22222222-0000-4000-8000-0000000109a1"
+      },
+      "receivedAt": "2026-03-14T10:06:00.300Z",
+      "join": {
+        "run": {
+          "cluster": "cluster-a",
+          "namespace": "agents",
+          "uid": "00000000-0000-4000-8000-00000000109a"
+        },
+        "confidence": "identifier",
+        "evidence": [
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+            "note": "pod vikunja-widgets-agent-opus-109-p1x2c named by tasks/agents/vikunja-widgets-agent-opus-109 status.podName"
+          },
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "pods/agents/vikunja-widgets-agent-opus-109-p1x2c",
+            "note": "marker token verified by a TokenReview for pod vikunja-widgets-agent-opus-109-p1x2c (uid 22222222-0000-4000-8000-0000000109a1)"
+          }
+        ]
+      }
+    },
+    {
+      "report": {
+        "version": 1,
+        "emitter": "wiki_gql",
+        "kind": "wiki-login",
+        "edge": "end",
+        "span": "00000000000000000000000000109003",
+        "at": "2026-03-14T10:07:25.750Z",
+        "taskName": "vikunja-widgets-agent-opus-109",
+        "outcome": "ok",
+        "attempts": 3
+      },
+      "sender": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "serviceAccount": "default",
+        "pod": "vikunja-widgets-agent-opus-109-p1x2c",
+        "podUID": "22222222-0000-4000-8000-0000000109a1"
+      },
+      "receivedAt": "2026-03-14T10:07:25.800Z",
+      "join": {
+        "run": {
+          "cluster": "cluster-a",
+          "namespace": "agents",
+          "uid": "00000000-0000-4000-8000-00000000109a"
+        },
+        "confidence": "identifier",
+        "evidence": [
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+            "note": "pod vikunja-widgets-agent-opus-109-p1x2c named by tasks/agents/vikunja-widgets-agent-opus-109 status.podName"
+          },
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "pods/agents/vikunja-widgets-agent-opus-109-p1x2c",
+            "note": "marker token verified by a TokenReview for pod vikunja-widgets-agent-opus-109-p1x2c (uid 22222222-0000-4000-8000-0000000109a1)"
+          }
+        ]
+      }
+    },
+    {
+      "report": {
+        "version": 1,
+        "emitter": "wiki_gql",
+        "kind": "wiki-login",
+        "edge": "start",
+        "span": "00000000000000000000000000109004",
+        "at": "2026-03-14T10:20:00.000Z",
+        "taskName": "vikunja-widgets-agent-opus-109"
+      },
+      "sender": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "serviceAccount": "default",
+        "pod": "vikunja-widgets-agent-opus-109-p1x2c",
+        "podUID": "22222222-0000-4000-8000-0000000109a1"
+      },
+      "receivedAt": "2026-03-14T10:20:00.050Z",
+      "join": {
+        "run": {
+          "cluster": "cluster-a",
+          "namespace": "agents",
+          "uid": "00000000-0000-4000-8000-00000000109a"
+        },
+        "confidence": "identifier",
+        "evidence": [
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+            "note": "pod vikunja-widgets-agent-opus-109-p1x2c named by tasks/agents/vikunja-widgets-agent-opus-109 status.podName"
+          },
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "pods/agents/vikunja-widgets-agent-opus-109-p1x2c",
+            "note": "marker token verified by a TokenReview for pod vikunja-widgets-agent-opus-109-p1x2c (uid 22222222-0000-4000-8000-0000000109a1)"
+          }
+        ]
+      }
+    },
+    {
+      "report": {
+        "version": 1,
+        "emitter": "wiki_gql",
+        "kind": "wiki-login",
+        "edge": "end",
+        "span": "00000000000000000000000000109004",
+        "at": "2026-03-14T10:19:58.000Z",
+        "taskName": "vikunja-widgets-agent-opus-109",
+        "outcome": "ok",
+        "attempts": 1
+      },
+      "sender": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "serviceAccount": "default",
+        "pod": "vikunja-widgets-agent-opus-109-p1x2c",
+        "podUID": "22222222-0000-4000-8000-0000000109a1"
+      },
+      "receivedAt": "2026-03-14T10:19:58.060Z",
+      "join": {
+        "run": {
+          "cluster": "cluster-a",
+          "namespace": "agents",
+          "uid": "00000000-0000-4000-8000-00000000109a"
+        },
+        "confidence": "identifier",
+        "evidence": [
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+            "note": "pod vikunja-widgets-agent-opus-109-p1x2c named by tasks/agents/vikunja-widgets-agent-opus-109 status.podName"
+          },
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "pods/agents/vikunja-widgets-agent-opus-109-p1x2c",
+            "note": "marker token verified by a TokenReview for pod vikunja-widgets-agent-opus-109-p1x2c (uid 22222222-0000-4000-8000-0000000109a1)"
+          }
+        ]
+      }
+    },
+    {
+      "report": {
+        "version": 1,
+        "emitter": "wiki_gql",
+        "kind": "wiki-login",
+        "edge": "start",
+        "span": "00000000000000000000000000109005",
+        "at": "2026-03-14T10:25:00.000Z",
+        "taskName": "vikunja-widgets-agent-opus-109"
+      },
+      "sender": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "serviceAccount": "default",
+        "pod": "vikunja-widgets-agent-opus-109-p1x2c",
+        "podUID": "22222222-0000-4000-8000-0000000109a1"
+      },
+      "receivedAt": "2026-03-14T10:25:00.040Z",
+      "join": {
+        "run": {
+          "cluster": "cluster-a",
+          "namespace": "agents",
+          "uid": "00000000-0000-4000-8000-00000000109a"
+        },
+        "confidence": "identifier",
+        "evidence": [
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+            "note": "pod vikunja-widgets-agent-opus-109-p1x2c named by tasks/agents/vikunja-widgets-agent-opus-109 status.podName"
+          },
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "pods/agents/vikunja-widgets-agent-opus-109-p1x2c",
+            "note": "marker token verified by a TokenReview for pod vikunja-widgets-agent-opus-109-p1x2c (uid 22222222-0000-4000-8000-0000000109a1)"
+          }
+        ]
+      }
+    },
+    {
+      "report": {
+        "version": 1,
+        "emitter": "entrypoint",
+        "kind": "agent",
+        "edge": "end",
+        "span": "00000000000000000000000000109005",
+        "at": "2026-03-14T10:26:00.000Z",
+        "taskName": "vikunja-widgets-agent-opus-109",
+        "outcome": "failed"
+      },
+      "sender": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "serviceAccount": "default",
+        "pod": "vikunja-widgets-agent-opus-109-p1x2c",
+        "podUID": "22222222-0000-4000-8000-0000000109a1"
+      },
+      "receivedAt": "2026-03-14T10:26:00.030Z",
+      "join": {
+        "run": {
+          "cluster": "cluster-a",
+          "namespace": "agents",
+          "uid": "00000000-0000-4000-8000-00000000109a"
+        },
+        "confidence": "identifier",
+        "evidence": [
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+            "note": "pod vikunja-widgets-agent-opus-109-p1x2c named by tasks/agents/vikunja-widgets-agent-opus-109 status.podName"
+          },
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "pods/agents/vikunja-widgets-agent-opus-109-p1x2c",
+            "note": "marker token verified by a TokenReview for pod vikunja-widgets-agent-opus-109-p1x2c (uid 22222222-0000-4000-8000-0000000109a1)"
+          }
+        ]
+      }
+    },
+    {
+      "report": {
+        "version": 1,
+        "emitter": "entrypoint",
+        "kind": "agent",
+        "edge": "start",
+        "span": "00000000000000000000000000109008",
+        "at": "2026-03-14T11:00:40.000Z",
+        "taskName": "vikunja-widgets-agent-opus-109"
+      },
+      "sender": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "serviceAccount": "default",
+        "pod": "vikunja-widgets-agent-opus-109-k3m8w",
+        "podUID": "22222222-0000-4000-8000-0000000109b1"
+      },
+      "receivedAt": "2026-03-14T11:00:40.060Z",
+      "join": {
+        "run": {
+          "cluster": "cluster-a",
+          "namespace": "agents",
+          "uid": "00000000-0000-4000-8000-00000000109b"
+        },
+        "confidence": "heuristic",
+        "evidence": [
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+            "note": "no run is known for pod vikunja-widgets-agent-opus-109-k3m8w; the Task name the marker gives, vikunja-widgets-agent-opus-109, and its time, 2026-03-14T11:00:40Z, fit the interval of one run of that name only: uncertain"
+          }
+        ]
+      }
+    },
+    {
+      "report": {
+        "version": 1,
+        "emitter": "entrypoint",
+        "kind": "agent",
+        "edge": "start",
+        "span": "00000000000000000000000000109006",
+        "at": "2026-03-14T11:01:00.000Z",
+        "taskName": "vikunja-widgets-agent-opus-109"
+      },
+      "sender": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "serviceAccount": "default",
+        "pod": "vikunja-widgets-agent-opus-109-r7q9t",
+        "podUID": "22222222-0000-4000-8000-0000000109b2"
+      },
+      "receivedAt": "2026-03-14T11:01:00.050Z",
+      "join": {
+        "run": {
+          "cluster": "cluster-a",
+          "namespace": "agents",
+          "uid": "00000000-0000-4000-8000-00000000109b"
+        },
+        "confidence": "identifier",
+        "evidence": [
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+            "note": "pod vikunja-widgets-agent-opus-109-r7q9t named by tasks/agents/vikunja-widgets-agent-opus-109 status.podName"
+          },
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "pods/agents/vikunja-widgets-agent-opus-109-r7q9t",
+            "note": "marker token verified by a TokenReview for pod vikunja-widgets-agent-opus-109-r7q9t (uid 22222222-0000-4000-8000-0000000109b2)"
+          }
+        ]
+      }
+    },
+    {
+      "report": {
+        "version": 1,
+        "emitter": "wiki_gql",
+        "kind": "wiki-login",
+        "edge": "end",
+        "span": "00000000000000000000000000109007",
+        "at": "2026-03-14T11:03:30.400Z",
+        "taskName": "vikunja-widgets-agent-opus-109",
+        "outcome": "ok",
+        "attempts": 1
+      },
+      "sender": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "serviceAccount": "default",
+        "pod": "vikunja-widgets-agent-opus-109-r7q9t",
+        "podUID": "22222222-0000-4000-8000-0000000109b2"
+      },
+      "receivedAt": "2026-03-14T11:03:30.450Z",
+      "join": {
+        "run": {
+          "cluster": "cluster-a",
+          "namespace": "agents",
+          "uid": "00000000-0000-4000-8000-00000000109b"
+        },
+        "confidence": "identifier",
+        "evidence": [
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "tasks/agents/vikunja-widgets-agent-opus-109",
+            "note": "pod vikunja-widgets-agent-opus-109-r7q9t named by tasks/agents/vikunja-widgets-agent-opus-109 status.podName"
+          },
+          {
+            "source": "kelos",
+            "instance": "cluster-a",
+            "ref": "pods/agents/vikunja-widgets-agent-opus-109-r7q9t",
+            "note": "marker token verified by a TokenReview for pod vikunja-widgets-agent-opus-109-r7q9t (uid 22222222-0000-4000-8000-0000000109b2)"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -77,6 +77,16 @@ test('checks are rows, each linking its run', async () => {
 		.toHaveAttribute('href', 'https://github.example.com/example-org/widgets/runs/9001');
 });
 
+test('a phase row has no source link: its markers came from the pod', async () => {
+	show(goldenStory('phase-markers'));
+	const phases = row(/Phase of /);
+	await expect.element(phases.first()).toBeInTheDocument();
+	expect(phases.elements().every((r) => r.querySelector('a') === null)).toBe(true);
+	await expect
+		.element(row(/inconsistent markers: wiki login start, wiki login end/))
+		.toHaveTextContent('end 2026-03-14 10:19:58 UTC · start 2026-03-14 10:20:00 UTC');
+});
+
 test('row links are not tab stops: the list is one', async () => {
 	show(goldenStory('implementation-merged'));
 	const links = page.getByRole('link').elements();

@@ -12,6 +12,8 @@
 		TRACK_PX,
 		type LabelPlace
 	} from './layout';
+	import PhaseBar from './PhaseBar.svelte';
+	import { PHASE_TRACK_PX } from './phases';
 	import SpanBar from './SpanBar.svelte';
 	import type { Zone } from './time';
 	import type { Scale } from './view';
@@ -86,6 +88,9 @@
 				{selection}
 				patterns={ids}
 			/>
+		{/each}
+		{#each layout.phases as placed (placed.span.key)}
+			<PhaseBar {placed} y={layout.phaseY + placed.track * PHASE_TRACK_PX} {zone} {selection} />
 		{/each}
 		{#each layout.placed as p (p.kind === 'point' ? p.point.key : p.id)}
 			{#if p.kind === 'point'}

@@ -2,12 +2,14 @@
 	import type { Run, Story } from '../model';
 	import type { Selection } from '../selection.svelte';
 	import type { TimelineItem } from '../timeline';
-	import { runRef } from '../timeline';
+	import { phaseRef, runRef } from '../timeline';
+	import { phaseText } from '../phases';
 	import { runLink, type LinkConfig } from '../links';
 	import { outcomeLabel, roleLabel, runLabel } from '../describe';
 	import Bounds from './Bounds.svelte';
 	import Correlations from './Correlations.svelte';
 	import EvidenceList from './EvidenceList.svelte';
+	import LinkButton from './LinkButton.svelte';
 	import Time from './Time.svelte';
 
 	let {
@@ -95,6 +97,19 @@
 	Times are the Kubernetes API server's and the Kelos controller's lifecycle times, not a measure of
 	the agent's work.
 </p>
+{#if run.phases}
+	<h4>Phases its pods reported</h4>
+	<ul class="phases" data-testid="phases">
+		{#each run.phases as phase (`${phase.podUID}/${phase.span}`)}
+			<li>
+				<LinkButton onclick={() => selection.select(phaseRef(run, phase))}
+					>{phaseText(phase)}</LinkButton
+				>
+			</li>
+		{/each}
+	</ul>
+	<p>Best effort: a missing marker is not a missing phase.</p>
+{/if}
 <h4>Evidence</h4>
 <EvidenceList evidence={run.evidence} />
 <Correlations {story} {items} {selection} subject={runRef(run)} />

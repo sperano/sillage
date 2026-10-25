@@ -28,8 +28,8 @@ func (s *Store) Commit(ctx context.Context, c Commit) error {
 	var story model.Story
 	if c.Batch != nil {
 		var err error
-		if story, err = model.BuildStory(c.Batch.Root, c.Batch.Records); err != nil {
-			return fmt.Errorf("store: %w", err)
+		if story, err = c.Batch.story(); err != nil {
+			return err
 		}
 	}
 	for _, cp := range c.Checkpoints {

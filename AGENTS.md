@@ -20,10 +20,10 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | Path | What goes there |
 | --- | --- |
 | `cmd/sillage/` | The one binary: a server of `GET /healthz`, `GET /metrics`, the read API under `/api/`, the webhook ingest paths under `/ingest/` (off, answering 503, until the collection loop drains the reads they ask for) and the embedded frontend (its `index.html` for every other `GET` path without a file extension, so client-side routes deep-link), `POST /ingest/marker` with a store, and, with `SILLAGE_DATABASE_URL` set, the collection loop into the store the API reads (`loopStore` adapts `store.Store` to `reconcile.Store`); and `sillage story`, which prints one story assembled from the live sources. Flags, configuration, wiring and output only: what a story holds is `internal/collector`'s, what the API answers `internal/api`'s, what a delivery does `internal/ingest`'s. |
-| `internal/model/` | Normalized events, runs, entities and links, and coverage. Source-independent. |
+| `internal/model/` | Normalized events, runs, entities and links, and coverage; the phase markers a story's runs were joined, paired into each run's phases. Source-independent. |
 | `internal/model/storytest/` | The invariant each fixture story exists for, asserted by the model's and the collector's tests. |
 | `internal/testzone/` | `TestMain` for the packages with golden files: their tests run with `time.Local` seven hours west of UTC, so output that depends on the host's zone fails on every machine. |
-| `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage; and names the roots a Kelos read points to. Read once, nothing kept: a caller passes what a store kept back in. |
+| `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage; and names the roots a Kelos read points to. Read once, nothing kept: a caller passes what a store kept back in, its phase markers included. |
 | `internal/collector/collectortest/` | The real source clients answered from `testdata/fixtures/collector/`'s responses, and which responses each fixture story is assembled from: the collector's tests and `cmd/sillage`'s loop-fed overview test read the same corpus. |
 | `internal/source/vikunja/` | Read-only Vikunja client and its normalization into `model`. |
 | `internal/source/github/` | Read-only GitHub client and its normalization into `model`. |
@@ -43,7 +43,7 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
 | `web/src/lib/` | The story types (`model.ts`), their key strings (`keys.ts`) and their runtime decoder, the read API client, the routes and the router. |
 | `web/src/lib/selection.svelte.ts` | The selected event, run, check or review wait (`ItemRef`, `timeline.ts`), one instance shared by the timeline graph, the event list and the detail panel. |
-| `web/src/lib/timeline/` | The single-task timeline graph (SVG): lanes, intervals, coverage shading, zoom and pan. Layout is pure TypeScript; the components draw it and handle zoom, pan, selection and group expansion. |
+| `web/src/lib/timeline/` | The single-task timeline graph (SVG): lanes, intervals, a run's phases on sub-tracks under its bar, coverage shading, zoom and pan. Layout is pure TypeScript; the components draw it and handle zoom, pan, selection and group expansion. |
 | `web/src/lib/overview/` | The multi-task overview: its types and decoder (the Go `overview.Page`), its URL query, what a row says at an instant and at the window's end, its lanes (by task or by executor) and the components that draw them. |
 | `web/src/lib/testing/` | Web test helpers: the golden stories, record builders. |
 | `web/src/pages/`, `web/src/components/` | One component per route, and the parts they share. |

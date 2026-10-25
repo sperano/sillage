@@ -153,7 +153,14 @@ func TestRestartRecordsTheDowntime(t *testing.T) {
 			}
 		}
 		if len(restart) != 1 || restart[0].Start.Before(*was) || !restart[0].End.Equal(*cov.LastSuccessfulRead) {
-			t.Errorf("%s restart gaps = %v, want one from the last cycle before the restart to the next read", src, restart)
+			t.Fatalf("%s restart gaps = %v, want one from the last cycle before the restart to the next read", src, restart)
+		}
+		// Only the Kelos coverage's runs have phase markers to miss, and
+		// sillage cannot know that a pod sent one.
+		missed := strings.Contains(restart[0].Reason, "phase markers pods sent meanwhile may not have been received")
+		if missed != (src == model.SourceKelos) {
+			t.Errorf("%s restart gap %q says markers may be missing: %v, want %v", src, restart[0].Reason, missed,
+				src == model.SourceKelos)
 		}
 	}
 }

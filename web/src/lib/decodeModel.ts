@@ -23,14 +23,19 @@ import {
 } from './check';
 import {
 	ACTOR_KINDS,
+	ATTEMPTS_KIND,
 	BOUND_STATES,
 	CHECK_CONCLUSIONS,
 	CONFIDENCES,
 	EVENT_KINDS,
 	EVENT_KIND_SOURCES,
 	ID_KINDS,
+	MARKER_KINDS,
+	MARKER_KIND_EMITTERS,
+	MARKER_KIND_OUTCOMES,
 	OBSERVED_KINDS,
 	OUTCOMES,
+	PHASE_STATES,
 	REF_KINDS,
 	RUN_ROLES,
 	SOURCES,
@@ -47,6 +52,9 @@ import {
 	type Interval,
 	type PRKey,
 	type PageKey,
+	type Phase,
+	type PhaseMark,
+	type PhaseState,
 	type PullRequest,
 	type Ref,
 	type Related,
@@ -196,6 +204,110 @@ const usage: Decoder<Usage> = object(
 	}
 );
 
+// A span id: 128 random bits in lowercase hex, as the Go model's
+// spanPattern.
+const SPAN = /^[0-9a-f]{32}$/;
+
+const markerEmitters = Object.freeze(Object.values(MARKER_KIND_EMITTERS));
+const markerOutcomes = Object.freeze([...new Set(Object.values(MARKER_KIND_OUTCOMES).flat())]);
+
+const phaseMark: Decoder<PhaseMark> = refine(
+	object(
+		{ kind: oneOf(MARKER_KINDS), emitter: oneOf(markerEmitters), at: timestamp },
+		{ outcome: oneOf(markerOutcomes), attempts: positiveInteger }
+	),
+	(m, path) => {
+		if (MARKER_KIND_EMITTERS[m.kind] !== m.emitter) {
+			fail(path, `kind ${m.kind} is emitted by ${MARKER_KIND_EMITTERS[m.kind]}, not ${m.emitter}`);
+		}
+	}
+);
+
+// A start has no outcome and no attempts; an end has an outcome of its
+// kind, and attempts exactly when its kind counts them.
+function checkEdges({ start, end }: PhaseFields, path: string): void {
+	if (!start && !end) fail(path, 'a phase has a recorded edge');
+	if (start && (start.outcome !== undefined || start.attempts !== undefined)) {
+		fail(`${path}.start`, 'a start has no outcome and no attempts');
+	}
+	if (!end) return;
+	const outcomes: readonly string[] = MARKER_KIND_OUTCOMES[end.kind];
+	if (end.outcome === undefined || !outcomes.includes(end.outcome)) {
+		fail(`${path}.end`, `an end of kind ${end.kind} has one of its outcomes`);
+	}
+	if ((end.attempts !== undefined) !== (end.kind === ATTEMPTS_KIND)) {
+		fail(`${path}.end`, `only the end of kind ${ATTEMPTS_KIND} counts its attempts`);
+	}
+}
+
+/** Whether the bound is the mark's time: known at it with a mark, else not known. */
+function boundOf(b: Bound, mark: PhaseMark | undefined): boolean {
+	return mark === undefined
+		? b.state !== 'known'
+		: b.state === 'known' && compareTimes(b.at, mark.at) === 0;
+}
+
+// What the edges establish, as the Go model's pair: a known bound at each
+// recorded edge and nowhere else, and no interval when they do not pair.
+function checkPairing(p: PhaseFields, path: string): void {
+	const { start, end, interval: i } = p;
+	const paired = start && end && start.kind === end.kind && compareTimes(end.at, start.at) >= 0;
+	const want: Record<PhaseState, boolean> = {
+		complete: !!paired,
+		'in-progress': !!start && !end && i?.end.state === 'open',
+		interrupted: !!start && !end && i?.end.state === 'unknown',
+		'start-not-recorded': !start && !!end,
+		inconsistent: !!start && !!end && !paired
+	};
+	if (!want[p.state]) fail(path, `its edges do not make a phase ${p.state}`);
+	if ((i === undefined) !== (p.state === 'inconsistent')) {
+		fail(path, 'an inconsistent phase, and only an inconsistent phase, has no interval');
+	}
+	if (i && !(boundOf(i.start, start) && boundOf(i.end, end))) {
+		fail(`${path}.interval`, 'a known bound is a recorded edge, and every recorded edge is one');
+	}
+}
+
+const phaseFields = object(
+	{
+		span: refine(text, (v, path) => {
+			if (!SPAN.test(v)) fail(path, `${JSON.stringify(v)} is not a span id`);
+		}),
+		pod: text,
+		podUID: text,
+		state: oneOf(PHASE_STATES),
+		confidence: oneOf(CONFIDENCES),
+		evidence: nonEmpty(array(evidence))
+	},
+	{ start: phaseMark, end: phaseMark, interval }
+);
+// A phase's fields before its state is known to name its edges and interval.
+type PhaseFields = ReturnType<typeof phaseFields>;
+
+export const phase: Decoder<Phase> = (value, path) => {
+	const p = phaseFields(value, path);
+	checkEdges(p, path);
+	checkPairing(p, path);
+	// checkPairing established the edges and the interval its state names.
+	return p as Phase;
+};
+
+// A phase with no end recorded is in progress only while its run is
+// unfinished, and only from the pod last seen with it: a retried Job's
+// earlier pod has its phases interrupted, its run still running.
+function checkPhasesOfRun(r: Run, path: string): void {
+	const unfinished = UNFINISHED_OUTCOMES.includes(r.outcome);
+	let live: string | undefined;
+	r.phases?.forEach((p, i) => {
+		if (p.state !== 'in-progress') return;
+		if (!unfinished) fail(`${path}.phases[${i}]`, `a ${p.state} phase of a ${r.outcome} run`);
+		if (live !== undefined && p.pod !== live) {
+			fail(`${path}.phases[${i}]`, `phases in progress from pods ${live} and ${p.pod}`);
+		}
+		live = p.pod;
+	});
+}
+
 export const run: Decoder<Run> = refine(
 	object(
 		{
@@ -214,7 +326,8 @@ export const run: Decoder<Run> = refine(
 			created: timestamp,
 			message: text,
 			model: text,
-			usage
+			usage,
+			phases: nonEmpty(unique(array(phase), (p) => `${p.podUID}/${p.span}`))
 		}
 	),
 	(r, path) => {
@@ -225,6 +338,7 @@ export const run: Decoder<Run> = refine(
 		if (unfinished !== (r.interval.end.state === 'open')) {
 			fail(path, 'a waiting or running run, and only a waiting or running run, has an open end');
 		}
+		checkPhasesOfRun(r, path);
 	}
 );
 
