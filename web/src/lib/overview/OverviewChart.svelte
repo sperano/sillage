@@ -2,7 +2,14 @@
      and a row per task, or a group per agent profile. -->
 <script lang="ts">
 	import { rootSegments } from '../roots';
-	import { formatFull, formatMinute, MINUTE_MS, ticks } from '../timeline/time';
+	import {
+		formatFull,
+		formatMinute,
+		MINUTE_MS,
+		ticks,
+		zoneName,
+		type Zone
+	} from '../timeline/time';
 	import { lastCursor, snapCursor } from './cursor';
 	import ExecutorGroupView from './ExecutorGroupView.svelte';
 	import { byExecutor } from './lanes';
@@ -15,18 +22,19 @@
 		rows: readonly OverviewRow[];
 		range: Range;
 		grouping: Grouping;
+		zone: Zone;
 		/** The cursor's time, which the slider and a click on a lane move. */
 		cursor: number;
 	}
 
-	let { rows, range, grouping, cursor = $bindable() }: Props = $props();
+	let { rows, range, grouping, zone, cursor = $bindable() }: Props = $props();
 
 	/** The most axis ticks drawn: their labels must not touch. */
 	const MAX_TICKS = 6;
 	const PERCENT = 100;
 
 	const id = $props.id();
-	const axis = $derived(ticks(range.start, range.end, MAX_TICKS, 'utc'));
+	const axis = $derived(ticks(range.start, range.end, MAX_TICKS, zone));
 	const groups = $derived(grouping === 'executor' ? byExecutor(rows, range) : []);
 	const pick = (t: number) => {
 		cursor = snapCursor(range, t);
@@ -45,10 +53,14 @@
 				>
 			{/each}
 		</div>
-		<span>{grouping === 'executor' ? '' : `State at ${formatMinute(range.end, 'utc')} UTC`}</span>
+		<span
+			>{grouping === 'executor'
+				? ''
+				: `State at ${formatMinute(range.end, zone)} ${zoneName(zone)}`}</span
+		>
 	</div>
 	<div class="head">
-		<label for="{id}-cursor">Cursor, UTC</label>
+		<label for="{id}-cursor">Cursor, {zoneName(zone)}</label>
 		<input
 			id="{id}-cursor"
 			type="range"
@@ -56,21 +68,21 @@
 			max={lastCursor(range)}
 			step={MINUTE_MS}
 			value={cursor}
-			aria-valuetext={formatFull(cursor, 'utc')}
+			aria-valuetext={formatFull(cursor, zone)}
 			oninput={(e) => pick(Number(e.currentTarget.value))}
 		/>
-		<output for="{id}-cursor">{formatMinute(cursor, 'utc')}</output>
+		<output for="{id}-cursor">{formatMinute(cursor, zone)}</output>
 	</div>
 	{#if grouping === 'executor'}
 		<ol class="rows" aria-label="Runs by executor">
 			{#each groups as group (group.executor ?? '')}
-				<ExecutorGroupView {group} {range} {cursor} onpick={pick} />
+				<ExecutorGroupView {group} {range} {cursor} {zone} onpick={pick} />
 			{/each}
 		</ol>
 	{:else}
 		<ol class="rows" aria-label="Tasks">
 			{#each rows as row (rootSegments(row.root))}
-				<TaskRow {row} {range} {cursor} onpick={pick} />
+				<TaskRow {row} {range} {cursor} {zone} onpick={pick} />
 			{/each}
 		</ol>
 	{/if}
@@ -78,7 +90,7 @@
 		Solid bar: running. Striped: waiting. Dotted: review requested. Outlined: pull request open.
 		Chevron: not ended at the last read. Dashed stub: one end unknown. Hatched: no records known
 		there, never counted as idle. ✓ task marked done, ◆ merged, ✕ closed without a merge, • another
-		change. All times UTC.
+		change. All times {zoneName(zone)}.
 	</p>
 </section>
 

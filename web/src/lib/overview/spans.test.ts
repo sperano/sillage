@@ -93,7 +93,7 @@ describe('the spans of the golden rows', () => {
 			endState: 'open'
 		});
 		expect(wait.openUntil).toBe(Date.parse('2026-03-10T15:05:00Z'));
-		expect(describeSpan(wait)).toBe(
+		expect(describeSpan(wait, 'utc')).toBe(
 			'review requested: owner-gh, from 2026-03-10 14:34:00 UTC, not ended at the last read, 2026-03-10 15:05:00 UTC'
 		);
 	});

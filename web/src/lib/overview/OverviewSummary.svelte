@@ -3,7 +3,7 @@
      different moments. -->
 <script lang="ts">
 	import { count } from '../format';
-	import { formatMinute } from '../timeline/time';
+	import { formatMinute, zoneName, type Zone } from '../timeline/time';
 	import { rowTitles } from './lanes';
 	import type { OverviewRow } from './model';
 	import type { Range } from './spans';
@@ -14,11 +14,12 @@
 		rows: readonly OverviewRow[];
 		range: Range;
 		cursor: number;
+		zone: Zone;
 		/** Whether more rows match than are loaded. */
 		partial: boolean;
 	}
 
-	let { rows, range, cursor, partial }: Props = $props();
+	let { rows, range, cursor, zone, partial }: Props = $props();
 
 	// Untitled tasks sharing a short name are told apart by their instance.
 	const titles = $derived(rowTitles(rows));
@@ -37,7 +38,7 @@
 
 <div class="cards">
 	<section class="card" aria-label="At the cursor">
-		<h2>At the cursor · {formatMinute(cursor, 'utc')} UTC</h2>
+		<h2>At the cursor · {formatMinute(cursor, zone)} {zoneName(zone)}</h2>
 		<p class="big">{count(runs, 'run')} executing</p>
 		<p>
 			{#if instant.executing.length > 0}
@@ -51,7 +52,7 @@
 		{/if}
 	</section>
 	<section class="card" aria-label="At the window's end">
-		<h2>At the window's end · {formatMinute(range.end, 'utc')} UTC</h2>
+		<h2>At the window's end · {formatMinute(range.end, zone)} {zoneName(zone)}</h2>
 		<p class="big">{count(reviewing.length, 'task')} with a review requested</p>
 		<p>
 			{#if reviewing.length > 0}
