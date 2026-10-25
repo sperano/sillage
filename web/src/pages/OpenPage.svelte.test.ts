@@ -21,12 +21,38 @@ async function renderOpen(url: string, handlers: Parameters<typeof fakeServer>[0
 
 test('replaces /open with the story of the resolved root', async () => {
 	const { history, server } = await renderOpen(LINK, {
-		[RESOLVE]: () => json({ page: { instance: 'wiki.example.com', id: 57, locale: 'en' } })
+		[RESOLVE]: () =>
+			json({
+				kind: 'vikunja-task',
+				roots: [{ root: { page: { instance: 'wiki.example.com', id: 57, locale: 'en' } } }]
+			})
 	});
 	await expect.poll(() => history.entries()).toEqual(['/page/wiki.example.com/57/en']);
 	expect(server.requests.map((r) => r.path)).toEqual([
 		`${RESOLVE}?url=${encodeURIComponent(LINK)}`
 	]);
+});
+
+test('a link several roots hold lists them, most recently active first, and stays', async () => {
+	const pull = 'https://github.example.com/example-org/widgets/pull/7';
+	const { history } = await renderOpen(pull, {
+		[RESOLVE]: () =>
+			json({
+				kind: 'github-pull-request',
+				roots: [
+					{ root: { task: { instance: 'vikunja.example.com', id: 103 } }, title: 'Gadgets' },
+					{ root: { task: { instance: 'vikunja.example.com', id: 102 } }, title: 'Widgets' }
+				]
+			})
+	});
+	const roots = page.getByRole('list', { name: 'Tasks and pages of the link' });
+	await expect
+		.element(roots.getByRole('listitem').first())
+		.toHaveTextContent('Gadgets task 103 on vikunja.example.com');
+	await expect
+		.element(roots.getByRole('link', { name: 'Widgets' }))
+		.toHaveAttribute('href', '/task/vikunja.example.com/102');
+	expect(history.entries()).toEqual([openHref(pull)]);
 });
 
 test('says while it looks the link up', async () => {
