@@ -225,6 +225,15 @@ describe('intervals', () => {
 });
 
 describe('interaction', () => {
+	test('the time-zone selector matches the toolbar controls', async () => {
+		const { container } = await show(golden('implementation-merged'));
+		const selectStyle = getComputedStyle(container.querySelector('select')!);
+		const buttonStyle = getComputedStyle(container.querySelector('button')!);
+		expect(selectStyle.color).toBe(buttonStyle.color);
+		expect(selectStyle.backgroundColor).toBe(buttonStyle.backgroundColor);
+		expect(selectStyle.borderTopColor).toBe(buttonStyle.borderTopColor);
+	});
+
 	test('selecting an event or an interval sets the shared selection', async () => {
 		const s = golden('implementation-merged');
 		const { container, selection } = await show(s);

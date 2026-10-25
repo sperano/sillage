@@ -20,9 +20,9 @@
 	}
 	select {
 		font: inherit;
-		color: inherit;
-		background: inherit;
-		border: 1px solid currentColor;
+		color: var(--tl-fg, inherit);
+		background: var(--tl-bg, inherit);
+		border: 1px solid var(--tl-grid, currentColor);
 		border-radius: 4px;
 		padding: 0.2rem 0.5rem;
 	}
