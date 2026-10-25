@@ -119,6 +119,27 @@ func TestActivityRootsCompletionReads(t *testing.T) {
 	}
 }
 
+func TestActivityRootsEventKinds(t *testing.T) {
+	s := newTestStore(t, Retention{})
+	mustSave(t, s, taskRoot(7), model.Records{Events: completionRead(7, true, 6)})
+	mustSave(t, s, taskRoot(7), model.Records{Events: completionRead(7, false, 20)})
+	mustSave(t, s, taskRoot(8), model.Records{Events: []model.Event{announcement(20)}})
+
+	window := ActivityQuery{From: at(10), To: at(30)}
+	window.Kinds = []model.EventKind{model.KindRunAnnounced}
+	if got, want := activityIDs(t, s, window), []int64{8}; !slices.Equal(got, want) {
+		t.Errorf("announcements: roots = %v, want %v", got, want)
+	}
+	window.Kinds = []model.EventKind{model.KindTaskCompletionObserved}
+	if got, want := activityIDs(t, s, window), []int64{7}; !slices.Equal(got, want) {
+		t.Errorf("completion observations: roots = %v, want %v", got, want)
+	}
+	window.Kinds = nil
+	if got := activityIDs(t, s, window); len(got) != 0 {
+		t.Errorf("no kinds: roots = %v, want none", got)
+	}
+}
+
 func TestActivityTooManyRoots(t *testing.T) {
 	s := newTestStore(t, Retention{})
 	saveOverviewFixtures(t, s)
