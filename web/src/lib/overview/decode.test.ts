@@ -16,7 +16,8 @@ function withFirstRow(change: (row: JSONObject) => void): unknown {
 function withReopened(change: (completion: JSONObject) => void): unknown {
 	const page = overviewGoldenJSON() as { rows: JSONObject[] };
 	const row = page.rows.find((r) => (r.root as { task?: { id: number } }).task?.id === 208);
-	change(row!.completion as JSONObject);
+	if (row === undefined) throw new Error('the golden overview has no task 208');
+	change(row.completion as JSONObject);
 	return page;
 }
 

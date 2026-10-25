@@ -6,7 +6,7 @@
 import { boundTime, type Interval, type Run } from '../model';
 import { prKeyString } from '../keys';
 import { formatFull } from '../timeline/time';
-import type { OverviewRow, ReviewWait } from './model';
+import type { OverviewRow, ReviewWait, TaskCompletion } from './model';
 import { runLastRead, runStateAt } from './state';
 
 export type ChipKind =
@@ -179,6 +179,24 @@ function prChips(row: OverviewRow): Chip[] {
 	});
 }
 
+function completionChips(c: TaskCompletion): Chip[] {
+	switch (c.state) {
+		case 'done':
+			return [{ kind: 'done', text: 'task marked done' }];
+		case 'reopened': {
+			const { after, by } = c.reopened;
+			const seenDone = after === c.doneAt ? '' : `, seen done until ${utc(after)}`;
+			return [
+				{
+					kind: 'reopened',
+					text: 'task reopened',
+					note: `marked done ${utc(c.doneAt)}${seenDone}, seen not done ${utc(by)}: when it was reopened is not recorded`
+				}
+			];
+		}
+	}
+}
+
 /** A time of a row, as the overview shows it: in UTC. */
 function utc(t: string): string {
 	return formatFull(Date.parse(t), 'utc');
@@ -193,19 +211,7 @@ function utc(t: string): string {
  * unknown, a completion could be there: then it is unknown.
  */
 function doneChips(row: OverviewRow): Chip[] {
-	const c = row.completion;
-	if (c?.reopened !== undefined) {
-		const { after, by } = c.reopened;
-		const seenDone = after === c.doneAt ? '' : `, seen done until ${utc(after)}`;
-		return [
-			{
-				kind: 'reopened',
-				text: 'task reopened',
-				note: `marked done ${utc(c.doneAt)}${seenDone}, seen not done ${utc(by)}: when it was reopened is not recorded`
-			}
-		];
-	}
-	if (c?.state === 'done') return [{ kind: 'done', text: 'task marked done' }];
+	if (row.completion !== undefined) return completionChips(row.completion);
 	if (!row.pullRequests.some((p) => p.state === 'closed')) return [];
 	if (row.missingHistory) {
 		return [

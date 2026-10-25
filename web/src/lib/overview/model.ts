@@ -87,15 +87,15 @@ export interface Reopening {
 	observation: string;
 }
 
-/** A task's latest completion before the window's end, and whether it was reopened since. */
-export interface TaskCompletion {
-	state: CompletionState;
+interface CompletionFields {
 	/** The task.done event's key, and its time. */
 	done: string;
 	doneAt: string;
-	/** Set exactly when the state is reopened. */
-	reopened?: Reopening;
 }
+
+/** A task's latest completion before the window's end, and whether it was reopened since. */
+export type TaskCompletion = CompletionFields &
+	({ state: 'done'; reopened?: never } | { state: 'reopened'; reopened: Reopening });
 
 /** One task or page in the window. */
 export interface OverviewRow {

@@ -83,20 +83,22 @@ const reopening: Decoder<Reopening> = refine(
 	}
 );
 
-const completion: Decoder<TaskCompletion> = refine(
-	object(
-		{ state: oneOf(COMPLETION_STATES), done: text, doneAt: timestamp },
-		{ reopened: reopening }
-	),
-	(c, path) => {
-		if ((c.reopened !== undefined) !== (c.state === 'reopened')) {
-			fail(path, 'a reopening exactly when the state is reopened');
-		}
-		if (c.reopened !== undefined && compareTimes(c.reopened.after, c.doneAt) < 0) {
+const completionFields = object(
+	{ state: oneOf(COMPLETION_STATES), done: text, doneAt: timestamp },
+	{ reopened: reopening }
+);
+
+const completion: Decoder<TaskCompletion> = (value, path) => {
+	const { state, done, doneAt, reopened } = completionFields(value, path);
+	if (state === 'done' && reopened === undefined) return { state, done, doneAt };
+	if (state === 'reopened' && reopened !== undefined) {
+		if (compareTimes(reopened.after, doneAt) < 0) {
 			fail(`${path}.reopened.after`, 'before the completion');
 		}
+		return { state, done, doneAt, reopened };
 	}
-);
+	return fail(path, 'a reopening exactly when the state is reopened');
+};
 
 const row: Decoder<OverviewRow> = object(
 	{
