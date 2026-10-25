@@ -3,7 +3,9 @@ package collector
 import (
 	"cmp"
 	"context"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/kelos"
@@ -171,11 +173,8 @@ func (a *assembly) includeRun(ref model.Ref) {
 
 // announcedRuns joins each start announcement to its run, and that run
 // to the record the announcement is a comment on, with the same
-// confidence: the run whose pod it names (an identifier); else the attempt
-// of its Task name it was posted from, when its time singles one out (a
-// heuristic: a Task gone leaves a TaskRecord, which names no pod); else a
-// run keyed by that pod, built from the announcement alone. An
-// announcement naming no pod is joined to the runs of its Task name, a
+// confidence (announcedPod). An announcement naming no pod is joined to
+// the runs of its Task name in the namespace it names, else in any, a
 // heuristic: a retry reuses the name. Each announcement is joined once,
 // however often it is called: again once more of them are read.
 func (a *assembly) announcedRuns() {
@@ -184,22 +183,59 @@ func (a *assembly) announcedRuns() {
 			continue
 		}
 		a.joined[e.Ref()] = true
-		name, pod := e.Details[detailTaskName], e.Details[detailPod]
-		if pod == "" {
-			candidates := a.sameNameRuns(e.Ref(), name, func(model.Run) model.Evidence {
-				return a.announcementEvidence(e, "names Kelos Task "+name+" but no pod; a retry reuses the name")
-			})
-			if on, ev, ok := a.relatedOf(e); ok {
-				for _, r := range candidates {
-					a.links.heuristic(r.Key.Ref(), on, len(candidates) > 1, ev)
-				}
-			}
+		name, pod, ns := e.Details[detailTaskName], e.Details[detailPod], e.Details[detailNamespace]
+		if pod != "" {
+			a.announcedPod(e, ns, name, pod)
 			continue
 		}
-		ns := cmp.Or(e.Details[detailNamespace], a.cfg.Kelos.Namespace)
+		candidates := a.sameNameRuns(e.Ref(), ns, name, func(model.Run) model.Evidence {
+			return a.announcementEvidence(e, "names Kelos Task "+name+" but no pod; a retry reuses the name")
+		})
+		if on, ev, ok := a.relatedOf(e); ok {
+			for _, r := range candidates {
+				a.links.heuristic(r.Key.Ref(), on, len(candidates) > 1, ev)
+			}
+		}
+	}
+}
+
+// announcedPod joins an announcement naming pod, in namespace ns or in
+// none when ns is empty, to the runs whose pod it names (podMatches);
+// else to the attempt of its Task name it was posted from, when its time
+// singles one out (a heuristic: a Task gone leaves a TaskRecord, which
+// names no pod); else to a run keyed by that pod, built from the
+// announcement alone, in the collector's namespace when it names none.
+func (a *assembly) announcedPod(e model.Event, ns, name, pod string) {
+	matches := a.runsWhere(func(r model.Run) bool { return r.Pod == pod && inNamespace(r, ns) })
+	if len(matches) > 0 {
+		a.podMatches(e, pod, matches, ns != "")
+		return
+	}
+	if r, ok := a.announcedAttempt(e, ns, name); ok {
+		a.claimed[r.Key] = true
+		a.addRun(r)
+		a.links.heuristic(e.Ref(), r.Key.Ref(), false, a.announcementEvidence(e, "names pod "+pod+
+			", which no Task read names; it was posted inside this attempt of "+name+" and no other, "+
+			"which, read without its Task, names no pod"))
+		if on, onEv, ok := a.relatedOf(e); ok {
+			a.links.heuristic(r.Key.Ref(), on, false, onEv)
+		}
+		return
+	}
+	a.podRun(e, ns, name, pod)
+}
+
+// podMatches joins an announcement to matches, the runs of the pod it
+// names. The pod identifies its run in the namespace the announcement
+// names, or, when it names none, in the only namespace a run of that pod
+// is in. Across namespaces, the pod name alone does not: the runs the
+// announcement was posted during are heuristic candidates, unambiguous
+// when they are in one namespace; when it was posted during none, every
+// match is an ambiguous candidate.
+func (a *assembly) podMatches(e model.Event, pod string, matches []model.Run, named bool) {
+	on, onEv, related := a.relatedOf(e)
+	if named || len(namespaces(matches)) == 1 {
 		ev := a.announcementEvidence(e, "names pod "+pod)
-		on, onEv, related := a.relatedOf(e)
-		matches := a.runsWhere(func(r model.Run) bool { return r.Pod == pod && r.Key.Namespace == ns })
 		for _, r := range matches {
 			a.addRun(r)
 			a.links.identifier(e.Ref(), r.Key.Ref(), ev)
@@ -207,22 +243,48 @@ func (a *assembly) announcedRuns() {
 				a.links.identifier(r.Key.Ref(), on, onEv)
 			}
 		}
-		if len(matches) > 0 {
-			continue
-		}
-		if r, ok := a.announcedAttempt(e, ns, name); ok {
-			a.claimed[r.Key] = true
-			a.addRun(r)
-			a.links.heuristic(e.Ref(), r.Key.Ref(), false, a.announcementEvidence(e, "names pod "+pod+
-				", which no Task read names; it was posted inside this attempt of "+name+" and no other, "+
-				"which, read without its Task, names no pod"))
-			if related {
-				a.links.heuristic(r.Key.Ref(), on, false, onEv)
-			}
-			continue
-		}
-		a.podRun(e, ns, name, pod)
+		return
 	}
+	candidates := slices.DeleteFunc(slices.Clone(matches), func(r model.Run) bool { return !postedDuring(e, r) })
+	note := " but no namespace; it was posted while runs of it in " + strings.Join(namespaces(candidates), ", ") +
+		" were running"
+	if len(candidates) == 0 {
+		candidates = matches
+		note = " but no namespace; runs of it are in " + strings.Join(namespaces(matches), ", ") +
+			", and it was posted while none of them was running"
+	}
+	ambiguous := len(namespaces(candidates)) != 1
+	for _, r := range candidates {
+		a.addRun(r)
+		a.links.heuristic(e.Ref(), r.Key.Ref(), ambiguous, a.announcementEvidence(e, "names pod "+pod+note))
+		if related {
+			a.links.heuristic(r.Key.Ref(), on, ambiguous, onEv)
+		}
+	}
+}
+
+// postedDuring reports whether announcement e may have been posted
+// during run r: neither end of r known on the wrong side of its time. An
+// unknown time or end excludes nothing.
+func postedDuring(e model.Event, r model.Run) bool {
+	if e.SourceTime == nil {
+		return true
+	}
+	if start, ok := r.Interval.Start.Time(); ok && e.SourceTime.Before(start) {
+		return false
+	}
+	end, ok := r.Interval.End.Time()
+	return !ok || !e.SourceTime.After(end)
+}
+
+// namespaces lists the namespaces of runs, sorted, each once.
+func namespaces(runs []model.Run) []string {
+	var out []string
+	for _, r := range runs {
+		out = append(out, r.Key.Namespace)
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
 }
 
 // relatedOf returns the task, page or pull request announcement e is a
@@ -237,15 +299,15 @@ func (a *assembly) relatedOf(e model.Event) (model.Ref, model.Evidence, bool) {
 
 // announcedAttempt returns the attempt an announcement whose pod no Task
 // names was posted from, when its time singles one out: exactly one run of
-// its Task name was running then, and that run's pod is unknown (its Task
-// is gone). A run another announcement was joined to this way is not
-// joined again.
+// its Task name, in namespace ns or in any when ns is empty, was running
+// then, and that run's pod is unknown (its Task is gone). A run another
+// announcement was joined to this way is not joined again.
 func (a *assembly) announcedAttempt(e model.Event, ns, name string) (model.Run, bool) {
 	if name == "" || e.SourceTime == nil {
 		return model.Run{}, false
 	}
 	running := a.runsWhere(func(r model.Run) bool {
-		return r.TaskName == name && r.Key.Namespace == ns && during(r, *e.SourceTime)
+		return r.TaskName == name && inNamespace(r, ns) && during(r, *e.SourceTime)
 	})
 	if len(running) != 1 || running[0].Pod != "" || a.claimed[running[0].Key] {
 		return model.Run{}, false
@@ -253,13 +315,14 @@ func (a *assembly) announcedAttempt(e model.Event, ns, name string) (model.Run, 
 	return running[0], true
 }
 
-// podRun adds the run an announcement alone shows, keyed by its pod: no
-// Task or TaskRecord of it was read, so its interval and outcome are
-// unknown. Runs of the same Task name whose pod is unknown (read from a
-// TaskRecord alone) may be the same attempt: each is a heuristic
+// podRun adds the run an announcement alone shows, keyed by its pod in
+// namespace ns, else in the collector's: no Task or TaskRecord of it was
+// read, so its interval and outcome are unknown. Runs of the same Task
+// name whose pod is unknown (read from a TaskRecord alone), in ns or in
+// any when ns is empty, may be the same attempt: each is a heuristic
 // candidate, never merged.
 func (a *assembly) podRun(e model.Event, ns, name, pod string) {
-	key := model.RunKey{Cluster: a.cfg.Kelos.Cluster, Namespace: ns, Pod: pod}
+	key := model.RunKey{Cluster: a.cfg.Kelos.Cluster, Namespace: cmp.Or(ns, a.cfg.Kelos.Namespace), Pod: pod}
 	note := "announces the run; no Task or TaskRecord of it was read"
 	if a.kelos == nil {
 		note = "announces the run; the Kelos namespace could not be read"
@@ -283,26 +346,29 @@ func (a *assembly) podRun(e model.Event, ns, name, pod string) {
 	if on, ev, ok := a.relatedOf(e); ok {
 		a.links.identifier(key.Ref(), on, ev)
 	}
-	a.sameNameRuns(key.Ref(), name, func(r model.Run) model.Evidence {
+	a.sameNameRuns(key.Ref(), ns, name, func(r model.Run) model.Evidence {
 		return a.kelosEvidence(r, "same Task name "+name+"; read without its Task, it names no pod, so "+
 			"whether it is the announced attempt is unknown")
 	})
 }
 
 // sameNameRuns joins from to each run named name whose pod is unknown,
-// as heuristic candidates, ambiguous when there are several, and returns
-// them.
-func (a *assembly) sameNameRuns(from model.Ref, name string, evidence func(model.Run) model.Evidence) []model.Run {
+// in namespace ns or in any when ns is empty, as heuristic candidates,
+// ambiguous when there are several, and returns them.
+func (a *assembly) sameNameRuns(from model.Ref, ns, name string, evidence func(model.Run) model.Evidence) []model.Run {
 	if name == "" {
 		return nil
 	}
-	candidates := a.runsWhere(func(r model.Run) bool { return r.TaskName == name && r.Pod == "" })
+	candidates := a.runsWhere(func(r model.Run) bool { return r.TaskName == name && r.Pod == "" && inNamespace(r, ns) })
 	for _, r := range candidates {
 		a.addRun(r)
 		a.links.heuristic(from, r.Key.Ref(), len(candidates) > 1, evidence(r))
 	}
 	return candidates
 }
+
+// inNamespace reports whether r is in namespace ns, any when ns is empty.
+func inNamespace(r model.Run, ns string) bool { return ns == "" || r.Key.Namespace == ns }
 
 // announcedRole is the role of a run known from its announcement alone:
 // a wiki announcement starts a wiki follow-up; otherwise the Task name

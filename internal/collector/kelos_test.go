@@ -1,10 +1,12 @@
 package collector
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/kelos"
+	"github.com/sperano/sillage/internal/source/vikunja"
 )
 
 const retryName = "vikunja-widgets-agent-opus-104"
@@ -230,4 +232,139 @@ func TestConcurrentAgentAttemptsOnDifferentTasksStaySeparate(t *testing.T) {
 			}
 		}
 	}
+}
+
+// otherNamespace is a second namespace running Kelos pods: the collector
+// does not read it, so its runs reach a story only as kept runs.
+const otherNamespace = "others"
+
+// sharedPod is a pod name of retryName in both namespaces.
+const sharedPod = retryName + "-pod00"
+
+// keptRun is a finished run of retryName in ns that a store kept; pod is
+// empty for a run read from a TaskRecord alone.
+func keptRun(ns, uid, pod string, start, end int) model.Run {
+	return model.Run{
+		Key: model.RunKey{Cluster: testCluster, Namespace: ns, UID: uid}, TaskName: retryName, Pod: pod,
+		Role: model.RoleImplementation, Outcome: model.OutcomeSucceeded,
+		Interval: model.Interval{Start: model.KnownAt(at(start)), End: model.KnownAt(at(end))},
+		Evidence: []model.Evidence{{Source: model.SourceKelos, Instance: testCluster, Ref: "tasks/" + ns + "/" + retryName}},
+	}
+}
+
+func otherRunRef(uid string) model.Ref {
+	return model.RunKey{Cluster: testCluster, Namespace: otherNamespace, UID: uid}.Ref()
+}
+
+// statingNamespace has each announcement of snap name namespace ns, as
+// the console paragraph does.
+func statingNamespace(snap vikunja.Snapshot, ns string) vikunja.Snapshot {
+	snap.Comments = slices.Clone(snap.Comments)
+	for i := range snap.Comments {
+		snap.Comments[i].Body += "<p>Watch it in the console (namespace " + ns + ").</p>"
+	}
+	return snap
+}
+
+// checkLinks fails unless the correlations from ref to a run are one to
+// each of want, of confidence, ambiguous as said.
+func checkLinks(t *testing.T, s model.Story, ref model.Ref, confidence model.Confidence, ambiguous bool,
+	want ...model.Ref) {
+	t.Helper()
+	got := linksFrom(s, ref)
+	to := make(map[model.Ref]bool)
+	for _, c := range got {
+		to[c.To] = true
+		if c.Confidence != confidence || c.Ambiguous != ambiguous {
+			t.Errorf("%s: %s, want a %s, ambiguous %v", ref.ID, c, confidence, ambiguous)
+		}
+	}
+	for _, w := range want {
+		if !to[w] {
+			t.Errorf("%s links %v, want one to %s", ref.ID, got, w)
+		}
+	}
+	if len(got) != len(want) {
+		t.Errorf("%s links %v, want only %v", ref.ID, got, want)
+	}
+}
+
+func TestNamespacelessAnnouncementOfASharedPodJoinsTheRunItWasPostedDuring(t *testing.T) {
+	here := kelos.Snapshot{Tasks: []kelos.Task{task(retryName, "uid-here", "", nil, 60, 80)}}
+	tests := map[string]struct {
+		there     model.Run
+		minute    int
+		ambiguous bool
+		want      []model.Ref
+	}{
+		"during the other namespace's run": {keptRun(otherNamespace, "uid-there", sharedPod, 2, 9), 3, false,
+			[]model.Ref{otherRunRef("uid-there")}},
+		"during the read namespace's run": {keptRun(otherNamespace, "uid-there", sharedPod, 2, 9), 65, false,
+			[]model.Ref{runRef("uid-here")}},
+		"during both": {keptRun(otherNamespace, "uid-there", sharedPod, 2, 90), 65, true,
+			[]model.Ref{runRef("uid-here"), otherRunRef("uid-there")}},
+		"during neither": {keptRun(otherNamespace, "uid-there", sharedPod, 2, 9), 30, true,
+			[]model.Ref{runRef("uid-here"), otherRunRef("uid-there")}},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			s := recollect(t, map[int]string{tt.minute: sharedPod}, here, Kept{Runs: []model.Run{tt.there}})
+			checkLinks(t, s, announcementRef(tt.minute), model.ConfidenceHeuristic, tt.ambiguous, tt.want...)
+			for _, w := range tt.want {
+				if c, ok := linkBetween(s, w, taskRoot(104).Ref()); ok && c.Confidence == model.ConfidenceIdentifier {
+					t.Errorf("run %s joined to the task by %s, which only a heuristic says", w.ID, c)
+				}
+			}
+		})
+	}
+}
+
+func TestAnnouncementStatingItsNamespaceIdentifiesThePodThere(t *testing.T) {
+	here := kelos.Snapshot{Tasks: []kelos.Task{task(retryName, "uid-here", "", nil, 60, 80)}}
+	kept := Kept{Runs: []model.Run{keptRun(otherNamespace, "uid-there", sharedPod, 2, 9)}}
+	announced := statingNamespace(announcedTask(104, retryName, map[int]string{65: sharedPod}), otherNamespace)
+	s := recollectFrom(t, announced, here, kept)
+	checkLinks(t, s, announcementRef(65), model.ConfidenceIdentifier, false, otherRunRef("uid-there"))
+}
+
+func TestNamespacelessAnnouncementOfAPodInOneOtherNamespaceIdentifiesIt(t *testing.T) {
+	kept := Kept{Runs: []model.Run{keptRun(otherNamespace, "uid-there", sharedPod, 2, 9)}}
+	s := recollect(t, map[int]string{3: sharedPod}, kelos.Snapshot{}, kept)
+	checkLinks(t, s, announcementRef(3), model.ConfidenceIdentifier, false, otherRunRef("uid-there"))
+	for _, r := range s.Runs {
+		if r.Key.Pod != "" {
+			t.Errorf("run %s keyed by pod, but a kept run names it", r.Key)
+		}
+	}
+}
+
+func TestPodlessAnnouncementStatingItsNamespaceJoinsOnlyRunsThere(t *testing.T) {
+	here := kelos.Snapshot{Records: []kelos.TaskRecord{record(retryName, "uid-here", nil, 2, 9)}}
+	kept := Kept{Runs: []model.Run{keptRun(otherNamespace, "uid-there", "", 2, 9)}}
+	announced := announcedTask(104, retryName, map[int]string{3: ""})
+	t.Run("stated", func(t *testing.T) {
+		s := recollectFrom(t, statingNamespace(announced, testNamespace), here, kept)
+		checkLinks(t, s, announcementRef(3), model.ConfidenceHeuristic, false, runRef("uid-here"))
+	})
+	t.Run("unstated", func(t *testing.T) {
+		s := recollectFrom(t, announced, here, kept)
+		checkLinks(t, s, announcementRef(3), model.ConfidenceHeuristic, true, runRef("uid-here"),
+			otherRunRef("uid-there"))
+	})
+}
+
+func TestNamespacelessAnnouncementIsNoAttemptOfASharedTaskName(t *testing.T) {
+	here := kelos.Snapshot{Records: []kelos.TaskRecord{record(retryName, "uid-here", nil, 2, 9)}}
+	kept := Kept{Runs: []model.Run{keptRun(otherNamespace, "uid-there", "", 2, 9)}}
+	announced := announcedTask(104, retryName, map[int]string{3: "p-new"})
+	t.Run("unstated", func(t *testing.T) {
+		s := recollectFrom(t, announced, here, kept)
+		checkLinks(t, s, announcementRef(3), model.ConfidenceIdentifier, false, podRef("p-new"))
+		checkLinks(t, s, podRef("p-new"), model.ConfidenceHeuristic, true, runRef("uid-here"),
+			otherRunRef("uid-there"))
+	})
+	t.Run("stated", func(t *testing.T) {
+		s := recollectFrom(t, statingNamespace(announced, testNamespace), here, kept)
+		checkLinks(t, s, announcementRef(3), model.ConfidenceHeuristic, false, runRef("uid-here"))
+	})
 }
