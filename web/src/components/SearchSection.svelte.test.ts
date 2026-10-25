@@ -4,10 +4,15 @@ import { render } from 'vitest-browser-svelte';
 import { API_BASE, MAX_SEARCH_LENGTH } from '../lib/api';
 import { memoryHistory } from '../lib/history';
 import { Router } from '../lib/router.svelte';
-import { HANG, fakeServer, json, problem } from '../testing/fakeServer';
+import { HANG, type Handler, fakeServer, json, problem } from '../testing/fakeServer';
 import SearchSection from './SearchSection.svelte';
 
 const SEARCH = `${API_BASE}/search`;
+
+// matches answers a search with roots, as the server does: under the query it read.
+function matches(roots: unknown[] = []): Handler {
+	return (url) => json({ query: url.searchParams.get('q'), roots });
+}
 
 async function renderSearch(query: string, handlers: Parameters<typeof fakeServer>[0] = {}) {
 	const history = memoryHistory('/');
@@ -26,15 +31,14 @@ test('submitting puts the search in the URL', async () => {
 
 test('lists the matching roots with links to their stories', async () => {
 	const { server } = await renderSearch('widgets', {
-		[SEARCH]: () =>
-			json([
-				{
-					root: { task: { instance: 'vikunja.example.com', id: 102 } },
-					title: 'Widgets: add a gear',
-					lastActivity: '2026-03-03T19:30:00Z'
-				},
-				{ root: { page: { instance: 'wiki.example.com', id: 57, locale: 'en' } } }
-			])
+		[SEARCH]: matches([
+			{
+				root: { task: { instance: 'vikunja.example.com', id: 102 } },
+				title: 'Widgets: add a gear',
+				lastActivity: '2026-03-03T19:30:00Z'
+			},
+			{ root: { page: { instance: 'wiki.example.com', id: 57, locale: 'en' } } }
+		])
 	});
 	const results = page.getByRole('list', { name: 'Search results' });
 	await expect
@@ -52,7 +56,7 @@ test('lists the matching roots with links to their stories', async () => {
 
 test('a search from a link longer than the box takes is not sent', async () => {
 	const query = 'w'.repeat(MAX_SEARCH_LENGTH + 1);
-	const { server } = await renderSearch(query, { [SEARCH]: () => json([]) });
+	const { server } = await renderSearch(query, { [SEARCH]: matches() });
 	await expect
 		.element(page.getByRole('alert'))
 		.toHaveTextContent(
@@ -62,7 +66,7 @@ test('a search from a link longer than the box takes is not sent', async () => {
 });
 
 test('no match says so', async () => {
-	await renderSearch('nothing', { [SEARCH]: () => json([]) });
+	await renderSearch('nothing', { [SEARCH]: matches() });
 	await expect
 		.element(page.getByRole('status'))
 		.toHaveTextContent('No task or page matches “nothing”.');
@@ -82,7 +86,7 @@ test('a failed search says why', async () => {
 test('searching again for the same text retries, in place', async () => {
 	let failures = 1;
 	const { history, server } = await renderSearch('widgets', {
-		[SEARCH]: () => (failures-- > 0 ? problem(503, 'Service Unavailable') : json([]))
+		[SEARCH]: (url) => (failures-- > 0 ? problem(503, 'Service Unavailable') : matches()(url))
 	});
 	await expect.element(page.getByRole('alert')).toBeVisible();
 	await page.getByRole('button', { name: 'Search' }).click();
@@ -93,7 +97,7 @@ test('searching again for the same text retries, in place', async () => {
 
 test('a new search aborts the one in flight', async () => {
 	const { server, view } = await renderSearch('first', {
-		[SEARCH]: (url) => (url.searchParams.get('q') === 'first' ? HANG : json([]))
+		[SEARCH]: (url) => (url.searchParams.get('q') === 'first' ? HANG : matches()(url))
 	});
 	await expect.element(page.getByRole('status')).toHaveTextContent('Searching');
 	await view.rerender({ query: 'second' });

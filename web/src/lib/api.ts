@@ -4,9 +4,17 @@
 // abort rejects with the signal's reason, which isAbort recognizes when the
 // caller aborted without one of its own.
 
-import { type Decoder, DecodeError, array, decode, object, text, timestamp, unique } from './check';
-import { coverageList, parseStory, root as rootDecoder } from './decodeModel';
-import type { Coverage, Root, Story } from './model';
+import { DecodeError, decode } from './check';
+import {
+	type Resolution,
+	type RootSummary,
+	type SourceFreshness,
+	freshnessResponse,
+	resolution,
+	searchResponse
+} from './decodeApi';
+import { parseStory } from './decodeModel';
+import type { Root, Story } from './model';
 import { rootSegments, sameRoot } from './roots';
 import { MS_PER_SECOND } from './format';
 import { parseOverviewPage } from './overview/decode';
@@ -27,19 +35,6 @@ export const REQUEST_TIMEOUT_MS = 15_000;
 export const MAX_SEARCH_LENGTH = 200;
 
 const HTTP_NOT_FOUND = 404;
-
-/** A stored root a search matched. */
-export interface RootSummary {
-	root: Root;
-	title?: string;
-	/** The latest time of the root's records; absent when none has one. */
-	lastActivity?: string;
-}
-
-const rootSummaries: Decoder<RootSummary[]> = unique(
-	array(object({ root: rootDecoder }, { title: text, lastActivity: timestamp })),
-	(s) => rootSegments(s.root)
-);
 
 /** The problem body the API answers an error with (RFC 9457). */
 export interface Problem {
@@ -111,10 +106,13 @@ export interface Api {
 	story(root: Root, signal?: AbortSignal): Promise<Story>;
 	/** The stored roots whose title or key contains query, most recently active first. */
 	search(query: string, signal?: AbortSignal): Promise<RootSummary[]>;
-	/** The root a link (a task, run, pull request or page) belongs to. */
-	resolve(url: string, signal?: AbortSignal): Promise<Root>;
-	/** How far each source instance has been read. */
-	coverage(signal?: AbortSignal): Promise<Coverage[]>;
+	/**
+	 * The roots a link (a task, run, pull request or page) belongs to, most
+	 * recently active first, and what it was read as.
+	 */
+	resolve(url: string, signal?: AbortSignal): Promise<Resolution>;
+	/** How recently each source instance was read, across the stored roots. */
+	freshness(signal?: AbortSignal): Promise<SourceFreshness[]>;
 	/**
 	 * One page of the overview: the tasks active in the query's window that
 	 * match its filters, after the cursor when one is given.
@@ -147,11 +145,13 @@ export function createApi(options: ApiOptions = {}): Api {
 			}
 			return story;
 		},
-		search: (q, signal) =>
-			get(`${API_BASE}/search${query('q', q)}`, (b) => decode(rootSummaries, b), signal),
+		search: async (q, signal) =>
+			(await get(`${API_BASE}/search${query('q', q)}`, (b) => decode(searchResponse, b), signal))
+				.roots,
 		resolve: (url, signal) =>
-			get(`${API_BASE}/resolve${query('url', url)}`, (b) => decode(rootDecoder, b), signal),
-		coverage: (signal) => get(`${API_BASE}/coverage`, (b) => decode(coverageList, b), signal),
+			get(`${API_BASE}/resolve${query('url', url)}`, (b) => decode(resolution, b), signal),
+		freshness: async (signal) =>
+			(await get(`${API_BASE}/coverage`, (b) => decode(freshnessResponse, b), signal)).sources,
 		overview: (q, after, signal) => {
 			const params = overviewApiParams(q, after).toString();
 			const path = params ? `${API_BASE}/overview?${params}` : `${API_BASE}/overview`;

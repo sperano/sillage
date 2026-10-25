@@ -7,13 +7,14 @@ import { memoryHistory } from './lib/history';
 import { Router } from './lib/router.svelte';
 import { HANG, fakeServer, json } from './testing/fakeServer';
 import { goldenStory } from './testing/goldenStories';
+import { goldenResponse } from './lib/testing/apiResponses';
 
 const TASK_STORY = `${API_BASE}/stories/task/vikunja.example.com/102`;
 const PAGE_STORY = `${API_BASE}/stories/page/wiki.example.com/57/en`;
 
 async function renderAt(href: string, handlers: Parameters<typeof fakeServer>[0] = {}) {
 	const history = memoryHistory(href);
-	const server = fakeServer({ [`${API_BASE}/coverage`]: () => json([]), ...handlers });
+	const server = fakeServer({ [`${API_BASE}/coverage`]: () => json({ sources: [] }), ...handlers });
 	const router = new Router(history);
 	await render(App, { api: server.api, router });
 	return { history, server, router };
@@ -46,7 +47,10 @@ test('a deep link to a task or a page loads its story', async () => {
 test('a search result opens its story in the page, and back returns to the results', async () => {
 	const { history, server } = await renderAt('/?q=widgets', {
 		[`${API_BASE}/search`]: () =>
-			json([{ root: { task: { instance: 'vikunja.example.com', id: 102 } }, title: 'Widgets' }]),
+			json({
+				query: 'widgets',
+				roots: [{ root: { task: { instance: 'vikunja.example.com', id: 102 } }, title: 'Widgets' }]
+			}),
 		[TASK_STORY]: () => json(goldenStory('implementation-merged'))
 	});
 	await page.getByRole('link', { name: 'Widgets' }).click();
@@ -63,7 +67,9 @@ test('a search result opens its story in the page, and back returns to the resul
 });
 
 test('a new search keeps the focus in the search box', async () => {
-	const { history } = await renderAt('/?q=widgets', { [`${API_BASE}/search`]: () => json([]) });
+	const { history } = await renderAt('/?q=widgets', {
+		[`${API_BASE}/search`]: (url) => json({ query: url.searchParams.get('q'), roots: [] })
+	});
 	const box = page.getByRole('searchbox', { name: 'Title or key' });
 	await userEvent.clear(box);
 	await userEvent.type(box, 'gears{Enter}');
@@ -86,10 +92,8 @@ test('leaving a story while it loads aborts its request', async () => {
 test('/open resolves the link and shows its story in place of /open', async () => {
 	const link = 'https://github.example.com/example-org/widgets/pull/7';
 	const { history } = await renderAt(`/open?url=${encodeURIComponent(link)}`, {
-		[`${API_BASE}/resolve`]: (url) =>
-			url.searchParams.get('url') === link
-				? json({ task: { instance: 'vikunja.example.com', id: 102 } })
-				: json({}, 400),
+		// What the Go handler answers for this link.
+		[`${API_BASE}/resolve`]: (url) => json(goldenResponse(url.pathname + url.search)),
 		[TASK_STORY]: () => json(goldenStory('implementation-merged'))
 	});
 	await expect

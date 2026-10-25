@@ -68,7 +68,7 @@ import {
 	type Usage
 } from './model';
 
-const source = oneOf(SOURCES);
+export const source = oneOf(SOURCES);
 const actorKind = oneOf(ACTOR_KINDS);
 
 export const taskKey: Decoder<TaskKey> = object({ instance: text, id: positiveInteger });

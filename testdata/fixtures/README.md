@@ -71,6 +71,18 @@ writes (a Kelos watch's `run.observed`, an observation's
 model and decoder against this file, so a kind or field added in Go
 fails the web tests until the frontend takes it.
 
+## API responses
+
+`api/responses.golden.json` holds the bodies `internal/api`'s handlers
+answer, over the fixture stories, for the requests the web client makes
+besides stories and the overview: a search with a match and one without,
+a resolved pull request link, and the sources' freshness
+(`GET /api/v1/coverage`), keyed by path and query. Generated (`go test
+./internal/api -run TestResponsesGolden -update`); never edit it by hand.
+`web/src/lib/api.test.ts` asks for each path through the client and
+decodes the body, so a response shape changed in Go fails the web tests
+until `web/src/lib/decodeApi.ts` follows.
+
 ## Overview
 
 `overview/` holds the multi-task overview's set: eight fabricated tasks over

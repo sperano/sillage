@@ -1,12 +1,11 @@
 <!-- The entry page's search: tasks and pages by title or key. -->
 <script lang="ts">
 	import { MAX_SEARCH_LENGTH, type Api } from '../lib/api';
-	import { formatTime } from '../lib/format';
 	import { load } from '../lib/load.svelte';
-	import { rootLabel } from '../lib/roots';
 	import type { Router } from '../lib/router.svelte';
-	import { QUERY_PARAM, homeHref, rootHref } from '../lib/routes';
+	import { QUERY_PARAM, homeHref } from '../lib/routes';
 	import ErrorNotice from './ErrorNotice.svelte';
+	import RootList from './RootList.svelte';
 
 	let { api, router, query }: { api: Api; router: Router; query: string } = $props();
 
@@ -52,28 +51,7 @@
 		{#if hits.length === 0}
 			<p role="status">No task or page matches “{wanted}”.</p>
 		{:else}
-			<ul aria-label="Search results">
-				{#each hits as hit (rootHref(hit.root))}
-					<li>
-						<a href={rootHref(hit.root)}>{hit.title ?? rootLabel(hit.root)}</a>
-						{#if hit.title}<span class="key">{rootLabel(hit.root)}</span>{/if}
-						{#if hit.lastActivity}
-							<span class="activity">
-								last activity
-								<time datetime={hit.lastActivity}>{formatTime(hit.lastActivity)}</time>
-							</span>
-						{/if}
-					</li>
-				{/each}
-			</ul>
+			<RootList roots={hits} label="Search results" />
 		{/if}
 	{/if}
 </section>
-
-<style>
-	.key,
-	.activity {
-		color: #555;
-		margin-left: 0.5rem;
-	}
-</style>

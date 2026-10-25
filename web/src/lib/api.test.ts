@@ -14,10 +14,12 @@ import { json, problem } from '../testing/fakeServer';
 import { goldenStory } from '../testing/goldenStories';
 import { DEFAULT_QUERY } from './overview/query';
 import { overviewGoldenJSON } from './testing/overview';
+import { goldenPaths, goldenResponse } from './testing/apiResponses';
 
 const TASK: Root = { task: { instance: 'vikunja.example.com', id: 102 } };
 const PAGE: Root = { page: { instance: 'wiki.example.com', id: 57, locale: 'en' } };
 const SHORT_TIMEOUT_MS = 20;
+const PULL_LINK = 'https://github.example.com/example-org/widgets/pull/7';
 
 // answering returns a fetch that answers every request with respond's
 // response and records the paths asked for.
@@ -59,7 +61,13 @@ describe('requests', () => {
 
 	test('search and resolve encode their parameter', async () => {
 		const searchFetch = answering(() =>
-			json([{ root: TASK, title: 'Widgets', lastActivity: '2026-03-03T19:30:00Z' }, { root: PAGE }])
+			json({
+				query: 'a&b c',
+				roots: [
+					{ root: TASK, title: 'Widgets', lastActivity: '2026-03-03T19:30:00Z' },
+					{ root: PAGE }
+				]
+			})
 		);
 		const hits = await createApi({ fetch: searchFetch }).search('a&b c');
 		expect(hits).toEqual([
@@ -68,22 +76,47 @@ describe('requests', () => {
 		]);
 		expect(requested(searchFetch)).toEqual([`${API_BASE}/search?q=a%26b+c`]);
 
-		const resolveFetch = answering(() => json(TASK));
+		const resolution = { kind: 'github-pull-request', roots: [{ root: TASK }, { root: PAGE }] };
+		const resolveFetch = answering(() => json(resolution));
 		const link = 'https://github.example.com/example-org/widgets/pull/7';
-		expect(await createApi({ fetch: resolveFetch }).resolve(link)).toEqual(TASK);
+		expect(await createApi({ fetch: resolveFetch }).resolve(link)).toEqual(resolution);
 		expect(requested(resolveFetch)).toEqual([
 			`${API_BASE}/resolve?${new URLSearchParams({ url: link })}`
 		]);
 	});
 
-	test('coverage decodes every source instance', async () => {
-		const coverage = [
-			{ source: 'kelos', instance: 'cluster-a', lastSuccessfulRead: '2026-03-03T20:00:00Z' },
-			{ source: 'wiki', instance: 'wiki.example.com' }
+	test('a resolution without a root is an invalid response', async () => {
+		const fetchFn = answering(() => json({ kind: 'vikunja-task', roots: [] }));
+		await expect(createApi({ fetch: fetchFn }).resolve('https://x.example.com')).rejects.toThrow(
+			InvalidResponseError
+		);
+	});
+
+	test('freshness decodes every source instance', async () => {
+		const sources = [
+			{
+				source: 'kelos',
+				instance: 'cluster-a',
+				roots: 3,
+				neverRead: 1,
+				newestRead: '2026-03-03T20:00:00Z',
+				oldestRead: '2026-03-02T20:00:00Z'
+			},
+			{ source: 'wiki', instance: 'wiki.example.com', roots: 1, neverRead: 1 }
 		];
-		const fetchFn = answering(() => json(coverage));
-		expect(await createApi({ fetch: fetchFn }).coverage()).toEqual(coverage);
+		const fetchFn = answering(() => json({ sources }));
+		expect(await createApi({ fetch: fetchFn }).freshness()).toEqual(sources);
 		expect(requested(fetchFn)).toEqual([`${API_BASE}/coverage`]);
+	});
+
+	test('bare lists, not the envelopes the server answers, are invalid responses', async () => {
+		const fetchFn = answering(() => json([]));
+		const api = createApi({ fetch: fetchFn });
+		await expect(api.search('widgets')).rejects.toThrow(InvalidResponseError);
+		await expect(api.freshness()).rejects.toThrow(InvalidResponseError);
+		await expect(createApi({ fetch: answering(() => json(TASK)) }).resolve('x')).rejects.toThrow(
+			InvalidResponseError
+		);
 	});
 
 	test('overview sends the filters and the cursor, and decodes the page', async () => {
@@ -120,7 +153,7 @@ describe('errors', () => {
 
 	test('another status is an HttpError, with or without a problem body', async () => {
 		const withBody = answering(() => problem(503, 'Service Unavailable', 'store unreachable'));
-		await expect(createApi({ fetch: withBody }).coverage()).rejects.toMatchObject({
+		await expect(createApi({ fetch: withBody }).freshness()).rejects.toMatchObject({
 			name: 'HttpError',
 			status: 503,
 			problem: { title: 'Service Unavailable', detail: 'store unreachable' }
@@ -128,7 +161,7 @@ describe('errors', () => {
 
 		const bare = answering(() => new Response('oops', { status: 500, statusText: 'Internal' }));
 		const err: unknown = await createApi({ fetch: bare })
-			.coverage()
+			.freshness()
 			.catch((e: unknown) => e);
 		expect(err).toBeInstanceOf(HttpError);
 		expect(err).not.toBeInstanceOf(NotFoundError);
@@ -137,31 +170,33 @@ describe('errors', () => {
 
 	test('a body that is not JSON, or not the model, is an invalid response', async () => {
 		const html = answering(() => new Response('<!doctype html>', { status: 200 }));
-		await expect(createApi({ fetch: html }).coverage()).rejects.toThrow(InvalidResponseError);
+		await expect(createApi({ fetch: html }).freshness()).rejects.toThrow(InvalidResponseError);
 
-		const wrong = answering(() => json([{ source: 'jira', instance: 'x' }]));
-		await expect(createApi({ fetch: wrong }).coverage()).rejects.toThrow(/unknown value "jira"/);
+		const wrong = answering(() =>
+			json({ sources: [{ source: 'jira', instance: 'x', roots: 1, neverRead: 1 }] })
+		);
+		await expect(createApi({ fetch: wrong }).freshness()).rejects.toThrow(/unknown value "jira"/);
 	});
 
 	test('a connection dropped while reading the body is a NetworkError', async () => {
-		const response = json([]);
+		const response = json({ sources: [] });
 		vi.spyOn(response, 'json').mockRejectedValue(new TypeError('network error'));
 		const fetchFn = answering(() => response);
-		await expect(createApi({ fetch: fetchFn }).coverage()).rejects.toThrow(NetworkError);
+		await expect(createApi({ fetch: fetchFn }).freshness()).rejects.toThrow(NetworkError);
 	});
 
 	test('a fetch that fails is a NetworkError, tried once', async () => {
 		const fetchFn = vi.fn<typeof fetch>(async () => {
 			throw new TypeError('Failed to fetch');
 		});
-		await expect(createApi({ fetch: fetchFn }).coverage()).rejects.toThrow(NetworkError);
+		await expect(createApi({ fetch: fetchFn }).freshness()).rejects.toThrow(NetworkError);
 		expect(fetchFn).toHaveBeenCalledOnce();
 	});
 
 	test('a server that does not answer is a TimeoutError, tried once', async () => {
 		const fetchFn = hanging();
 		const api = createApi({ fetch: fetchFn, timeoutMs: SHORT_TIMEOUT_MS });
-		await expect(api.coverage()).rejects.toThrow(TimeoutError);
+		await expect(api.freshness()).rejects.toThrow(TimeoutError);
 		expect(fetchFn).toHaveBeenCalledOnce();
 	});
 
@@ -173,7 +208,7 @@ describe('errors', () => {
 			return Promise.reject(controller.signal.reason as Error);
 		});
 		const err: unknown = await createApi({ fetch: answering(() => response) })
-			.coverage(controller.signal)
+			.freshness(controller.signal)
 			.catch((e: unknown) => e);
 		expect(isAbort(err)).toBe(true);
 	});
@@ -191,7 +226,7 @@ describe('errors', () => {
 			return response;
 		});
 		const api = createApi({ fetch: fetchFn, timeoutMs: SHORT_TIMEOUT_MS });
-		await expect(api.coverage()).rejects.toThrow(TimeoutError);
+		await expect(api.freshness()).rejects.toThrow(TimeoutError);
 	});
 
 	test("the caller's abort rejects with its reason, not an ApiError", async () => {
@@ -200,5 +235,57 @@ describe('errors', () => {
 		controller.abort();
 		const err: unknown = await pending.catch((e: unknown) => e);
 		expect(isAbort(err)).toBe(true);
+	});
+});
+
+// What the Go handlers answer, from their golden file: each request the
+// client makes for it is the path the file has, and decodes.
+describe('the Go responses', () => {
+	const answeringGolden = () =>
+		vi.fn<typeof fetch>(async (input) => json(goldenResponse(String(input))));
+
+	test('the file has a body for each request below', () => {
+		expect([...goldenPaths].sort()).toEqual(
+			[
+				`${API_BASE}/coverage`,
+				`${API_BASE}/resolve?${new URLSearchParams({ url: PULL_LINK })}`,
+				`${API_BASE}/search?q=nothing-matches`,
+				`${API_BASE}/search?q=retry`
+			].sort()
+		);
+	});
+
+	test('searches decode', async () => {
+		const api = createApi({ fetch: answeringGolden() });
+		expect(await api.search('retry')).toEqual([
+			{ root: { task: { instance: 'vikunja.example.com', id: 104 } }, title: 'failed-run-retry' }
+		]);
+		expect(await api.search('nothing-matches')).toEqual([]);
+	});
+
+	test('a resolved link decodes', async () => {
+		const resolution = await createApi({ fetch: answeringGolden() }).resolve(PULL_LINK);
+		expect(resolution).toEqual({
+			kind: 'github-pull-request',
+			roots: [
+				{
+					root: { task: { instance: 'vikunja.example.com', id: 102 } },
+					title: 'implementation-merged'
+				}
+			]
+		});
+	});
+
+	test('the freshness decodes, one record per source instance', async () => {
+		const sources = await createApi({ fetch: answeringGolden() }).freshness();
+		expect(sources.map((s) => `${s.source}/${s.instance}`)).toEqual([
+			'github/github.example.com',
+			'kelos/cluster-a',
+			'vikunja/vikunja.example.com',
+			'wiki/wiki.example.com'
+		]);
+		expect(sources.every((s) => s.newestRead !== undefined && s.oldestRead !== undefined)).toBe(
+			true
+		);
 	});
 });
