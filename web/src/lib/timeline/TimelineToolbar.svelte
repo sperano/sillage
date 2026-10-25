@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { formatDate, formatMinute, zoneName, type Zone } from './time';
+	import TimeZoneSelect from './TimeZoneSelect.svelte';
 	import type { TimeWindow } from './view';
 
 	interface Props {
@@ -31,13 +32,7 @@
 </script>
 
 <div class="toolbar">
-	<label>
-		Time zone
-		<select bind:value={zone}>
-			<option value="local">Local ({zoneName('local')})</option>
-			<option value="utc">UTC</option>
-		</select>
-	</label>
+	<TimeZoneSelect bind:zone />
 	<div class="buttons" role="group" aria-label="Zoom and pan">
 		<button type="button" onclick={onreset}>Whole story</button>
 		<button type="button" onclick={() => onzoom('in')} disabled={!canZoomIn}>Zoom in</button>
@@ -61,8 +56,7 @@
 		display: flex;
 		gap: 0.25rem;
 	}
-	button,
-	select {
+	button {
 		font: inherit;
 		color: var(--tl-fg);
 		background: var(--tl-bg);

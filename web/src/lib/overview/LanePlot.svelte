@@ -5,6 +5,7 @@
      takes whatever width it is given. -->
 <script lang="ts">
 	import type { UnknownSpan } from '../timeline/coverage';
+	import type { Zone } from '../timeline/time';
 	import type { Lane } from './lanes';
 	import { barText, describeMark, describeSpan, markGlyph, place, type Range } from './spans';
 
@@ -13,6 +14,7 @@
 		range: Range;
 		/** The cursor's time. */
 		cursor: number;
+		zone: Zone;
 		unknown: readonly UnknownSpan[];
 		/** Whether bars show their text: only in an expanded row or group. */
 		labelled: boolean;
@@ -20,7 +22,7 @@
 		onpick: (t: number) => void;
 	}
 
-	let { lane, range, cursor, unknown, labelled, onpick }: Props = $props();
+	let { lane, range, cursor, zone, unknown, labelled, onpick }: Props = $props();
 
 	const PERCENT = 100;
 	const pct = (f: number) => `${f * PERCENT}%`;
@@ -60,7 +62,7 @@
 		></span>
 	{/each}
 	{#each bars as { span, placement } (span.key)}
-		{@const description = describeSpan(span)}
+		{@const description = describeSpan(span, zone)}
 		<span
 			class="bar {span.kind}"
 			class:stub-start={placement.stub === 'start'}
@@ -80,7 +82,7 @@
 			class:failed={m.kind === 'pr.closed'}
 			style:left={pct(at(Date.parse(m.at)))}
 			role="img"
-			title={describeMark(m)}>{markGlyph(m.kind)}</span
+			title={describeMark(m, zone)}>{markGlyph(m.kind)}</span
 		>
 	{/each}
 	{#if cursor >= range.start && cursor <= range.end}

@@ -4,6 +4,7 @@
 
 import { coverageKey } from '../model';
 import { unknownSpans, type UnknownSpan } from '../timeline/coverage';
+import type { Zone } from '../timeline/time';
 import type { OverviewRow } from './model';
 import type { Range } from './spans';
 
@@ -21,6 +22,6 @@ export function rowSources(row: OverviewRow): string[] {
 }
 
 /** The spans of the window in which one of the row's sources is unknown, each with its reason. */
-export function rowUnknownSpans(row: OverviewRow, range: Range): UnknownSpan[] {
-	return rowSources(row).flatMap((s) => unknownSpans(row.coverage, s, range, 'utc'));
+export function rowUnknownSpans(row: OverviewRow, range: Range, zone: Zone): UnknownSpan[] {
+	return rowSources(row).flatMap((s) => unknownSpans(row.coverage, s, range, zone));
 }

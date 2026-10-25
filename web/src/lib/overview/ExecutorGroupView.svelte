@@ -4,6 +4,7 @@
 <script lang="ts">
 	import { count } from '../format';
 	import { rootHref } from '../routes';
+	import type { Zone } from '../timeline/time';
 	import { NO_EXECUTOR, type ExecutorGroup } from './lanes';
 	import LanePlot from './LanePlot.svelte';
 	import type { Range } from './spans';
@@ -13,10 +14,11 @@
 		group: ExecutorGroup;
 		range: Range;
 		cursor: number;
+		zone: Zone;
 		onpick: (t: number) => void;
 	}
 
-	let { group, range, cursor, onpick }: Props = $props();
+	let { group, range, cursor, zone, onpick }: Props = $props();
 
 	const name = $derived(group.executor ?? NO_EXECUTOR);
 </script>
@@ -38,7 +40,8 @@
 					{lane}
 					{range}
 					{cursor}
-					unknown={lane.owner ? rowUnknownSpans(lane.owner, range) : []}
+					{zone}
+					unknown={lane.owner ? rowUnknownSpans(lane.owner, range, zone) : []}
 					labelled
 					{onpick}
 				/>

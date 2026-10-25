@@ -72,6 +72,37 @@ test('says which tasks were executing at the cursor, and which are unknown then'
 	await expect.element(card).toHaveTextContent('Unknown then: Storage cleanup');
 });
 
+test('one time zone applies to every overview time', async () => {
+	await renderOverview(DEFAULT_QUERY);
+	await moveCursor('14:25');
+	const zone = page.getByLabelText('Time zone');
+	await expect.element(zone).toHaveValue('utc');
+	await page.getByRole('button', { name: 'Details of Cache metrics' }).click();
+	await expect
+		.element(page.getByRole('img', { name: /^running · 27m 00s, from 2026-03-10 14:08:00 UTC/ }))
+		.toBeVisible();
+
+	await zone.selectOptions('local');
+	await expect
+		.element(page.getByText(/2026-03-10 10:00 to 2026-03-10 11:00 America\/Toronto: 6 tasks/))
+		.toBeVisible();
+	await expect
+		.element(page.getByRole('region', { name: 'At the cursor' }))
+		.toHaveTextContent('At the cursor · 10:25 America/Toronto');
+	await expect
+		.element(page.getByLabelText('Cursor, America/Toronto'))
+		.toHaveAttribute('aria-valuetext', '2026-03-10 10:25:00 America/Toronto');
+	await expect
+		.element(
+			page.getByRole('img', {
+				name: /^running · 27m 00s, from 2026-03-10 10:08:00 America\/Toronto/
+			})
+		)
+		.toBeVisible();
+	await expect.element(page.getByText('All times America/Toronto.')).toBeVisible();
+	await expect.element(page.getByText(/Window, UTC/)).toBeVisible();
+});
+
 test('a click on a lane moves the cursor there', async () => {
 	await renderOverview(DEFAULT_QUERY);
 	const lane = page.getByRole('group', { name: 'runs, pull requests and review waits' }).first();

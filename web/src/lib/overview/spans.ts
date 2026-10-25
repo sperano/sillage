@@ -6,7 +6,7 @@
 import { boundTime, type BoundState, type Interval, type Outcome, type Run } from '../model';
 import { prKeyString, runKeyString } from '../keys';
 import { runSpans } from '../timeline/intervals';
-import { formatDuration, formatFull } from '../timeline/time';
+import { formatDuration, formatFull, type Zone } from '../timeline/time';
 import type { Mark, MarkKind, OverviewPullRequest, OverviewRow, ReviewWait } from './model';
 import { lastRead, runLastRead } from './state';
 
@@ -205,16 +205,16 @@ export function barText(s: OverviewSpan): string {
 }
 
 /** Everything a span's bar shows, in words: what it was and what is known of each end. */
-export function describeSpan(s: OverviewSpan): string {
-	const start = s.start === undefined ? 'start unknown' : `from ${formatFull(s.start, 'utc')}`;
+export function describeSpan(s: OverviewSpan, zone: Zone): string {
+	const start = s.start === undefined ? 'start unknown' : `from ${formatFull(s.start, zone)}`;
 	const end =
 		s.endState === 'open'
 			? s.openUntil === undefined
 				? 'not ended at the last read'
-				: `not ended at the last read, ${formatFull(s.openUntil, 'utc')}`
+				: `not ended at the last read, ${formatFull(s.openUntil, zone)}`
 			: s.end === undefined
 				? 'end unknown'
-				: `to ${formatFull(s.end, 'utc')}`;
+				: `to ${formatFull(s.end, zone)}`;
 	const length =
 		s.start !== undefined && s.end !== undefined ? ` · ${formatDuration(s.end - s.start)}` : '';
 	const exit = s.exit ? `, ${s.exit}` : '';
@@ -222,6 +222,6 @@ export function describeSpan(s: OverviewSpan): string {
 }
 
 /** A mark in words: what changed, and when. */
-export function describeMark(m: Mark): string {
-	return `${markLabel(m)}, ${formatFull(Date.parse(m.at), 'utc')}`;
+export function describeMark(m: Mark, zone: Zone): string {
+	return `${markLabel(m)}, ${formatFull(Date.parse(m.at), zone)}`;
 }

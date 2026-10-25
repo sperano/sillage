@@ -4,6 +4,7 @@
 <script lang="ts">
 	import { rootLabel } from '../roots';
 	import { rootHref } from '../routes';
+	import type { Zone } from '../timeline/time';
 	import { endChips } from './end';
 	import { collapsedLane, expandedLanes, NO_EXECUTOR, rowTitle } from './lanes';
 	import LanePlot from './LanePlot.svelte';
@@ -15,10 +16,11 @@
 		row: OverviewRow;
 		range: Range;
 		cursor: number;
+		zone: Zone;
 		onpick: (t: number) => void;
 	}
 
-	let { row, range, cursor, onpick }: Props = $props();
+	let { row, range, cursor, zone, onpick }: Props = $props();
 
 	const id = $props.id();
 	let expanded = $state(false);
@@ -29,7 +31,7 @@
 		if (row.runs.some((r) => !r.agent)) names.push(NO_EXECUTOR);
 		return names.join(', ');
 	});
-	const unknown = $derived(rowUnknownSpans(row, range));
+	const unknown = $derived(rowUnknownSpans(row, range, zone));
 	const lanes = $derived(expanded ? expandedLanes(row, range) : [collapsedLane(row)]);
 	const chips = $derived(endChips(row, range.end));
 </script>
@@ -53,7 +55,7 @@
 	<div class="lanes" id="{id}-lanes">
 		{#each lanes as lane (lane.key)}
 			{#if expanded}<span class="lane-label">{lane.label}</span>{/if}
-			<LanePlot {lane} {range} {cursor} {unknown} labelled={expanded} {onpick} />
+			<LanePlot {lane} {range} {cursor} {zone} {unknown} labelled={expanded} {onpick} />
 		{/each}
 		{#if row.missingHistory}
 			<span class="lane-label">History incomplete in this window: nothing is measured there.</span>

@@ -11,7 +11,8 @@
 	import type { OverviewQuery } from '../lib/overview/query';
 	import { sameRoot } from '../lib/roots';
 	import type { Router } from '../lib/router.svelte';
-	import { formatDate, formatMinute } from '../lib/timeline/time';
+	import { formatDate, formatMinute, zoneName, type Zone } from '../lib/timeline/time';
+	import TimeZoneSelect from '../lib/timeline/TimeZoneSelect.svelte';
 	import ErrorNotice from '../components/ErrorNotice.svelte';
 
 	let { api, router, query }: { api: Api; router: Router; query: OverviewQuery } = $props();
@@ -70,6 +71,8 @@
 			query.failed ||
 			query.missing
 	);
+	// Keep the existing UTC view until the reader chooses local time.
+	let zone = $state<Zone>('utc');
 
 	async function loadMore() {
 		const base = firstPage;
@@ -93,7 +96,8 @@
 		}
 	}
 
-	const when = (t: number) => `${formatDate(t, 'utc')} ${formatMinute(t, 'utc')}`;
+	const when = (t: number) => `${formatDate(t, zone)} ${formatMinute(t, zone)}`;
+	const shownRange = $derived(`From ${when(range.start)} to ${when(range.end)} ${zoneName(zone)}`);
 </script>
 
 <svelte:head><title>What was working on what · Sillage</title></svelte:head>
@@ -105,16 +109,17 @@
 		history; move the cursor to see what was executing at a moment.
 	</p>
 	<OverviewFilters {router} {query} {executors} />
+	<TimeZoneSelect bind:zone />
 
 	{#if firstPage}
 		<p role="status">
-			From {when(range.start)} to {when(range.end)} UTC: {count(firstPage.total, 'task')}{filtered
-				? ' matching the filters'
-				: ''}{next ? `, ${rows.length} loaded` : ''}.
+			{shownRange}: {count(firstPage.total, 'task')}{filtered ? ' matching the filters' : ''}{next
+				? `, ${rows.length} loaded`
+				: ''}.
 		</p>
 		{#if rows.length > 0}
-			<OverviewSummary {rows} {range} {cursor} partial={next !== undefined} />
-			<OverviewChart {rows} {range} grouping={query.group} bind:cursor />
+			<OverviewSummary {rows} {range} {cursor} {zone} partial={next !== undefined} />
+			<OverviewChart {rows} {range} grouping={query.group} {zone} bind:cursor />
 		{/if}
 		{#if next}
 			<button type="button" onclick={loadMore} disabled={more.state === 'loading'}>
