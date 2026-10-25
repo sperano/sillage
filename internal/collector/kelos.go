@@ -201,24 +201,25 @@ func (a *assembly) announcedRuns() {
 
 // announcedPod joins an announcement naming pod, in ns or in any when ns
 // is empty, to the runs whose pod it names (podMatches), unless its time
-// contradicts them (podContradicted);
-// else to the attempt of its Task name it was posted from, when its time
-// singles one out (announcedAttempt); else, when the pod's runs are in
-// several namespaces, to each of them as an ambiguous candidate; else to
-// a run keyed by that pod, built from the announcement alone, in the
+// contradicts them (podContradicted); else to the attempt of its Task
+// name it was posted from, when its time singles one out
+// (announcedAttempt); else, when the pod's runs are in several
+// namespaces, to each of them as an ambiguous candidate; else to a run
+// keyed by that pod, built from the announcement alone, in the
 // collector's namespace when it names none.
 func (a *assembly) announcedPod(e model.Event, ns, name, pod string) {
 	matches := a.runsWhere(func(r model.Run) bool { return r.Pod == pod && inNamespace(r, ns) })
-	if len(matches) > 0 && !a.podContradicted(e, ns, matches) {
-		a.podMatches(e, pod, matches)
+	matchNS := namespaces(matches)
+	if len(matches) > 0 && !a.podContradicted(e, ns, matches, matchNS) {
+		a.podMatches(e, pod, matches, matchNS)
 		return
 	}
 	if r, ok := a.announcedAttempt(e, ns, name); ok {
 		a.attemptRun(e, name, pod, len(matches) > 0, r)
 		return
 	}
-	if len(namespaces(matches)) > 1 {
-		a.podMatches(e, pod, matches)
+	if len(matchNS) > 1 {
+		a.podMatches(e, pod, matches, matchNS)
 		return
 	}
 	a.podRun(e, ns, name, pod)
@@ -243,16 +244,16 @@ func (a *assembly) attemptRun(e model.Event, name, pod string, outlived bool, r 
 }
 
 // podMatches joins an announcement to matches, the runs of the pod it
-// names. The pod identifies its run in the namespace the announcement
+// names, in matchNS (namespaces(matches)). The pod identifies its run in the namespace the announcement
 // names (announcedPod keeps only its runs), or, when it names none, in
 // the only namespace a run of that pod is in. Across namespaces, the pod
 // name alone does not: the runs the announcement was posted during are
 // heuristic candidates, unambiguous when they are in one namespace; when
 // it was posted during none and from no attempt announcedPod singles out,
 // every match is an ambiguous candidate.
-func (a *assembly) podMatches(e model.Event, pod string, matches []model.Run) {
+func (a *assembly) podMatches(e model.Event, pod string, matches []model.Run, matchNS []string) {
 	on, onEv, related := a.relatedOf(e)
-	if len(namespaces(matches)) == 1 {
+	if len(matchNS) == 1 {
 		ev := a.announcementEvidence(e, "names pod "+pod)
 		for _, r := range matches {
 			a.addRun(r)
@@ -263,15 +264,16 @@ func (a *assembly) podMatches(e model.Event, pod string, matches []model.Run) {
 		}
 		return
 	}
-	candidates := slices.DeleteFunc(slices.Clone(matches), func(r model.Run) bool { return !postedDuring(e, r) })
-	note := " but no namespace; it was posted while runs of it in " + strings.Join(namespaces(candidates), ", ") +
+	candidates := slices.DeleteFunc(slices.Clone(matches), func(r model.Run) bool { return !couldHavePosted(e, r) })
+	candidateNS := namespaces(candidates)
+	note := " but no namespace; it was posted while runs of it in " + strings.Join(candidateNS, ", ") +
 		" were running"
 	if len(candidates) == 0 {
-		candidates = matches
-		note = " but no namespace; runs of it are in " + strings.Join(namespaces(matches), ", ") +
+		candidates, candidateNS = matches, matchNS
+		note = " but no namespace; runs of it are in " + strings.Join(matchNS, ", ") +
 			", and it was posted while none of them was running"
 	}
-	ambiguous := len(namespaces(candidates)) != 1
+	ambiguous := len(candidateNS) != 1
 	for _, r := range candidates {
 		a.addRun(r)
 		a.links.heuristic(e.Ref(), r.Key.Ref(), ambiguous, a.announcementEvidence(e, "names pod "+pod+note))
@@ -283,18 +285,19 @@ func (a *assembly) podMatches(e model.Event, pod string, matches []model.Run) {
 
 // podContradicted reports whether an announcement naming no namespace
 // was posted while none of matches, the runs of its pod, was running,
-// unless they are all in the collector's namespace. The pod alone does
+// unless they are all in the collector's namespace (matchNS lists
+// theirs). The pod alone does
 // not make them its run then: a run of the collector's namespace read
 // without its Task names no pod, and may be the one.
-func (a *assembly) podContradicted(e model.Event, ns string, matches []model.Run) bool {
-	return ns == "" && !slices.Equal(namespaces(matches), []string{a.cfg.Kelos.Namespace}) &&
-		!slices.ContainsFunc(matches, func(r model.Run) bool { return postedDuring(e, r) })
+func (a *assembly) podContradicted(e model.Event, ns string, matches []model.Run, matchNS []string) bool {
+	return ns == "" && !slices.Equal(matchNS, []string{a.cfg.Kelos.Namespace}) &&
+		!slices.ContainsFunc(matches, func(r model.Run) bool { return couldHavePosted(e, r) })
 }
 
-// postedDuring reports whether announcement e may have been posted
+// couldHavePosted reports whether announcement e may have been posted
 // during run r: neither end of r known on the wrong side of its time. An
-// unknown time or end excludes nothing.
-func postedDuring(e model.Event, r model.Run) bool {
+// unknown time or end excludes nothing, unlike during's unknown start.
+func couldHavePosted(e model.Event, r model.Run) bool {
 	if e.SourceTime == nil {
 		return true
 	}
