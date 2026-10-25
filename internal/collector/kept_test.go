@@ -7,14 +7,22 @@ import (
 	"github.com/sperano/sillage/internal/collector/collectortest"
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/kelos"
+	"github.com/sperano/sillage/internal/source/vikunja"
 )
 
 // recollect assembles task 104's story from announcements by minute and
 // pod, the namespace's objects, and what a store kept.
 func recollect(t *testing.T, pods map[int]string, snap kelos.Snapshot, kept Kept) model.Story {
 	t.Helper()
+	return recollectFrom(t, announcedTask(104, retryName, pods), snap, kept)
+}
+
+// recollectFrom assembles task 104's story from its Vikunja snapshot, the
+// namespace's objects, and what a store kept.
+func recollectFrom(t *testing.T, task vikunja.Snapshot, snap kelos.Snapshot, kept Kept) model.Story {
+	t.Helper()
 	src := emptySources()
-	src.Vikunja = fixedVikunja{announcedTask(104, retryName, pods)}
+	src.Vikunja = fixedVikunja{task}
 	src.Kelos = fixedKelos{snap}
 	c, err := New(testConfig(), src)
 	if err != nil {

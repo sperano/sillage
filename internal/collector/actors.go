@@ -117,6 +117,7 @@ func agentsOf(e model.Event, announced map[string][]string) []string {
 
 // during reports whether r had started by at and not ended before it. A
 // run with an unknown start is never a candidate: nothing places it.
+// couldHavePosted is the opposite: an unknown bound excludes nothing.
 func during(r model.Run, at time.Time) bool {
 	start, ok := r.Interval.Start.Time()
 	if !ok || at.Before(start) {
