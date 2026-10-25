@@ -200,14 +200,15 @@ func (a *assembly) announcedRuns() {
 }
 
 // announcedPod joins an announcement naming pod, in ns or in any when ns
-// is empty, to the runs whose pod it names (podMatches);
+// is empty, to the runs whose pod it names (podMatches), unless its time
+// contradicts them (podContradicted);
 // else to the attempt of its Task name it was posted from, when its time
 // singles one out (a heuristic: a Task gone leaves a TaskRecord, which
 // names no pod); else to a run keyed by that pod, built from the
 // announcement alone, in the collector's namespace when it names none.
 func (a *assembly) announcedPod(e model.Event, ns, name, pod string) {
 	matches := a.runsWhere(func(r model.Run) bool { return r.Pod == pod && inNamespace(r, ns) })
-	if len(matches) > 0 {
+	if len(matches) > 0 && !a.podContradicted(e, ns, matches) {
 		a.podMatches(e, pod, matches)
 		return
 	}
@@ -261,6 +262,17 @@ func (a *assembly) podMatches(e model.Event, pod string, matches []model.Run) {
 			a.links.heuristic(r.Key.Ref(), on, ambiguous, onEv)
 		}
 	}
+}
+
+// podContradicted reports whether an announcement naming no namespace
+// was posted while none of matches, the runs of its pod, was running,
+// when they are all in one namespace other than the collector's. The
+// pod alone does not make them its run then: a run of the collector's
+// namespace read without its Task names no pod, and may be the one.
+func (a *assembly) podContradicted(e model.Event, ns string, matches []model.Run) bool {
+	in := namespaces(matches)
+	return ns == "" && len(in) == 1 && in[0] != a.cfg.Kelos.Namespace &&
+		!slices.ContainsFunc(matches, func(r model.Run) bool { return postedDuring(e, r) })
 }
 
 // postedDuring reports whether announcement e may have been posted
