@@ -2,6 +2,7 @@ package store
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -118,17 +119,17 @@ func TestObservationCorrelationFollowsRange(t *testing.T) {
 	}
 }
 
-// completionRead is a read of task 7 at minute read: its completion
+// completionRead is a read of task at minute read: its completion
 // observation and, when it saw the task done, the completion at minute 5.
-func completionRead(done bool, read int) []model.Event {
+func completionRead(task int64, done bool, read int) []model.Event {
 	value := model.DoneFalse
 	if done {
 		value = model.DoneTrue
 	}
-	events := []model.Event{observation(7, model.KindTaskCompletionObserved, model.DetailDone, value, read)}
+	events := []model.Event{observation(task, model.KindTaskCompletionObserved, model.DetailDone, value, read)}
 	if done {
-		e := observation(7, model.KindTaskDone, "", "", read)
-		e.ID, e.SourceTime, e.Details = model.Fingerprint(at(5), "tasks/7", "done", ""), ptr(at(5)), nil
+		e := observation(task, model.KindTaskDone, "", "", read)
+		e.ID, e.SourceTime, e.Details = model.Fingerprint(at(5), fmt.Sprintf("tasks/%d", task), "done", ""), ptr(at(5)), nil
 		events = append(events, e)
 	}
 	return events
@@ -142,8 +143,8 @@ func TestReopeningKeptAcrossReads(t *testing.T) {
 	s := newTestStore(t, Retention{})
 	root := taskRoot(7)
 	for _, read := range [][]model.Event{
-		completionRead(false, 0), completionRead(true, 10), completionRead(true, 20),
-		completionRead(false, 30), completionRead(false, 40),
+		completionRead(7, false, 0), completionRead(7, true, 10), completionRead(7, true, 20),
+		completionRead(7, false, 30), completionRead(7, false, 40),
 	} {
 		mustSave(t, s, root, model.Records{Events: read})
 	}

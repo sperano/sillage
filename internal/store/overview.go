@@ -53,10 +53,13 @@ const runBounds = `CROSS JOIN LATERAL (SELECT
 
 // activeRootsSQL selects the roots that may have been active in [$1, $2),
 // with the project $3 when set, at most $5: a run with a recorded time in
-// the window or an interval across it; an event of the kinds $4 in it; or a
-// pull request opened, reopened or asked for a review before its end and
-// not merged or closed before its start. The overview decides what each
-// shows; this only leaves out what cannot show anything.
+// the window or an interval across it; an event of the kinds $4 in it, a
+// completion observation only when it saw the task not done after a
+// completion (every read records one, so any other would make every task
+// read in the window a candidate); or a pull request opened, reopened or
+// asked for a review before its end and not merged or closed before its
+// start. The overview decides what each shows; this only leaves out what
+// cannot show anything.
 const activeRootsSQL = "SELECT o.id, " + rootColumns + ` FROM roots o
 	WHERE ($3 = '' OR EXISTS (SELECT 1 FROM root_runs m JOIN runs r ON r.id = m.run_id
 			WHERE m.root_id = o.id AND r.body->>'project' = $3))
@@ -64,7 +67,10 @@ const activeRootsSQL = "SELECT o.id, " + rootColumns + ` FROM roots o
 				WHERE m.root_id = o.id AND ((b.first >= $1 AND b.first < $2) OR (b.start >= $1 AND b.start < $2)
 					OR (b.last >= $1 AND b.last < $2) OR (b.first < $1 AND (b.end_state = 'open' OR b.last >= $2))))
 			OR EXISTS (SELECT 1 FROM root_events m JOIN events e ON e.id = m.event_id
-				WHERE m.root_id = o.id AND e.kind = ANY($4) AND e.at >= $1 AND e.at < $2)
+				WHERE m.root_id = o.id AND e.kind = ANY($4) AND e.at >= $1 AND e.at < $2
+					AND (e.kind <> 'task.completion_observed' OR (e.body->'details'->>'done' = 'false'
+						AND EXISTS (SELECT 1 FROM root_events dm JOIN events d ON d.id = dm.event_id
+							WHERE dm.root_id = o.id AND d.kind = 'task.done' AND d.at < e.at))))
 			OR EXISTS (SELECT 1 FROM root_events m JOIN events e ON e.id = m.event_id
 				WHERE m.root_id = o.id AND e.kind IN ('pr.opened', 'pr.reopened', 'pr.review_requested') AND e.at < $2
 					AND COALESCE((SELECT s.kind FROM root_events sm JOIN events s ON s.id = sm.event_id
