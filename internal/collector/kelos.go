@@ -203,9 +203,10 @@ func (a *assembly) announcedRuns() {
 // is empty, to the runs whose pod it names (podMatches), unless its time
 // contradicts them (podContradicted);
 // else to the attempt of its Task name it was posted from, when its time
-// singles one out (a heuristic: a Task gone leaves a TaskRecord, which
-// names no pod); else to a run keyed by that pod, built from the
-// announcement alone, in the collector's namespace when it names none.
+// singles one out (announcedAttempt); else, when the pod's runs are in
+// several namespaces, to each of them as an ambiguous candidate; else to
+// a run keyed by that pod, built from the announcement alone, in the
+// collector's namespace when it names none.
 func (a *assembly) announcedPod(e model.Event, ns, name, pod string) {
 	matches := a.runsWhere(func(r model.Run) bool { return r.Pod == pod && inNamespace(r, ns) })
 	if len(matches) > 0 && !a.podContradicted(e, ns, matches) {
@@ -213,17 +214,32 @@ func (a *assembly) announcedPod(e model.Event, ns, name, pod string) {
 		return
 	}
 	if r, ok := a.announcedAttempt(e, ns, name); ok {
-		a.claimed[r.Key] = true
-		a.addRun(r)
-		a.links.heuristic(e.Ref(), r.Key.Ref(), false, a.announcementEvidence(e, "names pod "+pod+
-			", which no Task read names; it was posted inside this attempt of "+name+" and no other, "+
-			"which, read without its Task, names no pod"))
-		if on, onEv, ok := a.relatedOf(e); ok {
-			a.links.heuristic(r.Key.Ref(), on, false, onEv)
-		}
+		a.attemptRun(e, name, pod, len(matches) > 0, r)
+		return
+	}
+	if len(namespaces(matches)) > 1 {
+		a.podMatches(e, pod, matches)
 		return
 	}
 	a.podRun(e, ns, name, pod)
+}
+
+// attemptRun joins an announcement naming pod to r, the attempt of its
+// Task name it was posted from (announcedAttempt): a heuristic, as a Task
+// gone leaves a TaskRecord, which names no pod. outlived says runs of the
+// pod were read, none running when it was posted.
+func (a *assembly) attemptRun(e model.Event, name, pod string, outlived bool, r model.Run) {
+	note := ", which no Task read names"
+	if outlived {
+		note = ", but was posted while no run of it was running"
+	}
+	a.claimed[r.Key] = true
+	a.addRun(r)
+	a.links.heuristic(e.Ref(), r.Key.Ref(), false, a.announcementEvidence(e, "names pod "+pod+note+
+		"; it was posted inside this attempt of "+name+" and no other, which, read without its Task, names no pod"))
+	if on, onEv, ok := a.relatedOf(e); ok {
+		a.links.heuristic(r.Key.Ref(), on, false, onEv)
+	}
 }
 
 // podMatches joins an announcement to matches, the runs of the pod it
@@ -232,7 +248,8 @@ func (a *assembly) announcedPod(e model.Event, ns, name, pod string) {
 // the only namespace a run of that pod is in. Across namespaces, the pod
 // name alone does not: the runs the announcement was posted during are
 // heuristic candidates, unambiguous when they are in one namespace; when
-// it was posted during none, every match is an ambiguous candidate.
+// it was posted during none and from no attempt announcedPod singles out,
+// every match is an ambiguous candidate.
 func (a *assembly) podMatches(e model.Event, pod string, matches []model.Run) {
 	on, onEv, related := a.relatedOf(e)
 	if len(namespaces(matches)) == 1 {
@@ -266,12 +283,11 @@ func (a *assembly) podMatches(e model.Event, pod string, matches []model.Run) {
 
 // podContradicted reports whether an announcement naming no namespace
 // was posted while none of matches, the runs of its pod, was running,
-// when they are all in one namespace other than the collector's. The
-// pod alone does not make them its run then: a run of the collector's
-// namespace read without its Task names no pod, and may be the one.
+// unless they are all in the collector's namespace. The pod alone does
+// not make them its run then: a run of the collector's namespace read
+// without its Task names no pod, and may be the one.
 func (a *assembly) podContradicted(e model.Event, ns string, matches []model.Run) bool {
-	in := namespaces(matches)
-	return ns == "" && len(in) == 1 && in[0] != a.cfg.Kelos.Namespace &&
+	return ns == "" && !slices.Equal(namespaces(matches), []string{a.cfg.Kelos.Namespace}) &&
 		!slices.ContainsFunc(matches, func(r model.Run) bool { return postedDuring(e, r) })
 }
 

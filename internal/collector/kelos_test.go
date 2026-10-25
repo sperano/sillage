@@ -333,6 +333,16 @@ func TestNamespacelessAnnouncementIsNotAnotherNamespacesRunItOutlived(t *testing
 	})
 }
 
+func TestNamespacelessAnnouncementOutlivingASharedPodJoinsTheAttemptItWasPostedFrom(t *testing.T) {
+	here := kelos.Snapshot{
+		Tasks:   []kelos.Task{task(retryName, "uid-here", "", nil, 60, 80)},
+		Records: []kelos.TaskRecord{record(retryName, "uid-attempt", nil, 25, 35)},
+	}
+	kept := Kept{Runs: []model.Run{keptRun(otherNamespace, "uid-there", sharedPod, 2, 9)}}
+	s := recollect(t, map[int]string{30: sharedPod}, here, kept)
+	checkLinks(t, s, announcementRef(30), model.ConfidenceHeuristic, false, runRef("uid-attempt"))
+}
+
 func TestAnnouncementStatingItsNamespaceIdentifiesThePodThere(t *testing.T) {
 	here := kelos.Snapshot{Tasks: []kelos.Task{task(retryName, "uid-here", "", nil, 60, 80)}}
 	kept := Kept{Runs: []model.Run{keptRun(otherNamespace, "uid-there", sharedPod, 2, 9)}}
