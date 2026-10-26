@@ -29,7 +29,7 @@ export const CLOSED_UNANSWERED = '2026-03-10T14:50:00Z';
 
 /** The row of task id; throws when the page has none. */
 export function rowOfTask(page: OverviewPage, id: number): OverviewRow {
-	const row = page.rows.find((r) => r.root.task?.id === id);
+	const row = page.rows.find((r) => r.root.task.id === id);
 	if (!row) throw new Error(`no row of task ${id}`);
 	return row;
 }

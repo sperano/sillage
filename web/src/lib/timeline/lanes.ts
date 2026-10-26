@@ -85,7 +85,7 @@ export function buildRows(story: Story): Row[] {
 	for (const e of story.events) placeEvent(ctx, e);
 	addReviewWaits(ctx, [...rows.values()]);
 	for (const row of rows.values()) addNote(row);
-	return sortRows([...rows.values()], 'task');
+	return sortRows([...rows.values()]);
 }
 
 interface Context {
@@ -324,8 +324,8 @@ function byOrder(a: Row, b: Row): number {
  * Sorts rows by section, the root's first, then by order, each child right
  * under its parent.
  */
-function sortRows(rows: Row[], rootSection: Section): Row[] {
-	const section = (r: Row) => (r.section === rootSection ? -1 : SECTIONS.indexOf(r.section));
+function sortRows(rows: Row[]): Row[] {
+	const section = (r: Row) => (r.section === 'task' ? -1 : SECTIONS.indexOf(r.section));
 	const children = rows.filter((r) => r.parent !== undefined).sort(byOrder);
 	return rows
 		.filter((r) => r.parent === undefined)

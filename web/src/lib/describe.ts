@@ -153,7 +153,7 @@ export function refLabel(story: Story, ref: Ref): string {
 			return p ? `Pull request ${p.key.repository}#${p.key.number}` : `pull request ${ref.id}`;
 		}
 		case 'task':
-			return story.root.task && taskKeyString(story.root.task) === ref.id
+			return taskKeyString(story.root.task) === ref.id
 				? `Task ${story.root.task.id} (this story)`
 				: `task ${ref.id}`;
 	}
