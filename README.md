@@ -9,9 +9,10 @@ being down never blocks anything.
 
 ## Status
 
-Pre-alpha. A Go binary that answers `GET /healthz` and `GET /metrics`,
-serves a placeholder page and the read-only JSON API under `/api/v1/`; the
-normalized model (`internal/model`) with fabricated fixture stories
+Pre-alpha, deployed (from [`sperano/hollingsworth`](https://github.com/sperano/hollingsworth)).
+A Go binary that answers `GET /healthz` and `GET /metrics`, serves the
+frontend and the read-only JSON API under `/api/v1/`; the normalized model
+(`internal/model`) with fabricated fixture stories
 (`testdata/fixtures/stories/`); a read-only client per source; `sillage
 story`, which assembles one story from the live sources and prints it; a
 PostgreSQL store (`internal/store`); the collection loop, which keeps it
@@ -20,10 +21,11 @@ answering 503, until the collection loop reads what its deliveries name;
 and the in-cluster endpoint of the phase markers Kelos runs' pods report
 (`internal/ingest/marker`), stored, joined to their runs and paired into
 the runs' phases in each story.
-The frontend's single-task timeline graph (`web/src/lib/timeline/`), which
-draws the phases under their run's bar, and its event list and detail
-panel (`web/src/lib/story/`) are rendered in tests from the fixture
-stories but not yet shown on the story page. Nothing is deployed.
+The story page shows a task's or page's history: the timeline graph
+(`web/src/lib/timeline/`), which draws the phases under their run's bar,
+beside its event list and detail panel (`web/src/lib/story/`), under the
+coverage notices and the next action. The overview page shows what was
+working on what across tasks.
 
 ## Layout
 
@@ -78,11 +80,15 @@ stay behind the Authentik forward-auth in front of sillage.
 | `/api/v1/resolve?url=` | The roots whose stories hold what a Vikunja task, GitHub pull request or wiki page URL, or a Kelos Task (`[<namespace>/]<name>`, UID), points to; 404 if none |
 | `/api/v1/overview?from=&to=&project=&task=&executor=&review=&failed=&missing=&after=&limit=` | The tasks and wiki pages active in a window (default: the day before now, at most 31 days), one row each with its runs, pull request states, review waits, state changes and coverage; filtered, most recently active first, in pages of at most 200 (`after` is the previous page's `next`, sent with that page's `window` as `from` and `to`: a cursor of another window is a 400) |
 | `/api/v1/version` | The binary's version |
+| `/api/v1/config` | The frontend's configuration: the Kelos console's base URL per cluster name (`kelosConsoles`, empty without one) |
 
 A wiki URL by path (`/<locale>/<path>`) resolves only with the wiki source
 configured (`SILLAGE_WIKI_URL`, `SILLAGE_WIKI_TOKEN`,
 `SILLAGE_WIKI_AGENT_USERS`), whose page listing maps it to a page id; by id
-(`/i/<id>`) it always does. Every other `GET` path that is no frontend file
+(`/i/<id>`) it always does. With `SILLAGE_KELOS_CONSOLE_URL` set (an http or
+https URL without a query or fragment, for the cluster
+`SILLAGE_KELOS_CLUSTER` names, which it then requires), the story page links
+each run to its Task's logs in that Kelos console; unset, runs have no link. Every other `GET` path that is no frontend file
 serves the frontend's `index.html`, so that deep links to its routes work,
 unless its last segment has an extension (`/app.js`): a missing file is a
 404.

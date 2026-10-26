@@ -24,17 +24,22 @@ const goldenPerm = 0o644
 var update = flag.Bool("update", false, "rewrite the API responses' golden file")
 
 // contractPaths are the requests whose bodies responsesGolden holds: a
-// search with a match and one without, a resolved link, and the sources'
-// freshness.
+// search with a match and one without, a resolved link, the sources'
+// freshness, and the frontend's configuration.
 var contractPaths = []string{
 	"/api/v1/search?q=retry",
 	"/api/v1/search?q=nothing-matches",
 	"/api/v1/resolve?url=" + url.QueryEscape("https://github.example.com/example-org/widgets/pull/7"),
 	"/api/v1/coverage",
+	"/api/v1/config",
 }
 
+// contractConsoles is the Kelos console the configuration names, for the
+// fixture stories' cluster.
+var contractConsoles = map[string]string{"cluster-a": "https://kelos.example.com"}
+
 func TestResponsesGolden(t *testing.T) {
-	h := New(Config{Store: newFakeStore(t)})
+	h := New(Config{Store: newFakeStore(t), KelosConsoles: contractConsoles})
 	bodies := make(map[string]json.RawMessage, len(contractPaths))
 	for _, p := range contractPaths {
 		var body json.RawMessage

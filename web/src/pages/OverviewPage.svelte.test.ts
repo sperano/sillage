@@ -85,7 +85,7 @@ test('one time zone applies to every overview time', async () => {
 
 	await zone.selectOptions('local');
 	await expect
-		.element(page.getByText(/2026-03-10 10:00 to 2026-03-10 11:00 America\/Toronto: 6 tasks/))
+		.element(page.getByText(/2026-03-10 10:00 to 2026-03-10 11:00 America\/Toronto: 7 tasks/))
 		.toBeVisible();
 	await expect
 		.element(page.getByRole('region', { name: 'At the cursor' }))

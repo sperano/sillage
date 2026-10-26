@@ -1,6 +1,6 @@
 // The read API's own responses, besides stories and the overview: what
-// internal/api writes for a search, a resolved link and the sources'
-// freshness, with the runtime checks of that JSON. Each mirrors what the
+// internal/api writes for a search, a resolved link, the sources'
+// freshness and the frontend's configuration, with the runtime checks of that JSON. Each mirrors what the
 // Go handler and store guarantee, so that a body they would never write
 // fails here rather than rendering wrong.
 
@@ -15,12 +15,14 @@ import {
 	object,
 	oneOf,
 	positiveInteger,
+	record,
 	refine,
 	text,
 	timestamp,
 	unique
 } from './check';
 import { root, source } from './decodeModel';
+import type { LinkConfig } from './links';
 import { type Root, type Source, coverageKey } from './model';
 import { rootSegments } from './roots';
 
@@ -118,4 +120,13 @@ const sourceFreshness: Decoder<SourceFreshness> = refine(
 /** The sources' freshness (Go's api.FreshnessResponse): one record per source instance. */
 export const freshnessResponse: Decoder<{ sources: SourceFreshness[] }> = object({
 	sources: unique(array(sourceFreshness), (f) => coverageKey(f.source, f.instance))
+});
+
+/**
+ * The frontend's configuration (Go's api.ConfigResponse): the Kelos
+ * console's base URL per cluster name, empty when none is configured. A URL
+ * the links refuse (not http or https) is the links' to drop, not a failure.
+ */
+export const configResponse: Decoder<Required<LinkConfig>> = object({
+	kelosConsoles: record(text)
 });

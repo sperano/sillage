@@ -9,11 +9,13 @@ import {
 	type Resolution,
 	type RootSummary,
 	type SourceFreshness,
+	configResponse,
 	freshnessResponse,
 	resolution,
 	searchResponse
 } from './decodeApi';
 import { parseStory } from './decodeModel';
+import type { LinkConfig } from './links';
 import type { Root, Story } from './model';
 import { rootSegments, sameRoot } from './roots';
 import { MS_PER_SECOND } from './format';
@@ -118,6 +120,8 @@ export interface Api {
 	 * match its filters, after the cursor when one is given.
 	 */
 	overview(query: OverviewQuery, after?: string, signal?: AbortSignal): Promise<OverviewPage>;
+	/** What the frontend links with: the Kelos console of each cluster. */
+	config(signal?: AbortSignal): Promise<LinkConfig>;
 }
 
 export interface ApiOptions {
@@ -156,7 +160,8 @@ export function createApi(options: ApiOptions = {}): Api {
 			const params = overviewApiParams(q, after).toString();
 			const path = params ? `${API_BASE}/overview?${params}` : `${API_BASE}/overview`;
 			return get(path, parseOverviewPage, signal);
-		}
+		},
+		config: (signal) => get(`${API_BASE}/config`, (b) => decode(configResponse, b), signal)
 	};
 }
 

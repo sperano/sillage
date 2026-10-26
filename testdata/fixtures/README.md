@@ -76,8 +76,10 @@ fails the web tests until the frontend takes it.
 `api/responses.golden.json` holds the bodies `internal/api`'s handlers
 answer, over the fixture stories, for the requests the web client makes
 besides stories and the overview: a search with a match and one without,
-a resolved pull request link, and the sources' freshness
-(`GET /api/v1/coverage`), keyed by path and query. Generated (`go test
+a resolved pull request link, the sources' freshness
+(`GET /api/v1/coverage`), and the frontend's configuration (`GET
+/api/v1/config`, with a fabricated console for `cluster-a`), keyed by path
+and query. Generated (`go test
 ./internal/api -run TestResponsesGolden -update`); never edit it by hand.
 `web/src/lib/api.test.ts` asks for each path through the client and
 decodes the body, so a response shape changed in Go fails the web tests
