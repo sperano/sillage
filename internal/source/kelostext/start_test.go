@@ -30,6 +30,35 @@ func TestParseStart(t *testing.T) {
 			},
 		},
 		{
+			name: "location table, rendered HTML",
+			text: "AGENT agent-opus (MODEL example-model-2[1m]) IS ON THE CASE. THIS ONE HAS THE STUFF.\n" +
+				"KELOS TASK\nvikunja-demo-agent-opus-4230\nPOD\nvikunja-demo-agent-opus-4230-r5t6y\nNODE\nnode-a\n" +
+				"WANT TO WATCH? OPEN THE KELOS CONSOLE. SIGN IN, SELECT NAMESPACE agents, AND FIND TASK " +
+				"vikunja-demo-agent-opus-4230 IN RESOURCES.\nTHE WHOLE STORY IS IN THE ACTIVITY TIMELINE.\n" +
+				"COFFEE TIME! REPORT TO FOLLOW.",
+			want: Start{
+				Phrase: PhraseTaskStarted, Agent: "agent-opus", Model: "example-model-2[1m]", Namespace: "agents",
+				TaskName: "vikunja-demo-agent-opus-4230", Pod: "vikunja-demo-agent-opus-4230-r5t6y",
+			},
+		},
+		{
+			name: "location table, Markdown, job UID",
+			text: "AGENT agent-sol IS RESOLVING THE PULL REQUEST'S MERGE CONFLICT. PUT CAUTION IN THE SHOTGUN SEAT.\n\n" +
+				"| | |\n|---|---|\n| KELOS TASK | pr-conflict-0a1b2c3d-52-4e5f6a7b-8c9d0e1f |\n" +
+				"| JOB UID | 00000000-0000-4000-8000-000000000052 |\n" +
+				"| POD | pr-conflict-0a1b2c3d-52-4e5f6a7b-8c9d0e1f-fghij |\n| NODE | node-b |\n\n" +
+				"COFFEE TIME! REPORT TO FOLLOW.",
+			want: Start{
+				Phrase: PhraseConflict, Agent: "agent-sol", TaskName: "pr-conflict-0a1b2c3d-52-4e5f6a7b-8c9d0e1f",
+				Pod: "pr-conflict-0a1b2c3d-52-4e5f6a7b-8c9d0e1f-fghij",
+			},
+		},
+		{
+			name: "location table, no agent, model or pod",
+			text: "AN AGENT IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR.\nKELOS TASK\nwiki-fu-widgets-62-c971",
+			want: Start{Phrase: PhraseFollowUp, TaskName: "wiki-fu-widgets-62-c971"},
+		},
+		{
 			name: "current follow-up, no agent, model or pod",
 			text: "THE AGENT IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR. KELOS TASK vikunja-fu-demo-4220-c9102.",
 			want: Start{Phrase: PhraseFollowUp, TaskName: "vikunja-fu-demo-4220-c9102"},
@@ -107,6 +136,14 @@ func TestParseStartRejects(t *testing.T) {
 			ErrUnparsedAnnouncement},
 		{"text after the sentence", "THE AGENT IS ON THE CASE. THIS ONE HAS THE STUFF. KELOS TASK vikunja-demo-4204. Also",
 			ErrUnparsedAnnouncement},
+		{"location table without a Task", "THE AGENT IS ON THE CASE. THIS ONE HAS THE STUFF.\nPOD\nvikunja-demo-4204-abcde",
+			ErrUnparsedAnnouncement},
+		{"location table, invalid Task name", "THE AGENT IS ON THE CASE. THIS ONE HAS THE STUFF.\nKELOS TASK\nNot_A_Name",
+			ErrUnparsedAnnouncement},
+		{"location table, invalid pod name", "THE AGENT IS ON THE CASE. THIS ONE HAS THE STUFF.\n" +
+			"| KELOS TASK | vikunja-demo-4204 |\n| POD | Not_A_Pod |", ErrUnparsedAnnouncement},
+		{"location table after another paragraph", "THE AGENT IS ON THE CASE. THIS ONE HAS THE STUFF.\nHello.\n" +
+			"KELOS TASK\nvikunja-demo-4204", ErrUnparsedAnnouncement},
 		// The first form of 2026-10-04 named no agent; it is not parsed.
 		{"Task first", "Kelos Task vikunja-demo-4204 has started working on this task.", ErrUnparsedAnnouncement},
 	}

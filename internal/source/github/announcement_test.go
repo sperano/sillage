@@ -28,6 +28,25 @@ func TestParseAnnouncement(t *testing.T) {
 			}},
 		},
 		{
+			name: "location table",
+			body: "AGENT `agent-sol` (MODEL `example-model-3`) IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR.\n\n" +
+				"| | |\n|---|---|\n| KELOS TASK | `pr-followup-widgets-51-c5302` |\n" +
+				"| JOB UID | `00000000-0000-4000-8000-000000005302` |\n| POD | `pr-followup-widgets-51-c5302-y7u8i` |\n" +
+				"| NODE | `node-a` |\n\nCOFFEE TIME! REPORT TO FOLLOW.",
+			want: announcement{Role: model.RolePRFollowUp, Start: kelostext.Start{
+				Phrase: kelostext.PhraseFollowUp, Agent: "agent-sol", Model: "example-model-3",
+				TaskName: "pr-followup-widgets-51-c5302", Pod: "pr-followup-widgets-51-c5302-y7u8i",
+			}},
+		},
+		{
+			name: "location table, conflict, CRLF",
+			body: "AGENT `agent-opus` IS RESOLVING THE PULL REQUEST'S MERGE CONFLICT. PUT CAUTION IN THE SHOTGUN SEAT.\r\n\r\n" +
+				"| | |\r\n|---|---|\r\n| KELOS TASK | `" + testConflictTask + "` |\r\n\r\nCOFFEE TIME! REPORT TO FOLLOW.",
+			want: announcement{Role: model.RoleConflictFix, Start: kelostext.Start{
+				Phrase: kelostext.PhraseConflict, Agent: "agent-opus", TaskName: testConflictTask,
+			}},
+		},
+		{
 			name: "current conflict, retry, CRLF",
 			body: "AGENT `agent-opus` IS RESOLVING THE PULL REQUEST'S MERGE CONFLICT. PUT CAUTION IN THE SHOTGUN SEAT. " +
 				"KELOS TASK `" + testConflictTask + "-retry1`.\r\n\r\nCOFFEE TIME! REPORT TO FOLLOW.",

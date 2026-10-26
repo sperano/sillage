@@ -29,6 +29,23 @@ func TestParseAnnouncement(t *testing.T) {
 			},
 		},
 		{
+			name: "location table",
+			body: `<p>AGENT <code>agent-opus</code> (MODEL <code>example-model-2[1m]</code>) IS ON THE CASE. THIS ONE HAS ` +
+				`THE STUFF.</p><table><tbody><tr><td>KELOS TASK</td><td><code>vikunja-demo-agent-opus-4230</code></td></tr>` +
+				`<tr><td>POD</td><td><code>vikunja-demo-agent-opus-4230-r5t6y</code></td></tr>` +
+				`<tr><td>NODE</td><td><code>node-a</code></td></tr></tbody></table>` +
+				`<p>WANT TO WATCH? OPEN THE <a href="https://kelos.example.com">KELOS CONSOLE</a>. SIGN IN, SELECT NAMESPACE ` +
+				`<code>agents</code>, AND FIND TASK <code>vikunja-demo-agent-opus-4230</code> IN RESOURCES.</p>` +
+				`<p>THE WHOLE STORY IS IN THE <a href="https://sillage.example.com/task/vikunja.example.com/4230">` +
+				`ACTIVITY TIMELINE</a>.</p><p>FOLLOW-UPS, LABELS AND AGENT USERS: THE ` +
+				`<a href="https://vikunja.example.com/tasks/1">KELOS CHEATSHEET</a>.</p><p>COFFEE TIME! REPORT TO FOLLOW.</p>`,
+			want: announcement{
+				role: model.RoleImplementation, agent: "agent-opus", model: "example-model-2[1m]",
+				namespace: "agents", taskName: "vikunja-demo-agent-opus-4230",
+				pod: "vikunja-demo-agent-opus-4230-r5t6y",
+			},
+		},
+		{
 			name: "follow-up",
 			body: `<p>AGENT <code>agent-sol</code> (MODEL <code>example-model-3</code>) IS ON YOUR FOLLOW-UP REQUEST. ` +
 				`HEARD YOU LOUD AND CLEAR. KELOS TASK <code>vikunja-fu-demo-4220-c9102</code>, POD ` +
