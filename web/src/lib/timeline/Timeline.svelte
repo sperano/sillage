@@ -114,6 +114,24 @@
 		return () => svg.removeEventListener('wheel', onwheel);
 	};
 
+	// The plot's width, read at once, then a frame after each resize:
+	// drawing at a new width changes the plot's height, which the browser
+	// reports as a ResizeObserver loop when it happens in the frame that
+	// observed the resize.
+	const plotWidth: Attachment<HTMLElement> = (plot) => {
+		width = plot.clientWidth;
+		let frame = 0;
+		const observer = new ResizeObserver(() => {
+			cancelAnimationFrame(frame);
+			frame = requestAnimationFrame(() => (width = plot.clientWidth));
+		});
+		observer.observe(plot);
+		return () => {
+			cancelAnimationFrame(frame);
+			observer.disconnect();
+		};
+	};
+
 	let drag: { x: number; window: TimeWindow; moved: boolean } | undefined;
 
 	/** A primary press outside every mark starts dragging the window. */
@@ -156,7 +174,7 @@
 	<!-- Escape from any focused mark clears the selection; the marks are the
 	     interactive elements, this only catches the key bubbling up. -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="plot" bind:clientWidth={width} {onkeydown}>
+	<div class="plot" {@attach plotWidth} {onkeydown}>
 		<svg
 			{@attach wheel}
 			width={scale.right + RIGHT_PAD_PX}

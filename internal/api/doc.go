@@ -5,7 +5,8 @@
 // search, the resolution of a pasted link to the story it belongs to, the
 // multi-task overview of a window (internal/overview's rows, paginated:
 // the golden overview under testdata/fixtures/overview is its contract),
-// and the binary's version.
+// the binary's version, and the frontend's configuration (the Kelos
+// console's base URL per cluster, for run links).
 //
 // The API has no authentication of its own. Authentik forward-auth in
 // front of sillage (Hollingsworth's helm/sillage gateway-auth) is what

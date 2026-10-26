@@ -247,6 +247,7 @@ describe('the Go responses', () => {
 	test('the file has a body for each request below', () => {
 		expect([...goldenPaths].sort()).toEqual(
 			[
+				`${API_BASE}/config`,
 				`${API_BASE}/coverage`,
 				`${API_BASE}/resolve?${new URLSearchParams({ url: PULL_LINK })}`,
 				`${API_BASE}/search?q=nothing-matches`,
@@ -287,5 +288,11 @@ describe('the Go responses', () => {
 		expect(sources.every((s) => s.newestRead !== undefined && s.oldestRead !== undefined)).toBe(
 			true
 		);
+	});
+
+	test('the configuration decodes, the console keyed by cluster', async () => {
+		expect(await createApi({ fetch: answeringGolden() }).config()).toEqual({
+			kelosConsoles: { 'cluster-a': 'https://kelos.example.com' }
+		});
 	});
 });

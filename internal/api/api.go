@@ -24,6 +24,7 @@ const (
 	RouteSearch       = "GET /api/v1/search"
 	RouteOverview     = "GET /api/v1/overview"
 	RouteVersion      = "GET /api/v1/version"
+	RouteConfig       = "GET /api/v1/config"
 )
 
 const (
@@ -49,7 +50,7 @@ type PageLister interface {
 // Config is what the API serves from.
 type Config struct {
 	// Store is what the API reads. Without one, every endpoint but the
-	// version answers 503.
+	// version and the config answers 503.
 	Store store.Reader
 	// Version is the binary's version, as the version endpoint reports it.
 	Version string
@@ -58,6 +59,9 @@ type Config struct {
 	// URL resolves only by page id (/i/<id>).
 	Wiki         PageLister
 	WikiInstance string
+	// KelosConsoles is the Kelos console's base URL per cluster name, as
+	// the config endpoint answers it; without one, runs have no link.
+	KelosConsoles map[string]string
 	// Timeout bounds each request; DefaultTimeout when zero.
 	Timeout time.Duration
 	// MaxResponseBytes bounds each response's body;
@@ -99,6 +103,7 @@ func New(cfg Config) http.Handler {
 	a.handle(mux, RouteSearch, a.needStore(a.search))
 	a.handle(mux, RouteOverview, a.needStore(a.overviewPage))
 	a.handle(mux, RouteVersion, a.version)
+	a.handle(mux, RouteConfig, a.config)
 	a.handle(mux, Prefix, unrouted)
 	return noStore(mux)
 }

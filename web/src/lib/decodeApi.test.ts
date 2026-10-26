@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { decode } from './check';
-import { freshnessResponse, resolution, searchResponse } from './decodeApi';
+import { configResponse, freshnessResponse, resolution, searchResponse } from './decodeApi';
 
 const TASK = { task: { instance: 'vikunja.example.com', id: 102 } };
 const READ = { newestRead: '2026-03-03T20:00:00Z', oldestRead: '2026-03-02T20:00:00Z' };
@@ -59,5 +59,21 @@ describe('freshness', () => {
 	test('one record per source instance', () => {
 		const one = { source: 'wiki', instance: 'wiki.example.com', roots: 1, neverRead: 1 };
 		expect(() => decode(freshnessResponse, { sources: [one, one] })).toThrow(/duplicate record/);
+	});
+});
+
+describe('config', () => {
+	test('no console is an empty map', () => {
+		expect(decode(configResponse, { kelosConsoles: {} })).toEqual({ kelosConsoles: {} });
+	});
+
+	test('a missing map, an empty URL or a field the server never writes fails', () => {
+		expect(() => decode(configResponse, {})).toThrow(/kelosConsoles/);
+		expect(() => decode(configResponse, { kelosConsoles: { 'cluster-a': '' } })).toThrow(
+			/cluster-a/
+		);
+		expect(() => decode(configResponse, { kelosConsoles: {}, wiki: 'x' })).toThrow(
+			/unexpected field wiki/
+		);
 	});
 });

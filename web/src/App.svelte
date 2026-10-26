@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Api } from './lib/api';
+	import type { LinkConfig } from './lib/links';
+	import { load } from './lib/load.svelte';
 	import type { Router } from './lib/router.svelte';
 	import type { Route } from './lib/routes';
 	import EntryPage from './pages/EntryPage.svelte';
@@ -12,6 +14,16 @@
 
 	const route = $derived(router.route);
 	let main: HTMLElement | undefined = $state();
+	// The story and overview pages draw graphs, which take the whole width;
+	// the others are text, read best in a narrow column.
+	const narrow = $derived(
+		route.name !== 'task' && route.name !== 'page' && route.name !== 'overview'
+	);
+
+	// Loaded once: what the configuration says does not change while the
+	// app runs. Until it is loaded, or when it fails, runs have no link.
+	const config = load(() => (signal) => api.config(signal));
+	const links: LinkConfig = $derived(config.current.state === 'loaded' ? config.current.value : {});
 
 	$effect(() => router.start());
 
@@ -35,15 +47,15 @@
 <svelte:document onclick={(event) => router.handleClick(event)} />
 
 {#if route.name !== 'home'}
-	<header><a href="/">Sillage</a></header>
+	<header class:narrow><a href="/">Sillage</a></header>
 {/if}
-<main bind:this={main}>
+<main bind:this={main} class:narrow>
 	{#if route.name === 'home'}
 		<EntryPage {api} {router} query={route.query} />
 	{:else if route.name === 'task'}
-		<StoryPage {api} root={{ task: route.key }} />
+		<StoryPage {api} {links} root={{ task: route.key }} />
 	{:else if route.name === 'page'}
-		<StoryPage {api} root={{ page: route.key }} />
+		<StoryPage {api} {links} root={{ page: route.key }} />
 	{:else if route.name === 'open'}
 		<OpenPage {api} {router} url={route.url} />
 	{:else if route.name === 'overview'}
@@ -57,8 +69,12 @@
 	:global(body) {
 		font-family: system-ui, sans-serif;
 		line-height: 1.5;
+		margin: 0;
+		padding: 1rem;
+	}
+
+	.narrow {
 		margin: 0 auto;
 		max-width: 60rem;
-		padding: 1rem;
 	}
 </style>

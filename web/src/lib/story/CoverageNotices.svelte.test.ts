@@ -43,3 +43,15 @@ test('a source never read, a note, and a source with no coverage record', async 
 		.element(page.getByRole('listitem').filter({ hasText: 'Kelos cluster-a' }))
 		.toHaveTextContent('no coverage record; how far it was read is unknown.');
 });
+
+test('a story with no source read says nothing is known', async () => {
+	const story = goldenStory('implementation-merged');
+	story.coverage = [];
+	story.events = [];
+	story.runs = [];
+	story.pullRequests = [];
+	render(CoverageNotices, { story, timeZone: 'UTC' });
+	await expect
+		.element(page.getByRole('region', { name: 'Coverage' }))
+		.toHaveTextContent('No source has been read yet: nothing is known.');
+});

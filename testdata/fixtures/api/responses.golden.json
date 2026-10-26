@@ -1,4 +1,9 @@
 {
+  "/api/v1/config": {
+    "kelosConsoles": {
+      "cluster-a": "https://kelos.example.com"
+    }
+  },
   "/api/v1/coverage": {
     "sources": [
       {

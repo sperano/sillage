@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -20,6 +21,7 @@ import (
 	"github.com/sperano/sillage/internal/overview"
 	"github.com/sperano/sillage/internal/reconcile"
 	"github.com/sperano/sillage/internal/source/github"
+	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
 	"github.com/sperano/sillage/internal/source/wiki"
 	"github.com/sperano/sillage/internal/store"
@@ -36,6 +38,10 @@ func TestNewAPI(t *testing.T) {
 			wiki.EnvURL: "https://wiki.example.com", wiki.EnvToken: "token", wiki.EnvAgentUsers: "21",
 		}, false},
 		{"wiki without a token", map[string]string{wiki.EnvURL: "https://wiki.example.com"}, true},
+		{"kelos console", map[string]string{
+			kelosConsoleURLEnv: "https://kelos.example.com", kelos.EnvCluster: "cluster-a",
+		}, false},
+		{"kelos console without a cluster", map[string]string{kelosConsoleURLEnv: "https://kelos.example.com"}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -45,6 +51,37 @@ func TestNewAPI(t *testing.T) {
 			}
 			if err == nil && h == nil {
 				t.Error("no handler")
+			}
+		})
+	}
+}
+
+func TestKelosConsoles(t *testing.T) {
+	const cluster = "cluster-a"
+	tests := []struct {
+		name    string
+		url     string
+		want    map[string]string
+		wantErr bool
+	}{
+		{"unset", "", nil, false},
+		{"https", " https://kelos.example.com/ ", map[string]string{cluster: "https://kelos.example.com/"}, false},
+		{"http with a path", "http://kelos.example.com/console", map[string]string{cluster: "http://kelos.example.com/console"}, false},
+		{"no scheme", "kelos.example.com", nil, true},
+		{"javascript", "javascript:alert(1)", nil, true},
+		{"no host", "https:///console", nil, true},
+		{"a query", "https://kelos.example.com/?tab=logs", nil, true},
+		{"a fragment", "https://kelos.example.com/#logs", nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := map[string]string{kelosConsoleURLEnv: tt.url, kelos.EnvCluster: " " + cluster + " "}
+			got, err := kelosConsoles(func(key string) string { return env[key] })
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, want error %v", err, tt.wantErr)
+			}
+			if !maps.Equal(got, tt.want) {
+				t.Errorf("consoles = %v, want %v", got, tt.want)
 			}
 		})
 	}

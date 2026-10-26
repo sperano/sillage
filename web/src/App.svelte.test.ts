@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import App from './App.svelte';
@@ -11,6 +11,18 @@ import { goldenResponse } from './lib/testing/apiResponses';
 
 const TASK_STORY = `${API_BASE}/stories/task/vikunja.example.com/102`;
 const PAGE_STORY = `${API_BASE}/stories/page/wiki.example.com/57/en`;
+const CONFIG = `${API_BASE}/config`;
+
+/** A desktop viewport, wider than the narrow pages' column. */
+const WIDE = { width: 1400, height: 900 };
+/** Vitest's default browser viewport, restored after a test changes it. */
+const DEFAULT_VIEWPORT = { width: 414, height: 896 };
+/** The narrow pages' column: 60rem at the default 16px font size. */
+const NARROW_PX = 960;
+
+afterEach(async () => {
+	await page.viewport(DEFAULT_VIEWPORT.width, DEFAULT_VIEWPORT.height);
+});
 
 async function renderAt(href: string, handlers: Parameters<typeof fakeServer>[0] = {}) {
 	const history = memoryHistory(href);
@@ -106,4 +118,56 @@ test('an unknown path says so', async () => {
 	await renderAt('/tasks/102');
 	await expect.element(page.getByRole('heading', { level: 1 })).toHaveTextContent('Not found');
 	await expect.element(page.getByText('/tasks/102')).toBeVisible();
+});
+
+test('the configuration is loaded once, and links the runs to their Kelos console', async () => {
+	const { server } = await renderAt('/?q=widgets', {
+		[CONFIG]: () => json(goldenResponse(CONFIG)),
+		[`${API_BASE}/search`]: () =>
+			json({
+				query: 'widgets',
+				roots: [{ root: { task: { instance: 'vikunja.example.com', id: 102 } }, title: 'Widgets' }]
+			}),
+		[TASK_STORY]: () => json(goldenStory('implementation-merged'))
+	});
+	await page.getByRole('link', { name: 'Widgets' }).click();
+	await page
+		.getByRole('region', { name: 'Events' })
+		.getByRole('button', { name: /Run vikunja-widgets-agent-opus-102/ })
+		.click();
+	await expect
+		.element(
+			page.getByRole('region', { name: 'Detail' }).getByRole('link', { name: /Kelos console/ })
+		)
+		.toHaveAttribute(
+			'href',
+			'https://kelos.example.com/api/resources/tasks/agents/vikunja-widgets-agent-opus-102/logs'
+		);
+	expect(server.requests.filter((r) => r.path === CONFIG)).toHaveLength(1);
+});
+
+test('without the configuration, the story still shows, its runs without a link', async () => {
+	await renderAt('/task/vikunja.example.com/102', {
+		[TASK_STORY]: () => json(goldenStory('implementation-merged'))
+	});
+	await page
+		.getByRole('region', { name: 'Events' })
+		.getByRole('button', { name: /Run vikunja-widgets-agent-opus-102/ })
+		.click();
+	const detail = page.getByRole('region', { name: 'Detail' });
+	await expect.element(detail.getByRole('heading', { level: 3 })).toHaveTextContent(/^Run /);
+	expect(detail.getByRole('link', { name: /Kelos console/ }).elements()).toHaveLength(0);
+});
+
+test('the story page takes the whole width, the entry page a narrow column', async () => {
+	await page.viewport(WIDE.width, WIDE.height);
+	const { router } = await renderAt('/', {
+		[TASK_STORY]: () => json(goldenStory('implementation-merged'))
+	});
+	const main = () => page.getByRole('main').element().getBoundingClientRect().width;
+	await expect.element(page.getByRole('search')).toBeVisible();
+	expect(main()).toBeLessThanOrEqual(NARROW_PX);
+	router.navigate('/task/vikunja.example.com/102');
+	await expect.element(page.getByRole('region', { name: 'Timeline' })).toBeVisible();
+	expect(main()).toBeGreaterThan(NARROW_PX);
 });

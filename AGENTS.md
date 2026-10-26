@@ -13,7 +13,8 @@ Sillage observes; it never takes part. It is never in the spawning path: no
 webhook, spawner or agent waits on it, so a sillage outage must never block
 agent work.
 
-Status: pre-alpha. The repository is a skeleton; nothing is deployed.
+Status: pre-alpha, deployed from `sperano/hollingsworth`; the story page
+shows the timeline graph, the event list and the detail panel.
 
 ## Layout
 
@@ -36,12 +37,12 @@ Status: pre-alpha. The repository is a skeleton; nothing is deployed.
 | `internal/reconcile/storetest/` | The contract of `reconcile.Store`, asserted of the loop tests' fake and, against PostgreSQL, of `cmd/sillage`'s adapter: a store the loop's tests do not model fails it first. |
 | `internal/store/` | PostgreSQL persistence of `model` records, checkpoints, coverage, Kelos Task origins (kept on first sight: a TaskRecord does not copy annotations), every pod each run was seen with, and phase markers with their join to a run (by pod, else by Task name and time, else unattached and joined again by each save of Kelos records); `migrations/` holds the numbered SQL files embedded and applied at startup (add one, never edit one that shipped). |
 | `internal/overview/` | The multi-task overview of a window: one row per task or page with its runs, pull requests, review waits and state changes in it, its completion at the window's end when that changed in it, and whether its history is missing; filters and cursor pages. Pure: model records in, rows out. |
-| `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, search, link resolution, the overview, version. No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
+| `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, search, link resolution, the overview, version, and the frontend's configuration (the Kelos console per cluster, from `SILLAGE_KELOS_CONSOLE_URL`). No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
 | `internal/ingest/` | The webhook receiver: `POST /ingest/vikunja` and `POST /ingest/github`, authenticated by their signatures alone (they bypass the forward-auth). Each authenticated attempt is recorded in the store as evidence that sillage received it (`model.Delivery`), and asks the collector to read the roots it names again; no record comes from a payload. `Queue` is the collector loop's end of those requests. |
 | `internal/ingest/marker/` | `POST /ingest/marker`, on the in-cluster Service only: the phase markers (`model.Marker`) that wrappers in a Kelos run's pod report, authenticated by a TokenReview of the pod's projected ServiceAccount token (audience `sillage`), the verdict cached by token hash until it expires. The sender is the reviewed pod, never the body. Stored as evidence, apart from every story; it asks for no read. |
-| `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests; `overview/`, the overview's set of overlapping stories and its golden overview; `api/`, the API's search, resolve and freshness bodies. See its README. |
+| `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests; `overview/`, the overview's set of overlapping stories and its golden overview; `api/`, the API's search, resolve, freshness and configuration bodies. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
-| `web/src/lib/` | The story types (`model.ts`), their key strings (`keys.ts`) and their runtime decoder, the read API client and its search, resolve and freshness responses' decoder (`decodeApi.ts`), the routes and the router. |
+| `web/src/lib/` | The story types (`model.ts`), their key strings (`keys.ts`) and their runtime decoder, the read API client and its search, resolve, freshness and configuration responses' decoder (`decodeApi.ts`), the routes and the router. |
 | `web/src/lib/selection.svelte.ts` | The selected event, run, check or review wait (`ItemRef`, `timeline.ts`), one instance shared by the timeline graph, the event list and the detail panel. |
 | `web/src/lib/timeline/` | The single-task timeline graph (SVG): lanes, intervals, a run's phases on sub-tracks under its bar, coverage shading, zoom and pan. Layout is pure TypeScript; the components draw it and handle zoom, pan, selection and group expansion. |
 | `web/src/lib/overview/` | The multi-task overview: its types and decoder (the Go `overview.Page`), its URL query, what a row says at an instant and at the window's end, its lanes (by task or by executor) and the components that draw them. |
@@ -169,7 +170,7 @@ field is in `testdata/fixtures/contract/event.golden.json` (`go test
 decoder's tests check `model.ts` and the decoder against.
 
 `testdata/fixtures/api/responses.golden.json` holds what the API answers
-the web client's searches, resolutions and freshness requests, keyed by
+the web client's searches, resolutions, freshness and configuration requests, keyed by
 path (`go test ./internal/api -run TestResponsesGolden -update`); the web
 client's tests answer from it, so a change to those responses' JSON also
 changes `web/src/lib/decodeApi.ts` in the same PR.

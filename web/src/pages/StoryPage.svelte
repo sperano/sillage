@@ -1,20 +1,24 @@
-<!-- /task/... and /page/...: one root's story. The timeline and the event list come later. -->
+<!-- /task/... and /page/...: one root's story, its timeline graph beside its event list and detail. -->
 <script lang="ts">
 	import type { Api } from '../lib/api';
 	import { count } from '../lib/format';
+	import type { LinkConfig } from '../lib/links';
 	import { load } from '../lib/load.svelte';
 	import type { Root } from '../lib/model';
 	import { rootLabel } from '../lib/roots';
+	import StoryView from '../lib/story/StoryView.svelte';
+	import Timeline from '../lib/timeline/Timeline.svelte';
+	import { zoneName, type Zone } from '../lib/timeline/time';
 	import ErrorNotice from '../components/ErrorNotice.svelte';
-	import Freshness from '../components/Freshness.svelte';
 
-	let { api, root }: { api: Api; root: Root } = $props();
+	let { api, root, links = {} }: { api: Api; root: Root; links?: LinkConfig } = $props();
 
-	const uid = $props.id();
 	const story = load(() => {
 		const r = root;
 		return (signal) => api.story(r, signal);
 	});
+	// UTC, as the overview, until the reader chooses local time in the graph's toolbar.
+	let zone = $state<Zone>('utc');
 </script>
 
 <svelte:head><title>History of {rootLabel(root)} · Sillage</title></svelte:head>
@@ -27,11 +31,11 @@
 		{count(s.pullRequests.length, 'pull request')} and
 		{count(s.correlations.length, 'correlation')}.
 	</p>
-	<p>The timeline and the event list are not built yet.</p>
-	<section aria-labelledby="{uid}-sources">
-		<h2 id="{uid}-sources">Sources</h2>
-		<Freshness coverage={s.coverage} />
-	</section>
+	<StoryView story={s} {links} timeZone={zoneName(zone)}>
+		{#snippet graph(selection)}
+			<Timeline story={s} {selection} bind:zone />
+		{/snippet}
+	</StoryView>
 {:else if story.current.state === 'failed'}
 	<ErrorNotice
 		error={story.current.error}
