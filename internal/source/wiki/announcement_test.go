@@ -24,6 +24,24 @@ func TestParseAnnouncement(t *testing.T) {
 			},
 		},
 		{
+			// Wiki.js renders the Markdown table with an empty header row.
+			name: "location table",
+			body: "<p>AGENT <code>agent-opus</code> (MODEL <code>example-model-2[1m]</code>) IS ON YOUR FOLLOW-UP REQUEST. " +
+				"HEARD YOU LOUD AND CLEAR.</p>\n<table>\n<thead>\n<tr>\n<th></th>\n<th></th>\n</tr>\n</thead>\n<tbody>\n" +
+				"<tr>\n<td>KELOS TASK</td>\n<td><code>wiki-fu-widgets-57-c890</code></td>\n</tr>\n" +
+				"<tr>\n<td>POD</td>\n<td><code>wiki-fu-widgets-57-c890-klmno</code></td>\n</tr>\n" +
+				"<tr>\n<td>NODE</td>\n<td><code>node-a</code></td>\n</tr>\n</tbody>\n</table>\n" +
+				`<p>WANT TO WATCH? OPEN THE <a href="https://kelos.example.com">KELOS CONSOLE</a>. SIGN IN, SELECT NAMESPACE ` +
+				"<code>agents</code>, AND FIND TASK <code>wiki-fu-widgets-57-c890</code> IN RESOURCES.</p>\n" +
+				`<p>THE WHOLE STORY IS IN THE <a href="https://sillage.example.com/page/wiki.example.com/57/en">ACTIVITY ` +
+				"TIMELINE</a>.</p>\n<p>COFFEE TIME! REPORT TO FOLLOW.</p>\n",
+			want: Announcement{
+				Agent: "agent-opus", Model: "example-model-2[1m]", Namespace: "agents",
+				TaskName: "wiki-fu-widgets-57-c890", Pod: "wiki-fu-widgets-57-c890-klmno",
+				Workspace: "widgets", RequestComment: 890,
+			},
+		},
+		{
 			name: "current, an agent, no model or pod",
 			body: "<p>AN AGENT IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR. KELOS TASK " +
 				"<code>wiki-fu-widgets-57-c883</code>.</p>",
