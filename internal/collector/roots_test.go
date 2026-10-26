@@ -18,7 +18,7 @@ func TestDiscover(t *testing.T) {
 			task("vikunja-widgets-agent-opus-7", "uid-label", "", taskLabels("7"), 0, 5),
 			task("pr-followup-widgets-3-c11", "uid-branch", "kelos/vikunja-8", nil, 0, 5),
 			task("vikunja-fu-widgets-9-c12", "uid-name", "", nil, 0, 5),
-			task("wiki-fu-widgets-57-c13", "uid-page", "kelos/wiki-57", nil, 0, 5),
+			task("wiki-fu-widgets-57-c13", "uid-retired", "kelos/wiki-57", nil, 0, 5),
 			task("unrelated", "uid-none", "main", nil, 0, 5),
 		},
 		Records: []kelos.TaskRecord{record("gone", "uid-record", taskLabels("10"), 0, 5)},
@@ -32,7 +32,6 @@ func TestDiscover(t *testing.T) {
 		taskRoot(8).Ref():  {"uid-branch"},
 		taskRoot(9).Ref():  {"uid-name"},
 		taskRoot(10).Ref(): {"uid-record"},
-		pageRoot(57).Ref(): {"uid-page"},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("Discover() = %d roots %v, want %d", len(got), refsOf(got), len(want))

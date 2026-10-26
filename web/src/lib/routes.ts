@@ -5,7 +5,7 @@
 // server must answer every non-API path with index.html (AGENTS.md,
 // "Routes").
 
-import type { PageKey, Root, TaskKey } from './model';
+import type { Root, TaskKey } from './model';
 import { parseOverviewQuery, type OverviewQuery } from './overview/query';
 import { rootSegments } from './roots';
 
@@ -13,7 +13,6 @@ export type Route =
 	/** The entry page; query is the search, empty when none was made. */
 	| { name: 'home'; query: string }
 	| { name: 'task'; key: TaskKey }
-	| { name: 'page'; key: PageKey }
 	/** Resolve url to its root, then show that root's story. */
 	| { name: 'open'; url: string }
 	/** What was working on what: the tasks active in a window. */
@@ -47,13 +46,11 @@ function segments(path: string): string[] | undefined {
 }
 
 function parseRoot(parts: readonly string[]): Route | undefined {
-	const [kind, instance, rawID, locale, ...rest] = parts;
+	const [kind, instance, rawID, ...rest] = parts;
 	if (instance === undefined || rawID === undefined || rest.length > 0) return undefined;
 	const id = parseID(rawID);
 	if (id === undefined) return undefined;
-	if (kind === 'task' && locale === undefined) return { name: 'task', key: { instance, id } };
-	if (kind === 'page' && locale !== undefined)
-		return { name: 'page', key: { instance, id, locale } };
+	if (kind === 'task') return { name: 'task', key: { instance, id } };
 	return undefined;
 }
 

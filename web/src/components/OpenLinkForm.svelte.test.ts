@@ -19,7 +19,5 @@ test('says which links it takes', async () => {
 	await render(OpenLinkForm, { router: new Router(memoryHistory('/')) });
 	await expect
 		.element(page.getByRole('textbox', { name: 'Link' }))
-		.toHaveAccessibleDescription(
-			'A Vikunja task, a Kelos Task, a GitHub pull request or a wiki page.'
-		);
+		.toHaveAccessibleDescription('A Vikunja task, a Kelos Task or a GitHub pull request.');
 });

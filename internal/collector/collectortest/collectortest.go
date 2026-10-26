@@ -1,6 +1,6 @@
 // Package collectortest answers the real source clients from the
-// fabricated responses under testdata/fixtures: Vikunja, GitHub and
-// Wiki.js from one httptest server routed by host, Kelos from client-go's
+// fabricated responses under testdata/fixtures: Vikunja and GitHub from
+// one httptest server routed by host, Kelos from client-go's
 // fake dynamic client. A test assembles a story from them the way the
 // collector reads the live sources. It is imported by tests only.
 package collectortest
@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -27,14 +26,12 @@ import (
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
-	"github.com/sperano/sillage/internal/source/wiki"
 )
 
 const (
 	// The fabricated instances the fixtures name.
 	VikunjaHost = "vikunja.example.com"
 	GitHubHost  = "github.example.com"
-	WikiHost    = "wiki.example.com"
 	Cluster     = "cluster-a"
 	Namespace   = "agents"
 	Workspace   = "widgets"
@@ -48,8 +45,6 @@ const (
 	GitHubAPIPath = "/api/v3"
 	// Token is a made-up token every client sends.
 	Token = "fabricated-token-0123456789"
-	// WikiUser is the agents' Wiki.js user.
-	WikiUser = int64(21)
 
 	// repoPath is the fixtures' repository's API path.
 	repoPath = GitHubAPIPath + "/repos/example-org/widgets"
@@ -69,7 +64,7 @@ var Repo = github.Repository{Owner: "example-org", Name: "widgets"}
 // which no source is read for: a caller passes them back in (see
 // Markers).
 type Dirs struct {
-	Vikunja, Kelos, GitHub, Wiki, Markers string
+	Vikunja, Kelos, GitHub, Markers string
 }
 
 // markersFile holds, in a story's Markers directory, its joined markers.
@@ -99,7 +94,6 @@ type Clients struct {
 	Vikunja *vikunja.Client
 	Kelos   *kelos.Reader
 	GitHub  *github.Client
-	Wiki    *wiki.Client
 }
 
 // KelosConfig is the Kelos configuration the fixtures follow.
@@ -130,18 +124,12 @@ func New(t testing.TB, fixtures string, dirs Dirs, report Report) Clients {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wk, err := wiki.NewClient(wiki.Config{
-		BaseURL: "http://" + WikiHost, Instance: WikiHost, Token: Token, AgentUsers: []int64{WikiUser},
-	}, hc)
-	if err != nil {
-		t.Fatal(err)
-	}
 	reader, err := kelos.NewReader(fakeKelos(t, fixtures, dirs.Kelos), KelosConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
 	vk := vikunja.NewClient(vikunja.Config{BaseURL: "http://" + VikunjaHost, Token: Token, ServiceAccount: ServiceAccount}, hc)
-	return Clients{Vikunja: vk, Kelos: reader, GitHub: gh, Wiki: wk}
+	return Clients{Vikunja: vk, Kelos: reader, GitHub: gh}
 }
 
 // routedClient sends every request to h's server, whatever its host.
@@ -165,9 +153,8 @@ type fake struct {
 	dirs     Dirs
 	report   Report
 	mux      *http.ServeMux
-	// task and page are the ids of the task and the page the story's
-	// responses hold; 0 without.
-	task, page int64
+	// task is the id of the task the story's responses hold; 0 without.
+	task int64
 }
 
 func newFake(t testing.TB, fixtures string, dirs Dirs, report Report) *fake {
@@ -175,9 +162,6 @@ func newFake(t testing.TB, fixtures string, dirs Dirs, report Report) *fake {
 	f := &fake{t: t, fixtures: fixtures, dirs: dirs, report: report, mux: http.NewServeMux()}
 	if dirs.Vikunja != "" {
 		f.task = f.taskID()
-	}
-	if dirs.Wiki != "" {
-		f.page = f.pageID()
 	}
 	vk := func(name func(*http.Request) string) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -193,7 +177,6 @@ func newFake(t testing.TB, fixtures string, dirs Dirs, report Report) *fake {
 		return "comments-" + r.URL.Query().Get("page") + ".json"
 	}))
 	f.handleGitHub()
-	f.mux.HandleFunc("POST "+WikiHost+"/graphql", f.serveWiki)
 	return f
 }
 
@@ -250,39 +233,6 @@ func (f *fake) serve(w http.ResponseWriter, r *http.Request, dir, name, empty st
 	_, _ = w.Write(body)
 }
 
-// serveWiki answers a GraphQL query from its operation's file. A query
-// of a page other than the story's is refused.
-func (f *fake) serveWiki(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		OperationName string `json:"operationName"`
-		Query         string `json:"query"`
-		Variables     struct {
-			ID         int64 `json:"id"`
-			PageID     int64 `json:"pageId"`
-			OffsetPage int   `json:"offsetPage"`
-			VersionID  int64 `json:"versionId"`
-		} `json:"variables"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.HasPrefix(req.Query, "mutation") {
-		f.t.Errorf("wiki request %+v: %v", req, err)
-	}
-	asked := map[string]int64{
-		"SillagePage": req.Variables.ID, "SillageHistory": req.Variables.ID, "SillageVersion": req.Variables.PageID,
-	}
-	if id, ok := asked[req.OperationName]; ok && f.dirs.Wiki != "" && id != f.page {
-		f.refuse(w, r, f.report.Elsewhere, "wiki %s of page %d, the story's responses are of page %d", req.OperationName, id, f.page)
-		return
-	}
-	files := map[string]string{
-		"SillagePage":     "page.json",
-		"SillagePageList": "pages.json",
-		"SillageHistory":  "history-" + strconv.Itoa(req.Variables.OffsetPage) + ".json",
-		"SillageVersion":  "version-" + strconv.FormatInt(req.Variables.VersionID, 10) + ".json",
-		"SillageComments": "comments.json",
-	}
-	f.serve(w, r, f.dirs.Wiki, files[req.OperationName], "")
-}
-
 // taskID is the id of the task the story's Vikunja responses hold.
 func (f *fake) taskID() int64 {
 	var task struct {
@@ -290,21 +240,6 @@ func (f *fake) taskID() int64 {
 	}
 	f.decode(filepath.Join(f.dirs.Vikunja, "task.json"), &task)
 	return task.ID
-}
-
-// pageID is the id of the page the story's wiki responses hold.
-func (f *fake) pageID() int64 {
-	var page struct {
-		Data struct {
-			Pages struct {
-				Single struct {
-					ID int64 `json:"id"`
-				} `json:"single"`
-			} `json:"pages"`
-		} `json:"data"`
-	}
-	f.decode(filepath.Join(f.dirs.Wiki, "page.json"), &page)
-	return page.Data.Pages.Single.ID
 }
 
 func (f *fake) decode(name string, v any) {

@@ -36,31 +36,40 @@ test('a pending review request names the reviewer', async () => {
 });
 
 test('a request with no announcement is waiting for an agent', async () => {
-	const story = goldenStory('wiki-rooted-request');
+	const story = goldenStory('failed-run-retry');
+	const announced = story.events.find((e) => e.kind === 'run.announced')!;
 	story.events = story.events.filter((e) => e.kind !== 'run.announced');
-	story.correlations = story.correlations.filter(
-		(c) => c.to.id !== 'wiki/wiki.example.com/comments/880'
-	);
+	story.events.push({
+		...announced,
+		id: 'comments/5499',
+		kind: 'request.created',
+		sourceTime: '2026-03-05T14:30:00Z',
+		actor: { login: 'owner', kind: 'person' },
+		details: { command: '/gordon' }
+	});
 	render(NextAction, { story, timeZone: 'UTC' });
 	await expect
 		.element(region())
 		.toHaveTextContent(
-			'Waiting for an agent: /kelos by owner 2026-03-04 15:00:00 UTC, no start announced'
+			'Waiting for an agent: /gordon by owner 2026-03-05 14:30:00 UTC, no start announced'
 		);
 });
 
 test('a request seen by polling is not given the poll as its time', async () => {
-	const story = goldenStory('wiki-rooted-request');
+	const story = goldenStory('failed-run-retry');
+	const announced = story.events.find((e) => e.kind === 'run.announced')!;
 	story.events = story.events.filter((e) => e.kind !== 'run.announced');
-	story.correlations = story.correlations.filter(
-		(c) => c.to.id !== 'wiki/wiki.example.com/comments/880'
-	);
-	const request = story.events.find((e) => e.kind === 'request.created');
-	if (!request) throw new Error('no request');
-	delete request.sourceTime;
-	request.observedAt = '2026-03-04T15:02:00Z';
+	story.events.push({
+		...announced,
+		id: 'comments/5499',
+		kind: 'request.created',
+		sourceTime: undefined,
+		observedAt: '2026-03-05T14:32:00Z',
+		actor: { login: 'owner', kind: 'person' },
+		details: { command: '/gordon' }
+	});
 	render(NextAction, { story, timeZone: 'UTC' });
 	await expect
 		.element(region())
-		.toHaveTextContent('by owner (seen 2026-03-04 15:02:00 UTC, no source time)');
+		.toHaveTextContent('by owner (seen 2026-03-05 14:32:00 UTC, no source time)');
 });

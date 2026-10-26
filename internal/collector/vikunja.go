@@ -26,8 +26,6 @@ func (a *assembly) vikunjaEvents(s vikunja.Snapshot) ([]model.Event, error) {
 	return recs.Events, nil
 }
 
-func taskObject(key model.TaskKey) string { return "tasks/" + strconv.FormatInt(key.ID, 10) }
-
 func commentObject(id int64) string { return "comments/" + strconv.FormatInt(id, 10) }
 
 // vikunjaAgent reports whether login is one of the configured agents'.

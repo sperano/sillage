@@ -23,7 +23,6 @@ import (
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
-	"github.com/sperano/sillage/internal/source/wiki"
 	"github.com/sperano/sillage/internal/store"
 )
 
@@ -33,11 +32,7 @@ func TestNewAPI(t *testing.T) {
 		env     map[string]string
 		wantErr bool
 	}{
-		{"no wiki", nil, false},
-		{"wiki", map[string]string{
-			wiki.EnvURL: "https://wiki.example.com", wiki.EnvToken: "token", wiki.EnvAgentUsers: "21",
-		}, false},
-		{"wiki without a token", map[string]string{wiki.EnvURL: "https://wiki.example.com"}, true},
+		{"no console", nil, false},
 		{"kelos console", map[string]string{
 			kelosConsoleURLEnv: "https://kelos.example.com", kelos.EnvCluster: "cluster-a",
 		}, false},
@@ -120,10 +115,9 @@ func corpusCollectorConfig() collector.Config {
 		VikunjaInstance: collectortest.VikunjaHost, VikunjaServiceAccount: collectortest.ServiceAccount,
 		VikunjaAgentUsers: []string{collectortest.Agent},
 		Kelos:             collectortest.KelosConfig(),
-		GitHubInstance:    collectortest.GitHubHost, WikiInstance: collectortest.WikiHost,
-		WikiAgentUsers: []int64{collectortest.WikiUser},
-		Workspaces:     map[string]github.Repository{collectortest.Workspace: collectortest.Repo},
-		KelosTaskTTL:   collector.DefaultKelosTaskTTL,
+		GitHubInstance:    collectortest.GitHubHost,
+		Workspaces:        map[string]github.Repository{collectortest.Workspace: collectortest.Repo},
+		KelosTaskTTL:      collector.DefaultKelosTaskTTL,
 	}
 }
 
@@ -138,7 +132,7 @@ func collectCorpusStory(t *testing.T, st *store.Store, story collectortest.Story
 	cfg := reconcile.DefaultConfig()
 	cfg.VikunjaProjects = []int64{corpusProject}
 	src := reconcile.Sources{
-		Sources:  collector.Sources{Vikunja: cl.Vikunja, Kelos: cl.Kelos, GitHub: cl.GitHub, Wiki: cl.Wiki},
+		Sources:  collector.Sources{Vikunja: cl.Vikunja, Kelos: cl.Kelos, GitHub: cl.GitHub},
 		Projects: corpusProjects{task: story.Root.Task},
 	}
 	runCycle(t, st, cfg, corpusCollectorConfig(), src)
@@ -152,7 +146,7 @@ func checkRootCollected(t *testing.T, st *store.Store, story collectortest.Story
 	t.Helper()
 	cl := collectortest.New(t, corpusFixtures, story.Dirs, collectortest.Report{Elsewhere: t.Errorf, Broken: t.Errorf})
 	c, err := collector.New(corpusCollectorConfig(), collector.Sources{
-		Vikunja: cl.Vikunja, Kelos: cl.Kelos, GitHub: cl.GitHub, Wiki: cl.Wiki,
+		Vikunja: cl.Vikunja, Kelos: cl.Kelos, GitHub: cl.GitHub,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -200,17 +194,6 @@ func recordKeys(recs model.Records) []string {
 // must show beyond what the stored stories build, by story; rowsIn asks
 // the API for the rows of the hour from an RFC 3339 time.
 var liveChecks = map[string]func(t *testing.T, rowsIn func(from string) []overview.Row){
-	// The other run of the agent profile is not the page's: it is in its
-	// own task's row, which only the loop's Kelos discovery stores.
-	"wiki-rooted-request": func(t *testing.T, rowsIn func(string) []overview.Row) {
-		rows := rowsIn("2026-03-04T15:00:00Z")
-		if got := rowRuns(t, rows, "wiki.example.com/pages/57/en"); !slices.Equal(got, []string{"00000000-0000-4000-8000-000000000057"}) {
-			t.Errorf("page 57's runs = %v, want its own run only", got)
-		}
-		if got := rowRuns(t, rows, "vikunja.example.com/tasks/103"); !slices.Equal(got, []string{"00000000-0000-4000-8000-000000000103"}) {
-			t.Errorf("task 103's runs = %v, want its run", got)
-		}
-	},
 	"failed-run-retry": func(t *testing.T, rowsIn func(string) []overview.Row) {
 		got := rowRuns(t, rowsIn("2026-03-05T14:00:00Z"), "vikunja.example.com/tasks/104")
 		if want := []string{"00000000-0000-4000-8000-00000000104a", "00000000-0000-4000-8000-00000000104b"}; !slices.Equal(got, want) {
@@ -238,10 +221,7 @@ func rowRuns(t *testing.T, rows []overview.Row, key string) []string {
 }
 
 func rootKey(root model.Root) string {
-	if root.Task != nil {
-		return root.Task.String()
-	}
-	return root.Page.String()
+	return root.Task.String()
 }
 
 // TestOverviewOverTheCollectedCorpus runs the collection loop over each

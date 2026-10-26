@@ -12,9 +12,9 @@ test("shows each source's latest and stalest successful read", async () => {
 	const server = fakeServer({ [COVERAGE]: () => json(goldenResponse(COVERAGE)) });
 	await render(SourceFreshness, { api: server.api });
 	await expect
-		.element(page.getByRole('listitem').filter({ hasText: 'wiki.example.com' }))
+		.element(page.getByRole('listitem').filter({ hasText: 'github.example.com' }))
 		.toHaveTextContent(
-			'Wiki.js wiki.example.com Read for 2 tasks or pages. Last read successfully at 2026-03-04 16:00:00 UTC; the least recently read of them at 2026-03-02 15:00:00 UTC.'
+			'GitHub github.example.com Read for 4 tasks. Last read successfully at 2026-03-13 10:00:00 UTC; the least recently read of them at 2026-03-02 15:00:00 UTC.'
 		);
 	expect(server.requests.map((r) => r.path)).toEqual([COVERAGE]);
 });

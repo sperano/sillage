@@ -16,14 +16,12 @@ const (
 	// in a pull request.
 	RoleImplementation RunRole = "implementation"
 	// RoleDiscussion: the first run on a Vikunja task labelled discuss.
-	// Its deliverable is a comment or a wiki page, never a pull request.
+	// Its deliverable is a comment, never a pull request.
 	RoleDiscussion RunRole = "discussion"
 	// RoleTaskFollowUp: started by a comment on a Vikunja task.
 	RoleTaskFollowUp RunRole = "task-follow-up"
 	// RolePRFollowUp: started by a comment or review on a pull request.
 	RolePRFollowUp RunRole = "pr-follow-up"
-	// RoleWikiFollowUp: started by a comment on a wiki page.
-	RoleWikiFollowUp RunRole = "wiki-follow-up"
 	// RoleConflictFix: started to resolve a pull request's merge conflict.
 	RoleConflictFix RunRole = "conflict-fix"
 	// RoleAutomation: bookkeeping started by automation (labelling an
@@ -37,7 +35,7 @@ const (
 func (r RunRole) valid() bool {
 	switch r {
 	case RoleImplementation, RoleDiscussion, RoleTaskFollowUp, RolePRFollowUp,
-		RoleWikiFollowUp, RoleConflictFix, RoleAutomation, RoleUnknown:
+		RoleConflictFix, RoleAutomation, RoleUnknown:
 		return true
 	}
 	return false

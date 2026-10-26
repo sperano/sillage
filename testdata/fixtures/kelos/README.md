@@ -11,7 +11,7 @@ through client-go's fake dynamic client. One directory per story:
   a caller kept of Tasks this read no longer lists, given to `Normalize`
   as `Snapshot.Remembered`;
 - `records.golden.json`: what `Normalize` makes of them: runs and their
-  correlations with Vikunja tasks, wiki pages and pull requests.
+  correlations with Vikunja tasks and pull requests.
   Generated; never edit it by hand:
   `go test ./internal/source/kelos -run TestNormalizeGolden -update`,
   then review the diff.
@@ -27,5 +27,5 @@ annotation outside that domain to show that neither is read.
 | `task-only` | A discussion run (name prefix `vikunja-discuss-`) that reported no usage, so has no record; its model comes from the deprecated `spec.model`. |
 | `tasks-unfinished` | A running PR follow-up (open end) and a waiting automation Task (`waiting` outcome, no start yet, open end, model set by a WorkerPool and so unknown, no task label and so no correlation). |
 | `same-name-retry` | A failed attempt known from its record and a retry with the same Task name and a new UID, known from its Task and record: two runs. |
-| `annotated-no-labels` | Tasks with correlation annotations and no labels (role unknown): a PR follow-up joined to its pull request, a wiki follow-up to its page (instance lower-cased), a merge Task to its pull request; kubectl's last-applied annotation is not read. |
+| `annotated-no-labels` | Tasks with correlation annotations and no labels (role unknown): a PR follow-up and a merge Task joined to their pull request; kubectl's last-applied annotation is not read. |
 | `record-only-remembered` | A PR follow-up read from its TaskRecord alone, whose Origin was kept when its Task was read: joined to its pull request by that Origin, the evidence saying when it was read and why it was kept. |

@@ -16,7 +16,7 @@ import (
 	"github.com/sperano/sillage/internal/source/github"
 )
 
-var testCollectorConfig = collector.Config{VikunjaInstance: "vikunja.example.com", WikiInstance: "wiki.example.com"}
+var testCollectorConfig = collector.Config{VikunjaInstance: "vikunja.example.com"}
 
 // fakeCollector records what it is asked and answers res.
 type fakeCollector struct {
@@ -41,15 +41,14 @@ func TestParseStoryArgs(t *testing.T) {
 		args []string
 		want storyArgs
 	}{
-		{[]string{"-task", "102"}, storyArgs{task: 102, locale: defaultLocale}},
-		{[]string{"--page", "57", "--locale", "fr"}, storyArgs{page: 57, locale: "fr"}},
+		{[]string{"-task", "102"}, storyArgs{task: 102}},
 		{[]string{"-task", "102", "-repo", "example-org/widgets"}, storyArgs{
-			task: 102, locale: defaultLocale, repos: []github.Repository{widgets},
+			task: 102, repos: []github.Repository{widgets},
 		}},
 	}
 	for _, tt := range tests {
 		got, err := parseStoryArgs(tt.args, io.Discard)
-		if err != nil || got.task != tt.want.task || got.page != tt.want.page || got.locale != tt.want.locale ||
+		if err != nil || got.task != tt.want.task ||
 			!slices.Equal(got.repos, tt.want.repos) {
 			t.Errorf("parseStoryArgs(%q) = %+v, %v; want %+v", tt.args, got, err, tt.want)
 		}
@@ -59,14 +58,11 @@ func TestParseStoryArgs(t *testing.T) {
 func TestParseStoryArgsRejects(t *testing.T) {
 	for _, args := range [][]string{
 		nil,
-		{"-task", "1", "-page", "2"},
 		{"-task", "-1"},
 		{"-task", "1", "extra"},
 		{"-task", "one"},
 		{"-task", "1", "-repo", "widgets"},
-		{"-task", "1", "-page", "0"},
-		{"-page", "0"},
-		{"-task", "0", "-page", "57"},
+		{"-page", "57"},
 	} {
 		var out bytes.Buffer
 		if _, err := parseStoryArgs(args, &out); !errors.Is(err, errUsage) || !strings.Contains(out.String(), "-"+taskFlag) {
@@ -111,17 +107,6 @@ func TestRunStoryPrintsTheStory(t *testing.T) {
 		t.Errorf("collected with repositories %v, want %v", fake.repos, want)
 	}
 	assertPrintedTask(t, stdout.Bytes(), 102)
-}
-
-func TestRunStoryPageRoot(t *testing.T) {
-	root := model.Root{Page: &model.PageKey{Instance: "wiki.example.com", ID: 57, Locale: defaultLocale}}
-	fake := &fakeCollector{res: collector.Result{Story: testStory(t, root)}}
-	if err := runStory(t.Context(), []string{"-page", "57"}, nil, io.Discard, io.Discard, fake.open); err != nil {
-		t.Fatal(err)
-	}
-	if fake.root.Page == nil || *fake.root.Page != *root.Page {
-		t.Errorf("collected %+v, want page 57 of the configured wiki", fake.root)
-	}
 }
 
 func TestRunStoryReportsFailedReads(t *testing.T) {

@@ -52,14 +52,6 @@ test('an interrupted phase is never closed at the run’s end', async () => {
 		.toHaveTextContent('never closed at the run’s end');
 });
 
-test('inconsistent markers keep both edges and name both kinds', async () => {
-	const { phase } = show('inconsistent');
-	await expect.element(page.getByTestId('phase-state')).toHaveTextContent('inconsistent markers');
-	expect(phase.start && phase.end).toBeTruthy();
-	await expect.element(page.getByTestId('phase-start')).toHaveTextContent('2026-03-14');
-	await expect.element(page.getByTestId('phase-end')).toHaveTextContent('2026-03-14');
-});
-
 test('the run link selects the run', async () => {
 	const { run, selection } = show('start-not-recorded');
 	await page.getByRole('button', { name: run.taskName }).click();

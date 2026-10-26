@@ -1,4 +1,4 @@
-<!-- /task/... and /page/...: one root's story, its timeline graph beside its event list and detail. -->
+<!-- /task/...: one task's story, its timeline graph beside its event list and detail. -->
 <script lang="ts">
 	import type { Api } from '../lib/api';
 	import { count } from '../lib/format';
@@ -41,7 +41,7 @@
 		error={story.current.error}
 		notFound="Sillage has no history of {rootLabel(root)}: it may not have been read yet."
 	/>
-	<p><a href="/">Search for another task or page</a></p>
+	<p><a href="/">Search for another task</a></p>
 {:else}
 	<p role="status">Loading the history…</p>
 {/if}

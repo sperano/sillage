@@ -26,7 +26,6 @@ import (
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
-	"github.com/sperano/sillage/internal/source/wiki"
 	"github.com/sperano/sillage/internal/store"
 )
 
@@ -179,14 +178,6 @@ func (loopGitHub) FetchBranch(context.Context, github.Repository, github.Branch)
 	return nil, nil
 }
 
-type loopWiki struct{}
-
-func (loopWiki) Fetch(context.Context, int64) (wiki.Snapshot, error) {
-	return wiki.Snapshot{}, errors.New("no page")
-}
-
-func (loopWiki) Pages(context.Context) ([]wiki.Page, error) { return nil, nil }
-
 type loopProjects struct{}
 
 func (loopProjects) ChangedTasks(context.Context, int64, time.Time) ([]vikunja.TaskChange, error) {
@@ -208,11 +199,11 @@ func runOneCycle(t *testing.T, st *store.Store) {
 		Kelos: kelos.Config{
 			Cluster: loopCluster, Namespace: loopNamespace, LabelDomain: loopVikunjaHost, VikunjaInstance: loopVikunjaHost,
 		},
-		GitHubInstance: "github.example.com", WikiInstance: "wiki.example.com",
-		KelosTaskTTL: collector.DefaultKelosTaskTTL,
+		GitHubInstance: "github.example.com",
+		KelosTaskTTL:   collector.DefaultKelosTaskTTL,
 	}
 	src := reconcile.Sources{
-		Sources:  collector.Sources{Vikunja: loopVikunja{}, Kelos: loopKelos{}, GitHub: loopGitHub{}, Wiki: loopWiki{}},
+		Sources:  collector.Sources{Vikunja: loopVikunja{}, Kelos: loopKelos{}, GitHub: loopGitHub{}},
 		Projects: loopProjects{},
 	}
 	runCycle(t, st, reconcile.DefaultConfig(), ccfg, src)

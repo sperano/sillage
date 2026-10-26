@@ -16,8 +16,7 @@ const fingerprintPrefix = "sha256:"
 const fingerprintHexLen = sha256.Size * 2
 
 // Fingerprint derives an event id for a record its source gives no id,
-// such as a Vikunja task's done_at or a wiki page's live version (absent
-// from its history trail). It hashes:
+// such as a Vikunja task's done_at. It hashes:
 //
 //   - at: the source time, or, for a polled state with no source time, the
 //     time it was first observed. A later repeat of the same action has a

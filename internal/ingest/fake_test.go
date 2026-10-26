@@ -27,7 +27,6 @@ import (
 const (
 	testVikunja = "vikunja.example.com"
 	testGitHub  = "github.example.com"
-	testWiki    = "wiki.example.com"
 	testRepo    = "example-org/widgets"
 	// testGitHubSecret and testVikunjaSecret sign the tests' deliveries.
 	testGitHubSecret  = "github-test-secret"
@@ -37,15 +36,11 @@ const (
 var testNow = time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 
 func testCollectorConfig() collector.Config {
-	return collector.Config{VikunjaInstance: testVikunja, GitHubInstance: testGitHub, WikiInstance: testWiki}
+	return collector.Config{VikunjaInstance: testVikunja, GitHubInstance: testGitHub}
 }
 
 func taskRoot(id int64) model.Root {
 	return model.Root{Task: &model.TaskKey{Instance: testVikunja, ID: id}}
-}
-
-func pageRoot(id int64) model.Root {
-	return model.Root{Page: &model.PageKey{Instance: testWiki, ID: id, Locale: "en"}}
 }
 
 func refs(roots []model.Root) []string {

@@ -34,18 +34,10 @@ func (b *runBuilder) taskLink(labels map[string]string, ref string, origin Origi
 	return []model.Correlation{identifier(b.run.Key.Ref(), task.Ref(), evidence...)}
 }
 
-// originLinks returns the correlations with the wiki page and the pull
-// request the Origin names.
+// originLinks returns the correlation with the pull request the Origin names.
 func (b *runBuilder) originLinks(o Origin) []model.Correlation {
 	var out []model.Correlation
 	from := b.run.Key.Ref()
-	if page, ok := o.Page(); ok {
-		names := []string{AnnotationSource, AnnotationSourceInstance, AnnotationWikiPage, AnnotationWikiLocale}
-		if o.Value(AnnotationWikiPath) != "" {
-			names = append(names, AnnotationWikiPath)
-		}
-		out = append(out, identifier(from, page.Ref(), o.Evidence(b.cfg, names...)))
-	}
 	if pr, ok := o.PullRequest(); ok {
 		out = append(out, identifier(from, pr.Ref(), o.Evidence(b.cfg,
 			AnnotationSource, AnnotationSourceInstance, AnnotationRepository, AnnotationPR)))
@@ -62,17 +54,6 @@ func identifier(from, to model.Ref, evidence ...model.Evidence) model.Correlatio
 func (o Origin) instanceOf(source string) (string, bool) {
 	host := strings.ToLower(o.Value(AnnotationSourceInstance))
 	return host, o.Value(AnnotationSource) == source && host != ""
-}
-
-// Page returns the wiki page a wiki follow-up's Origin names.
-func (o Origin) Page() (model.PageKey, bool) {
-	host, ok := o.instanceOf(OriginWiki)
-	id, okID := o.ID(AnnotationWikiPage)
-	locale := o.Value(AnnotationWikiLocale)
-	if !ok || !okID || locale == "" {
-		return model.PageKey{}, false
-	}
-	return model.PageKey{Instance: host, ID: id, Locale: locale}, true
 }
 
 // PullRequest returns the pull request a GitHub event's Origin names.

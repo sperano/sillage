@@ -38,13 +38,13 @@
 	<p>Link: <code>{url}</code></p>
 	<ErrorNotice
 		error={resolved.current.error}
-		notFound="Sillage knows no task or page for this link: it may not have been read yet, or sillage does not follow links of this kind."
+		notFound="Sillage knows no task for this link: it may not have been read yet, or sillage does not follow links of this kind."
 	/>
 	<p><a href="/">Paste another link or search</a></p>
 {:else if resolved.current.state === 'loaded' && resolved.current.value.roots.length > 1}
 	<p>Link: <code>{url}</code></p>
-	<p>Several tasks or pages hold what this link points to, the most recently active first:</p>
-	<RootList roots={resolved.current.value.roots} label="Tasks and pages of the link" />
+	<p>Several tasks hold what this link points to, the most recently active first:</p>
+	<RootList roots={resolved.current.value.roots} label="Tasks of the link" />
 {:else}
 	<p role="status">Looking up <code>{url}</code>…</p>
 {/if}

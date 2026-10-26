@@ -1,13 +1,12 @@
 // Package model defines sillage's normalized, source-independent records:
 // events (what happened, when, by which actor and executor, with the
 // evidence behind it), runs (one Kelos Task attempt, identified by cluster,
-// namespace and Task UID), entities and the links between them (tasks, wiki
-// pages, pull requests), and coverage (which time ranges each source is
+// namespace and Task UID), entities and the links between them (tasks and
+// pull requests), and coverage (which time ranges each source is
 // known to have been read for, so that a gap stays visibly unknown).
 //
-// BuildStory assembles the records about one root (a Vikunja task, or a
-// wiki page for work requested from the wiki) into a Story: validated, in
-// UTC, in a deterministic order. The fabricated stories under
+// BuildStory assembles the records about one Vikunja task into a Story:
+// validated, in UTC, in a deterministic order. The fabricated stories under
 // testdata/fixtures/stories are its golden tests and the shared contract
 // between adapters and the web UI.
 //

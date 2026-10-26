@@ -2,17 +2,7 @@
   "kinds": {
     "comment.created": [
       "vikunja",
-      "wiki",
       "github"
-    ],
-    "page.created": [
-      "wiki"
-    ],
-    "page.edited": [
-      "wiki"
-    ],
-    "page.moved": [
-      "wiki"
     ],
     "pr.closed": [
       "github"
@@ -37,12 +27,10 @@
     ],
     "request.created": [
       "vikunja",
-      "wiki",
       "github"
     ],
     "run.announced": [
       "vikunja",
-      "wiki",
       "github"
     ],
     "run.observed": [

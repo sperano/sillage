@@ -17,7 +17,7 @@
       {
         "source": "kelos",
         "instance": "cluster-a",
-        "roots": 6,
+        "roots": 5,
         "neverRead": 0,
         "newestRead": "2026-03-14T11:30:00Z",
         "oldestRead": "2026-03-01T12:00:00Z"
@@ -29,14 +29,6 @@
         "neverRead": 0,
         "newestRead": "2026-03-14T11:30:00Z",
         "oldestRead": "2026-03-01T12:00:00Z"
-      },
-      {
-        "source": "wiki",
-        "instance": "wiki.example.com",
-        "roots": 2,
-        "neverRead": 0,
-        "newestRead": "2026-03-04T16:00:00Z",
-        "oldestRead": "2026-03-02T15:00:00Z"
       }
     ]
   },

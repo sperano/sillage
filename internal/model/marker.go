@@ -19,21 +19,17 @@ type MarkerEmitter string
 // The emitters of phase markers.
 const (
 	EmitterWaitForBlockers MarkerEmitter = "wait_for_blockers"
-	EmitterWikiGQL         MarkerEmitter = "wiki_gql"
 	EmitterEntrypoint      MarkerEmitter = "entrypoint"
 )
 
 // MarkerKind is what part of a run a phase marker's span covers.
 type MarkerKind string
 
-// The kinds of span. There is no per-call wiki request: a run makes
-// dozens, and a login is the one call that makes a run look stalled.
+// The kinds of span.
 const (
 	// MarkerBlockerWait: wait-for-blockers holding the run until the tasks
 	// it is blocked by are done. Kelos counts it as running.
 	MarkerBlockerWait MarkerKind = "blocker-wait"
-	// MarkerWikiLogin: a wiki login, with its retries.
-	MarkerWikiLogin MarkerKind = "wiki-login"
 	// MarkerAgent: the agent process.
 	MarkerAgent MarkerKind = "agent"
 )
@@ -57,10 +53,6 @@ const (
 	MarkerTimedOut    MarkerOutcome = "timed-out"
 	MarkerFailed      MarkerOutcome = "failed"
 
-	MarkerLoginOK          MarkerOutcome = "ok"
-	MarkerLoginRejected    MarkerOutcome = "rejected"
-	MarkerLoginUnavailable MarkerOutcome = "unavailable"
-
 	MarkerSucceeded  MarkerOutcome = "succeeded"
 	MarkerLimitHit   MarkerOutcome = "limit-hit"
 	MarkerTerminated MarkerOutcome = "terminated"
@@ -70,16 +62,12 @@ const (
 type markerKind struct {
 	emitter  MarkerEmitter
 	outcomes []MarkerOutcome
-	// attempts is set for the kind whose end counts its attempts.
-	attempts bool
 }
 
 // markerKinds are the kinds, each with its one emitter and its outcomes.
 var markerKinds = map[MarkerKind]markerKind{
 	MarkerBlockerWait: {emitter: EmitterWaitForBlockers,
 		outcomes: []MarkerOutcome{MarkerUnblocked, MarkerTaskMissing, MarkerTimedOut, MarkerFailed}},
-	MarkerWikiLogin: {emitter: EmitterWikiGQL, attempts: true,
-		outcomes: []MarkerOutcome{MarkerLoginOK, MarkerLoginRejected, MarkerLoginUnavailable}},
 	MarkerAgent: {emitter: EmitterEntrypoint,
 		outcomes: []MarkerOutcome{MarkerSucceeded, MarkerFailed, MarkerLimitHit, MarkerTerminated}},
 }
@@ -115,9 +103,6 @@ type MarkerReport struct {
 	// Outcome is how the span ended, on an end edge only, where it is
 	// required.
 	Outcome MarkerOutcome `json:"outcome,omitempty"`
-	// Attempts is how many attempts a wiki login took, on its end edge
-	// only, where it is required.
-	Attempts *int `json:"attempts,omitempty"`
 }
 
 // Validate reports whether the report is a version 1 marker whose every
@@ -149,8 +134,8 @@ func (r MarkerReport) validate() error {
 	}
 	switch r.Edge {
 	case EdgeStart:
-		if r.Outcome != "" || r.Attempts != nil {
-			return errors.New("a start has no outcome and no attempts")
+		if r.Outcome != "" {
+			return errors.New("a start has no outcome")
 		}
 		return nil
 	case EdgeEnd:
@@ -159,17 +144,10 @@ func (r MarkerReport) validate() error {
 	return fmt.Errorf("unknown edge %q", r.Edge)
 }
 
-// validateEnd checks an end's outcome, and its attempts where the kind
-// counts them.
+// validateEnd checks an end's outcome.
 func (k markerKind) validateEnd(r MarkerReport) error {
 	if !slices.Contains(k.outcomes, r.Outcome) {
 		return fmt.Errorf("outcome %q is not one of kind %q's", r.Outcome, r.Kind)
-	}
-	switch {
-	case k.attempts && (r.Attempts == nil || *r.Attempts < 1):
-		return fmt.Errorf("the end of kind %q counts its attempts, at least 1", r.Kind)
-	case !k.attempts && r.Attempts != nil:
-		return fmt.Errorf("kind %q counts no attempts", r.Kind)
 	}
 	return nil
 }
@@ -177,11 +155,8 @@ func (k markerKind) validateEnd(r MarkerReport) error {
 // Equal reports whether r and o report the same edge with the same
 // values, whatever the time zone of At.
 func (r MarkerReport) Equal(o MarkerReport) bool {
-	sameAttempts := (r.Attempts == nil) == (o.Attempts == nil) &&
-		(r.Attempts == nil || *r.Attempts == *o.Attempts)
 	return r.Version == o.Version && r.Emitter == o.Emitter && r.Kind == o.Kind && r.Edge == o.Edge &&
-		r.Span == o.Span && r.At.Equal(o.At) && r.TaskName == o.TaskName && r.Outcome == o.Outcome &&
-		sameAttempts
+		r.Span == o.Span && r.At.Equal(o.At) && r.TaskName == o.TaskName && r.Outcome == o.Outcome
 }
 
 // MarkerSender is what sillage verified of the pod that sent a marker:

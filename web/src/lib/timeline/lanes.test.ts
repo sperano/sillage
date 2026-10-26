@@ -17,7 +17,7 @@ describe('golden stories', () => {
 
 	test('keep lanes in section order, the root first', () => {
 		for (const [name, s] of goldens) {
-			const root = s.root.task ? 'task' : 'pages';
+			const root = 'task';
 			const order = buildRows(s).map((r) =>
 				r.section === root ? -1 : SECTIONS.indexOf(r.section)
 			);
@@ -45,13 +45,6 @@ describe('golden stories', () => {
 		expect(row.note).toBe('start and end unknown: no bar');
 		expect(row.events.map((e) => e.kind)).toContain('run.announced');
 		expect(row.spans.every((sp) => sp.start === undefined && sp.end === undefined)).toBe(true);
-	});
-
-	test('wiki-rooted-request roots on its page and keeps the live edit there', () => {
-		const rows = buildRows(golden('wiki-rooted-request'));
-		expect(rows[0]!.id).toBe('page:wiki.example.com/pages/57/en');
-		expect(rows[0]!.title).toBe('widgets/design/storage-layout');
-		expect(rows[0]!.events.some((e) => e.details?.version === 'live')).toBe(true);
 	});
 
 	test('implementation-merged has a check row per commit under its pull request', () => {

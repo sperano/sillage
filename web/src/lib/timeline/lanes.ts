@@ -1,14 +1,13 @@
-// The timeline's rows: the root task or page, people, agent runs (one row
-// per attempt), automation, pull requests with their checks per commit, and
-// wiki pages. Each event is drawn on exactly one row.
+// The timeline's rows: the root task, people, agent runs (one row per
+// attempt), automation, and pull requests with their checks per commit.
+// Each event is drawn on exactly one row.
 
-import { eventKey, pageKeyString, prKeyString, runKeyString, taskKeyString } from '../keys';
+import { eventKey, prKeyString, runKeyString, taskKeyString } from '../keys';
 import {
 	boundTime,
 	coverageKey,
 	eventTime,
 	type Event,
-	type PageKey,
 	type PRKey,
 	type Run,
 	type Story,
@@ -18,7 +17,7 @@ import { checkSpan, hasExtent, reviewWaits, runSpans, type Span } from './interv
 import { phaseSpans, type PhaseSpan } from './phases';
 
 /** The lanes, in the order they are drawn after the root's lane. */
-export const SECTIONS = ['task', 'people', 'runs', 'automation', 'pulls', 'pages'] as const;
+export const SECTIONS = ['task', 'people', 'runs', 'automation', 'pulls'] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export const SECTION_TITLES: Record<Section, string> = {
@@ -26,8 +25,7 @@ export const SECTION_TITLES: Record<Section, string> = {
 	people: 'People',
 	runs: 'Agent runs',
 	automation: 'Automation',
-	pulls: 'Pull requests',
-	pages: 'Wiki'
+	pulls: 'Pull requests'
 };
 
 /** The number of a commit's leading hex digits a check row shows. */
@@ -87,7 +85,7 @@ export function buildRows(story: Story): Row[] {
 	for (const e of story.events) placeEvent(ctx, e);
 	addReviewWaits(ctx, [...rows.values()]);
 	for (const row of rows.values()) addNote(row);
-	return sortRows([...rows.values()], story.root.task ? 'task' : 'pages');
+	return sortRows([...rows.values()], 'task');
 }
 
 interface Context {
@@ -141,15 +139,6 @@ function taskRow(ctx: Context, key: TaskKey): Row {
 	}));
 }
 
-function pageRow(ctx: Context, key: PageKey): Row {
-	return ctx.ensure(`page:${pageKeyString(key)}`, () => ({
-		section: 'pages',
-		title: `Page ${key.id}`,
-		subtitle: `${key.instance} · ${key.locale}`,
-		sources: [coverageKey('wiki', key.instance)]
-	}));
-}
-
 function prRow(ctx: Context, key: PRKey): Row {
 	return ctx.ensure(`pr:${prKeyString(key)}`, () => ({
 		section: 'pulls',
@@ -160,9 +149,7 @@ function prRow(ctx: Context, key: PRKey): Row {
 }
 
 function addRoot(ctx: Context): void {
-	const { task, page } = ctx.story.root;
-	if (task) taskRow(ctx, task).order = Number.NEGATIVE_INFINITY;
-	if (page) pageRow(ctx, page).order = Number.NEGATIVE_INFINITY;
+	taskRow(ctx, ctx.story.root.task).order = Number.NEGATIVE_INFINITY;
 }
 
 /**
@@ -257,10 +244,6 @@ function placeEvent(ctx: Context, e: Event): void {
 	row.order = Math.min(row.order, eventTime(e));
 	const source = coverageKey(e.source, e.instance);
 	if (!row.sources.includes(source)) row.sources.push(source);
-	if (e.kind === 'page.created' || e.kind === 'page.moved') {
-		const path = e.kind === 'page.moved' ? e.details?.to : e.details?.path;
-		if (path && row.section === 'pages') row.title = path;
-	}
 }
 
 function rowOf(ctx: Context, e: Event): Row {
@@ -292,14 +275,12 @@ function accountRow(ctx: Context, e: Event, login: string): Row {
 	}));
 }
 
-/** The row of the task, page or pull request the event is about. */
+/** The row of the task or pull request the event is about. */
 function entityRow(ctx: Context, e: Event): Row {
-	const { task, page, pr } = e.related;
+	const { task, pr } = e.related;
 	if (pr) return prRow(ctx, pr);
-	if (page && (e.source === 'wiki' || !task)) return pageRow(ctx, page);
 	if (task) return taskRow(ctx, task);
-	const root = ctx.story.root;
-	return root.task ? taskRow(ctx, root.task) : pageRow(ctx, root.page);
+	return taskRow(ctx, ctx.story.root.task);
 }
 
 /**

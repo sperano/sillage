@@ -25,8 +25,5 @@ func refOf(root model.Root) (model.Ref, bool) {
 	if root.Validate() != nil {
 		return model.Ref{}, false
 	}
-	if root.Task != nil {
-		return root.Task.Ref(), true
-	}
-	return root.Page.Ref(), true
+	return root.Task.Ref(), true
 }

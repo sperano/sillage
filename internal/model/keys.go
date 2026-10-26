@@ -1,7 +1,6 @@
 package model
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 )
@@ -15,13 +14,12 @@ const (
 	SourceVikunja Source = "vikunja"
 	SourceKelos   Source = "kelos"
 	SourceGitHub  Source = "github"
-	SourceWiki    Source = "wiki"
 )
 
 // Valid reports whether s is one of the sources sillage reads.
 func (s Source) Valid() bool {
 	switch s {
-	case SourceVikunja, SourceKelos, SourceGitHub, SourceWiki:
+	case SourceVikunja, SourceKelos, SourceGitHub:
 		return true
 	}
 	return false
@@ -42,26 +40,6 @@ func (k TaskKey) String() string {
 func (k TaskKey) Validate() error {
 	if k.Instance == "" || k.ID <= 0 {
 		return fmt.Errorf("task key %q: instance and a positive id are required", k)
-	}
-	return nil
-}
-
-// PageKey identifies a Wiki.js page: the instance's host, the page id and
-// the locale. The path is not part of the key: a page can be moved.
-type PageKey struct {
-	Instance string `json:"instance"`
-	ID       int64  `json:"id"`
-	Locale   string `json:"locale"`
-}
-
-func (k PageKey) String() string {
-	return k.Instance + "/pages/" + strconv.FormatInt(k.ID, 10) + "/" + k.Locale
-}
-
-// Validate reports whether every part of the key is set.
-func (k PageKey) Validate() error {
-	if k.Instance == "" || k.ID <= 0 || k.Locale == "" {
-		return fmt.Errorf("page key %q: instance, a positive id and locale are required", k)
 	}
 	return nil
 }
@@ -124,35 +102,23 @@ func (k PRKey) Validate() error {
 	return nil
 }
 
-// Root is what a story is about: a Vikunja task, or a wiki page when the
-// work was requested from the wiki and has no Vikunja task. Exactly one of
-// Task and Page is set.
+// Root is the Vikunja task a story is about.
 type Root struct {
 	Task *TaskKey `json:"task,omitempty"`
-	Page *PageKey `json:"page,omitempty"`
 }
 
-// Validate reports whether exactly one valid key is set.
+// Validate reports whether the task key is set and valid.
 func (r Root) Validate() error {
-	switch {
-	case r.Task != nil && r.Page != nil:
-		return errors.New("root: both a task and a page are set")
-	case r.Task != nil:
-		return r.Task.Validate()
-	case r.Page != nil:
-		return r.Page.Validate()
+	if r.Task == nil {
+		return fmt.Errorf("root: a task is required")
 	}
-	return errors.New("root: neither a task nor a page is set")
+	return r.Task.Validate()
 }
 
-// Ref returns a reference to the root's task or page; the zero Ref when
-// neither is set.
+// Ref returns a reference to the root's task; the zero Ref when it is unset.
 func (r Root) Ref() Ref {
-	switch {
-	case r.Task != nil:
+	if r.Task != nil {
 		return r.Task.Ref()
-	case r.Page != nil:
-		return r.Page.Ref()
 	}
 	return Ref{}
 }
@@ -163,7 +129,6 @@ type RefKind string
 // The kinds of record a correlation can link.
 const (
 	RefTask  RefKind = "task"
-	RefPage  RefKind = "page"
 	RefRun   RefKind = "run"
 	RefPR    RefKind = "pr"
 	RefEvent RefKind = "event"
@@ -181,7 +146,7 @@ func (r Ref) String() string { return string(r.Kind) + ":" + r.ID }
 // Validate reports whether the kind is known and the id set.
 func (r Ref) Validate() error {
 	switch r.Kind {
-	case RefTask, RefPage, RefRun, RefPR, RefEvent:
+	case RefTask, RefRun, RefPR, RefEvent:
 	default:
 		return fmt.Errorf("ref %q: unknown kind", r)
 	}
@@ -193,9 +158,6 @@ func (r Ref) Validate() error {
 
 // Ref returns a reference to the task.
 func (k TaskKey) Ref() Ref { return Ref{Kind: RefTask, ID: k.String()} }
-
-// Ref returns a reference to the page.
-func (k PageKey) Ref() Ref { return Ref{Kind: RefPage, ID: k.String()} }
 
 // Ref returns a reference to the run.
 func (k RunKey) Ref() Ref { return Ref{Kind: RefRun, ID: k.String()} }

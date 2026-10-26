@@ -1,7 +1,7 @@
 <!--
-	How recently each source instance was read, across the stored tasks and
-	pages: the latest and the stalest successful read, and how many were
-	never read. Missing records are each task's or page's own.
+	How recently each source instance was read, across the stored tasks: the
+	latest and the stalest successful read, and how many were never read.
+	Missing records are each task's own.
 -->
 <script lang="ts">
 	import { compareTimes } from '../lib/check';
@@ -16,13 +16,13 @@
 {:else}
 	<p>
 		Nothing after a source's last successful read is known yet. Where records are missing is each
-		task's or page's own: its story shows it.
+		task's own: its story shows it.
 	</p>
 	<ul class="sources">
 		{#each sources as s (`${s.source}/${s.instance}`)}
 			<li>
 				<h3>{SOURCE_NAMES[s.source]} <span class="instance">{s.instance}</span></h3>
-				<p>Read for {count(s.roots, 'task or page', 'tasks or pages')}.</p>
+				<p>Read for {count(s.roots, 'task')}.</p>
 				{#if s.newestRead && s.oldestRead}
 					<p>
 						Last read successfully at
@@ -35,8 +35,8 @@
 					<p>Never read successfully: nothing from it is known.</p>
 				{:else if s.neverRead > 0}
 					<p>
-						{count(s.neverRead, 'task or page', 'tasks or pages')} of them never read successfully: nothing
-						from it is known for those.
+						{count(s.neverRead, 'task')} of them never read successfully: nothing from it is known for
+						those.
 					</p>
 				{/if}
 			</li>

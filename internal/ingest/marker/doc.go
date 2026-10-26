@@ -1,6 +1,6 @@
 // Package marker serves POST /ingest/marker: the phase markers that the
-// wrappers in a Kelos run's pod (wait-for-blockers, the wiki login, the
-// agent's entrypoint) report, one edge of one span per request.
+// wrappers in a Kelos run's pod (wait-for-blockers and the agent's
+// entrypoint) report, one edge of one span per request.
 //
 // The path is reached on the in-cluster Service only: the public tunnel
 // forwards no marker path, and the public host keeps its forward-auth on

@@ -40,14 +40,14 @@ test('the retry is a second run row', () => {
 	]);
 });
 
-test('a phase sits at its first recorded edge, an inconsistent pair at the earlier', () => {
+test('a phase sits at its first recorded edge', () => {
 	const items = timelineItems(goldenStory('phase-markers'));
 	const phases = items.filter((i) => i.kind === 'phase');
-	expect(phases).toHaveLength(8);
-	const backwards = phases.find(
-		(i) =>
-			i.kind === 'phase' && i.phase.state === 'inconsistent' && i.phase.end?.kind === 'wiki-login'
-	);
-	expect(backwards?.time).toBe(backwards?.kind === 'phase' ? backwards.phase.end?.at : undefined);
+	expect(phases).toHaveLength(5);
+	for (const item of phases) {
+		expect(item.time).toBe(
+			item.kind === 'phase' ? (item.phase.start?.at ?? item.phase.end?.at) : undefined
+		);
+	}
 	expect(new Set(phases.map((i) => i.ref.id.split('/phases/')[0])).size).toBe(2);
 });

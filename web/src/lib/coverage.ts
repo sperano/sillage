@@ -36,8 +36,7 @@ export function uncoveredSources(story: Story): SourceInstance[] {
 const sourceNames: Record<Source, string> = {
 	vikunja: 'Vikunja',
 	kelos: 'Kelos',
-	github: 'GitHub',
-	wiki: 'Wiki.js'
+	github: 'GitHub'
 };
 
 export function sourceName(s: Source): string {

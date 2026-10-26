@@ -12,7 +12,6 @@ import (
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
-	"github.com/sperano/sillage/internal/source/wiki"
 )
 
 func TestParseWorkspaces(t *testing.T) {
@@ -77,11 +76,11 @@ func TestConfigValidate(t *testing.T) {
 		mutate func(*Config)
 		want   string
 	}{
-		"valid":            {func(*Config) {}, ""},
-		"no wiki instance": {func(c *Config) { c.WikiInstance = "" }, "instances are required"},
-		"invalid kelos":    {func(c *Config) { c.Kelos.Namespace = "" }, kelos.EnvNamespace},
-		"other vikunja":    {func(c *Config) { c.Kelos.VikunjaInstance = "vikunja.example.org" }, kelos.EnvVikunjaInstance},
-		"no ttl":           {func(c *Config) { c.KelosTaskTTL = 0 }, EnvKelosTaskTTL},
+		"valid":              {func(*Config) {}, ""},
+		"no GitHub instance": {func(c *Config) { c.GitHubInstance = "" }, "instances are required"},
+		"invalid kelos":      {func(c *Config) { c.Kelos.Namespace = "" }, kelos.EnvNamespace},
+		"other vikunja":      {func(c *Config) { c.Kelos.VikunjaInstance = "vikunja.example.org" }, kelos.EnvVikunjaInstance},
+		"no ttl":             {func(c *Config) { c.KelosTaskTTL = 0 }, EnvKelosTaskTTL},
 	}
 	for name, tt := range tests {
 		c := testConfig()
@@ -104,9 +103,6 @@ func testEnv() map[string]string {
 		kelos.EnvVikunjaInstance: testVikunjaHost,
 		github.EnvAPIURL:         "https://" + testGitHubHost + testGitHubAPIPath,
 		github.EnvToken:          testToken,
-		wiki.EnvURL:              "https://" + testWikiHost,
-		wiki.EnvToken:            testToken,
-		wiki.EnvAgentUsers:       "21",
 		EnvWorkspaces:            "widgets=example-org/widgets",
 		EnvVikunjaAgentUsers:     "agent-opus",
 		github.EnvAnnouncers:     testAgent,
@@ -120,8 +116,8 @@ func TestConfigFromEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := got.Collector
-	if c.VikunjaInstance != testVikunjaHost || c.GitHubInstance != testGitHubHost || c.WikiInstance != testWikiHost {
-		t.Errorf("instances = %q, %q, %q", c.VikunjaInstance, c.GitHubInstance, c.WikiInstance)
+	if c.VikunjaInstance != testVikunjaHost || c.GitHubInstance != testGitHubHost {
+		t.Errorf("instances = %q, %q", c.VikunjaInstance, c.GitHubInstance)
 	}
 	if c.VikunjaServiceAccount != vikunja.DefaultServiceAccount || !slices.Equal(c.VikunjaAgentUsers, []string{testAgent}) {
 		t.Errorf("vikunja accounts = %q, %q", c.VikunjaServiceAccount, c.VikunjaAgentUsers)
@@ -131,9 +127,6 @@ func TestConfigFromEnv(t *testing.T) {
 	}
 	if !slices.Equal(c.GitHubAnnouncers, []string{testAgent}) {
 		t.Errorf("github announcers = %q", c.GitHubAnnouncers)
-	}
-	if !slices.Equal(c.WikiAgentUsers, []int64{testWikiUser}) || got.Wiki.Token != testToken {
-		t.Errorf("wiki config = %+v", got.Wiki)
 	}
 }
 

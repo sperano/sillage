@@ -15,7 +15,7 @@ const (
 	labelRole    = "role"
 	labelTask    = "task"
 	// labelWorkspace names the workspace (repository) of the Tasks that
-	// have no project label: PR and wiki follow-ups, bookkeeping.
+	// have no project label: PR follow-ups and bookkeeping.
 	labelWorkspace = "workspace"
 )
 
@@ -24,7 +24,6 @@ const (
 const (
 	roleTaskFollowUp      = "task-followup"
 	rolePRFollowUp        = "pr-followup"
-	roleWikiFollowUp      = "wiki-followup"
 	rolePRConflict        = "pr-conflict"
 	rolePROpen            = "pr-open"
 	roleMergeClose        = "merge-close"
@@ -39,7 +38,6 @@ const discussNamePrefix = "vikunja-discuss-"
 var roleLabels = map[string]model.RunRole{
 	roleTaskFollowUp:      model.RoleTaskFollowUp,
 	rolePRFollowUp:        model.RolePRFollowUp,
-	roleWikiFollowUp:      model.RoleWikiFollowUp,
 	rolePRConflict:        model.RoleConflictFix,
 	rolePROpen:            model.RoleAutomation,
 	roleMergeClose:        model.RoleAutomation,

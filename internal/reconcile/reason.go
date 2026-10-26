@@ -10,7 +10,6 @@ import (
 
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/vikunja"
-	"github.com/sperano/sillage/internal/source/wiki"
 )
 
 // The reasons a read fails, as metrics and gaps name them.
@@ -63,9 +62,6 @@ func statusOf(err error) int {
 		return e.Code
 	}
 	if e, ok := errors.AsType[*github.StatusError](err); ok {
-		return e.Code
-	}
-	if e, ok := errors.AsType[*wiki.StatusError](err); ok {
 		return e.Code
 	}
 	var status apierrors.APIStatus

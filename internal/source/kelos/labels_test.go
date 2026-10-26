@@ -21,7 +21,7 @@ func TestRoleOf(t *testing.T) {
 		{"discussion", map[string]string{task: "7"}, "vikunja-discuss-widgets-agent-opus-7", model.RoleDiscussion},
 		{"task follow-up", map[string]string{task: "7", role: "task-followup"}, "x", model.RoleTaskFollowUp},
 		{"pr follow-up", map[string]string{role: "pr-followup"}, "x", model.RolePRFollowUp},
-		{"wiki follow-up", map[string]string{role: "wiki-followup"}, "x", model.RoleWikiFollowUp},
+		{"retired wiki follow-up", map[string]string{role: "wiki-followup"}, "x", model.RoleUnknown},
 		{"conflict", map[string]string{role: "pr-conflict"}, "x", model.RoleConflictFix},
 		{"pr open", map[string]string{role: "pr-open"}, "x", model.RoleAutomation},
 		{"merge close", map[string]string{role: "merge-close"}, "x", model.RoleAutomation},

@@ -33,14 +33,6 @@ type Batch struct {
 //   - States seen by polling (bucket, label, assignee): a value seen again,
 //     unchanged since the task's previous read, extends the stored record's
 //     last observed time instead of adding a record.
-//   - Wiki: a live edit named by an archived version's "supersedes" detail
-//     (or read before its render: see supersededLive) is dropped for the
-//     version; of a page's live records only the newest is kept. The
-//     record kept takes the dropped one's place in every story, and its
-//     correlations when the same account made both. A batch's wiki
-//     versions are its page's whole history trail, as wiki.Normalize gives
-//     it: a version archiving a save read before its render must come
-//     before the same author's later versions.
 //   - Coverage is merged per root and source instance (see mergeCoverage).
 //
 // Events keep their kinds: a pull request's pr.closed and pr.merged are
@@ -106,11 +98,9 @@ type saver struct {
 	// under.
 	runKeys map[model.RunKey]model.RunKey
 	// moved maps the batch's records to the stored record they became: a
-	// re-keyed run, an observation folded into an earlier one, a live wiki
-	// edit an archived version superseded.
+	// re-keyed run or an observation folded into an earlier one.
 	moved map[model.Ref]model.Ref
-	// dropped are the records not stored, whose correlations are dropped
-	// too: live wiki edits another account's newer one replaced.
+	// dropped are records not stored, whose correlations are dropped too.
 	dropped map[model.Ref]bool
 	// events and runs are the rows the batch stored, the runs with their
 	// latest time, whose roots touchRoots updates.
@@ -146,19 +136,13 @@ func (w *saver) upsertRoot(root model.Root, title string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	kind, instance, sourceID, locale := model.RefTask, "", int64(0), (*string)(nil)
-	if root.Task != nil {
-		instance, sourceID = root.Task.Instance, root.Task.ID
-	} else {
-		kind, instance, sourceID, locale = model.RefPage, root.Page.Instance, root.Page.ID, &root.Page.Locale
-	}
 	var id int64
 	err = w.tx.QueryRow(w.ctx, `
-		INSERT INTO roots (ref, kind, instance, source_id, locale, title, body)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO roots (ref, title, body)
+		VALUES ($1, $2, $3)
 		ON CONFLICT (ref) DO UPDATE SET title = COALESCE(EXCLUDED.title, roots.title), updated_at = now()
 		RETURNING id`,
-		rootRef(root).String(), string(kind), instance, sourceID, locale, nullable(title), body).Scan(&id)
+		rootRef(root).String(), nullable(title), body).Scan(&id)
 	return id, err
 }
 

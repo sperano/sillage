@@ -1,8 +1,8 @@
-import type { CheckRun, Event, PageKey, PRKey, PullRequest, Run, Story, TaskKey } from './model';
-import { pageKeyString, runKeyString } from './keys';
+import type { CheckRun, Event, PRKey, PullRequest, Run, Story, TaskKey } from './model';
+import { runKeyString } from './keys';
 
-// Links to the record a source holds. Vikunja, GitHub and Wiki.js
-// instances are web hosts: the collector keeps a source's host alone,
+// Links to the record a source holds. Vikunja and GitHub instances are web
+// hosts: the collector keeps a source's host alone,
 // without its scheme or port, so they are linked over https on the
 // default port, and a source served otherwise gets wrong links. A Kelos
 // instance is a cluster name, so its console's URL comes from
@@ -32,7 +32,7 @@ const LINK_PROTOCOLS: ReadonlySet<string> = new Set(['https:', 'http:']);
 
 /**
  * The URL under base of the path segments, each encoded (a segment's own
- * slashes, as in owner/name or a wiki path, separate segments), with an
+ * slashes, as in owner/name, separate segments), with an
  * optional query and fragment; undefined when base is not an http or
  * https URL.
  */
@@ -88,32 +88,6 @@ export function checkURL(pr: PullRequest, check: CheckRun): string | undefined {
 	return onHost(pr.key.instance, [pr.key.repository, 'runs', check.id]);
 }
 
-/**
- * The page's current path, from the story's last move of it, else its
- * creation; undefined when no event of the story names it.
- */
-export function pagePath(story: Story, page: PageKey): string | undefined {
-	const key = pageKeyString(page);
-	let path: string | undefined;
-	for (const e of story.events) {
-		if (e.source !== 'wiki' || !e.related.page || pageKeyString(e.related.page) !== key) {
-			continue;
-		}
-		if (e.kind === 'page.created') {
-			path ??= e.details?.path;
-		} else if (e.kind === 'page.moved' && e.details?.to) {
-			path = e.details.to;
-		}
-	}
-	return path;
-}
-
-/** The page's URL: by path when known, else Wiki.js's redirect by id. */
-export function pageURL(story: Story, page: PageKey, hash?: string): string | undefined {
-	const path = pagePath(story, page);
-	return onHost(page.instance, path ? [page.locale, path] : ['i', page.id], { hash });
-}
-
 /** A link, or none when its URL could not be built. */
 function link(href: string | undefined, label: string): SourceLink | undefined {
 	return href === undefined ? undefined : { href, label };
@@ -152,32 +126,6 @@ function githubLink(e: Event): SourceLink | undefined {
 	return link(prURL(pr), `${pr.repository}#${pr.number}`);
 }
 
-function wikiLink(story: Story, e: Event): SourceLink | undefined {
-	const page = e.related.page;
-	if (!page) {
-		return undefined;
-	}
-	const comment = idAfter(e.id, 'comments/');
-	if (comment) {
-		return link(pageURL(story, page, `comment-post-id-${comment}`), `wiki comment ${comment}`);
-	}
-	const version = idAfter(e.id, `pages/${page.id}/versions/`);
-	const path = pagePath(story, page);
-	if (version && path) {
-		return link(
-			onHost(page.instance, ['s', page.locale, path], { query: { v: version } }),
-			`wiki page version ${version}`
-		);
-	}
-	if (version) {
-		// Wiki.js shows a version by path only: the redirect by id goes to the
-		// current page, which is not this version.
-		return link(pageURL(story, page), `wiki page as it is now (version ${version} has no link)`);
-	}
-	const live = e.kind === 'page.edited' && e.details?.version === 'live';
-	return link(pageURL(story, page), live ? 'wiki page, live version' : 'wiki page');
-}
-
 /**
  * The Kelos console's view of the run's Task logs. The console finds a Task
  * by name, which a retry reuses, and a deleted Task is gone from it.
@@ -200,8 +148,6 @@ export function eventLink(story: Story, e: Event, config: LinkConfig): SourceLin
 			return vikunjaLink(e);
 		case 'github':
 			return githubLink(e);
-		case 'wiki':
-			return wikiLink(story, e);
 		case 'kelos': {
 			const key = e.related.run && runKeyString(e.related.run);
 			const run = key && story.runs.find((r) => runKeyString(r.key) === key);

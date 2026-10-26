@@ -23,7 +23,7 @@ const (
 // RootQuery selects roots.
 type RootQuery struct {
 	// Text matches, case-insensitively, part of a root's title or of its
-	// key ("tasks/12", "wiki.example.com"); empty matches every root.
+	// key ("tasks/12"); empty matches every root.
 	Text string
 	// Limit caps the results: DefaultSearchLimit when zero or negative, at
 	// most MaxSearchLimit.

@@ -22,7 +22,6 @@ const testDatabaseEnv = "SILLAGE_TEST_DATABASE_URL"
 
 const (
 	testVikunja   = "vikunja.example.com"
-	testWiki      = "wiki.example.com"
 	testGitHub    = "github.example.com"
 	testCluster   = "cluster-a"
 	testNamespace = "agents"
@@ -110,10 +109,6 @@ func mustStory(t *testing.T, s *Store, root model.Root) model.Story {
 func taskKey(id int64) model.TaskKey { return model.TaskKey{Instance: testVikunja, ID: id} }
 
 func taskRoot(id int64) model.Root { return model.Root{Task: ptr(taskKey(id))} }
-
-func pageKey(id int64) model.PageKey { return model.PageKey{Instance: testWiki, ID: id, Locale: "en"} }
-
-func pageRoot(id int64) model.Root { return model.Root{Page: ptr(pageKey(id))} }
 
 func vikunjaEvidence(ref string) model.Evidence {
 	return model.Evidence{Source: model.SourceVikunja, Instance: testVikunja, Ref: ref}

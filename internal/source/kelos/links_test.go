@@ -7,29 +7,6 @@ import (
 	"github.com/sperano/sillage/internal/model"
 )
 
-func TestOriginPage(t *testing.T) {
-	wiki := map[string]string{
-		AnnotationSource: OriginWiki, AnnotationSourceInstance: "Wiki.Example.com",
-		AnnotationWikiPage: "57", AnnotationWikiLocale: "en",
-	}
-	got, ok := origin(wiki).Page()
-	if want := (model.PageKey{Instance: "wiki.example.com", ID: 57, Locale: "en"}); !ok || got != want {
-		t.Errorf("Page() = %v, %v, want %v", got, ok, want)
-	}
-	for name, change := range map[string][2]string{
-		"another source": {AnnotationSource, OriginGitHub},
-		"no instance":    {AnnotationSourceInstance, ""},
-		"page not an id": {AnnotationWikiPage, "page"},
-		"page zero":      {AnnotationWikiPage, "0"},
-		"no locale":      {AnnotationWikiLocale, ""},
-	} {
-		values := withValue(wiki, change[0], change[1])
-		if got, ok := origin(values).Page(); ok {
-			t.Errorf("%s: Page() = %v, want none", name, got)
-		}
-	}
-}
-
 func TestOriginPullRequest(t *testing.T) {
 	gh := map[string]string{
 		AnnotationSource: OriginGitHub, AnnotationSourceInstance: "github.example.com",

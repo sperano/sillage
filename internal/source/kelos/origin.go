@@ -39,13 +39,8 @@ const (
 	// AnnotationBranch is the head branch, on the Tasks with no
 	// spec.branch (merge-close, pr-open).
 	AnnotationBranch = "branch"
-	// AnnotationWikiPage, AnnotationWikiPath and AnnotationWikiLocale are
-	// a Wiki.js page's id, path and locale.
-	AnnotationWikiPage   = "wiki-page"
-	AnnotationWikiPath   = "wiki-path"
-	AnnotationWikiLocale = "wiki-locale"
 	// AnnotationDelivery is the id of the delivery an internal dispatcher
-	// (wiki poller, review poller, conflict reconciler) made.
+	// (review poller or conflict reconciler) made.
 	AnnotationDelivery = "delivery"
 )
 
@@ -54,15 +49,13 @@ const (
 // holds the prompt.
 var correlationAnnotations = []string{
 	AnnotationSource, AnnotationSourceInstance, AnnotationRepository, AnnotationPR, AnnotationEvent,
-	AnnotationComment, AnnotationReview, AnnotationBranch, AnnotationWikiPage, AnnotationWikiPath,
-	AnnotationWikiLocale, AnnotationDelivery,
+	AnnotationComment, AnnotationReview, AnnotationBranch, AnnotationDelivery,
 }
 
 // The values of the source annotation.
 const (
 	OriginVikunja  = "vikunja"
 	OriginGitHub   = "github"
-	OriginWiki     = "wiki"
 	OriginSchedule = "schedule"
 )
 

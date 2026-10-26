@@ -7,10 +7,9 @@ import (
 )
 
 // rowSources lists the coverage keys of the sources the row shows records
-// from: the root's own (its task's Vikunja, its page's wiki), whose state
-// the row reports even when it holds no record of it, the Kelos cluster of
-// each run, the GitHub instance of each pull request and review wait, the
-// source of each mark.
+// from: the task's Vikunja, whose state the row reports even when it holds
+// no record of it, the Kelos cluster of each run, the GitHub instance of
+// each pull request and review wait, and the source of each mark.
 func rowSources(row Row) []string {
 	var keys []string
 	add := func(source model.Source, instance string) {
@@ -19,11 +18,8 @@ func rowSources(row Row) []string {
 			keys = append(keys, k)
 		}
 	}
-	switch {
-	case row.Root.Task != nil:
+	if row.Root.Task != nil {
 		add(model.SourceVikunja, row.Root.Task.Instance)
-	case row.Root.Page != nil:
-		add(model.SourceWiki, row.Root.Page.Instance)
 	}
 	for _, r := range row.Runs {
 		add(model.SourceKelos, r.Key.Cluster)

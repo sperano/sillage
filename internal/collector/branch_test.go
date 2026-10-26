@@ -7,15 +7,14 @@ import (
 )
 
 func TestRootOfBranch(t *testing.T) {
-	cfg := Config{VikunjaInstance: "vikunja.example.com", WikiInstance: "wiki.example.com"}
+	cfg := Config{VikunjaInstance: "vikunja.example.com"}
 	task := model.Root{Task: &model.TaskKey{Instance: "vikunja.example.com", ID: 42}}
-	page := model.Root{Page: &model.PageKey{Instance: "wiki.example.com", ID: 7, Locale: "en"}}
 	tests := []struct {
 		branch string
 		want   *model.Root
 	}{
 		{"kelos/vikunja-42", &task},
-		{"kelos/wiki-7", &page},
+		{"kelos/wiki-7", nil},
 		{"kelos/vikunja-042", nil},
 		{"kelos/vikunja-0", nil},
 		{"kelos/vikunja--42", nil},
@@ -43,9 +42,6 @@ func TestRootOfBranch(t *testing.T) {
 func rootString(r model.Root) string {
 	if r.Task != nil {
 		return r.Task.Ref().String()
-	}
-	if r.Page != nil {
-		return r.Page.Ref().String()
 	}
 	return ""
 }

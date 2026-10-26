@@ -137,16 +137,6 @@ func TestRunsJoinedByNameAndBranch(t *testing.T) {
 	}
 }
 
-func TestPageRunsNotFromOtherPages(t *testing.T) {
-	// The fixture's namespace also holds a follow-up of page 570.
-	s := collectStory(t, "wiki-rooted-request")
-	for _, r := range s.Runs {
-		if req, ok := pageOfName(r.TaskName); ok && req.page != 57 {
-			t.Errorf("run %s of page %d is in page 57's story", r.Key, req.page)
-		}
-	}
-}
-
 // customName is a Task name no spawner convention covers.
 const customName = "custom-run"
 

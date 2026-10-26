@@ -60,11 +60,6 @@ func TestFailedReadYieldsNoRecordsAndNoRead(t *testing.T) {
 				return len(s.PullRequests) == 0 && len(eventsFrom(s, model.SourceGitHub)) == 0
 			},
 		},
-		{
-			story: "discuss-no-pr", source: model.SourceWiki,
-			fail:   func(s *Sources) { s.Wiki = failingWiki{} },
-			absent: func(s model.Story) bool { return len(eventsFrom(s, model.SourceWiki)) == 0 },
-		},
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.source), func(t *testing.T) {
@@ -111,7 +106,6 @@ func TestCollectRejectsAForeignRoot(t *testing.T) {
 	}{
 		{"invalid", model.Root{}},
 		{"other vikunja", model.Root{Task: &model.TaskKey{Instance: "vikunja.example.org", ID: 1}}},
-		{"other wiki", model.Root{Page: &model.PageKey{Instance: "wiki.example.org", ID: 1, Locale: "en"}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -119,16 +113,6 @@ func TestCollectRejectsAForeignRoot(t *testing.T) {
 				t.Error("Collect() error = nil, want the root refused")
 			}
 		})
-	}
-}
-
-func TestCollectRejectsAPageOfAnotherLocale(t *testing.T) {
-	c := newStoryCollector(t, storyDirs{Wiki: storyCases["wiki-rooted-request"].Dirs.Wiki})
-	root := pageRoot(57)
-	root.Page.Locale = "fr"
-	_, err := c.Collect(t.Context(), root)
-	if err == nil || !strings.Contains(err.Error(), "/pages/57/en, not ") || !strings.Contains(err.Error(), "/pages/57/fr") {
-		t.Errorf("Collect() error = %v, want the page's own locale and the root's reported", err)
 	}
 }
 
@@ -177,25 +161,5 @@ func TestKelosTTLGapOnlyBeforeTheTTL(t *testing.T) {
 	gaps := coverageOf(t, collectStory(t, "implementation-merged"), model.SourceKelos).Gaps
 	if len(gaps) != 1 || !gaps[0].End.Equal(testNow.Add(-DefaultKelosTaskTTL)) {
 		t.Errorf("kelos gaps = %v, want one ending a Task TTL before the read", gaps)
-	}
-}
-
-func TestLinkedPageJoinedToTask(t *testing.T) {
-	s := collectStory(t, "discuss-no-pr")
-	page := model.PageKey{Instance: testWikiHost, ID: 41, Locale: "en"}
-	i := slices.IndexFunc(s.Correlations, func(c model.Correlation) bool {
-		return c.From == page.Ref() && c.To == taskRoot(101).Task.Ref()
-	})
-	if i < 0 || s.Correlations[i].Confidence != model.ConfidenceIdentifier {
-		t.Errorf("correlations = %v, want the linked page joined to the task by an identifier", s.Correlations)
-	}
-}
-
-func TestFailedTaskReadLeavesLinkedPagesUnknown(t *testing.T) {
-	src := emptySources()
-	src.Vikunja = failingVikunja{}
-	cov := coverageOf(t, collectWith(t, testConfig(), src, taskRoot(104)).Story, model.SourceWiki)
-	if cov.LastSuccessfulRead != nil || !hasNote(cov, "could not be read") || hasNote(cov, "no comment") {
-		t.Errorf("wiki coverage = %+v, want the linked pages unknown, not absent", cov)
 	}
 }

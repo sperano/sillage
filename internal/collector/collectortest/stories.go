@@ -3,7 +3,6 @@ package collectortest
 import (
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/github"
-	"github.com/sperano/sillage/internal/source/wiki"
 )
 
 // Story is a fixture story's root, the responses the collector assembles
@@ -21,15 +20,11 @@ type Story struct {
 var Stories = map[string]Story{
 	"discuss-no-pr": {taskRoot(101), Dirs{
 		Vikunja: "collector/discuss-no-pr/vikunja", Kelos: "collector/discuss-no-pr/kelos",
-		GitHub: "collector/discuss-no-pr/github", Wiki: "collector/discuss-no-pr/wiki",
+		GitHub: "collector/discuss-no-pr/github",
 	}, nil},
 	"implementation-merged": {taskRoot(102), Dirs{
 		Vikunja: "collector/implementation-merged/vikunja", Kelos: "collector/implementation-merged/kelos",
 		GitHub: "collector/implementation-merged/github",
-	}, nil},
-	"wiki-rooted-request": {pageRoot(57), Dirs{
-		Kelos: "collector/wiki-rooted-request/kelos", GitHub: "collector/wiki-rooted-request/github",
-		Wiki: "wiki/live-edit-not-in-trail",
 	}, nil},
 	"failed-run-retry": {taskRoot(104), Dirs{
 		Vikunja: "collector/failed-run-retry/vikunja", Kelos: "collector/failed-run-retry/kelos",
@@ -57,8 +52,4 @@ var Stories = map[string]Story{
 
 func taskRoot(id int64) model.Root {
 	return model.Root{Task: &model.TaskKey{Instance: VikunjaHost, ID: id}}
-}
-
-func pageRoot(id int64) model.Root {
-	return model.Root{Page: &model.PageKey{Instance: WikiHost, ID: id, Locale: wiki.DefaultLocale}}
 }

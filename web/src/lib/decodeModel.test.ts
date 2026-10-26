@@ -307,9 +307,9 @@ describe('a story the Go model would reject', () => {
 			'duplicate record vikunja/vikunja.example.com/tasks/102'
 		],
 		[
-			'a root with a task and a page',
+			'a page root',
 			(s) => set(s, ['root', 'page'], { instance: 'wiki.example.com', id: 1, locale: 'en' }),
-			'exactly one of task and page'
+			'unexpected field page'
 		],
 		[
 			'an id beyond what JavaScript represents',
@@ -356,16 +356,14 @@ describe('a story the Go model would reject', () => {
 });
 
 // The phase-markers story's first run holds, in order: a complete blocker
-// wait, an interrupted agent span, a complete wiki login and two
-// inconsistent pairs; its retry the interrupted agent span of its Job's
-// first pod, the second pod's agent span in progress and a login whose
-// start was not recorded.
+// wait, an interrupted agent span and an agent end whose start was not
+// recorded; its retry holds the interrupted agent span of its Job's first
+// pod and the second pod's agent span in progress.
 const PHASE_STORY = 'phase-markers';
 const FAILED_RUN = 0;
 const RETRY = 1;
 const RETRY_DEAD_POD = 0;
 const RETRY_LIVE_POD = 1;
-const RETRY_LOGIN = 2;
 
 function phased(change: (story: unknown) => void): unknown {
 	const story = goldenStory(PHASE_STORY);
@@ -381,33 +379,33 @@ describe('a phase the Go model would not make', () => {
 	test.each<[string, (story: unknown) => void, string]>([
 		[
 			'an unknown kind',
-			(s) => set(s, phasePath(FAILED_RUN, 2, 'start', 'kind'), 'wiki-request'),
+			(s) => set(s, phasePath(FAILED_RUN, 0, 'start', 'kind'), 'wiki-request'),
 			'unknown value'
 		],
 		[
 			'another kind’s emitter',
-			(s) => set(s, phasePath(FAILED_RUN, 2, 'start', 'emitter'), 'entrypoint'),
-			'is emitted by wiki_gql'
+			(s) => set(s, phasePath(FAILED_RUN, 0, 'start', 'emitter'), 'entrypoint'),
+			'is emitted by wait_for_blockers'
 		],
 		[
 			'a start with an outcome',
-			(s) => set(s, phasePath(FAILED_RUN, 2, 'start', 'outcome'), 'ok'),
+			(s) => set(s, phasePath(FAILED_RUN, 0, 'start', 'outcome'), 'unblocked'),
 			'a start has no outcome'
 		],
 		[
 			'an end with another kind’s outcome',
-			(s) => set(s, phasePath(FAILED_RUN, 2, 'end', 'outcome'), 'unblocked'),
+			(s) => set(s, phasePath(FAILED_RUN, 0, 'end', 'outcome'), 'succeeded'),
 			'one of its outcomes'
 		],
 		[
-			'a login end without attempts',
-			(s) => remove(s, phasePath(FAILED_RUN, 2, 'end', 'attempts')),
-			'counts its attempts'
+			'an end with retired login attempts',
+			(s) => set(s, phasePath(FAILED_RUN, 0, 'end', 'attempts'), 1),
+			'unexpected field attempts'
 		],
 		[
 			'a phase with no edge',
 			(s) => {
-				remove(s, phasePath(RETRY, RETRY_LOGIN, 'end'));
+				remove(s, phasePath(FAILED_RUN, 2, 'end'));
 			},
 			'a phase has a recorded edge'
 		],
@@ -421,22 +419,8 @@ describe('a phase the Go model would not make', () => {
 			'do not make a phase interrupted'
 		],
 		[
-			'an interval on an inconsistent pair',
-			(s) =>
-				set(s, phasePath(FAILED_RUN, 3, 'interval'), {
-					start: { state: 'unknown' },
-					end: { state: 'unknown' }
-				}),
-			'only an inconsistent phase, has no interval'
-		],
-		[
-			'an inconsistent pair called complete',
-			(s) => set(s, phasePath(FAILED_RUN, 4, 'state'), 'complete'),
-			'do not make a phase complete'
-		],
-		[
 			'a bound off its edge',
-			(s) => set(s, phasePath(FAILED_RUN, 2, 'interval', 'start', 'at'), '2026-03-14T10:06:01Z'),
+			(s) => set(s, phasePath(FAILED_RUN, 0, 'interval', 'start', 'at'), '2026-03-14T10:00:31Z'),
 			'a known bound is a recorded edge'
 		],
 		[
@@ -473,7 +457,7 @@ describe('a phase the Go model would not make', () => {
 
 test('a retried Job’s earlier pod has its phase interrupted while the run runs', () => {
 	const phases = parseStory(goldenStory(PHASE_STORY)).runs[RETRY]?.phases ?? [];
-	expect(phases.map((p) => p.state)).toEqual(['interrupted', 'in-progress', 'start-not-recorded']);
+	expect(phases.map((p) => p.state)).toEqual(['interrupted', 'in-progress']);
 	expect(phases[RETRY_DEAD_POD]?.pod).not.toBe(phases[RETRY_LIVE_POD]?.pod);
 });
 

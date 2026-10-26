@@ -109,7 +109,7 @@ export interface Api {
 	/** The stored roots whose title or key contains query, most recently active first. */
 	search(query: string, signal?: AbortSignal): Promise<RootSummary[]>;
 	/**
-	 * The roots a link (a task, run, pull request or page) belongs to, most
+	 * The task roots a link (a task, run or pull request) belongs to, most
 	 * recently active first, and what it was read as.
 	 */
 	resolve(url: string, signal?: AbortSignal): Promise<Resolution>;

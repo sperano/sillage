@@ -5,8 +5,8 @@ Instructions for anyone, human or agent, changing this repository.
 ## What sillage is
 
 Sillage is a read-only history of what people, agents and automation did on a
-task, across Vikunja, Kelos, GitHub and Wiki.js: comments, runs, pull
-requests, reviews, checks and wiki edits on one timeline, with the evidence
+task, across Vikunja, Kelos and GitHub: comments, runs, pull requests,
+reviews and checks on one timeline, with the evidence
 behind each record and the gaps where no source has data.
 
 Sillage observes; it never takes part. It is never in the spawning path: no
@@ -29,14 +29,13 @@ shows the timeline graph, the event list and the detail panel.
 | `internal/source/vikunja/` | Read-only Vikunja client and its normalization into `model`. |
 | `internal/source/github/` | Read-only GitHub client and its normalization into `model`. |
 | `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and watcher (list, then watch with persisted checkpoints), and their normalization into `model`, with the identifier correlations the spawners' correlation annotations (a Task's `Origin`) name. Each Task's `run.observed` names the Task's pod at the time (a TaskRecord's names none): a retried Job has two. |
-| `internal/source/wiki/` | Read-only Wiki.js client and its normalization into `model`. |
 | `internal/source/htmltext/` | Rendered comment HTML to plain text, shared by the sources that parse comments. |
 | `internal/source/kelostext/` | Requests (`/gordon`, `/kelos`) and Kelos start announcements in every form posted, shared by the sources that parse comments. |
 | `internal/reconcile/` | The collection loop: which roots to read and when, one Kelos read per cycle, freshness and gaps per root and source, the Prometheus metrics. Talks to the store through its `Store` and `Locker` interfaces. |
 | `internal/reconcile/pglock/` | The `Locker` as a PostgreSQL session advisory lock: one process collects at a time. |
 | `internal/reconcile/storetest/` | The contract of `reconcile.Store`, asserted of the loop tests' fake and, against PostgreSQL, of `cmd/sillage`'s adapter: a store the loop's tests do not model fails it first. |
 | `internal/store/` | PostgreSQL persistence of `model` records, checkpoints, coverage, Kelos Task origins (kept on first sight: a TaskRecord does not copy annotations), every pod each run was seen with, and phase markers with their join to a run (by pod, else by Task name and time, else unattached and joined again by each save of Kelos records); `migrations/` holds the numbered SQL files embedded and applied at startup (add one, never edit one that shipped). |
-| `internal/overview/` | The multi-task overview of a window: one row per task or page with its runs, pull requests, review waits and state changes in it, its completion at the window's end when that changed in it, and whether its history is missing; filters and cursor pages. Pure: model records in, rows out. |
+| `internal/overview/` | The multi-task overview of a window: one row per task with its runs, pull requests, review waits and state changes in it, its completion at the window's end when that changed in it, and whether its history is missing; filters and cursor pages. Pure: model records in, rows out. |
 | `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, search, link resolution, the overview, version, and the frontend's configuration (the Kelos console per cluster, from `SILLAGE_KELOS_CONSOLE_URL`). No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
 | `internal/ingest/` | The webhook receiver: `POST /ingest/vikunja` and `POST /ingest/github`, authenticated by their signatures alone (they bypass the forward-auth). Each authenticated attempt is recorded in the store as evidence that sillage received it (`model.Delivery`), and asks the collector to read the roots it names again; no record comes from a payload. `Queue` is the collector loop's end of those requests. |
 | `internal/ingest/marker/` | `POST /ingest/marker`, on the in-cluster Service only: the phase markers (`model.Marker`) that wrappers in a Kelos run's pod report, authenticated by a TokenReview of the pod's projected ServiceAccount token (audience `sillage`), the verdict cached by token hash until it expires. The sender is the reviewed pod, never the body. Stored as evidence, apart from every story; it asks for no read. |
@@ -69,9 +68,9 @@ keeps `./...` out of npm's tree.
 
 The frontend routes with the history API, not the hash, so that a link to
 it is a plain URL: `/` (the entry page; `/?q=` a search), `/task/<instance>/<id>`,
-`/page/<instance>/<id>/<locale>`, `/overview` (what was working on what, its
-window, filters and grouping in the query), and `/open?url=<link>`, which resolves a
-Vikunja, Kelos, GitHub or wiki link to its story. The server must answer
+`/overview` (what was working on what, its window, filters and grouping in
+the query), and `/open?url=<link>`, which resolves a Vikunja, Kelos or GitHub
+link to its story. The server must answer
 every `GET` path outside `/api/`, `/ingest/`, `/healthz` and `/metrics`
 with `index.html` for those deep links to load.
 The API client (`web/src/lib/api.ts`) makes one request per call, never
@@ -185,11 +184,11 @@ and render it, so a change to the overview's JSON also changes
 ## Rules
 
 - **The repository is public.** Fixtures, examples, tests, comments and docs
-  use fabricated data only: no real Vikunja ids or URLs, task titles, wiki
-  paths, tokens or hostnames, only placeholders (`*.example.com`). See
+  use fabricated data only: no real Vikunja ids or URLs, task titles, private
+  repository paths, tokens or hostnames, only placeholders (`*.example.com`). See
   `testdata/fixtures/README.md`.
-- **Sources are read-only.** No source client writes to Vikunja, GitHub,
-  Kubernetes or Wiki.js, and credentials are requested with read scopes
+- **Sources are read-only.** No source client writes to Vikunja, GitHub or
+  Kubernetes, and credentials are requested with read scopes
   only.
 - **A run is identified by cluster + namespace + Task UID**, never by Task
   name or branch: a retry reuses both, and must stay a separate run.

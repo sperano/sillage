@@ -9,20 +9,13 @@
 // Optional fields are those Go omits when empty.
 
 /** The kinds of system a record comes from. */
-export const SOURCES = ['vikunja', 'kelos', 'github', 'wiki'] as const;
+export const SOURCES = ['vikunja', 'kelos', 'github'] as const;
 export type Source = (typeof SOURCES)[number];
 
 /** Identifies a Vikunja task: the instance's host and the task's id. */
 export interface TaskKey {
 	instance: string;
 	id: number;
-}
-
-/** Identifies a Wiki.js page: host, page id and locale, never its path. */
-export interface PageKey {
-	instance: string;
-	id: number;
-	locale: string;
 }
 
 /**
@@ -40,11 +33,13 @@ export interface PRKey {
 	number: number;
 }
 
-/** What a story is about: a task, or a page when the work has no task. */
-export type Root = { task: TaskKey; page?: never } | { page: PageKey; task?: never };
+/** What a story is about: a Vikunja task. */
+export interface Root {
+	task: TaskKey;
+}
 
 /** The kinds of record a Ref points to. */
-export const REF_KINDS = ['task', 'page', 'run', 'pr', 'event'] as const;
+export const REF_KINDS = ['task', 'run', 'pr', 'event'] as const;
 export type RefKind = (typeof REF_KINDS)[number];
 
 /** Points to a record by its Go key's String form. */
@@ -61,12 +56,9 @@ export const EVENT_KIND_SOURCES = {
 	'task.assignee_observed': ['vikunja'],
 	'task.completion_observed': ['vikunja'],
 	'task.done': ['vikunja'],
-	'page.created': ['wiki'],
-	'page.edited': ['wiki'],
-	'page.moved': ['wiki'],
-	'comment.created': ['vikunja', 'wiki', 'github'],
-	'request.created': ['vikunja', 'wiki', 'github'],
-	'run.announced': ['vikunja', 'wiki', 'github'],
+	'comment.created': ['vikunja', 'github'],
+	'request.created': ['vikunja', 'github'],
+	'run.announced': ['vikunja', 'github'],
 	'run.observed': ['kelos'],
 	'pr.opened': ['github'],
 	'pr.review_requested': ['github'],
@@ -122,7 +114,6 @@ export interface Executor {
 /** The keys the source record itself names. */
 export interface Related {
 	task?: TaskKey;
-	page?: PageKey;
 	run?: RunKey;
 	pr?: PRKey;
 }
@@ -190,7 +181,6 @@ export const RUN_ROLES = [
 	'discussion',
 	'task-follow-up',
 	'pr-follow-up',
-	'wiki-follow-up',
 	'conflict-fix',
 	'automation',
 	'unknown'
@@ -215,7 +205,6 @@ export interface Usage {
 /** What part of a run a phase marker's span covers, and the wrapper that sends it. */
 export const MARKER_KIND_EMITTERS = {
 	'blocker-wait': 'wait_for_blockers',
-	'wiki-login': 'wiki_gql',
 	agent: 'entrypoint'
 } as const;
 export type MarkerKind = keyof typeof MARKER_KIND_EMITTERS;
@@ -226,13 +215,9 @@ export const MARKER_KINDS = Object.freeze(Object.keys(MARKER_KIND_EMITTERS) as M
 /** How a span ended, by kind: an end edge's outcome is one of its kind's. */
 export const MARKER_KIND_OUTCOMES = {
 	'blocker-wait': ['unblocked', 'task-missing', 'timed-out', 'failed'],
-	'wiki-login': ['ok', 'rejected', 'unavailable'],
 	agent: ['succeeded', 'failed', 'limit-hit', 'terminated']
 } as const satisfies Record<MarkerKind, readonly string[]>;
 export type MarkerOutcome = (typeof MARKER_KIND_OUTCOMES)[MarkerKind][number];
-
-/** The kind whose end counts its attempts. */
-export const ATTEMPTS_KIND: MarkerKind = 'wiki-login';
 
 /**
  * What a run's markers establish of one span: both edges (complete), a
@@ -248,13 +233,12 @@ export const PHASE_STATES = [
 ] as const;
 export type PhaseState = (typeof PHASE_STATES)[number];
 
-/** One recorded edge of a phase, by the pod's clock; outcome and attempts are an end's. */
+/** One recorded edge of a phase, by the pod's clock; outcome is an end's. */
 export interface PhaseMark {
 	kind: MarkerKind;
 	emitter: MarkerEmitter;
 	at: string;
 	outcome?: MarkerOutcome;
-	attempts?: number;
 }
 
 interface PhaseFields {

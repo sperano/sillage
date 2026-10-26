@@ -160,7 +160,7 @@ func TestCompareEvents(t *testing.T) {
 		a, b Event
 		want int
 	}{
-		{"earlier first", event(SourceWiki, "z", "z", 1), event(SourceGitHub, "a", "a", 2), -1},
+		{"earlier first", event(SourceVikunja, "z", "z", 1), event(SourceGitHub, "a", "a", 2), -1},
 		{"same time, source", event(SourceGitHub, "z", "z", 1), event(SourceVikunja, "a", "a", 1), -1},
 		{"same time and source, instance", event(SourceGitHub, "a", "z", 1), event(SourceGitHub, "b", "a", 1), -1},
 		{"same time, source and instance, id", event(SourceGitHub, "a", "b", 1), event(SourceGitHub, "a", "a", 1), 1},
@@ -181,7 +181,7 @@ func TestSortEvidence(t *testing.T) {
 		return Evidence{Source: source, Instance: instance, Ref: ref, Note: note}
 	}
 	got := []Evidence{
-		ev(SourceWiki, "a", "a", "a"),
+		ev(SourceVikunja, "a", "a", "a"),
 		ev(SourceKelos, "b", "a", "a"),
 		ev(SourceKelos, "a", "b", "a"),
 		ev(SourceKelos, "a", "a", "b"),
@@ -193,7 +193,7 @@ func TestSortEvidence(t *testing.T) {
 		ev(SourceKelos, "a", "a", "b"),
 		ev(SourceKelos, "a", "b", "a"),
 		ev(SourceKelos, "b", "a", "a"),
-		ev(SourceWiki, "a", "a", "a"),
+		ev(SourceVikunja, "a", "a", "a"),
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("evidence order = %+v, want %+v", got, want)

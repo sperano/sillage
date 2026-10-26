@@ -9,11 +9,8 @@ func (r Records) Refs(root Root) map[Ref]bool {
 		if rel.Task != nil {
 			known[rel.Task.Ref()] = true
 		}
-		if rel.Page != nil {
-			known[rel.Page.Ref()] = true
-		}
 	}
-	addRelated(Related{Task: root.Task, Page: root.Page})
+	addRelated(Related{Task: root.Task})
 	for _, e := range r.Events {
 		known[e.Ref()] = true
 		addRelated(e.Related)

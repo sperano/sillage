@@ -10,7 +10,6 @@ import { goldenStory } from './testing/goldenStories';
 import { goldenResponse } from './lib/testing/apiResponses';
 
 const TASK_STORY = `${API_BASE}/stories/task/vikunja.example.com/102`;
-const PAGE_STORY = `${API_BASE}/stories/page/wiki.example.com/57/en`;
 const CONFIG = `${API_BASE}/config`;
 
 /** A desktop viewport, wider than the narrow pages' column. */
@@ -46,16 +45,6 @@ test('a deep link asks for its story once', async () => {
 	expect(server.requests.filter((r) => r.path === TASK_STORY)).toHaveLength(1);
 });
 
-test('a deep link to a task or a page loads its story', async () => {
-	await renderAt('/page/wiki.example.com/57/en', {
-		[PAGE_STORY]: () => json(goldenStory('wiki-rooted-request'))
-	});
-	await expect
-		.element(page.getByRole('heading', { level: 1 }))
-		.toHaveTextContent('History of page 57 (en) on wiki.example.com');
-	await expect.element(page.getByText('6 events, 2 runs')).toBeVisible();
-});
-
 test('a search result opens its story in the page, and back returns to the results', async () => {
 	const { history, server } = await renderAt('/?q=widgets', {
 		[`${API_BASE}/search`]: () =>
@@ -86,9 +75,7 @@ test('a new search keeps the focus in the search box', async () => {
 	await userEvent.clear(box);
 	await userEvent.type(box, 'gears{Enter}');
 	expect(history.entries()).toEqual(['/?q=widgets', '/?q=gears']);
-	await expect
-		.element(page.getByRole('status'))
-		.toHaveTextContent('No task or page matches “gears”.');
+	await expect.element(page.getByRole('status')).toHaveTextContent('No task matches “gears”.');
 	await expect.element(box).toHaveFocus();
 });
 

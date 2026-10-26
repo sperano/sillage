@@ -81,8 +81,6 @@ func (a *assembly) instance(s model.Source) string {
 		return a.cfg.Kelos.Cluster
 	case model.SourceGitHub:
 		return a.cfg.GitHubInstance
-	case model.SourceWiki:
-		return a.cfg.WikiInstance
 	}
 	panic("collector: no instance configured for source " + string(s))
 }

@@ -12,14 +12,8 @@ const scale = scaleOf({ start: T0, end: T0 + HOUR }, 0, 600);
 
 describe('phaseSpans', () => {
 	test('a segment only for a complete phase, ticks for the rest', () => {
-		expect(phaseSpans(failed).map((s) => s.shape)).toEqual([
-			'segment',
-			'start',
-			'segment',
-			'pair',
-			'pair'
-		]);
-		expect(phaseSpans(retry).map((s) => s.shape)).toEqual(['start', 'start', 'end']);
+		expect(phaseSpans(failed).map((s) => s.shape)).toEqual(['segment', 'start', 'end']);
+		expect(phaseSpans(retry).map((s) => s.shape)).toEqual(['start', 'start']);
 	});
 
 	test('a run with no phases has none', () => {
@@ -28,13 +22,6 @@ describe('phaseSpans', () => {
 });
 
 describe('packPhases', () => {
-	test('a login inside the agent span goes on another sub-track', () => {
-		const placed = packPhases(phaseSpans(failed), scale);
-		const track = (state: string, kind: string) =>
-			placed.find((p) => p.span.phase.state === state && p.span.phase.start?.kind === kind)?.track;
-		expect(track('interrupted', 'agent')).not.toBe(track('complete', 'wiki-login'));
-	});
-
 	test('ends a tick’s room after its text, so that no two overlap on a sub-track', () => {
 		const placed = packPhases(phaseSpans(failed), scale);
 		for (const a of placed) {
@@ -47,9 +34,10 @@ describe('packPhases', () => {
 });
 
 test('a phase’s description says what is not recorded and who reported it', () => {
-	const [dead, progress, late] = phaseSpans(retry);
+	const [dead, progress] = phaseSpans(retry);
+	const late = phaseSpans(failed).find((p) => p.phase.state === 'start-not-recorded');
 	expect(phaseDescription(dead!, 'utc')).toContain('end not recorded');
 	expect(phaseDescription(progress!, 'utc')).toContain('not ended at the last read');
 	expect(phaseDescription(late!, 'utc')).toContain('start not recorded');
-	expect(phaseDescription(late!, 'utc')).toContain('reported by wiki_gql in pod');
+	expect(phaseDescription(late!, 'utc')).toContain('reported by entrypoint in pod');
 });

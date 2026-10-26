@@ -40,9 +40,8 @@ type PhaseMark struct {
 	Emitter MarkerEmitter `json:"emitter"`
 	// At is when the pod's clock says the edge happened.
 	At time.Time `json:"at"`
-	// Outcome and Attempts are an end's.
-	Outcome  MarkerOutcome `json:"outcome,omitempty"`
-	Attempts *int          `json:"attempts,omitempty"`
+	// Outcome is an end's.
+	Outcome MarkerOutcome `json:"outcome,omitempty"`
 }
 
 // Phase is one span of a run that its pod reported with phase markers:
@@ -266,10 +265,6 @@ func phaseMark(m *Marker) *PhaseMark {
 	}
 	r := m.Report
 	mark := &PhaseMark{Kind: r.Kind, Emitter: r.Emitter, At: r.At.UTC(), Outcome: r.Outcome}
-	if r.Attempts != nil {
-		n := *r.Attempts
-		mark.Attempts = &n
-	}
 	return mark
 }
 

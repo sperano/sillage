@@ -32,19 +32,7 @@ const (
 	// separate event, never this one.
 	KindTaskDone EventKind = "task.done"
 
-	KindPageCreated EventKind = "page.created"
-	// KindPageEdited: a save of the page (details: "version", the history
-	// version id, or "live" for the current version, which has none yet).
-	// A live record's id is a fingerprint of the page's updatedAt, so reads
-	// at different updatedAt give a page several live records: the store
-	// decides which is current, and drops one a version's "supersedes"
-	// detail names.
-	KindPageEdited EventKind = "page.edited"
-	// KindPageMoved: the page's path changed (details: "from", "to"). The
-	// source does not record who moved it, so its actor is unknown.
-	KindPageMoved EventKind = "page.moved"
-
-	// KindComment: a comment on a task, a page or a pull request.
+	// KindComment: a comment on a task or a pull request.
 	KindComment EventKind = "comment.created"
 	// KindRequest: a comment asking an agent to act, /gordon or, until
 	// 2026-10-21, /kelos (details: "command", and "agent" when it names
@@ -99,12 +87,9 @@ var kindSources = map[EventKind][]Source{
 	KindTaskAssigneeObserved:   {SourceVikunja},
 	KindTaskCompletionObserved: {SourceVikunja},
 	KindTaskDone:               {SourceVikunja},
-	KindPageCreated:            {SourceWiki},
-	KindPageEdited:             {SourceWiki},
-	KindPageMoved:              {SourceWiki},
-	KindComment:                {SourceVikunja, SourceWiki, SourceGitHub},
-	KindRequest:                {SourceVikunja, SourceWiki, SourceGitHub},
-	KindRunAnnounced:           {SourceVikunja, SourceWiki, SourceGitHub},
+	KindComment:                {SourceVikunja, SourceGitHub},
+	KindRequest:                {SourceVikunja, SourceGitHub},
+	KindRunAnnounced:           {SourceVikunja, SourceGitHub},
 	KindRunObserved:            {SourceKelos},
 	KindPROpened:               {SourceGitHub},
 	KindReviewRequested:        {SourceGitHub},
@@ -172,7 +157,6 @@ type Executor struct {
 // collector derives by joining records is a Correlation instead.
 type Related struct {
 	Task *TaskKey `json:"task,omitempty"`
-	Page *PageKey `json:"page,omitempty"`
 	Run  *RunKey  `json:"run,omitempty"`
 	PR   *PRKey   `json:"pr,omitempty"`
 }
@@ -314,9 +298,6 @@ func (r Related) validate() error {
 	var errs []error
 	if r.Task != nil {
 		errs = append(errs, r.Task.Validate())
-	}
-	if r.Page != nil {
-		errs = append(errs, r.Page.Validate())
 	}
 	if r.Run != nil {
 		errs = append(errs, r.Run.Validate())

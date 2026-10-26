@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sperano/sillage/internal/source/wiki"
 	"github.com/sperano/sillage/internal/store"
 )
 
@@ -16,9 +15,7 @@ const Prefix = "/api/"
 // The routes, under /api/v1/.
 const (
 	RouteTaskStory    = "GET /api/v1/stories/task/{instance}/{id}"
-	RoutePageStory    = "GET /api/v1/stories/page/{instance}/{id}/{locale}"
 	RouteTaskCoverage = "GET /api/v1/coverage/task/{instance}/{id}"
-	RoutePageCoverage = "GET /api/v1/coverage/page/{instance}/{id}/{locale}"
 	RouteCoverage     = "GET /api/v1/coverage"
 	RouteResolve      = "GET /api/v1/resolve"
 	RouteSearch       = "GET /api/v1/search"
@@ -41,12 +38,6 @@ const (
 	mebibyte         = 1 << 20
 )
 
-// PageLister lists a wiki's pages with their locale and path: the wiki
-// source's client is one.
-type PageLister interface {
-	Pages(ctx context.Context) ([]wiki.Page, error)
-}
-
 // Config is what the API serves from.
 type Config struct {
 	// Store is what the API reads. Without one, every endpoint but the
@@ -54,11 +45,6 @@ type Config struct {
 	Store store.Reader
 	// Version is the binary's version, as the version endpoint reports it.
 	Version string
-	// Wiki lists the wiki's pages, so that resolve finds a page by the
-	// path a URL names; WikiInstance is its host. Without them, a wiki
-	// URL resolves only by page id (/i/<id>).
-	Wiki         PageLister
-	WikiInstance string
 	// KelosConsoles is the Kelos console's base URL per cluster name, as
 	// the config endpoint answers it; without one, runs have no link.
 	KelosConsoles map[string]string
@@ -95,9 +81,7 @@ func New(cfg Config) http.Handler {
 	a := &api{cfg: cfg}
 	mux := http.NewServeMux()
 	a.handle(mux, RouteTaskStory, a.needStore(a.taskStory))
-	a.handle(mux, RoutePageStory, a.needStore(a.pageStory))
 	a.handle(mux, RouteTaskCoverage, a.needStore(a.taskCoverage))
-	a.handle(mux, RoutePageCoverage, a.needStore(a.pageCoverage))
 	a.handle(mux, RouteCoverage, a.needStore(a.freshness))
 	a.handle(mux, RouteResolve, a.needStore(a.resolve))
 	a.handle(mux, RouteSearch, a.needStore(a.search))

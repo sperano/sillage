@@ -17,8 +17,7 @@ const STORIES = [
 	'implementation-merged',
 	'phase-markers',
 	'reopened-task',
-	'second-pr-after-close',
-	'wiki-rooted-request'
+	'second-pr-after-close'
 ];
 
 /** A desktop viewport: the default one is a phone's, too narrow for the bars' text. */
@@ -79,7 +78,6 @@ describe('golden invariants', () => {
 	test('the discussion story has no pull request lane', async () => {
 		const { container } = await show(golden('discuss-no-pr'));
 		expect(container.querySelector('[data-section="pulls"]')).toBeNull();
-		expect(container.querySelector('[data-section="pages"]')).not.toBeNull();
 	});
 
 	test('the retry story has two run rows, one per attempt', async () => {
@@ -102,15 +100,6 @@ describe('golden invariants', () => {
 		expect(row.querySelector('[data-note]')?.textContent).toContain('start and end unknown');
 		const reasons = all(row, '[data-unknown] title').map((t) => t.textContent);
 		expect(reasons.some((r) => r?.includes('only a run that reported usage leaves'))).toBe(true);
-	});
-
-	test('the live wiki edit is present', async () => {
-		const s = golden('wiki-rooted-request');
-		const live = s.events.find((e) => e.details?.version === 'live')!;
-		const { container } = await show(s);
-		await expandAll(container);
-		const mark = container.querySelector(`[data-event="${eventKey(live)}"]`);
-		expect(mark?.getAttribute('aria-label')).toContain('page edited (live version)');
 	});
 
 	test('task done, run exit, check success and PR merged are separate marks', async () => {

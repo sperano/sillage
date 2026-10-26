@@ -13,8 +13,8 @@
 //
 // The spawners' correlation annotations on a Task (what started it: the
 // source and its instance, the repository, pull request, comment, review,
-// wiki page, branch, delivery) make its Origin, from which Normalize joins
-// the run to the wiki page and the pull request it names, as identifiers.
+// branch and delivery) make its Origin, from which Normalize joins the run
+// to the pull request it names, as an identifier.
 // A TaskRecord does not copy annotations: a caller that needs them after
 // the Task's TTL keeps each Task's Origin when it first reads it (Origins)
 // and gives it back for the runs read from a TaskRecord alone (RecordOnlyRuns,

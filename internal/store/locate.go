@@ -70,18 +70,6 @@ func (s *Store) Root(ctx context.Context, root model.Root) (RootSummary, error) 
 	return found[0], nil
 }
 
-// PageRoots returns the stored roots of wiki page id at instance, in every
-// locale, most recently active first, at most MaxSearchLimit.
-func (s *Store) PageRoots(ctx context.Context, instance string, id int64) ([]RootSummary, error) {
-	found, err := s.summaries(ctx, "SELECT "+rootColumns+` FROM roots o
-		WHERE o.kind = 'page' AND o.instance = $1 AND o.source_id = $2 `+rootOrder+" LIMIT $3",
-		instance, id, MaxSearchLimit)
-	if err != nil {
-		return nil, fmt.Errorf("store: roots of page %s/%d: %w", instance, id, err)
-	}
-	return found, nil
-}
-
 // RootsOfPullRequest returns the roots whose stories hold the pull
 // request, most recently active first, at most MaxSearchLimit. The
 // repository matches in any case, as GitHub's do.

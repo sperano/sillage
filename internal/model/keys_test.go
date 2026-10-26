@@ -9,7 +9,6 @@ func TestKeyStrings(t *testing.T) {
 		want string
 	}{
 		{"task", testTaskKey().String(), "vikunja.example.com/tasks/42"},
-		{"page", testPageKey().String(), "wiki.example.com/pages/7/en"},
 		{"run by uid", testRunKey("uid-1").String(), "cluster-a/agents/uid/uid-1"},
 		{
 			"run by pod",
@@ -38,23 +37,6 @@ func TestTaskKeyValidate(t *testing.T) {
 		{"missing instance", TaskKey{ID: testTaskID}, "instance"},
 		{"zero id", TaskKey{Instance: testVikunjaHost}, "positive id"},
 		{"negative id", TaskKey{Instance: testVikunjaHost, ID: -1}, "positive id"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) { checkErr(t, tt.key.Validate(), tt.want) })
-	}
-}
-
-func TestPageKeyValidate(t *testing.T) {
-	tests := []struct {
-		name string
-		key  PageKey
-		want string
-	}{
-		{"valid", testPageKey(), ""},
-		{"missing instance", PageKey{ID: testPageID, Locale: testLocale}, "instance"},
-		{"zero id", PageKey{Instance: testWikiHost, Locale: testLocale}, "positive id"},
-		{"negative id", PageKey{Instance: testWikiHost, ID: -3, Locale: testLocale}, "positive id"},
-		{"missing locale", PageKey{Instance: testWikiHost, ID: testPageID}, "locale"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) { checkErr(t, tt.key.Validate(), tt.want) })
@@ -101,19 +83,16 @@ func TestPRKeyValidate(t *testing.T) {
 }
 
 func TestRootValidate(t *testing.T) {
-	task, page := testTaskKey(), testPageKey()
-	badTask, badPage := TaskKey{}, PageKey{}
+	task := testTaskKey()
+	badTask := TaskKey{}
 	tests := []struct {
 		name string
 		root Root
 		want string
 	}{
 		{"task", Root{Task: &task}, ""},
-		{"page", Root{Page: &page}, ""},
-		{"neither", Root{}, "neither a task nor a page"},
-		{"both", Root{Task: &task, Page: &page}, "both a task and a page"},
+		{"no task", Root{}, "task is required"},
 		{"invalid task", Root{Task: &badTask}, "task key"},
-		{"invalid page", Root{Page: &badPage}, "page key"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) { checkErr(t, tt.root.Validate(), tt.want) })
@@ -127,7 +106,6 @@ func TestRefValidate(t *testing.T) {
 		want string
 	}{
 		{"task", Ref{Kind: RefTask, ID: "a"}, ""},
-		{"page", Ref{Kind: RefPage, ID: "a"}, ""},
 		{"run", Ref{Kind: RefRun, ID: "a"}, ""},
 		{"pr", Ref{Kind: RefPR, ID: "a"}, ""},
 		{"event", Ref{Kind: RefEvent, ID: "a"}, ""},
@@ -148,7 +126,6 @@ func TestKeyRefs(t *testing.T) {
 		want Ref
 	}{
 		{"task", testTaskKey().Ref(), Ref{Kind: RefTask, ID: "vikunja.example.com/tasks/42"}},
-		{"page", testPageKey().Ref(), Ref{Kind: RefPage, ID: "wiki.example.com/pages/7/en"}},
 		{"run", testRunKey("uid-1").Ref(), Ref{Kind: RefRun, ID: "cluster-a/agents/uid/uid-1"}},
 		{"run by pod", podKey.Ref(), Ref{Kind: RefRun, ID: "cluster-a/agents/pod/pod-1"}},
 		{
@@ -170,7 +147,7 @@ func TestKeyRefs(t *testing.T) {
 }
 
 func TestSourceValid(t *testing.T) {
-	for _, s := range []Source{SourceVikunja, SourceKelos, SourceGitHub, SourceWiki} {
+	for _, s := range []Source{SourceVikunja, SourceKelos, SourceGitHub} {
 		if !s.Valid() {
 			t.Errorf("Source(%q).Valid() = false, want true", s)
 		}
@@ -183,14 +160,13 @@ func TestSourceValid(t *testing.T) {
 }
 
 func TestRootRef(t *testing.T) {
-	task, page := testTaskKey(), testPageKey()
+	task := testTaskKey()
 	tests := []struct {
 		name string
 		root Root
 		want Ref
 	}{
 		{"task", Root{Task: &task}, task.Ref()},
-		{"page", Root{Page: &page}, page.Ref()},
 		{"none", Root{}, Ref{}},
 	}
 	for _, tt := range tests {

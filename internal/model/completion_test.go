@@ -106,8 +106,6 @@ func TestCompletionAtWithoutCompletion(t *testing.T) {
 		{"never done", completionStory(t, testSeen("o1", false, 2, 50))},
 		{"done after the instant", completionStory(t, testDone("done", 70, 72))},
 		{"done at the instant", completionStory(t, testDone("done", 60, 62))},
-		{"a page's story", Story{Root: Root{Page: &PageKey{Instance: testWikiHost, ID: testPageID, Locale: testLocale}},
-			Records: Records{Events: []Event{testDone("done", 10, 12)}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

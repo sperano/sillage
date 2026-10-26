@@ -131,16 +131,13 @@ func requestEvent(o kelos.Origin) (model.Event, []string, bool) {
 	switch o.Value(kelos.AnnotationSource) {
 	case kelos.OriginVikunja:
 		return commentRequest(o, model.SourceVikunja, host)
-	case kelos.OriginWiki:
-		return commentRequest(o, model.SourceWiki, host)
 	case kelos.OriginGitHub:
 		return githubRequest(o, host)
 	}
 	return model.Event{}, nil, false
 }
 
-// commentRequest returns the Vikunja or wiki comment an Origin names: both
-// sources name a comment's event comments/<id>.
+// commentRequest returns the Vikunja comment an Origin names.
 func commentRequest(o kelos.Origin, source model.Source, host string) (model.Event, []string, bool) {
 	id, ok := o.ID(kelos.AnnotationComment)
 	names := []string{kelos.AnnotationSource, kelos.AnnotationSourceInstance, kelos.AnnotationComment}

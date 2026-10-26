@@ -43,12 +43,7 @@ export interface SearchResponse {
 }
 
 /** The kinds of link the server resolves (Go's api.LinkKind). */
-export const LINK_KINDS = [
-	'vikunja-task',
-	'github-pull-request',
-	'wiki-page',
-	'kelos-task'
-] as const;
+export const LINK_KINDS = ['vikunja-task', 'github-pull-request', 'kelos-task'] as const;
 export type LinkKind = (typeof LINK_KINDS)[number];
 
 /** A resolved link (Go's api.ResolveResponse). */

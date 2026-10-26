@@ -65,12 +65,6 @@ export function eventLabel(e: Event): string {
 			return detail(e, 'done') === 'true' ? 'done observed' : 'not done observed';
 		case 'task.done':
 			return 'task done';
-		case 'page.created':
-			return 'page created';
-		case 'page.edited':
-			return detail(e, 'version') === 'live' ? 'page edited (live version)' : 'page edited';
-		case 'page.moved':
-			return 'page moved';
 		case 'comment.created':
 			return 'comment';
 		case 'request.created':

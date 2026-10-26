@@ -3,7 +3,6 @@ package reconcile
 import (
 	"context"
 	"errors"
-	"sync"
 	"time"
 
 	"github.com/sperano/sillage/internal/collector"
@@ -11,7 +10,6 @@ import (
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
-	"github.com/sperano/sillage/internal/source/wiki"
 )
 
 // ProjectLister lists a Vikunja project's tasks changed since a time;
@@ -37,7 +35,7 @@ func SourcesOf(c collector.Clients) Sources {
 }
 
 func (s Sources) validate() error {
-	if s.Vikunja == nil || s.Kelos == nil || s.GitHub == nil || s.Wiki == nil || s.Projects == nil {
+	if s.Vikunja == nil || s.Kelos == nil || s.GitHub == nil || s.Projects == nil {
 		return errors.New("reconcile: every source needs a client")
 	}
 	return nil
@@ -86,38 +84,6 @@ func (g meteredGitHub) FetchBranch(ctx context.Context, base github.Repository, 
 	return timed(ctx, g.meter, func(ctx context.Context) ([]github.Snapshot, error) {
 		return g.src.FetchBranch(ctx, base, head)
 	})
-}
-
-// cycleWiki meters page reads and lists the pages once per cycle: every
-// root the cycle reads resolves its links against the same listing. A
-// listing that failed, its own deadline included, is kept for the cycle,
-// unless the caller's context ended it: that says nothing of the wiki,
-// and the next root lists again.
-type cycleWiki struct {
-	src collector.WikiSource
-	meter
-	mu     sync.Mutex
-	listed bool
-	pages  []wiki.Page
-	err    error
-}
-
-func (w *cycleWiki) Fetch(ctx context.Context, id int64) (wiki.Snapshot, error) {
-	return timed(ctx, w.meter, func(ctx context.Context) (wiki.Snapshot, error) { return w.src.Fetch(ctx, id) })
-}
-
-func (w *cycleWiki) Pages(ctx context.Context) ([]wiki.Page, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if w.listed {
-		return w.pages, w.err
-	}
-	pages, err := timed(ctx, w.meter, w.src.Pages)
-	if err != nil && ctx.Err() != nil {
-		return nil, err
-	}
-	w.listed, w.pages, w.err = true, pages, err
-	return pages, err
 }
 
 // cycleKelos answers every root of a cycle with the cycle's one read of

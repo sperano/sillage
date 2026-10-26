@@ -13,15 +13,7 @@ import (
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
-	"github.com/sperano/sillage/internal/source/wiki"
 )
-
-// fixedWiki serves one page.
-type fixedWiki struct{ snap wiki.Snapshot }
-
-func (w fixedWiki) Fetch(context.Context, int64) (wiki.Snapshot, error) { return w.snap, nil }
-
-func (w fixedWiki) Pages(context.Context) ([]wiki.Page, error) { return []wiki.Page{w.snap.Page}, nil }
 
 // fakeMemory is an OriginMemory in memory.
 type fakeMemory struct {
@@ -277,38 +269,6 @@ func TestMergeTaskJoinedByItsBranchAnnotation(t *testing.T) {
 	}
 }
 
-// A wiki follow-up is joined to the page and the comment its Origin
-// names, not to those its name names.
-func TestWikiFollowUpJoinedByItsOrigin(t *testing.T) {
-	values := map[string]string{
-		kelos.AnnotationSource: kelos.OriginWiki, kelos.AnnotationSourceInstance: testWikiHost,
-		kelos.AnnotationWikiPage: "57", kelos.AnnotationWikiLocale: "en", kelos.AnnotationComment: "801",
-	}
-	run := annotate(task("wiki-fu-widgets-58-c802", "uid-wiki", "", nil, 1, 2), values)
-	src := emptySources()
-	src.Kelos = fixedKelos{kelos.Snapshot{Tasks: []kelos.Task{run}}}
-	src.Wiki = fixedWiki{wiki.Snapshot{
-		Instance: testWikiHost, ObservedAt: testNow,
-		Page: wiki.Page{ID: 57, Path: "widgets/notes", Locale: "en", CreatedAt: at(0), UpdatedAt: at(0),
-			AuthorID: 7, AuthorName: "Robin Owner", CreatorID: 7, CreatorName: "Robin Owner"},
-		Comments: []wiki.Comment{{ID: 801, Render: "<p>please</p>", AuthorID: 7, AuthorName: "Robin Owner", CreatedAt: at(1)}},
-	}}
-	s := collectWith(t, testConfig(), src, pageRoot(57)).Story
-	c, ok := linkBetween(s, runRef("uid-wiki"), pageRoot(57).Page.Ref())
-	if !ok || c.Confidence != model.ConfidenceIdentifier || !strings.Contains(c.Evidence[0].Note, "/wiki-page=57") {
-		t.Errorf("run -> page 57 = %+v, %v; want an identifier from the annotation", c, ok)
-	}
-	request := model.Event{Source: model.SourceWiki, Instance: testWikiHost, ID: commentObject(801)}
-	if c, ok := linkBetween(s, runRef("uid-wiki"), request.Ref()); !ok || c.Confidence != model.ConfidenceIdentifier {
-		t.Errorf("run -> comment 801 = %+v, %v; want an identifier from the comment annotation", c, ok)
-	}
-	for _, c := range s.Correlations {
-		if c.From == runRef("uid-wiki") && strings.Contains(c.To.ID, "802") {
-			t.Errorf("run joined to the comment its name names: %+v", c)
-		}
-	}
-}
-
 // An Origin naming another host than the configured instance joins
 // nothing, so it does not keep a record-only run out of its stories: the
 // label, branch and name joins still apply.
@@ -332,35 +292,5 @@ func TestOriginOnAnotherHostKeepsTheOtherJoins(t *testing.T) {
 	}
 	if c, ok := linkBetween(res.Story, runRef("uid-follow"), prRef(7)); !ok || c.Confidence != model.ConfidenceHeuristic {
 		t.Errorf("follow-up -> PR 7 = %+v, %v; want the name's heuristic", c, ok)
-	}
-}
-
-// A wiki follow-up read from its TaskRecord alone, whose kept Origin names
-// the page on another host, is still joined by its name.
-func TestWikiFollowUpOnAnotherHostJoinedByName(t *testing.T) {
-	m := newFakeMemory()
-	m.remember(t, "uid-wiki", at(-60), map[string]string{
-		kelos.AnnotationSource: kelos.OriginWiki, kelos.AnnotationSourceInstance: "docs.example.com",
-		kelos.AnnotationWikiPage: "57", kelos.AnnotationWikiLocale: "en", kelos.AnnotationComment: "801",
-	})
-	src := emptySources()
-	src.Kelos = fixedKelos{kelos.Snapshot{Records: []kelos.TaskRecord{record("wiki-fu-widgets-57-c801", "uid-wiki", nil, 1, 2)}}}
-	src.Wiki = fixedWiki{wiki.Snapshot{
-		Instance: testWikiHost, ObservedAt: testNow,
-		Page: wiki.Page{ID: 57, Path: "widgets/notes", Locale: "en", CreatedAt: at(0), UpdatedAt: at(0),
-			AuthorID: 7, AuthorName: "Robin Owner", CreatorID: 7, CreatorName: "Robin Owner"},
-	}}
-	c, err := New(testConfig(), src, WithOriginMemory(m))
-	if err != nil {
-		t.Fatal(err)
-	}
-	c.now = func() time.Time { return testNow }
-	res, err := c.Collect(t.Context(), pageRoot(57))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if l, ok := linkBetween(res.Story, runRef("uid-wiki"), pageRoot(57).Page.Ref()); !ok ||
-		!strings.Contains(l.Evidence[0].Note, "Task name names page 57") {
-		t.Errorf("run -> page 57 = %+v, %v; want the name's join", l, ok)
 	}
 }

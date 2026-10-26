@@ -55,13 +55,12 @@ func TestMissingHistory(t *testing.T) {
 
 // The root's own source counts toward the row's sources: a task row that
 // holds no Vikunja record still says whether its task was marked done, so
-// with no Vikunja coverage its history is missing. So for a page's wiki.
+// with no Vikunja coverage its history is missing.
 func TestRootSourceWithoutCoverage(t *testing.T) {
 	opened := prEvent(model.KindPROpened, 10, "agent-gh", nil)
 	read := minute(50)
 	github := model.Coverage{Source: model.SourceGitHub, Instance: opened.Related.PR.Instance, LastSuccessfulRead: &read}
 	task := model.Root{Task: &model.TaskKey{Instance: "vikunja.example.com", ID: 1}}
-	page := model.Root{Page: &model.PageKey{Instance: "wiki.example.com", ID: 1, Locale: "en"}}
 	for _, c := range []struct {
 		name     string
 		root     model.Root
@@ -71,9 +70,6 @@ func TestRootSourceWithoutCoverage(t *testing.T) {
 		{"task, GitHub only", task, []model.Coverage{github}, true},
 		{"task, Vikunja read", task, []model.Coverage{github,
 			{Source: model.SourceVikunja, Instance: task.Task.Instance, LastSuccessfulRead: &read}}, false},
-		{"page, GitHub only", page, []model.Coverage{github}, true},
-		{"page, wiki read", page, []model.Coverage{github,
-			{Source: model.SourceWiki, Instance: page.Page.Instance, LastSuccessfulRead: &read}}, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			row, ok := buildRow(afternoon, "", model.Story{Root: c.root, Events: []model.Event{opened}, Coverage: c.coverage})

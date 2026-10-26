@@ -19,7 +19,7 @@ test('one read root has one read, said once', async () => {
 	await expect
 		.element(page.getByRole('listitem'))
 		.toHaveTextContent(
-			'Vikunja vikunja.example.com Read for 1 task or page. Last read successfully at 2026-03-03 20:00:00 UTC.'
+			'Vikunja vikunja.example.com Read for 1 task. Last read successfully at 2026-03-03 20:00:00 UTC.'
 		);
 	await expect
 		.element(page.getByText('2026-03-03 20:00:00 UTC'))
@@ -37,19 +37,19 @@ test('roots never read are counted, and a source never read is said plainly', as
 				newestRead: '2026-03-03T20:00:00Z',
 				oldestRead: '2026-03-03T20:00:00Z'
 			},
-			{ source: 'wiki', instance: 'wiki.example.com', roots: 2, neverRead: 2 }
+			{ source: 'kelos', instance: 'cluster-b', roots: 2, neverRead: 2 }
 		]
 	});
 	await expect
 		.element(page.getByRole('listitem').filter({ hasText: 'github.example.com' }))
 		.toHaveTextContent(
-			'2 tasks or pages of them never read successfully: nothing from it is known for those.'
+			'2 tasks of them never read successfully: nothing from it is known for those.'
 		);
-	const wiki = page.getByRole('listitem').filter({ hasText: 'wiki.example.com' });
+	const neverRead = page.getByRole('listitem').filter({ hasText: 'cluster-b' });
 	await expect
-		.element(wiki)
+		.element(neverRead)
 		.toHaveTextContent('Never read successfully: nothing from it is known.');
-	await expect.element(wiki).not.toHaveTextContent('Last read successfully');
+	await expect.element(neverRead).not.toHaveTextContent('Last read successfully');
 });
 
 test('no source at all says nothing is known', async () => {
