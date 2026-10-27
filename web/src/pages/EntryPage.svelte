@@ -12,7 +12,7 @@
 <svelte:head><title>Sillage</title></svelte:head>
 
 <h1 tabindex="-1">Sillage</h1>
-<p>What people, agents and automation did on a task, from Vikunja, Kelos, GitHub and the wiki.</p>
+<p>What people, agents and automation did on a task, from Vikunja, Kelos and GitHub.</p>
 <p>
 	<a href="/overview">What was working on what?</a> The tasks active over a window, side by side.
 </p>

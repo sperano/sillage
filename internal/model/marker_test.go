@@ -10,18 +10,17 @@ const testSpan = "5f0c2b3e9a7d4c1e8b6a2f4d3c1e0b9a"
 
 var testMarkerAt = time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 
-func testLoginEnd() MarkerReport {
-	attempts := 3
+func testMarkerEnd() MarkerReport {
 	return MarkerReport{
-		Version: MarkerVersion, Emitter: EmitterWikiGQL, Kind: MarkerWikiLogin, Edge: EdgeEnd,
+		Version: MarkerVersion, Emitter: EmitterEntrypoint, Kind: MarkerAgent, Edge: EdgeEnd,
 		Span: testSpan, At: testMarkerAt, TaskName: "vikunja-example-agent-42",
-		Outcome: MarkerLoginOK, Attempts: &attempts,
+		Outcome: MarkerSucceeded,
 	}
 }
 
 func testMarker() Marker {
 	return Marker{
-		Report: testLoginEnd(),
+		Report: testMarkerEnd(),
 		Sender: MarkerSender{Cluster: "cluster-a", Namespace: "agents", ServiceAccount: "default",
 			Pod: "vikunja-example-agent-42-abcde", PodUID: "pod-uid-1"},
 		ReceivedAt: testMarkerAt.Add(time.Second),
@@ -29,25 +28,21 @@ func testMarker() Marker {
 }
 
 func TestMarkerReportValidate(t *testing.T) {
-	zero, two := 0, 2
 	for _, c := range []struct {
 		name   string
 		change func(*MarkerReport)
 		want   string // "" when valid
 	}{
-		{"a wiki login's end", func(*MarkerReport) {}, ""},
-		{"a start", func(r *MarkerReport) { r.Edge, r.Outcome, r.Attempts = EdgeStart, "", nil }, ""},
+		{"an agent's end", func(*MarkerReport) {}, ""},
+		{"a start", func(r *MarkerReport) { r.Edge, r.Outcome = EdgeStart, "" }, ""},
 		{"no task name", func(r *MarkerReport) { r.TaskName = "" }, ""},
 		{"a blocker wait's end", func(r *MarkerReport) {
-			r.Emitter, r.Kind, r.Outcome, r.Attempts = EmitterWaitForBlockers, MarkerBlockerWait, MarkerTaskMissing, nil
-		}, ""},
-		{"an agent's end", func(r *MarkerReport) {
-			r.Emitter, r.Kind, r.Outcome, r.Attempts = EmitterEntrypoint, MarkerAgent, MarkerLimitHit, nil
+			r.Emitter, r.Kind, r.Outcome = EmitterWaitForBlockers, MarkerBlockerWait, MarkerTaskMissing
 		}, ""},
 		{"another version", func(r *MarkerReport) { r.Version = 2 }, "version"},
 		{"no version", func(r *MarkerReport) { r.Version = 0 }, "version"},
 		{"a wiki request", func(r *MarkerReport) { r.Kind = "wiki-request" }, "unknown kind"},
-		{"another emitter", func(r *MarkerReport) { r.Emitter = EmitterEntrypoint }, "emitted by"},
+		{"another emitter", func(r *MarkerReport) { r.Emitter = EmitterWaitForBlockers }, "emitted by"},
 		{"an unknown emitter", func(r *MarkerReport) { r.Emitter = "curl" }, "emitted by"},
 		{"a point marker", func(r *MarkerReport) { r.Edge = "point" }, "unknown edge"},
 		{"an upper-case span", func(r *MarkerReport) { r.Span = strings.ToUpper(testSpan) }, "span"},
@@ -56,17 +51,11 @@ func TestMarkerReportValidate(t *testing.T) {
 		{"a task name with a path", func(r *MarkerReport) { r.TaskName = "../etc" }, "task name"},
 		{"a task name too long", func(r *MarkerReport) { r.TaskName = strings.Repeat("a", maxObjectNameLength+1) },
 			"task name"},
-		{"a start with an outcome", func(r *MarkerReport) { r.Edge, r.Attempts = EdgeStart, nil }, "start"},
-		{"a start with attempts", func(r *MarkerReport) { r.Edge, r.Outcome = EdgeStart, "" }, "start"},
+		{"a start with an outcome", func(r *MarkerReport) { r.Edge = EdgeStart }, "start"},
 		{"an end without an outcome", func(r *MarkerReport) { r.Outcome = "" }, "outcome"},
 		{"another kind's outcome", func(r *MarkerReport) { r.Outcome = MarkerUnblocked }, "outcome"},
-		{"a login without attempts", func(r *MarkerReport) { r.Attempts = nil }, "attempts"},
-		{"a login with no attempt", func(r *MarkerReport) { r.Attempts = &zero }, "attempts"},
-		{"a blocker wait with attempts", func(r *MarkerReport) {
-			r.Emitter, r.Kind, r.Outcome, r.Attempts = EmitterWaitForBlockers, MarkerBlockerWait, MarkerUnblocked, &two
-		}, "no attempts"},
 	} {
-		r := testLoginEnd()
+		r := testMarkerEnd()
 		c.change(&r)
 		err := r.Validate()
 		switch {
@@ -79,21 +68,17 @@ func TestMarkerReportValidate(t *testing.T) {
 }
 
 func TestMarkerReportEqual(t *testing.T) {
-	a, b := testLoginEnd(), testLoginEnd()
-	attempts := *a.Attempts
-	b.Attempts = &attempts
+	a, b := testMarkerEnd(), testMarkerEnd()
 	b.At = b.At.In(time.FixedZone("west", -7*60*60))
 	if !a.Equal(b) {
 		t.Error("the same report in another zone is not equal")
 	}
 	for name, change := range map[string]func(*MarkerReport){
-		"attempts": func(r *MarkerReport) { n := 4; r.Attempts = &n },
-		"none":     func(r *MarkerReport) { r.Attempts = nil },
-		"outcome":  func(r *MarkerReport) { r.Outcome = MarkerLoginRejected },
-		"time":     func(r *MarkerReport) { r.At = r.At.Add(time.Millisecond) },
-		"task":     func(r *MarkerReport) { r.TaskName = "another" },
+		"outcome": func(r *MarkerReport) { r.Outcome = MarkerFailed },
+		"time":    func(r *MarkerReport) { r.At = r.At.Add(time.Millisecond) },
+		"task":    func(r *MarkerReport) { r.TaskName = "another" },
 	} {
-		c := testLoginEnd()
+		c := testMarkerEnd()
 		change(&c)
 		if a.Equal(c) {
 			t.Errorf("reports differing in %s are equal", name)

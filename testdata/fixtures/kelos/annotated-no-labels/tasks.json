@@ -38,37 +38,6 @@
       "apiVersion": "kelos.dev/v1alpha2",
       "kind": "Task",
       "metadata": {
-        "name": "wiki-fu-widgets-57-c801",
-        "namespace": "agents",
-        "uid": "00000000-0000-4000-8000-000000003002",
-        "creationTimestamp": "2026-03-14T09:00:00Z",
-        "annotations": {
-          "vikunja.example.com/source": "wiki",
-          "vikunja.example.com/source-instance": "Wiki.Example.com",
-          "vikunja.example.com/repository": "example-org/widgets",
-          "vikunja.example.com/wiki-page": "57",
-          "vikunja.example.com/wiki-path": "widgets/design-notes",
-          "vikunja.example.com/wiki-locale": "en",
-          "vikunja.example.com/comment": "801",
-          "vikunja.example.com/delivery": "wiki-801"
-        }
-      },
-      "spec": {
-        "type": "claude-code",
-        "prompt": "Fabricated prompt: never read into a run.",
-        "branch": "kelos/wiki-57"
-      },
-      "status": {
-        "phase": "Running",
-        "jobName": "wiki-fu-widgets-57-c801",
-        "podName": "wiki-fu-widgets-57-c801-q4m8z",
-        "startTime": "2026-03-14T09:00:15Z"
-      }
-    },
-    {
-      "apiVersion": "kelos.dev/v1alpha2",
-      "kind": "Task",
-      "metadata": {
         "name": "vikunja-merge-widgets-41-true",
         "namespace": "agents",
         "uid": "00000000-0000-4000-8000-000000003003",

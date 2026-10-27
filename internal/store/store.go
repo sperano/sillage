@@ -12,8 +12,8 @@ import (
 )
 
 // saveLockID is the transaction advisory lock every write takes, so that
-// the rules that read before they write (re-keying, observation ranges,
-// live wiki records) see one save at a time.
+// the rules that read before they write (re-keying and observation ranges)
+// see one save at a time.
 const saveLockID int64 = 0x5111a6e0002
 
 // ErrNotFound is returned for a root the store has no story of.
@@ -32,8 +32,6 @@ type Reader interface {
 	Coverage(ctx context.Context, root model.Root) ([]model.Coverage, error)
 	// Root returns a stored root's summary, or ErrNotFound.
 	Root(ctx context.Context, root model.Root) (RootSummary, error)
-	// PageRoots returns the stored roots of a wiki page, in every locale.
-	PageRoots(ctx context.Context, instance string, id int64) ([]RootSummary, error)
 	// RootsOfPullRequest returns the roots whose stories hold the pull
 	// request.
 	RootsOfPullRequest(ctx context.Context, key model.PRKey) ([]RootSummary, error)
@@ -107,8 +105,5 @@ func rootID(ctx context.Context, tx pgx.Tx, root model.Root) (int64, error) {
 
 // rootRef is the reference of a valid root's key.
 func rootRef(root model.Root) model.Ref {
-	if root.Task != nil {
-		return root.Task.Ref()
-	}
-	return root.Page.Ref()
+	return root.Task.Ref()
 }

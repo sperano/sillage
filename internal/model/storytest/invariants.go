@@ -21,7 +21,6 @@ import (
 var invariants = map[string]func(*testing.T, model.Story){
 	"discuss-no-pr":           checkDiscussNoPR,
 	"implementation-merged":   checkImplementationMerged,
-	"wiki-rooted-request":     checkWikiRootedRequest,
 	"failed-run-retry":        checkFailedRunRetry,
 	"announced-run-only":      checkAnnouncedRunOnly,
 	"checks-after-force-push": checkChecksAfterForcePush,
@@ -45,7 +44,7 @@ func Check(t *testing.T, name string, s model.Story) {
 }
 
 // checkDiscussNoPR: no pull request is invented and nothing implies a
-// coding phase; the deliverable is a page and a reply.
+// coding phase; the deliverables are outside the model and a reply.
 func checkDiscussNoPR(t *testing.T, s model.Story) {
 	if len(s.PullRequests) != 0 {
 		t.Errorf("pull requests = %v, want none", s.PullRequests)
@@ -64,9 +63,6 @@ func checkDiscussNoPR(t *testing.T, s model.Story) {
 		if r.Role != model.RoleDiscussion {
 			t.Errorf("run %s has role %s, want %s", r.Key, r.Role, model.RoleDiscussion)
 		}
-	}
-	if len(eventsOfKind(s, model.KindPageCreated)) != 1 {
-		t.Error("the deliverable page's creation is missing")
 	}
 	if len(eventsByActorKind(s, model.KindComment, model.ActorAgent)) != 1 {
 		t.Error("the agent's reply comment is missing")
@@ -110,46 +106,6 @@ func checkImplementationMerged(t *testing.T, s model.Story) {
 	opened := onlyEvent(t, s, model.KindPROpened)
 	if opened.Actor.Kind != model.ActorPerson || opened.Executor == nil || opened.Executor.Kind != model.ActorAgent {
 		t.Errorf("PR opened by %+v executed by %+v, want a person's account and an agent", opened.Actor, opened.Executor)
-	}
-}
-
-// checkWikiRootedRequest: a story can start from a page with no task; the
-// live version is an edit of its own; an ambiguous edit keeps every
-// candidate run.
-func checkWikiRootedRequest(t *testing.T, s model.Story) {
-	if s.Root.Task != nil || s.Root.Page == nil {
-		t.Fatalf("root = %+v, want a page and no task", s.Root)
-	}
-	for _, e := range s.Events {
-		if e.Related.Task != nil {
-			t.Errorf("event %s names a task", e.Key())
-		}
-	}
-	order := []model.EventKind{model.KindRequest, model.KindRunAnnounced, model.KindPageEdited, model.KindComment}
-	if got := kindsAfter(s, model.KindRequest); !isSubsequence(order, got) {
-		t.Errorf("kinds from the request on = %v, want %v in order", got, order)
-	}
-
-	edits := eventsOfKind(s, model.KindPageEdited)
-	if len(edits) != 2 {
-		t.Fatalf("edits = %d, want 2", len(edits))
-	}
-	live := edits[1]
-	if live.IDKind != model.IDFingerprint || live.Details["version"] != "live" {
-		t.Errorf("last edit %s is not the live version with a fingerprint id", live.Key())
-	}
-
-	candidates := correlationsFrom(s, live.Ref(), model.RefRun)
-	if len(candidates) != 2 {
-		t.Fatalf("runs correlated with the live edit = %d, want 2", len(candidates))
-	}
-	for _, c := range candidates {
-		if !c.Ambiguous || c.Confidence != model.ConfidenceHeuristic {
-			t.Errorf("correlation %s is not an ambiguous heuristic", c)
-		}
-		if findRun(s, c.To) == nil {
-			t.Errorf("candidate %s is not a run of the story", c.To)
-		}
 	}
 }
 
@@ -293,14 +249,11 @@ var phasesWant = [][]struct {
 	{
 		{model.PhaseComplete, model.MarkerBlockerWait, model.MarkerBlockerWait},
 		{model.PhaseInterrupted, model.MarkerAgent, ""},
-		{model.PhaseComplete, model.MarkerWikiLogin, model.MarkerWikiLogin},
-		{model.PhaseInconsistent, model.MarkerWikiLogin, model.MarkerWikiLogin},
-		{model.PhaseInconsistent, model.MarkerWikiLogin, model.MarkerAgent},
+		{model.PhaseStartNotRecorded, "", model.MarkerAgent},
 	},
 	{
 		{model.PhaseInterrupted, model.MarkerAgent, ""},
 		{model.PhaseInProgress, model.MarkerAgent, ""},
-		{model.PhaseStartNotRecorded, "", model.MarkerWikiLogin},
 	},
 }
 
@@ -432,28 +385,6 @@ func onlyEvent(t *testing.T, s model.Story, kind model.EventKind) model.Event {
 	return events[0]
 }
 
-// kindsAfter returns the kinds of the events from the first of kind on.
-func kindsAfter(s model.Story, kind model.EventKind) []model.EventKind {
-	var out []model.EventKind
-	for _, e := range s.Events {
-		if len(out) > 0 || e.Kind == kind {
-			out = append(out, e.Kind)
-		}
-	}
-	return out
-}
-
-// isSubsequence reports whether want appears in got in order.
-func isSubsequence(want, got []model.EventKind) bool {
-	i := 0
-	for _, k := range got {
-		if i < len(want) && k == want[i] {
-			i++
-		}
-	}
-	return i == len(want)
-}
-
 func correlationsFrom(s model.Story, from model.Ref, to model.RefKind) []model.Correlation {
 	var out []model.Correlation
 	for _, c := range s.Correlations {
@@ -462,15 +393,6 @@ func correlationsFrom(s model.Story, from model.Ref, to model.RefKind) []model.C
 		}
 	}
 	return out
-}
-
-func findRun(s model.Story, ref model.Ref) *model.Run {
-	for i := range s.Runs {
-		if s.Runs[i].Key.Ref() == ref {
-			return &s.Runs[i]
-		}
-	}
-	return nil
 }
 
 func coverageOf(s model.Story, source model.Source) *model.Coverage {

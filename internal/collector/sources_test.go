@@ -14,7 +14,6 @@ import (
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
-	"github.com/sperano/sillage/internal/source/wiki"
 )
 
 // errDown is every failing fake's error.
@@ -35,14 +34,6 @@ type failingGitHub struct{}
 func (failingGitHub) FetchBranch(context.Context, github.Repository, github.Branch) ([]github.Snapshot, error) {
 	return nil, errDown
 }
-
-type failingWiki struct{}
-
-func (failingWiki) Fetch(context.Context, int64) (wiki.Snapshot, error) {
-	return wiki.Snapshot{}, errDown
-}
-
-func (failingWiki) Pages(context.Context) ([]wiki.Page, error) { return nil, errDown }
 
 // fixedVikunja, fixedKelos and fixedGitHub answer with what they hold.
 type fixedVikunja struct{ snap vikunja.Snapshot }
@@ -138,7 +129,7 @@ func collectWith(t *testing.T, cfg Config, src Sources, root model.Root, repos .
 // emptySources are sources with nothing to read.
 func emptySources() Sources {
 	return Sources{
-		Vikunja: fixedVikunja{announcedTask(1, "", nil)}, Kelos: fixedKelos{}, GitHub: fixedGitHub{}, Wiki: failingWiki{},
+		Vikunja: fixedVikunja{announcedTask(1, "", nil)}, Kelos: fixedKelos{}, GitHub: fixedGitHub{},
 	}
 }
 

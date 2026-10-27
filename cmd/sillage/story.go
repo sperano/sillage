@@ -18,12 +18,8 @@ const (
 	// sources the environment configures.
 	storyCommand = "story"
 	// The story command's flags.
-	taskFlag   = "task"
-	pageFlag   = "page"
-	localeFlag = "locale"
-	repoFlag   = "repo"
-	// defaultLocale is the locale of a page named without one.
-	defaultLocale = "en"
+	taskFlag = "task"
+	repoFlag = "repo"
 	// exitPartial is the exit status of a story printed while a source
 	// could not be read: the story is valid but says less than it could.
 	exitPartial = 3
@@ -59,28 +55,22 @@ func openCollector(getenv func(string) string) (storyCollector, collector.Config
 
 // storyArgs is what the story command was asked for.
 type storyArgs struct {
-	task, page int64
-	locale     string
-	repos      []github.Repository
+	task  int64
+	repos []github.Repository
 }
 
 // root is the story's root on the instances cfg names.
 func (a storyArgs) root(cfg collector.Config) model.Root {
-	if a.task > 0 {
-		return model.Root{Task: &model.TaskKey{Instance: cfg.VikunjaInstance, ID: a.task}}
-	}
-	return model.Root{Page: &model.PageKey{Instance: cfg.WikiInstance, ID: a.page, Locale: a.locale}}
+	return model.Root{Task: &model.TaskKey{Instance: cfg.VikunjaInstance, ID: a.task}}
 }
 
-// parseStoryArgs parses the story command's flags: exactly one of -task
-// and -page. Errors are written to output with the usage.
+// parseStoryArgs parses the story command's flags. Errors are written to
+// output with the usage.
 func parseStoryArgs(args []string, output io.Writer) (storyArgs, error) {
-	a := storyArgs{locale: defaultLocale}
+	var a storyArgs
 	flags := flag.NewFlagSet("sillage "+storyCommand, flag.ContinueOnError)
 	flags.SetOutput(output)
 	flags.Int64Var(&a.task, taskFlag, 0, "print the story of Vikunja task `id`")
-	flags.Int64Var(&a.page, pageFlag, 0, "print the story of wiki page `id`")
-	flags.StringVar(&a.locale, localeFlag, a.locale, "the wiki page's `locale`")
 	flags.Func(repoFlag, "also read the story's branch in `owner/name` (repeatable)", func(s string) error {
 		r, err := github.ParseRepository(s)
 		if err != nil {
@@ -95,26 +85,12 @@ func parseStoryArgs(args []string, output io.Writer) (storyArgs, error) {
 		}
 		return storyArgs{}, fmt.Errorf("%w: %w", errUsage, err)
 	}
-	if flags.NArg() > 0 || !oneRoot(flags, a) {
-		fmt.Fprintf(output, "want exactly one positive -%s or -%s, and no argument\n", taskFlag, pageFlag)
+	if flags.NArg() > 0 || a.task <= 0 {
+		fmt.Fprintf(output, "want one positive -%s and no argument\n", taskFlag)
 		flags.Usage()
-		return storyArgs{}, fmt.Errorf("%w: want one of -%s and -%s", errUsage, taskFlag, pageFlag)
+		return storyArgs{}, fmt.Errorf("%w: want -%s", errUsage, taskFlag)
 	}
 	return a, nil
-}
-
-// oneRoot reports whether exactly one of -task and -page was given, with
-// a positive id.
-func oneRoot(flags *flag.FlagSet, a storyArgs) bool {
-	set := make(map[string]bool)
-	flags.Visit(func(f *flag.Flag) { set[f.Name] = true })
-	switch {
-	case set[taskFlag] && !set[pageFlag]:
-		return a.task > 0
-	case set[pageFlag] && !set[taskFlag]:
-		return a.page > 0
-	}
-	return false
 }
 
 // runStory prints the story the arguments ask for to stdout, and each

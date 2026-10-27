@@ -24,14 +24,12 @@ import (
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
-	"github.com/sperano/sillage/internal/source/wiki"
 )
 
 // The fabricated instances and records the tests read.
 const (
 	testVikunjaHost = "vikunja.example.com"
 	testGitHubHost  = "github.example.com"
-	testWikiHost    = "wiki.example.com"
 	testCluster     = "cluster-a"
 	testNamespace   = "agents"
 	testAgent       = "agent-opus"
@@ -60,7 +58,6 @@ func testCollectorConfig() collector.Config {
 			Cluster: testCluster, Namespace: testNamespace, LabelDomain: testVikunjaHost, VikunjaInstance: testVikunjaHost,
 		},
 		GitHubInstance: testGitHubHost,
-		WikiInstance:   testWikiHost,
 		KelosTaskTTL:   collector.DefaultKelosTaskTTL,
 	}
 }
@@ -188,14 +185,6 @@ type noGitHub struct{}
 func (noGitHub) FetchBranch(context.Context, github.Repository, github.Branch) ([]github.Snapshot, error) {
 	return nil, nil
 }
-
-type noWiki struct{}
-
-func (noWiki) Fetch(context.Context, int64) (wiki.Snapshot, error) {
-	return wiki.Snapshot{}, errors.New("no page")
-}
-
-func (noWiki) Pages(context.Context) ([]wiki.Page, error) { return nil, nil }
 
 // fakeProjects lists changes, by project, and records each since asked.
 type fakeProjects struct {
@@ -415,7 +404,7 @@ func newHarness(t *testing.T, cfg Config) *harness {
 func (h *harness) newLoop(t *testing.T, cfg Config) *Loop {
 	t.Helper()
 	src := Sources{
-		Sources:  collector.Sources{Vikunja: h.vikunja, Kelos: h.kelos, GitHub: noGitHub{}, Wiki: noWiki{}},
+		Sources:  collector.Sources{Vikunja: h.vikunja, Kelos: h.kelos, GitHub: noGitHub{}},
 		Projects: h.projects,
 	}
 	reg := prometheus.NewRegistry()

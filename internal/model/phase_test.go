@@ -23,10 +23,6 @@ func phaseMarker(kind MarkerKind, edge MarkerEdge, minutes int) Marker {
 		Span: testSpan, At: at(minutes).In(testEST)}
 	if edge == EdgeEnd {
 		r.Outcome = markerKinds[kind].outcomes[0]
-		if markerKinds[kind].attempts {
-			one := 1
-			r.Attempts = &one
-		}
 	}
 	return Marker{
 		Report: r,
@@ -58,8 +54,8 @@ func runningRun() Run {
 }
 
 func TestPhasePairing(t *testing.T) {
-	start, end := phaseMarker(MarkerWikiLogin, EdgeStart, 2), phaseMarker(MarkerWikiLogin, EdgeEnd, 4)
-	early := phaseMarker(MarkerWikiLogin, EdgeEnd, 1)
+	start, end := phaseMarker(MarkerBlockerWait, EdgeStart, 2), phaseMarker(MarkerBlockerWait, EdgeEnd, 4)
+	early := phaseMarker(MarkerBlockerWait, EdgeEnd, 1)
 	other := phaseMarker(MarkerAgent, EdgeEnd, 4)
 	for _, c := range []struct {
 		name    string
@@ -110,16 +106,16 @@ func TestPhaseIsNeverClosedAtTheRunsEnd(t *testing.T) {
 }
 
 func TestPhaseMarksAreInUTC(t *testing.T) {
-	phases, _ := phaseStory(t, testRun(testPhaseRun), phaseMarker(MarkerWikiLogin, EdgeStart, 2),
-		phaseMarker(MarkerWikiLogin, EdgeEnd, 4))
+	phases, _ := phaseStory(t, testRun(testPhaseRun), phaseMarker(MarkerBlockerWait, EdgeStart, 2),
+		phaseMarker(MarkerBlockerWait, EdgeEnd, 4))
 	p := phases[0]
 	for _, tm := range []time.Time{p.Start.At, p.End.At, *p.Interval.Start.At, *p.Interval.End.At} {
 		if tm.Location() != time.UTC {
 			t.Errorf("time %v is not in UTC", tm)
 		}
 	}
-	if p.End.Outcome != MarkerLoginOK || p.End.Attempts == nil || *p.End.Attempts != 1 || p.Start.Outcome != "" {
-		t.Errorf("edges = %+v and %+v, want the end's outcome and attempts only", p.Start, p.End)
+	if p.End.Outcome != MarkerUnblocked || p.Start.Outcome != "" {
+		t.Errorf("edges = %+v and %+v, want the end's outcome only", p.Start, p.End)
 	}
 }
 

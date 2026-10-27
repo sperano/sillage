@@ -97,7 +97,7 @@ interface CompletionFields {
 export type TaskCompletion = CompletionFields &
 	({ state: 'done'; reopened?: never } | { state: 'reopened'; reopened: Reopening });
 
-/** One task or page in the window. */
+/** One task in the window. */
 export interface OverviewRow {
 	root: Root;
 	title?: string;

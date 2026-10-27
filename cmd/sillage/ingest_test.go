@@ -18,7 +18,6 @@ import (
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
-	"github.com/sperano/sillage/internal/source/wiki"
 	"github.com/sperano/sillage/internal/store"
 )
 
@@ -35,9 +34,6 @@ func ingestEnv() map[string]string {
 		kelos.EnvVikunjaInstance: "vikunja.example.com",
 		github.EnvAPIURL:         "https://api.github.example.com",
 		github.EnvToken:          "token",
-		wiki.EnvURL:              "https://wiki.example.com",
-		wiki.EnvToken:            "token",
-		wiki.EnvAgentUsers:       "21",
 		ingest.EnvVikunjaSecret:  testVikunjaSecret,
 	}
 }

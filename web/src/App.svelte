@@ -16,9 +16,7 @@
 	let main: HTMLElement | undefined = $state();
 	// The story and overview pages draw graphs, which take the whole width;
 	// the others are text, read best in a narrow column.
-	const narrow = $derived(
-		route.name !== 'task' && route.name !== 'page' && route.name !== 'overview'
-	);
+	const narrow = $derived(route.name !== 'task' && route.name !== 'overview');
 
 	// Loaded once: what the configuration says does not change while the
 	// app runs. Until it is loaded, or when it fails, runs have no link.
@@ -54,8 +52,6 @@
 		<EntryPage {api} {router} query={route.query} />
 	{:else if route.name === 'task'}
 		<StoryPage {api} {links} root={{ task: route.key }} />
-	{:else if route.name === 'page'}
-		<StoryPage {api} {links} root={{ page: route.key }} />
 	{:else if route.name === 'open'}
 		<OpenPage {api} {router} url={route.url} />
 	{:else if route.name === 'overview'}

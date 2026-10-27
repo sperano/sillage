@@ -64,33 +64,12 @@ func TestPROfName(t *testing.T) {
 	}
 }
 
-func TestPageOfName(t *testing.T) {
-	tests := []struct {
-		name string
-		want wikiRequest
-		ok   bool
-	}{
-		{"wiki-fu-widgets-57-c880", wikiRequest{"widgets", 57, 880}, true},
-		{"wiki-fu-big-widgets-57-c880-retry3", wikiRequest{"big-widgets", 57, 880}, true},
-		{"wiki-fu-widgets-c880", wikiRequest{}, false},
-		{"vikunja-widgets-agent-opus-57", wikiRequest{}, false},
-		{"wiki-fu-widgets-" + pastInt64 + "-c880", wikiRequest{}, false},
-		{"wiki-fu-widgets-57-c" + pastInt64, wikiRequest{}, false},
-	}
-	for _, tt := range tests {
-		got, ok := pageOfName(tt.name)
-		if got != tt.want || ok != tt.ok {
-			t.Errorf("pageOfName(%q) = %+v, %v; want %+v, %v", tt.name, got, ok, tt.want, tt.ok)
-		}
-	}
-}
-
 func TestRoleOfName(t *testing.T) {
 	tests := map[string]model.RunRole{
 		"vikunja-widgets-agent-opus-1":         model.RoleImplementation,
 		"vikunja-discuss-widgets-agent-opus-1": model.RoleDiscussion,
 		"vikunja-fu-widgets-1-c2":              model.RoleTaskFollowUp,
-		"wiki-fu-widgets-57-c880":              model.RoleWikiFollowUp,
+		"wiki-fu-widgets-57-c880":              model.RoleUnknown,
 		"pr-followup-widgets-7-c1":             model.RoleUnknown,
 		"":                                     model.RoleUnknown,
 	}

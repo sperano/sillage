@@ -1,4 +1,4 @@
-<!-- "Paste a link": opens the story a Vikunja, Kelos, GitHub or wiki link belongs to. -->
+<!-- "Paste a link": opens the task story a Vikunja, Kelos or GitHub link belongs to. -->
 <script lang="ts">
 	import type { Router } from '../lib/router.svelte';
 	import { URL_PARAM, openHref } from '../lib/routes';
@@ -23,5 +23,5 @@
 		</label>
 		<button type="submit">Open</button>
 	</form>
-	<p id="{uid}-hint">A Vikunja task, a Kelos Task, a GitHub pull request or a wiki page.</p>
+	<p id="{uid}-hint">A Vikunja task, a Kelos Task or a GitHub pull request.</p>
 </section>

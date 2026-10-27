@@ -57,7 +57,7 @@ describe('freshness', () => {
 	});
 
 	test('one record per source instance', () => {
-		const one = { source: 'wiki', instance: 'wiki.example.com', roots: 1, neverRead: 1 };
+		const one = { source: 'github', instance: 'github.example.com', roots: 1, neverRead: 1 };
 		expect(() => decode(freshnessResponse, { sources: [one, one] })).toThrow(/duplicate record/);
 	});
 });

@@ -50,16 +50,12 @@ func matchesText(row Row, text string) bool {
 // rowKey is the row's root key: "vikunja.example.com/tasks/12".
 func rowKey(row Row) string { return rootKey(row.Root) }
 
-// rootKey is the root's key, empty for a root that names neither a task
-// nor a page.
+// rootKey is the root task's key.
 func rootKey(root model.Root) string {
-	switch {
-	case root.Task != nil:
-		return root.Task.String()
-	case root.Page != nil:
-		return root.Page.String()
+	if root.Task == nil {
+		return ""
 	}
-	return ""
+	return root.Task.String()
 }
 
 // Page is one page of an overview's rows.

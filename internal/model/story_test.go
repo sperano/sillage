@@ -10,13 +10,11 @@ import (
 )
 
 func TestBuildStoryRejectsInvalidRoot(t *testing.T) {
-	task, page := testTaskKey(), testPageKey()
 	tests := []struct {
 		name string
 		root Root
 	}{
 		{"empty", Root{}},
-		{"both", Root{Task: &task, Page: &page}},
 		{"invalid task", Root{Task: &TaskKey{}}},
 	}
 	for _, tt := range tests {
@@ -72,7 +70,7 @@ func TestBuildStoryRejectsDuplicates(t *testing.T) {
 	otherInstance := testEvent("c-1")
 	otherInstance.Instance = "vikunja-2.example.com"
 	otherSource := testEvent("c-1")
-	otherSource.Source = SourceWiki
+	otherSource.Source, otherSource.Instance = SourceGitHub, testGitHubHost
 
 	tests := []storyCase{
 		{
@@ -283,16 +281,16 @@ func estCorrelations() []Correlation {
 }
 
 func estCoverage() []Coverage {
-	wiki, vikunja := testCoverage(), testCoverage()
-	wiki.Source, wiki.Instance = SourceWiki, testWikiHost
-	wiki.LastSuccessfulRead = timePtr(atEST(120))
+	github, vikunja := testCoverage(), testCoverage()
+	github.Source, github.Instance = SourceGitHub, testGitHubHost
+	github.LastSuccessfulRead = timePtr(atEST(120))
 	vikunja.LastSuccessfulRead = timePtr(atEST(90))
 	vikunja.Gaps = []Gap{
 		{Start: atEST(70), End: atEST(75), Reason: "later"},
 		{Start: atEST(30), End: atEST(35), Reason: "earlier"},
 	}
 	vikunja.Notes = []string{"later note", "earlier note"}
-	return []Coverage{wiki, vikunja}
+	return []Coverage{github, vikunja}
 }
 
 func TestBuildStoryConvertsEveryTimeToUTC(t *testing.T) {
@@ -353,8 +351,8 @@ func TestBuildStoryKeepsInstants(t *testing.T) {
 	if got, want := *story.Runs[0].Interval.Start.At, at(0); !got.Equal(want) {
 		t.Errorf("first run start = %v, want %v", got, want)
 	}
-	if got, want := *story.Coverage[0].LastSuccessfulRead, at(90); !got.Equal(want) {
-		t.Errorf("vikunja last read = %v, want %v", got, want)
+	if got, want := *story.Coverage[0].LastSuccessfulRead, at(120); !got.Equal(want) {
+		t.Errorf("github last read = %v, want %v", got, want)
 	}
 }
 
@@ -385,10 +383,10 @@ func TestBuildStorySortsEveryList(t *testing.T) {
 	if got := story.Correlations[1].Evidence[0].Ref; got != "a" {
 		t.Errorf("first correlation evidence ref = %q, want a", got)
 	}
-	if got := story.Coverage[0].Source; got != SourceVikunja {
-		t.Errorf("first coverage source = %q, want %q", got, SourceVikunja)
+	if got := story.Coverage[0].Source; got != SourceGitHub {
+		t.Errorf("first coverage source = %q, want %q", got, SourceGitHub)
 	}
-	if got := story.Coverage[0].Gaps[0].Reason; got != "earlier" {
+	if got := story.Coverage[1].Gaps[0].Reason; got != "earlier" {
 		t.Errorf("first gap = %q, want earlier", got)
 	}
 }
@@ -437,7 +435,7 @@ func TestBuildStoryDoesNotModifyInput(t *testing.T) {
 	story.PullRequests[0].Checks[0].ID = -1
 	story.Correlations[1].Evidence[0].Ref = "mutated"
 	story.Coverage[0].Gaps = append(story.Coverage[0].Gaps[:0], Gap{Reason: "mutated"})
-	story.Coverage[0].Notes[0] = "mutated"
+	story.Coverage[1].Notes[0] = "mutated"
 	if !reflect.DeepEqual(got, want) {
 		t.Error("changing the story changed the input records")
 	}

@@ -32,7 +32,7 @@ type attempt struct {
 // Normalize turns one read into model records: one run per Task UID, with
 // a Task and its TaskRecord merged into it, and the identifier
 // correlations from each run to the Vikunja task its task label names and
-// to the wiki page and the pull request its Origin names (the Task's
+// to the pull request its Origin names (the Task's
 // correlation annotations, else s.Remembered). Two attempts that share a
 // Task name stay two runs: nothing is joined by name. Every record is
 // validated; an invalid object fails the whole read, naming the object.

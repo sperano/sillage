@@ -96,7 +96,4 @@ func TestUnnormalizableTaskReadFails(t *testing.T) {
 			t.Errorf("event %s kept from a read the source could not normalize", e.Key())
 		}
 	}
-	if cov := coverageOf(t, res.Story, model.SourceWiki); !hasNote(cov, "could not be read") {
-		t.Errorf("wiki coverage = %+v, want the linked pages unknown", cov)
-	}
 }

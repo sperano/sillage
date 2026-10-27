@@ -17,7 +17,7 @@ import (
 //	| POD        | POD  |
 //	| NODE       | NODE |
 //
-// Rendered HTML (Vikunja, Wiki.js) turns into one line per cell, the label
+// Rendered comment HTML turns into one line per cell, the label
 // then its value; Markdown (GitHub) keeps one line per row, after an empty
 // header row and its separator.
 const (

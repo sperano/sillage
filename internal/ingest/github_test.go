@@ -53,9 +53,9 @@ func TestGitHubRoots(t *testing.T) {
 		err   error
 	}{
 		{"pull request by branch and story", "pull_request", githubPRBody, []model.Root{taskRoot(42), taskRoot(50)}, nil},
-		{"review on a page branch", "pull_request_review",
-			`{"pull_request":{"number":3,"head":{"ref":"kelos/wiki-7"}},"repository":{"full_name":"` + testRepo + `"}}`,
-			[]model.Root{pageRoot(7)}, nil},
+		{"review on a task branch", "pull_request_review",
+			`{"pull_request":{"number":3,"head":{"ref":"kelos/vikunja-7"}},"repository":{"full_name":"` + testRepo + `"}}`,
+			[]model.Root{taskRoot(7)}, nil},
 		{"comment on a pull request", "issue_comment",
 			`{"issue":{"number":12,"pull_request":{"url":"x"}},"repository":{"full_name":"` + testRepo + `"}}`,
 			[]model.Root{taskRoot(42), taskRoot(50)}, nil},

@@ -17,7 +17,7 @@ import { overviewGoldenJSON } from './testing/overview';
 import { goldenPaths, goldenResponse } from './testing/apiResponses';
 
 const TASK: Root = { task: { instance: 'vikunja.example.com', id: 102 } };
-const PAGE: Root = { page: { instance: 'wiki.example.com', id: 57, locale: 'en' } };
+const OTHER_TASK: Root = { task: { instance: 'vikunja.example.com', id: 103 } };
 const SHORT_TIMEOUT_MS = 20;
 const PULL_LINK = 'https://github.example.com/example-org/widgets/pull/7';
 
@@ -42,15 +42,11 @@ function requested(fetchFn: ReturnType<typeof vi.fn<typeof fetch>>): string[] {
 }
 
 describe('requests', () => {
-	test('story asks for the task or page path and decodes the story', async () => {
+	test('story asks for the task path and decodes the story', async () => {
 		const fetchFn = answering(() => json(goldenStory('implementation-merged')));
 		const story = await createApi({ fetch: fetchFn }).story(TASK);
 		expect(story.root).toEqual(TASK);
 		expect(requested(fetchFn)).toEqual([`${API_BASE}/stories/task/vikunja.example.com/102`]);
-
-		const pageFetch = answering(() => json(goldenStory('wiki-rooted-request')));
-		await createApi({ fetch: pageFetch }).story(PAGE);
-		expect(requested(pageFetch)).toEqual([`${API_BASE}/stories/page/wiki.example.com/57/en`]);
 	});
 
 	test('a story of another root is an invalid response', async () => {
@@ -65,18 +61,21 @@ describe('requests', () => {
 				query: 'a&b c',
 				roots: [
 					{ root: TASK, title: 'Widgets', lastActivity: '2026-03-03T19:30:00Z' },
-					{ root: PAGE }
+					{ root: OTHER_TASK }
 				]
 			})
 		);
 		const hits = await createApi({ fetch: searchFetch }).search('a&b c');
 		expect(hits).toEqual([
 			{ root: TASK, title: 'Widgets', lastActivity: '2026-03-03T19:30:00Z' },
-			{ root: PAGE }
+			{ root: OTHER_TASK }
 		]);
 		expect(requested(searchFetch)).toEqual([`${API_BASE}/search?q=a%26b+c`]);
 
-		const resolution = { kind: 'github-pull-request', roots: [{ root: TASK }, { root: PAGE }] };
+		const resolution = {
+			kind: 'github-pull-request',
+			roots: [{ root: TASK }, { root: OTHER_TASK }]
+		};
 		const resolveFetch = answering(() => json(resolution));
 		const link = 'https://github.example.com/example-org/widgets/pull/7';
 		expect(await createApi({ fetch: resolveFetch }).resolve(link)).toEqual(resolution);
@@ -102,7 +101,7 @@ describe('requests', () => {
 				newestRead: '2026-03-03T20:00:00Z',
 				oldestRead: '2026-03-02T20:00:00Z'
 			},
-			{ source: 'wiki', instance: 'wiki.example.com', roots: 1, neverRead: 1 }
+			{ source: 'github', instance: 'github.example.com', roots: 1, neverRead: 1 }
 		];
 		const fetchFn = answering(() => json({ sources }));
 		expect(await createApi({ fetch: fetchFn }).freshness()).toEqual(sources);
@@ -282,8 +281,7 @@ describe('the Go responses', () => {
 		expect(sources.map((s) => `${s.source}/${s.instance}`)).toEqual([
 			'github/github.example.com',
 			'kelos/cluster-a',
-			'vikunja/vikunja.example.com',
-			'wiki/wiki.example.com'
+			'vikunja/vikunja.example.com'
 		]);
 		expect(sources.every((s) => s.newestRead !== undefined && s.oldestRead !== undefined)).toBe(
 			true

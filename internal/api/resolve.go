@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -12,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/sperano/sillage/internal/model"
-	"github.com/sperano/sillage/internal/source/wiki"
 	"github.com/sperano/sillage/internal/store"
 )
 
@@ -23,7 +21,6 @@ type LinkKind string
 const (
 	LinkVikunjaTask LinkKind = "vikunja-task"
 	LinkPullRequest LinkKind = "github-pull-request"
-	LinkWikiPage    LinkKind = "wiki-page"
 	LinkKelosTask   LinkKind = "kelos-task"
 )
 
@@ -67,7 +64,7 @@ func (a *api) resolve(r *http.Request) (any, error) {
 	raw := strings.TrimSpace(r.URL.Query().Get(paramURL))
 	switch {
 	case raw == "":
-		return nil, badRequest("%s is required: a Vikunja task, GitHub pull request or wiki page URL, "+
+		return nil, badRequest("%s is required: a Vikunja task or GitHub pull request URL, "+
 			"or a Kelos Task reference", paramURL)
 	case len(raw) > MaxResolveURL:
 		return nil, badRequest("%s has %d bytes, more than the %d allowed", paramURL, len(raw), MaxResolveURL)
@@ -91,7 +88,7 @@ func (a *api) resolve(r *http.Request) (any, error) {
 
 // lookups are the readings of raw, in the order they are tried, and
 // whether raw is a link: an http or https URL by its host and path, or,
-// when its path is none of a Vikunja task, a pull request or a wiki page,
+// when its path is none of a Vikunja task or pull request,
 // by its last segment as a Kelos Task (the console has no documented deep
 // link); anything else as a Kelos Task reference.
 func (a *api) lookups(raw string) ([]lookup, bool) {
@@ -111,8 +108,8 @@ func (a *api) lookups(raw string) ([]lookup, bool) {
 }
 
 // hostsOf are the instance names u's host may be stored under: the host
-// in lower case, with its port as the wiki and GitHub sources name an
-// instance, and without, as the collector names Vikunja's.
+// in lower case, with its port as GitHub names an instance, and without,
+// as the collector names Vikunja's.
 func hostsOf(u *url.URL) []string {
 	hosts := []string{strings.ToLower(u.Host)}
 	if name := strings.ToLower(u.Hostname()); name != hosts[0] {
@@ -122,7 +119,7 @@ func hostsOf(u *url.URL) []string {
 }
 
 // urlLookups are the readings of a URL at host with path parts: a Vikunja
-// task, a GitHub pull request, a wiki page by id or by path.
+// task or a GitHub pull request.
 func (a *api) urlLookups(host, raw string, parts []string) []lookup {
 	var out []lookup
 	if len(parts) == 2 && parts[0] == vikunjaTaskRoute {
@@ -137,18 +134,6 @@ func (a *api) urlLookups(host, raw string, parts []string) []lookup {
 				return a.cfg.Store.RootsOfPullRequest(ctx, key)
 			}})
 		}
-	}
-	link, ok := wiki.ParseLink(raw)
-	switch {
-	case !ok:
-	case link.Path == "":
-		out = append(out, lookup{LinkWikiPage, func(ctx context.Context) ([]store.RootSummary, error) {
-			return a.cfg.Store.PageRoots(ctx, host, link.ID)
-		}})
-	case a.cfg.Wiki != nil && host == a.cfg.WikiInstance:
-		out = append(out, lookup{LinkWikiPage, func(ctx context.Context) ([]store.RootSummary, error) {
-			return a.pageByPath(ctx, host, link)
-		}})
 	}
 	return out
 }
@@ -165,32 +150,6 @@ func (a *api) rootLookup(kind LinkKind, root model.Root) lookup {
 		}
 		return []store.RootSummary{found}, nil
 	}}
-}
-
-// pageByPath finds the pages a link by path may name in the wiki's
-// listing, as written, then as a default-locale path, and returns the
-// first one's stored root.
-func (a *api) pageByPath(ctx context.Context, host string, link wiki.Link) ([]store.RootSummary, error) {
-	pages, err := a.cfg.Wiki.Pages(ctx)
-	if errors.Is(err, context.DeadlineExceeded) {
-		return nil, err
-	}
-	if err != nil {
-		slog.Error("api: listing the wiki's pages failed", "error", err)
-		return nil, problem(http.StatusBadGateway, "listing the wiki's pages, to find the page by its path, failed")
-	}
-	for _, try := range link.Lookups() {
-		i := slices.IndexFunc(pages, func(p wiki.Page) bool { return p.Locale == try.Locale && p.Path == try.Path })
-		if i < 0 {
-			continue
-		}
-		key := model.PageKey{Instance: host, ID: pages[i].ID, Locale: pages[i].Locale}
-		found, err := a.rootLookup(LinkWikiPage, model.Root{Page: &key}).find(ctx)
-		if err != nil || len(found) > 0 {
-			return found, err
-		}
-	}
-	return nil, nil
 }
 
 // kelosLookups are the readings of a Kelos Task reference:

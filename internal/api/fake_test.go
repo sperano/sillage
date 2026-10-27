@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	"github.com/sperano/sillage/internal/model"
-	"github.com/sperano/sillage/internal/source/wiki"
 	"github.com/sperano/sillage/internal/store"
 )
 
@@ -47,6 +47,9 @@ func loadFixtures(t *testing.T) []fixture {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(storiesDir, e.Name(), goldenFile))
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -102,10 +105,7 @@ func newFakeStore(t *testing.T) *fakeStore {
 }
 
 func rootKey(r model.Root) string {
-	if r.Task != nil {
-		return r.Task.Ref().String()
-	}
-	return r.Page.Ref().String()
+	return r.Task.Ref().String()
 }
 
 func (f *fakeStore) find(root model.Root) (fixture, bool) {
@@ -170,12 +170,6 @@ func (f *fakeStore) SearchRoots(_ context.Context, q store.RootQuery) ([]store.R
 		out = out[:q.Limit]
 	}
 	return out, nil
-}
-
-func (f *fakeStore) PageRoots(_ context.Context, instance string, id int64) ([]store.RootSummary, error) {
-	return f.matching(func(s model.Story) bool {
-		return s.Root.Page != nil && s.Root.Page.Instance == instance && s.Root.Page.ID == id
-	}), nil
 }
 
 func (f *fakeStore) RootsOfPullRequest(_ context.Context, key model.PRKey) ([]store.RootSummary, error) {
@@ -253,11 +247,3 @@ func (f *fakeStore) Activity(_ context.Context, q store.ActivityQuery) ([]store.
 	}
 	return out, nil
 }
-
-// fakeWiki lists fixed pages, or fails with err.
-type fakeWiki struct {
-	pages []wiki.Page
-	err   error
-}
-
-func (w fakeWiki) Pages(context.Context) ([]wiki.Page, error) { return w.pages, w.err }

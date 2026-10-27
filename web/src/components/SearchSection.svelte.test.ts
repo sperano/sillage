@@ -37,7 +37,7 @@ test('lists the matching roots with links to their stories', async () => {
 				title: 'Widgets: add a gear',
 				lastActivity: '2026-03-03T19:30:00Z'
 			},
-			{ root: { page: { instance: 'wiki.example.com', id: 57, locale: 'en' } } }
+			{ root: { task: { instance: 'vikunja.example.com', id: 103 } } }
 		])
 	});
 	const results = page.getByRole('list', { name: 'Search results' });
@@ -48,8 +48,8 @@ test('lists the matching roots with links to their stories', async () => {
 		.element(results.getByRole('listitem').first())
 		.toHaveTextContent('task 102 on vikunja.example.com last activity 2026-03-03 19:30:00 UTC');
 	await expect
-		.element(results.getByRole('link', { name: 'page 57 (en) on wiki.example.com' }))
-		.toHaveAttribute('href', '/page/wiki.example.com/57/en');
+		.element(results.getByRole('link', { name: 'task 103 on vikunja.example.com' }))
+		.toHaveAttribute('href', '/task/vikunja.example.com/103');
 	expect(server.requests.map((r) => r.path)).toEqual([`${SEARCH}?q=widgets`]);
 	await expect.element(page.getByRole('searchbox')).toHaveValue('widgets');
 });
@@ -67,9 +67,7 @@ test('a search from a link longer than the box takes is not sent', async () => {
 
 test('no match says so', async () => {
 	await renderSearch('nothing', { [SEARCH]: matches() });
-	await expect
-		.element(page.getByRole('status'))
-		.toHaveTextContent('No task or page matches “nothing”.');
+	await expect.element(page.getByRole('status')).toHaveTextContent('No task matches “nothing”.');
 });
 
 test('a failed search says why', async () => {
@@ -90,7 +88,7 @@ test('searching again for the same text retries, in place', async () => {
 	});
 	await expect.element(page.getByRole('alert')).toBeVisible();
 	await page.getByRole('button', { name: 'Search' }).click();
-	await expect.element(page.getByRole('status')).toHaveTextContent('No task or page matches');
+	await expect.element(page.getByRole('status')).toHaveTextContent('No task matches');
 	expect(server.requests).toHaveLength(2);
 	expect(history.entries()).toEqual(['/']);
 });
@@ -101,8 +99,6 @@ test('a new search aborts the one in flight', async () => {
 	});
 	await expect.element(page.getByRole('status')).toHaveTextContent('Searching');
 	await view.rerender({ query: 'second' });
-	await expect
-		.element(page.getByRole('status'))
-		.toHaveTextContent('No task or page matches “second”.');
+	await expect.element(page.getByRole('status')).toHaveTextContent('No task matches “second”.');
 	expect(server.requests.map((r) => r.signal.aborted)).toEqual([true, false]);
 });

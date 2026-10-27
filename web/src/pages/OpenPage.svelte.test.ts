@@ -24,10 +24,10 @@ test('replaces /open with the story of the resolved root', async () => {
 		[RESOLVE]: () =>
 			json({
 				kind: 'vikunja-task',
-				roots: [{ root: { page: { instance: 'wiki.example.com', id: 57, locale: 'en' } } }]
+				roots: [{ root: { task: { instance: 'vikunja.example.com', id: 102 } } }]
 			})
 	});
-	await expect.poll(() => history.entries()).toEqual(['/page/wiki.example.com/57/en']);
+	await expect.poll(() => history.entries()).toEqual(['/task/vikunja.example.com/102']);
 	expect(server.requests.map((r) => r.path)).toEqual([
 		`${RESOLVE}?url=${encodeURIComponent(LINK)}`
 	]);
@@ -45,7 +45,7 @@ test('a link several roots hold lists them, most recently active first, and stay
 				]
 			})
 	});
-	const roots = page.getByRole('list', { name: 'Tasks and pages of the link' });
+	const roots = page.getByRole('list', { name: 'Tasks of the link' });
 	await expect
 		.element(roots.getByRole('listitem').first())
 		.toHaveTextContent('Gadgets task 103 on vikunja.example.com');
@@ -64,7 +64,7 @@ test('a link sillage cannot resolve says so and stays on /open', async () => {
 	const { history } = await renderOpen(LINK, { [RESOLVE]: () => problem(404, 'Not Found') });
 	await expect
 		.element(page.getByRole('alert'))
-		.toHaveTextContent('Sillage knows no task or page for this link');
+		.toHaveTextContent('Sillage knows no task for this link');
 	await expect.element(page.getByText(LINK)).toBeVisible();
 	expect(history.entries()).toEqual([openHref(LINK)]);
 });

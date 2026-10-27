@@ -1,14 +1,10 @@
-import type { Event, PageKey, PRKey, Ref, RunKey, TaskKey } from './model';
+import type { Event, PRKey, Ref, RunKey, TaskKey } from './model';
 
 // The string forms of internal/model's keys, which correlation refs carry.
 // They must stay byte for byte what the Go String methods return.
 
 export function taskKeyString(k: TaskKey): string {
 	return `${k.instance}/tasks/${k.id}`;
-}
-
-export function pageKeyString(k: PageKey): string {
-	return `${k.instance}/pages/${k.id}/${k.locale}`;
 }
 
 export function runKeyString(k: RunKey): string {

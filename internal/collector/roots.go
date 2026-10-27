@@ -10,11 +10,6 @@ import (
 	"github.com/sperano/sillage/internal/source/kelos"
 )
 
-// DiscoveredLocale is the locale of a page a Kelos Task or a branch names:
-// the wiki spawner names a page by its id alone, which Wiki.js keeps
-// unique across locales, and the agents' wiki is in this locale.
-const DiscoveredLocale = "en"
-
 // Discovered is a root that a Kelos read names, with the runs that name
 // it.
 type Discovered struct {
@@ -26,9 +21,8 @@ type Discovered struct {
 // Discover returns the roots the runs of one Kelos read name, in ref
 // order: the Vikunja task of a run's task label, of its branch
 // kelos/vikunja-<id>, or of its Task name by the task and comment
-// spawners' conventions; the wiki page of its branch kelos/wiki-<id> or
-// of its wiki-fu-* Task name. A run can name several roots, and is listed
-// with each.
+// spawners' conventions. A run can name several roots, and is listed with
+// each.
 func (c *Collector) Discover(snap kelos.Snapshot) ([]Discovered, error) {
 	recs, err := kelos.Normalize(c.cfg.Kelos, snap)
 	if err != nil {
@@ -81,28 +75,18 @@ func (c *Collector) labelledTasks(snap kelos.Snapshot) map[model.RunKey]int64 {
 // label (labelled, 0 for none), its branch and its Task name.
 func (c *Collector) rootsOfRun(r model.Run, labelled int64, branch string) []model.Root {
 	tasks := make(map[int64]bool)
-	pages := make(map[int64]bool)
 	if labelled > 0 {
 		tasks[labelled] = true
 	}
 	if id, ok := branchID(branch, taskBranch); ok {
 		tasks[id] = true
 	}
-	if id, ok := branchID(branch, pageBranch); ok {
-		pages[id] = true
-	}
 	if id, _, ok := taskOfName(r.TaskName); ok {
 		tasks[id] = true
-	}
-	if req, ok := pageOfName(r.TaskName); ok {
-		pages[req.page] = true
 	}
 	var out []model.Root
 	for _, id := range slices.Sorted(maps.Keys(tasks)) {
 		out = append(out, model.Root{Task: &model.TaskKey{Instance: c.cfg.VikunjaInstance, ID: id}})
-	}
-	for _, id := range slices.Sorted(maps.Keys(pages)) {
-		out = append(out, model.Root{Page: &model.PageKey{Instance: c.cfg.WikiInstance, ID: id, Locale: DiscoveredLocale}})
 	}
 	return out
 }

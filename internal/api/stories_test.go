@@ -22,11 +22,7 @@ func TestMain(m *testing.M) { testzone.Main(m) }
 
 // storyPath is the API path of root's story.
 func storyPath(root model.Root) string {
-	if root.Task != nil {
-		return "/api/v1/stories/task/" + root.Task.Instance + "/" + strconv.FormatInt(root.Task.ID, 10)
-	}
-	return "/api/v1/stories/page/" + root.Page.Instance + "/" + strconv.FormatInt(root.Page.ID, 10) + "/" +
-		root.Page.Locale
+	return "/api/v1/stories/task/" + root.Task.Instance + "/" + strconv.FormatInt(root.Task.ID, 10)
 }
 
 // TestEveryStoryThroughTheHandlers serves every fixture story: the body
@@ -66,7 +62,6 @@ func TestStoryNotFound(t *testing.T) {
 	for _, path := range []string{
 		"/api/v1/stories/task/vikunja.example.com/999",
 		"/api/v1/stories/task/vikunja.example.org/101",
-		"/api/v1/stories/page/wiki.example.com/57/fr",
 		"/api/v1/coverage/task/vikunja.example.com/999",
 	} {
 		wantProblem(t, get(t, h, path), http.StatusNotFound)
@@ -87,9 +82,6 @@ func TestStoryBadRequest(t *testing.T) {
 		"/api/v1/stories/task/vi%E2%84%AAunja.example.com/101", // a Kelvin sign, k in lower case
 		"/api/v1/stories/task/vikunja.example.com/99999999999999999999",
 		"/api/v1/stories/task/" + strings.Repeat("a", maxInstance+1) + "/101",
-		"/api/v1/stories/page/wiki.example.com/57/english",
-		"/api/v1/stories/page/wiki.example.com/57/EN",
-		"/api/v1/coverage/page/wiki.example.com/x/en",
 	} {
 		wantProblem(t, get(t, h, path), http.StatusBadRequest)
 	}
@@ -128,7 +120,7 @@ func TestFreshness(t *testing.T) {
 	for _, s := range got.Sources {
 		keys = append(keys, string(s.Source)+"/"+s.Instance)
 	}
-	want := []string{"github/github.example.com", "kelos/cluster-a", "vikunja/vikunja.example.com", "wiki/wiki.example.com"}
+	want := []string{"github/github.example.com", "kelos/cluster-a", "vikunja/vikunja.example.com"}
 	if !slices.Equal(keys, want) {
 		t.Errorf("sources = %q, want %q", keys, want)
 	}

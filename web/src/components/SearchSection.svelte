@@ -1,4 +1,4 @@
-<!-- The entry page's search: tasks and pages by title or key. -->
+<!-- The entry page's search: tasks by title or key. -->
 <script lang="ts">
 	import { MAX_SEARCH_LENGTH, type Api } from '../lib/api';
 	import { load } from '../lib/load.svelte';
@@ -29,7 +29,7 @@
 </script>
 
 <section aria-labelledby="{uid}-heading">
-	<h2 id="{uid}-heading">Find a task or a page</h2>
+	<h2 id="{uid}-heading">Find a task</h2>
 	<form role="search" onsubmit={submit}>
 		<label>
 			Title or key
@@ -49,7 +49,7 @@
 	{:else if results.current.state === 'loaded'}
 		{@const hits = results.current.value}
 		{#if hits.length === 0}
-			<p role="status">No task or page matches “{wanted}”.</p>
+			<p role="status">No task matches “{wanted}”.</p>
 		{:else}
 			<RootList roots={hits} label="Search results" />
 		{/if}

@@ -81,12 +81,7 @@ func heartbeatKey(cluster string) string { return heartbeatPrefix + cluster }
 // root.
 func (s *rootState) checkpoint() Checkpoint {
 	root := s.Root
-	cp := Checkpoint{Source: model.SourceVikunja, Root: &root, Value: encode(s)}
-	if root.Task != nil {
-		cp.Instance = root.Task.Instance
-	} else {
-		cp.Source, cp.Instance = model.SourceWiki, root.Page.Instance
-	}
+	cp := Checkpoint{Source: model.SourceVikunja, Instance: root.Task.Instance, Root: &root, Value: encode(s)}
 	return cp
 }
 

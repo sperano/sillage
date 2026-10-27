@@ -186,7 +186,7 @@ func TestRunValidateNamesRun(t *testing.T) {
 func TestRunRolesAndOutcomes(t *testing.T) {
 	roles := []RunRole{
 		RoleImplementation, RoleDiscussion, RoleTaskFollowUp, RolePRFollowUp,
-		RoleWikiFollowUp, RoleConflictFix, RoleAutomation, RoleUnknown,
+		RoleConflictFix, RoleAutomation, RoleUnknown,
 	}
 	for _, role := range roles {
 		if !role.valid() {

@@ -1,7 +1,7 @@
 # Sillage
 
 A read-only history of what people, agents and automation did on a task,
-across Vikunja, Kelos, GitHub and Wiki.js, on one timeline. *Sillage* is
+across Vikunja, Kelos and GitHub, on one timeline. *Sillage* is
 French for the wake a boat leaves behind.
 
 Sillage only observes: it is never in the path that starts agent work, so it
@@ -21,7 +21,7 @@ answering 503, until the collection loop reads what its deliveries name;
 and the in-cluster endpoint of the phase markers Kelos runs' pods report
 (`internal/ingest/marker`), stored, joined to their runs and paired into
 the runs' phases in each story.
-The story page shows a task's or page's history: the timeline graph
+The story page shows a task's history: the timeline graph
 (`web/src/lib/timeline/`), which draws the phases under their run's bar,
 beside its event list and detail panel (`web/src/lib/story/`), under the
 coverage notices and the next action. The overview page shows what was
@@ -33,7 +33,7 @@ working on what across tasks.
 | --- | --- |
 | `cmd/sillage/` | The binary: health check, metrics, read API, embedded frontend and the collector. |
 | `internal/model/` | Normalized events, runs, entities and coverage. |
-| `internal/source/{vikunja,github,kelos,wiki}/` | One read-only source each. |
+| `internal/source/{vikunja,github,kelos}/` | One read-only source each. |
 | `internal/collector/` | Joins the sources' records into one story. |
 | `internal/reconcile/` | The collection loop: reads the sources periodically into the store, with freshness and gaps; `pglock/`, its PostgreSQL lock. |
 | `internal/store/` | PostgreSQL persistence, with its migrations embedded. |
@@ -73,20 +73,17 @@ stay behind the Authentik forward-auth in front of sillage.
 
 | Route | Answers |
 | --- | --- |
-| `/api/v1/stories/task/{instance}/{id}`, `/api/v1/stories/page/{instance}/{id}/{locale}` | The stored `model.Story`, as the golden files under `testdata/fixtures/stories/` |
-| `/api/v1/coverage/task/{instance}/{id}`, `/api/v1/coverage/page/{instance}/{id}/{locale}` | The root's coverage: last successful read and gaps per source |
+| `/api/v1/stories/task/{instance}/{id}` | The stored `model.Story`, as the golden files under `testdata/fixtures/stories/` |
+| `/api/v1/coverage/task/{instance}/{id}` | The task's coverage: last successful read and gaps per source |
 | `/api/v1/coverage` | Per source instance, the newest and stalest last read across stored roots |
 | `/api/v1/search?q=&limit=` | Roots by title or key, most recently active first (`q` at most 200 characters) |
-| `/api/v1/resolve?url=` | The roots whose stories hold what a Vikunja task, GitHub pull request or wiki page URL, or a Kelos Task (`[<namespace>/]<name>`, UID), points to; 404 if none |
-| `/api/v1/overview?from=&to=&project=&task=&executor=&review=&failed=&missing=&after=&limit=` | The tasks and wiki pages active in a window (default: the day before now, at most 31 days), one row each with its runs, pull request states, review waits, state changes and coverage; filtered, most recently active first, in pages of at most 200 (`after` is the previous page's `next`, sent with that page's `window` as `from` and `to`: a cursor of another window is a 400) |
+| `/api/v1/resolve?url=` | The task stories that a Vikunja task, GitHub pull request or Kelos Task (`[<namespace>/]<name>`, UID) points to; 404 if none |
+| `/api/v1/overview?from=&to=&project=&task=&executor=&review=&failed=&missing=&after=&limit=` | The tasks active in a window (default: the day before now, at most 31 days), one row each with its runs, pull request states, review waits, state changes and coverage; filtered, most recently active first, in pages of at most 200 (`after` is the previous page's `next`, sent with that page's `window` as `from` and `to`: a cursor of another window is a 400) |
 | `/api/v1/version` | The binary's version |
 | `/api/v1/config` | The frontend's configuration: the Kelos console's base URL per cluster name (`kelosConsoles`, empty without one) |
 
-A wiki URL by path (`/<locale>/<path>`) resolves only with the wiki source
-configured (`SILLAGE_WIKI_URL`, `SILLAGE_WIKI_TOKEN`,
-`SILLAGE_WIKI_AGENT_USERS`), whose page listing maps it to a page id; by id
-(`/i/<id>`) it always does. With `SILLAGE_KELOS_CONSOLE_URL` set (an http or
-https URL without a query or fragment, for the cluster
+With `SILLAGE_KELOS_CONSOLE_URL` set (an http or https URL without a query
+or fragment, for the cluster
 `SILLAGE_KELOS_CLUSTER` names, which it then requires), the story page links
 each run to its Task's logs in that Kelos console; unset, runs have no link. Every other `GET` path that is no frontend file
 serves the frontend's `index.html`, so that deep links to its routes work,
@@ -105,13 +102,13 @@ that limit, is checked (unread when it declares a larger one); nothing of
 it is recorded or acted on. Each authenticated
 attempt is recorded as evidence that sillage received it, not that Kelos
 received or acted on its own delivery. It then asks the collector to read
-the task or page it names again; nothing is written from the payload, and
-the periodic reads stay authoritative. Until the collection loop reads
-the roots deliveries name, both paths answer 503.
+the task it names again; nothing is written from the payload, and the
+periodic reads stay authoritative. Until the collection loop reads the
+tasks deliveries name, both paths answer 503.
 
 `POST /ingest/marker` (`internal/ingest/marker`) takes the phase markers
 that wrappers in a Kelos run's pod report: one edge (`start` or `end`) of
-one span (`blocker-wait`, `wiki-login`, `agent`), a JSON object of at most
+one span (`blocker-wait`, `agent`), a JSON object of at most
 4096 bytes of named fields only (when, which Task, how the span ended),
 never a free-form payload such as a prompt or an output. It is meant for the in-cluster
 Service only. Each request carries the pod's projected ServiceAccount
@@ -160,13 +157,12 @@ without `VERSION`), and carries the licenses of everything it ships under
 
 ## Print one story
 
-`sillage story` reads one task's or wiki page's records from the live
-sources, joins them, and prints the story as JSON: the format of
+`sillage story` reads one task's records from the live sources, joins them,
+and prints the story as JSON: the format of
 `testdata/fixtures/stories/*/story.golden.json`. It writes nothing anywhere.
 
 ```sh
 ./sillage story -task <id>                 # a Vikunja task
-./sillage story -page <id> [-locale en]    # a wiki page, for work requested there
 ./sillage story -task <id> -repo owner/name   # also read the task's branch there
 ```
 
@@ -180,13 +176,12 @@ credential:
 | --- | --- |
 | `SILLAGE_VIKUNJA_URL`, `SILLAGE_VIKUNJA_TOKEN` | Vikunja base URL and a read-only API token. |
 | `SILLAGE_VIKUNJA_SERVICE_ACCOUNT` | Username that posts Kelos start announcements (default `gordon`). |
-| `SILLAGE_VIKUNJA_AGENT_USERS` | Agents' Vikunja usernames, comma-separated: their comments are an agent's, and only theirs and the service account's are followed to the wiki pages they link (a discussion's deliverable). |
+| `SILLAGE_VIKUNJA_AGENT_USERS` | Agents' Vikunja usernames, comma-separated: their comments are attributed to an agent. |
 | `SILLAGE_KELOS_CLUSTER`, `SILLAGE_KELOS_NAMESPACE` | Name given to the cluster, and the namespace read; the Kubernetes credentials are the in-cluster ones, else the kubeconfig's current context. |
 | `SILLAGE_KELOS_LABEL_DOMAIN`, `SILLAGE_KELOS_VIKUNJA_INSTANCE` | The spawners' label prefix, and the Vikunja host the task label names (must be `SILLAGE_VIKUNJA_URL`'s). |
 | `SILLAGE_KELOS_TASK_TTL` | How long Kelos keeps a finished Task (default `72h`): runs that ended longer ago than that may be missing. |
 | `SILLAGE_GITHUB_TOKEN`, `SILLAGE_GITHUB_API_URL` | A read-only token, and the API (default `https://api.github.com`). |
 | `SILLAGE_GITHUB_ANNOUNCERS` | GitHub logins whose pull request comments are parsed as start announcements, comma-separated. |
-| `SILLAGE_WIKI_URL`, `SILLAGE_WIKI_TOKEN`, `SILLAGE_WIKI_AGENT_USERS` | Wiki.js base URL, a read-only key, and the agents' wiki user ids. |
 | `SILLAGE_WORKSPACES` | `<workspace>=<owner>/<repository>` pairs, comma-separated: where a run's workspace (or Vikunja project) works. Without a match and without `-repo`, GitHub is not read. |
 
 ## Collect into the store

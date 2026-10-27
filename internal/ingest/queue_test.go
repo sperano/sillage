@@ -14,7 +14,7 @@ func TestQueue(t *testing.T) {
 		t.Fatal("an empty queue is ready")
 	default:
 	}
-	for _, r := range []model.Root{taskRoot(1), pageRoot(7), taskRoot(1)} {
+	for _, r := range []model.Root{taskRoot(1), taskRoot(2), taskRoot(1)} {
 		if !q.Schedule(r) {
 			t.Errorf("Schedule(%q) refused", refs([]model.Root{r}))
 		}
@@ -30,7 +30,7 @@ func TestQueue(t *testing.T) {
 	default:
 		t.Fatal("the queue is not ready")
 	}
-	if got, want := refs(q.Take()), refs([]model.Root{taskRoot(1), pageRoot(7)}); !slices.Equal(got, want) {
+	if got, want := refs(q.Take()), refs([]model.Root{taskRoot(1), taskRoot(2)}); !slices.Equal(got, want) {
 		t.Errorf("Take() = %q, want %q", got, want)
 	}
 	if got := q.Take(); len(got) != 0 {

@@ -23,8 +23,8 @@ const (
 // belongs to the story or not, and what joins them to it.
 type kelosView struct {
 	runs []model.Run
-	// links are the runs' correlations with the tasks their labels name,
-	// and with the pages and pull requests their Origins name.
+	// links are the runs' correlations with the tasks their labels name and
+	// the pull requests their Origins name.
 	links []model.Correlation
 	// linksFrom indexes links by run.
 	linksFrom  map[model.Ref][]model.Correlation
@@ -136,32 +136,6 @@ func (a *assembly) taskRuns(id int64) {
 	}
 }
 
-// pageRuns adds the runs that belong to page key: by their Origin, by
-// the branch their Task works on, or, for a run its Origin does not join,
-// by the wiki spawner's Task name, which names the page and the requesting
-// comment.
-func (a *assembly) pageRuns(key model.PageKey) {
-	if a.kelos == nil {
-		return
-	}
-	annotated := a.linkedRuns()
-	branch := pageBranch(key.ID)
-	for _, r := range a.kelos.runs {
-		if req, ok := pageOfName(r.TaskName); ok && req.page == key.ID && !annotated[r.Key.Ref()] {
-			a.addRun(r)
-			a.links.identifier(r.Key.Ref(), a.rootRef, a.kelosEvidence(r, "Task name names page "+
-				strconv.FormatInt(req.page, 10)))
-			request := model.Event{Source: model.SourceWiki, Instance: key.Instance, ID: commentObject(req.comment)}
-			a.links.identifier(r.Key.Ref(), request.Ref(), a.kelosEvidence(r, "Task name names comment "+
-				strconv.FormatInt(req.comment, 10)))
-		}
-		if p := a.kelos.placements[r.Key]; p.Branch == branch {
-			a.addRun(r)
-			a.links.identifier(r.Key.Ref(), a.rootRef, a.branchEvidence(p, ""))
-		}
-	}
-}
-
 // includeRun adds the namespace's run ref points to.
 func (a *assembly) includeRun(ref model.Ref) {
 	for _, r := range a.runsWhere(func(r model.Run) bool { return r.Key.Ref() == ref }) {
@@ -197,7 +171,7 @@ func (a *assembly) announcedRuns() {
 	}
 }
 
-// relatedOf returns the task, page or pull request announcement e is a
+// relatedOf returns the task or pull request announcement e is a
 // comment on, and the evidence that joins e's run to it.
 func (a *assembly) relatedOf(e model.Event) (model.Ref, model.Evidence, bool) {
 	on, ok := relatedRef(e.Related)
@@ -281,13 +255,9 @@ func (a *assembly) sameNameRuns(from model.Ref, ns, name string, evidence func(m
 func inNamespace(r model.Run, ns string) bool { return ns == "" || r.Key.Namespace == ns }
 
 // announcedRole is the role of a run known from its announcement alone:
-// a wiki announcement starts a wiki follow-up; otherwise the Task name
-// says, by convention, else the announcement's wording. The name comes
-// first: the wording names no discussion.
+// the Task name says, by convention, else the announcement's wording.
+// The name comes first: the wording names no discussion.
 func (a *assembly) announcedRole(e model.Event, name string) model.RunRole {
-	if e.Source == model.SourceWiki {
-		return model.RoleWikiFollowUp
-	}
 	if role := roleOfName(name); role != model.RoleUnknown {
 		return role
 	}
@@ -315,9 +285,6 @@ func (a *assembly) workspaceNames() []string {
 		if r.Project != "" {
 			names = append(names, r.Project)
 		}
-		if req, ok := pageOfName(r.TaskName); ok {
-			names = append(names, req.workspace)
-		}
 	}
 	for _, e := range a.eventsOf(model.KindRunAnnounced) {
 		if ws := e.Details[detailWorkspace]; ws != "" {
@@ -327,13 +294,11 @@ func (a *assembly) workspaceNames() []string {
 	return names
 }
 
-// relatedRef is the task, page or pull request a record names.
+// relatedRef is the task or pull request a record names.
 func relatedRef(r model.Related) (model.Ref, bool) {
 	switch {
 	case r.Task != nil:
 		return r.Task.Ref(), true
-	case r.Page != nil:
-		return r.Page.Ref(), true
 	case r.PR != nil:
 		return r.PR.Ref(), true
 	}

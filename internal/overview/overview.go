@@ -1,5 +1,5 @@
 // Package overview builds the multi-task overview: for one window of time,
-// a row per task (or wiki page) with the runs, pull requests, review waits
+// a row per task with the runs, pull requests, review waits
 // and state changes it held in that window, and the coverage that says
 // where its history is missing. It answers "what was working on what?",
 // and leaves every handoff detail to the single-task story.
@@ -61,7 +61,7 @@ var Kinds = []model.EventKind{
 	model.KindReviewSubmitted,
 }
 
-// Row is one task or page in the window.
+// Row is one task in the window.
 type Row struct {
 	Root  model.Root `json:"root"`
 	Title string     `json:"title,omitempty"`

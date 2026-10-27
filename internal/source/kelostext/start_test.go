@@ -7,8 +7,8 @@ import (
 
 // testGrammar knows every phrase, as a surface posting all of them would.
 var testGrammar = NewGrammar(
-	PhraseTaskStartedLowercase, PhraseFollowUpLowercase, PhraseWikiFollowUpLowercase, PhraseConflictLowercase,
-	PhraseTaskStartedColon, PhraseFollowUpColon, PhraseWikiFollowUpColon, PhraseConflictColon,
+	PhraseTaskStartedLowercase, PhraseFollowUpLowercase, PhraseConflictLowercase,
+	PhraseTaskStartedColon, PhraseFollowUpColon, PhraseConflictColon,
 	PhraseTaskStarted, PhraseFollowUp, PhraseConflict,
 )
 
@@ -55,8 +55,8 @@ func TestParseStart(t *testing.T) {
 		},
 		{
 			name: "location table, no agent, model or pod",
-			text: "AN AGENT IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR.\nKELOS TASK\nwiki-fu-widgets-62-c971",
-			want: Start{Phrase: PhraseFollowUp, TaskName: "wiki-fu-widgets-62-c971"},
+			text: "AN AGENT IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR.\nKELOS TASK\ngithub-fu-widgets-62-c971",
+			want: Start{Phrase: PhraseFollowUp, TaskName: "github-fu-widgets-62-c971"},
 		},
 		{
 			name: "current follow-up, no agent, model or pod",
@@ -65,8 +65,8 @@ func TestParseStart(t *testing.T) {
 		},
 		{
 			name: "current, an agent",
-			text: "AN AGENT IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR. KELOS TASK wiki-fu-widgets-62-c970.",
-			want: Start{Phrase: PhraseFollowUp, TaskName: "wiki-fu-widgets-62-c970"},
+			text: "AN AGENT IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR. KELOS TASK github-fu-widgets-62-c970.",
+			want: Start{Phrase: PhraseFollowUp, TaskName: "github-fu-widgets-62-c970"},
 		},
 		{
 			name: "current conflict, apostrophe",
@@ -96,11 +96,6 @@ func TestParseStart(t *testing.T) {
 				Phrase: PhraseTaskStartedLowercase, Agent: "agent-opus", Model: "example-model-2[1m]", Namespace: "agents",
 				TaskName: "vikunja-demo-agent-opus-4201", Pod: "vikunja-demo-agent-opus-4201-x7k2p",
 			},
-		},
-		{
-			name: "lowercase, an agent",
-			text: "An agent has started on this follow-up request: Kelos Task wiki-fu-widgets-57-c881.",
-			want: Start{Phrase: PhraseWikiFollowUpLowercase, TaskName: "wiki-fu-widgets-57-c881"},
 		},
 		{
 			name: "leading blank lines",

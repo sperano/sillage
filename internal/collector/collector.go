@@ -4,14 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"time"
 
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
-	"github.com/sperano/sillage/internal/source/wiki"
 )
 
 // VikunjaSource reads a task and its comments.
@@ -29,18 +27,11 @@ type GitHubSource interface {
 	FetchBranch(ctx context.Context, base github.Repository, head github.Branch) ([]github.Snapshot, error)
 }
 
-// WikiSource reads a page, and lists every page.
-type WikiSource interface {
-	Fetch(ctx context.Context, pageID int64) (wiki.Snapshot, error)
-	Pages(ctx context.Context) ([]wiki.Page, error)
-}
-
 // Sources are the clients the collector reads through; each must be set.
 type Sources struct {
 	Vikunja VikunjaSource
 	Kelos   KelosSource
 	GitHub  GitHubSource
-	Wiki    WikiSource
 }
 
 // Collector assembles stories from its sources.
@@ -48,21 +39,19 @@ type Collector struct {
 	cfg Config
 	src Sources
 	now func() time.Time
-	// wikiURL matches a URL of the wiki in a comment.
-	wikiURL *regexp.Regexp
 	// origins keeps and recalls the Tasks' origins; nil without one.
 	origins OriginMemory
 }
 
 // New returns a collector reading src as cfg describes.
 func New(cfg Config, src Sources, opts ...Option) (*Collector, error) {
-	if src.Vikunja == nil || src.Kelos == nil || src.GitHub == nil || src.Wiki == nil {
+	if src.Vikunja == nil || src.Kelos == nil || src.GitHub == nil {
 		return nil, errors.New("collector: every source needs a client")
 	}
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
-	c := &Collector{cfg: cfg, src: src, now: time.Now, wikiURL: wikiURLPattern(cfg.WikiInstance)}
+	c := &Collector{cfg: cfg, src: src, now: time.Now}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -107,8 +96,6 @@ func (c *Collector) collect(ctx context.Context, root model.Root, kept Kept, rep
 		if err := a.collectTask(ctx, *root.Task, repos); err != nil {
 			return Result{}, err
 		}
-	} else if err := a.collectPage(ctx, *root.Page, repos); err != nil {
-		return Result{}, err
 	}
 	story, err := a.build()
 	if err != nil {

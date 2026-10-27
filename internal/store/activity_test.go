@@ -45,15 +45,6 @@ func TestLastActivityOfObservationsIsTheLastSeen(t *testing.T) {
 // it, and nothing else of that save.
 func TestLastActivityFollowsSharedRecords(t *testing.T) {
 	later := comment(8, "comments/2", 50)
-	t.Run("live edit replaced", func(t *testing.T) {
-		s := newTestStore(t, Retention{})
-		mustSave(t, s, taskRoot(7), model.Records{Events: []model.Event{liveEdit(0)}})
-		mustSave(t, s, pageRoot(57), model.Records{Events: []model.Event{liveEdit(10)}})
-		mustSave(t, s, taskRoot(8), model.Records{Events: []model.Event{later}})
-		if got := mustLastActivity(t, s, taskRoot(7)); !got.Equal(at(10)) {
-			t.Errorf("last activity = %v, want minute 10, the re-render's", got)
-		}
-	})
 	t.Run("run ended", func(t *testing.T) {
 		s := newTestStore(t, Retention{})
 		running := finishedRun("uid-1", 20, 0, model.OutcomeUnknown)

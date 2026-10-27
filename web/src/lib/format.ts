@@ -7,8 +7,7 @@ import type { Source } from './model';
 export const SOURCE_NAMES: Readonly<Record<Source, string>> = {
 	vikunja: 'Vikunja',
 	kelos: 'Kelos',
-	github: 'GitHub',
-	wiki: 'Wiki.js'
+	github: 'GitHub'
 };
 
 export const MS_PER_SECOND = 1000;

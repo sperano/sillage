@@ -25,10 +25,6 @@ describe('parseRoute', () => {
 			{ name: 'task', key: { instance: 'vikunja.example.com:8443', id: 1 } }
 		],
 		[
-			'/page/wiki.example.com/41/en',
-			{ name: 'page', key: { instance: 'wiki.example.com', id: 41, locale: 'en' } }
-		],
-		[
 			'/open?url=https%3A%2F%2Fvikunja.example.com%2Ftasks%2F102',
 			{ name: 'open', url: 'https://vikunja.example.com/tasks/102' }
 		],
@@ -68,9 +64,7 @@ describe('parseRoute', () => {
 describe('hrefs', () => {
 	test('round-trip through parseRoute', () => {
 		const task = { instance: 'vikunja.example.com:8443', id: 7 };
-		const page = { instance: 'wiki.example.com', id: 41, locale: 'pt/br' };
 		expect(route(rootHref({ task }))).toEqual({ name: 'task', key: task });
-		expect(route(rootHref({ page }))).toEqual({ name: 'page', key: page });
 		expect(route(homeHref('a&b=c'))).toEqual({ name: 'home', query: 'a&b=c' });
 		expect(route(openHref('https://x.example.com/?a=1#b'))).toEqual({
 			name: 'open',

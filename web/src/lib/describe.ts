@@ -12,8 +12,7 @@ import type {
 	RunRole,
 	Story
 } from './model';
-import { eventKey, pageKeyString, prKeyString, runKeyString, taskKeyString } from './keys';
-import { pagePath } from './links';
+import { eventKey, prKeyString, runKeyString, taskKeyString } from './keys';
 import { named } from './named';
 import { phaseText } from './phases';
 import type { TimelineItem } from './timeline';
@@ -42,14 +41,6 @@ const eventLabels: Record<EventKind, (d: Details) => string> = {
 	'task.assignee_observed': (d) => `Seen assigned to ${d.assignee ?? '(unnamed)'}`,
 	'task.completion_observed': (d) => (d.done === 'true' ? 'Seen done' : 'Seen not done'),
 	'task.done': () => 'Task marked done',
-	'page.created': () => 'Page created',
-	'page.edited': (d) =>
-		d.version === 'live'
-			? 'Page edited (live version)'
-			: d.version
-				? `Page edited (version ${d.version})`
-				: 'Page edited',
-	'page.moved': (d) => (d.to ? `Page moved to ${d.to}` : 'Page moved'),
 	'comment.created': () => 'Comment',
 	'request.created': (d) =>
 		`Request ${d.command ?? ''}${d.agent ? ` for ${d.agent}` : ''}`.trimEnd(),
@@ -75,7 +66,6 @@ const roleLabels: Record<RunRole, string> = {
 	discussion: 'discussion',
 	'task-follow-up': 'task follow-up',
 	'pr-follow-up': 'pull request follow-up',
-	'wiki-follow-up': 'wiki follow-up',
 	'conflict-fix': 'merge conflict fix',
 	automation: 'automation',
 	unknown: 'role unknown'
@@ -163,18 +153,8 @@ export function refLabel(story: Story, ref: Ref): string {
 			return p ? `Pull request ${p.key.repository}#${p.key.number}` : `pull request ${ref.id}`;
 		}
 		case 'task':
-			return story.root.task && taskKeyString(story.root.task) === ref.id
+			return taskKeyString(story.root.task) === ref.id
 				? `Task ${story.root.task.id} (this story)`
 				: `task ${ref.id}`;
-		case 'page': {
-			if (story.root.page && pageKeyString(story.root.page) === ref.id) {
-				return `Page ${story.root.page.id} (this story)`;
-			}
-			const page = story.events.find(
-				(x) => x.related.page && pageKeyString(x.related.page) === ref.id
-			)?.related.page;
-			const path = page && pagePath(story, page);
-			return path ? `Wiki page ${path}` : `page ${ref.id}`;
-		}
 	}
 }

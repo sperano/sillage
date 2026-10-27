@@ -27,8 +27,7 @@ const (
 	EnvWorkspaces = "SILLAGE_WORKSPACES"
 	// EnvVikunjaAgentUsers names the environment variable listing the
 	// Vikunja usernames of the agents' accounts, comma-separated: their
-	// comments have an agent actor, and only theirs and the service
-	// account's are followed to the wiki pages they link. Optional.
+	// comments have an agent actor. Optional.
 	EnvVikunjaAgentUsers = "SILLAGE_VIKUNJA_AGENT_USERS"
 	// EnvKelosTaskTTL names the environment variable holding how long
 	// Kelos keeps a finished Task, as a Go duration. Unset means
@@ -50,8 +49,6 @@ type Config struct {
 	VikunjaInstance string
 	// VikunjaServiceAccount posts the start announcements.
 	VikunjaServiceAccount string
-	// VikunjaAgentUsers are the agents' Vikunja usernames.
-	VikunjaAgentUsers []string
 	// Kelos is the namespace read; it also names the cluster on run keys.
 	Kelos kelos.Config
 	// GitHubInstance is the GitHub web host, as model.PRKey names it.
@@ -59,10 +56,8 @@ type Config struct {
 	// GitHubAnnouncers are the logins whose pull request comments are
 	// read as start announcements (github.EnvAnnouncers).
 	GitHubAnnouncers []string
-	// WikiInstance is the Wiki.js host, as model.PageKey names it.
-	WikiInstance string
-	// WikiAgentUsers are the agents' wiki user ids.
-	WikiAgentUsers []int64
+	// VikunjaAgentUsers are the agents' Vikunja usernames.
+	VikunjaAgentUsers []string
 	// Workspaces maps a Kelos workspace (or Vikunja project) name to its
 	// repository.
 	Workspaces map[string]github.Repository
@@ -73,8 +68,8 @@ type Config struct {
 
 func (c Config) validate() error {
 	var errs []error
-	if c.VikunjaInstance == "" || c.GitHubInstance == "" || c.WikiInstance == "" {
-		errs = append(errs, errors.New("collector: the Vikunja, GitHub and wiki instances are required"))
+	if c.VikunjaInstance == "" || c.GitHubInstance == "" {
+		errs = append(errs, errors.New("collector: the Vikunja and GitHub instances are required"))
 	}
 	if err := c.Kelos.Validate(); err != nil {
 		errs = append(errs, err)

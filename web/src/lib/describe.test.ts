@@ -3,7 +3,7 @@ import { goldenStory } from './testing/stories';
 import { conclusionLabel, eventLabel, refLabel, runLabel } from './describe';
 import type { CheckConclusion, Event, EventKind } from './model';
 
-const story = goldenStory('wiki-rooted-request');
+const story = goldenStory('implementation-merged');
 
 function event(id: string): Event {
 	const e = story.events.find((x) => x.id === id);
@@ -12,21 +12,17 @@ function event(id: string): Event {
 }
 
 test('events are named with their details', () => {
-	expect(event('pages/57/versions/121').kind).toBe('page.edited');
-	expect(eventLabel(event('pages/57/versions/121'))).toBe('Page edited');
-	expect(eventLabel({ ...event('pages/57/versions/121'), details: { version: '121' } })).toBe(
-		'Page edited (version 121)'
+	const request = { ...event('comments/5102'), kind: 'request.created' as const };
+	expect(eventLabel({ ...request, details: { command: '/kelos' } })).toBe('Request /kelos');
+	expect(eventLabel({ ...request, details: { command: '/gordon', agent: 'agent-sol' } })).toBe(
+		'Request /gordon for agent-sol'
 	);
-	expect(eventLabel(event('comments/880'))).toBe('Request /kelos');
-	expect(
-		eventLabel({ ...event('comments/880'), details: { command: '/gordon', agent: 'agent-sol' } })
-	).toBe('Request /gordon for agent-sol');
-	expect(eventLabel(event('comments/881'))).toBe('Run announced: wiki-fu-widgets-57-c880');
+	expect(eventLabel(event('comments/5101'))).toBe('Run announced: vikunja-widgets-agent-opus-102');
 });
 
 test('a Kelos observation names its object, how it was seen and its phase', () => {
 	const observed = (details: Record<string, string>): Event => ({
-		...event('comments/882'),
+		...event('comments/5102'),
 		kind: 'run.observed',
 		details
 	});
@@ -40,7 +36,7 @@ test('a Kelos observation names its object, how it was seen and its phase', () =
 });
 
 test('a kind newer than this build is shown as it is named', () => {
-	expect(eventLabel({ ...event('comments/882'), kind: 'task.archived' as EventKind })).toBe(
+	expect(eventLabel({ ...event('comments/5102'), kind: 'task.archived' as EventKind })).toBe(
 		'task.archived'
 	);
 });
@@ -53,12 +49,8 @@ test('a run is named by its Task, its role and its outcome', () => {
 });
 
 test('a correlation end is named by the record it points to', () => {
-	expect(refLabel(story, { kind: 'page', id: 'wiki.example.com/pages/57/en' })).toBe(
-		'Page 57 (this story)'
-	);
-	const discuss = goldenStory('discuss-no-pr');
-	expect(refLabel(discuss, { kind: 'page', id: 'wiki.example.com/pages/41/en' })).toBe(
-		'Wiki page widgets/reports/caching-options'
+	expect(refLabel(story, { kind: 'task', id: 'vikunja.example.com/tasks/102' })).toBe(
+		'Task 102 (this story)'
 	);
 	expect(refLabel(story, { kind: 'run', id: 'cluster-b/agents/uid/x' })).toBe(
 		'run cluster-b/agents/uid/x'

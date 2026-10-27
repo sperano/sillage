@@ -24,15 +24,12 @@ import (
 // it (helm/kelos/scripts/). A later paragraph may name the namespace.
 
 // Action phrases of the first form, lowercase, followed by a colon, until
-// Hollingsworth #292. The wiki phrase dates from 2026-10-17, the others
-// from 2026-10-05.
+// Hollingsworth #292.
 const (
 	// PhraseTaskStartedLowercase: a Vikunja task's first run.
 	PhraseTaskStartedLowercase = "has started working on this task"
 	// PhraseFollowUpLowercase: a follow-up on a Vikunja task or a PR.
 	PhraseFollowUpLowercase = "has started on the follow-up request"
-	// PhraseWikiFollowUpLowercase: a follow-up on a wiki page.
-	PhraseWikiFollowUpLowercase = "has started on this follow-up request"
 	// PhraseConflictLowercase: a PR's merge conflict resolution.
 	PhraseConflictLowercase = "has started resolving the pull request's merge conflict"
 )
@@ -44,8 +41,6 @@ const (
 	PhraseTaskStartedColon = "IS ON THE CASE"
 	// PhraseFollowUpColon: a follow-up on a Vikunja task or a PR.
 	PhraseFollowUpColon = "IS ON THE FOLLOW-UP REQUEST"
-	// PhraseWikiFollowUpColon: a follow-up on a wiki page.
-	PhraseWikiFollowUpColon = "IS ON THIS FOLLOW-UP REQUEST"
 	// PhraseConflictColon: a PR's merge conflict resolution.
 	PhraseConflictColon = "IS RESOLVING THE PULL REQUEST'S MERGE CONFLICT"
 )
@@ -56,7 +51,7 @@ const (
 const (
 	// PhraseTaskStarted: a Vikunja task's first run.
 	PhraseTaskStarted = "IS ON THE CASE. THIS ONE HAS THE STUFF"
-	// PhraseFollowUp: a follow-up on a Vikunja task, a wiki page or a PR.
+	// PhraseFollowUp: a follow-up on a Vikunja task or a PR.
 	PhraseFollowUp = "IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR"
 	// PhraseConflict: a PR's merge conflict resolution.
 	PhraseConflict = "IS RESOLVING THE PULL REQUEST'S MERGE CONFLICT. PUT CAUTION IN THE SHOTGUN SEAT"

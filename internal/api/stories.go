@@ -8,7 +8,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/sperano/sillage/internal/model"
-	"github.com/sperano/sillage/internal/source/wiki"
 	"github.com/sperano/sillage/internal/store"
 )
 
@@ -68,24 +67,8 @@ func (a *api) taskStory(r *http.Request) (any, error) {
 	return a.cfg.Store.Story(r.Context(), root)
 }
 
-func (a *api) pageStory(r *http.Request) (any, error) {
-	root, err := pageRoot(r)
-	if err != nil {
-		return nil, err
-	}
-	return a.cfg.Store.Story(r.Context(), root)
-}
-
 func (a *api) taskCoverage(r *http.Request) (any, error) {
 	root, err := taskRoot(r)
-	if err != nil {
-		return nil, err
-	}
-	return a.coverage(r, root)
-}
-
-func (a *api) pageCoverage(r *http.Request) (any, error) {
-	root, err := pageRoot(r)
 	if err != nil {
 		return nil, err
 	}
@@ -154,23 +137,6 @@ func taskRoot(r *http.Request) (model.Root, error) {
 		return model.Root{}, err
 	}
 	return model.Root{Task: &model.TaskKey{Instance: instance, ID: id}}, nil
-}
-
-// pageRoot reads the wiki page a path names.
-func pageRoot(r *http.Request) (model.Root, error) {
-	instance, err := instanceParam(r)
-	if err != nil {
-		return model.Root{}, err
-	}
-	id, err := idParam(r)
-	if err != nil {
-		return model.Root{}, err
-	}
-	locale := r.PathValue("locale")
-	if !wiki.IsLocale(locale) {
-		return model.Root{}, badRequest("%s is not a wiki locale", echo(locale))
-	}
-	return model.Root{Page: &model.PageKey{Instance: instance, ID: id, Locale: locale}}, nil
 }
 
 // instanceParam is the path's instance, a host in lower case as the

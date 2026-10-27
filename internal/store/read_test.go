@@ -16,7 +16,6 @@ func TestSearchRoots(t *testing.T) {
 	}{
 		{taskRoot(7), "Widget cache", 0},
 		{taskRoot(8), "Gadget 100% coverage", 10},
-		{pageRoot(57), "", 20},
 	}
 	for _, sv := range saves {
 		recs := model.Records{}
@@ -32,10 +31,9 @@ func TestSearchRoots(t *testing.T) {
 		query RootQuery
 		want  []string
 	}{
-		{"everything, most recent first", RootQuery{}, []string{"Gadget 100% coverage", "Widget cache", ""}},
+		{"everything, most recent first", RootQuery{}, []string{"Gadget 100% coverage", "Widget cache"}},
 		{"title, any case", RootQuery{Text: "WIDGET"}, []string{"Widget cache"}},
 		{"key", RootQuery{Text: "tasks/8"}, []string{"Gadget 100% coverage"}},
-		{"wiki instance", RootQuery{Text: testWiki}, []string{""}},
 		{"wildcard taken literally", RootQuery{Text: "0%"}, []string{"Gadget 100% coverage"}},
 		{"underscore taken literally", RootQuery{Text: "_"}, nil},
 		{"limit", RootQuery{Limit: 1}, []string{"Gadget 100% coverage"}},

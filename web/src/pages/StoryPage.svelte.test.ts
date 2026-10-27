@@ -144,7 +144,7 @@ test('another root aborts the request for the previous one', async () => {
 	const { rerender } = await render(StoryPage, { api: server.api, root: TASK });
 	await expect.element(page.getByRole('status')).toBeVisible();
 	await rerender({ root: other });
-	await expect.element(page.getByText('6 events')).toBeVisible();
+	await expect.element(page.getByText('5 events')).toBeVisible();
 	expect(server.requests.map((r) => [r.path, r.signal.aborted])).toEqual([
 		[storyPath(TASK), true],
 		[storyPath(other), false]

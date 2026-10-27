@@ -70,7 +70,7 @@ func TestFrontendDeepLinks(t *testing.T) {
 		want string
 	}{
 		{"/task/vikunja.example.com/101", testIndex},
-		{"/page/wiki.example.com/57/en", testIndex},
+		{"/overview", testIndex},
 		{"/open?url=https%3A%2F%2Fvikunja.example.com%2Ftasks%2F101", testIndex},
 		{"/assets/", testIndex},
 		{"/assets/app-1.js", testScript},

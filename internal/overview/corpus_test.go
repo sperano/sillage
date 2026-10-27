@@ -39,7 +39,6 @@ type corpusCase struct {
 var corpusCases = map[string]corpusCase{
 	"discuss-no-pr":           {"2026-03-02T14:00:00Z", 0, checkCorpusDiscuss},
 	"implementation-merged":   {"2026-03-03T18:00:00Z", 2 * time.Hour, checkCorpusMerged},
-	"wiki-rooted-request":     {"2026-03-04T15:00:00Z", 0, checkCorpusWikiRooted},
 	"failed-run-retry":        {"2026-03-05T14:00:00Z", 0, checkCorpusRetry},
 	"announced-run-only":      {"2026-01-12T14:00:00Z", 0, checkCorpusAnnounced},
 	"checks-after-force-push": {"2026-03-11T00:00:00Z", day, checkCorpusChecksOnly},
@@ -187,7 +186,6 @@ func hasMark(row Row, kind model.EventKind) bool {
 
 // The corpus records the cases below name.
 const (
-	corpusPageRun      = "00000000-0000-4000-8000-000000000057"
 	corpusFailedRun    = "00000000-0000-4000-8000-00000000104a"
 	corpusRetryRun     = "00000000-0000-4000-8000-00000000104b"
 	corpusAnnouncedPod = "vikunja-widgets-agent-opus-105-x8z2w"
@@ -227,19 +225,6 @@ func checkCorpusMerged(t *testing.T, w Window, rows []Row) {
 	early := onlyRow(t, corpusRows(t, first, loadCorpus(t, "implementation-merged")))
 	if got := prStates(early)[corpusMergedPR]; got != PROpen || hasMark(early, model.KindTaskDone) {
 		t.Errorf("first hour: pull request %s, marks %q; want open, no completion", got, marksOf(early))
-	}
-}
-
-// The page's own run only: the other run of the same agent profile is in
-// the story as an ambiguous candidate for the live edit, not as the
-// page's work.
-func checkCorpusWikiRooted(t *testing.T, _ Window, rows []Row) {
-	row := onlyRow(t, rows)
-	if row.Root.Page == nil {
-		t.Fatalf("root = %+v, want the page", row.Root)
-	}
-	if got := runUIDs(row.Runs); !slices.Equal(got, []string{corpusPageRun}) {
-		t.Errorf("runs = %v, want the page's own run %s", got, corpusPageRun)
 	}
 }
 

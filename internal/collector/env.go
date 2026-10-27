@@ -9,7 +9,6 @@ import (
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
-	"github.com/sperano/sillage/internal/source/wiki"
 )
 
 // EnvConfig is the collector's configuration and its sources' clients'
@@ -18,7 +17,6 @@ type EnvConfig struct {
 	Collector Config
 	Vikunja   vikunja.Config
 	GitHub    github.Config
-	Wiki      wiki.Config
 }
 
 // ConfigFromEnv reads every source's settings and the collector's own
@@ -36,8 +34,6 @@ func ConfigFromEnv(getenv func(string) string) (EnvConfig, error) {
 	kcfg, err := kelos.ConfigFromEnv(getenv)
 	collect(err)
 	gcfg, err := github.ConfigFromEnv(getenv)
-	collect(err)
-	wcfg, err := wiki.ConfigFromEnv(getenv)
 	collect(err)
 	workspaces, err := parseWorkspaces(getenv(EnvWorkspaces))
 	collect(err)
@@ -57,15 +53,13 @@ func ConfigFromEnv(getenv func(string) string) (EnvConfig, error) {
 		Kelos:                 kcfg,
 		GitHubInstance:        gcfg.Instance,
 		GitHubAnnouncers:      gcfg.Announcers,
-		WikiInstance:          wcfg.Instance,
-		WikiAgentUsers:        wcfg.AgentUsers,
 		Workspaces:            workspaces,
 		KelosTaskTTL:          ttl,
 	}
 	if err := cfg.validate(); err != nil {
 		return EnvConfig{}, err
 	}
-	return EnvConfig{Collector: cfg, Vikunja: vcfg, GitHub: gcfg, Wiki: wcfg}, nil
+	return EnvConfig{Collector: cfg, Vikunja: vcfg, GitHub: gcfg}, nil
 }
 
 // hostOf is a base URL's host, in lower case and without a port, as the
@@ -83,7 +77,6 @@ type Clients struct {
 	Vikunja *vikunja.Client
 	Kelos   *kelos.Reader
 	GitHub  *github.Client
-	Wiki    *wiki.Client
 }
 
 // Sources returns the clients as a collector reads them. A client that
@@ -99,9 +92,6 @@ func (c Clients) Sources() Sources {
 	}
 	if c.GitHub != nil {
 		s.GitHub = c.GitHub
-	}
-	if c.Wiki != nil {
-		s.Wiki = c.Wiki
 	}
 	return s
 }
@@ -122,11 +112,7 @@ func (e EnvConfig) OpenClients() (Clients, error) {
 	if err != nil {
 		return Clients{}, err
 	}
-	wk, err := wiki.NewClient(e.Wiki, nil)
-	if err != nil {
-		return Clients{}, err
-	}
-	return Clients{Vikunja: vikunja.NewClient(e.Vikunja, nil), Kelos: reader, GitHub: gh, Wiki: wk}, nil
+	return Clients{Vikunja: vikunja.NewClient(e.Vikunja, nil), Kelos: reader, GitHub: gh}, nil
 }
 
 // Open returns a collector of the sources e configures, through

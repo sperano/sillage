@@ -70,17 +70,6 @@ func TestRoot(t *testing.T) {
 	}
 }
 
-func TestPageRoots(t *testing.T) {
-	s := newTestStore(t, Retention{})
-	saveFixtures(t, s)
-	found, err := s.PageRoots(t.Context(), testWiki, 57)
-	wantTitles(t, found, err, "wiki-rooted-request")
-	found, err = s.PageRoots(t.Context(), testWiki, 5)
-	wantTitles(t, found, err)
-	found, err = s.PageRoots(t.Context(), "wiki.example.org", 57)
-	wantTitles(t, found, err)
-}
-
 func TestRootsOfPullRequest(t *testing.T) {
 	s := newTestStore(t, Retention{})
 	saveFixtures(t, s)
@@ -119,7 +108,6 @@ func TestRootsOfRuns(t *testing.T) {
 		{"name in another namespace", RunQuery{Namespace: "other", Name: "vikunja-widgets-agent-opus-104"}, nil},
 		{"one attempt's UID", RunQuery{UID: "00000000-0000-4000-8000-00000000104b"}, []string{"failed-run-retry"}},
 		{"a placeholder's name", RunQuery{Name: "vikunja-widgets-agent-opus-105"}, []string{"announced-run-only"}},
-		{"a wiki follow-up", RunQuery{Name: "wiki-fu-widgets-57-c880"}, []string{"wiki-rooted-request"}},
 		{"unknown name", RunQuery{Name: "vikunja-widgets-agent-opus-1"}, nil},
 	}
 	for _, tt := range tests {
@@ -152,7 +140,7 @@ func TestFreshness(t *testing.T) {
 		byKey[key] = f
 		order = append(order, key)
 	}
-	want := []string{"github/" + fixtureGitHub, "kelos/" + fixtureCluster, "vikunja/" + testVikunja, "wiki/" + testWiki}
+	want := []string{"github/" + fixtureGitHub, "kelos/" + fixtureCluster, "vikunja/" + testVikunja}
 	if len(order) != len(want) {
 		t.Fatalf("instances = %q, want %q", order, want)
 	}

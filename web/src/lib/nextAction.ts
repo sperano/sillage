@@ -1,5 +1,5 @@
 import type { Event, PRKey, Related, Story } from './model';
-import { eventKey, pageKeyString, prKeyString, taskKeyString } from './keys';
+import { eventKey, prKeyString, taskKeyString } from './keys';
 import { parseTime } from './time';
 
 /**
@@ -27,13 +27,10 @@ function knownBefore(a: Event, b: Event): boolean {
 	return at !== undefined && bt !== undefined && at < bt;
 }
 
-/** The record a comment is on: its pull request, else its page, else its task. */
+/** The record a comment is on: its pull request, else its task. */
 function thread(r: Related): string | undefined {
 	if (r.pr) {
 		return `pr:${prKeyString(r.pr)}`;
-	}
-	if (r.page) {
-		return `page:${pageKeyString(r.page)}`;
 	}
 	return r.task && `task:${taskKeyString(r.task)}`;
 }
@@ -91,11 +88,10 @@ function pendingReviews(story: Story, pr: PRKey): NextAction[] {
 /**
  * The Kelos Task names of the follow-up spawners that end in the id of the
  * comment or review they answer, as internal/collector's names.go reads
- * them: vikunja-fu-…-c<id>, wiki-fu-…-c<id>, pr-followup-…-<c|l|r|p><id>,
+ * them: vikunja-fu-…-c<id>, pr-followup-…-<c|l|r|p><id>,
  * each with an optional retry suffix.
  */
-const answeringName =
-	/^(?:vikunja-fu|wiki-fu|pr-followup)-.*-[clrp]([1-9][0-9]*)(?:-retry[1-9][0-9]*)?$/;
+const answeringName = /^(?:vikunja-fu|pr-followup)-.*-[clrp]([1-9][0-9]*)(?:-retry[1-9][0-9]*)?$/;
 
 /** The id of the record an announcement's Task name says it answers, if it names one. */
 function answeredID(announcement: Event): string | undefined {

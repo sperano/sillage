@@ -12,7 +12,7 @@
   },
   {
     "id": 5002,
-    "comment": "<p>The options are compared on <a href=\"https://wiki.example.com/en/widgets/reports/caching-options\">the wiki</a>.</p>",
+    "comment": "<p>I compared the options in the task and recommend the bounded cache.</p>",
     "author": {
       "id": 21,
       "username": "agent-opus",

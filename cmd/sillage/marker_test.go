@@ -56,7 +56,7 @@ func (s *markerStore) RecordMarker(_ context.Context, m model.Marker, _ int) (st
 }
 
 func markerRequest() *http.Request {
-	body := `{"version":1,"emitter":"wiki_gql","kind":"wiki-login","edge":"start",` +
+	body := `{"version":1,"emitter":"wait_for_blockers","kind":"blocker-wait","edge":"start",` +
 		`"span":"5f0c2b3e9a7d4c1e8b6a2f4d3c1e0b9a","at":"` + time.Now().UTC().Format(time.RFC3339Nano) + `"}`
 	r := httptest.NewRequest(http.MethodPost, marker.Path, strings.NewReader(body))
 	r.Header.Set("Authorization", "Bearer e30."+base64.RawURLEncoding.EncodeToString([]byte(`{}`))+".c2ln")

@@ -10,7 +10,6 @@ import (
 
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/github"
-	"github.com/sperano/sillage/internal/source/wiki"
 )
 
 // taskBranchPrefix starts the branch Kelos works on for a Vikunja task.
@@ -18,9 +17,6 @@ const taskBranchPrefix = "kelos/vikunja-"
 
 // taskBranch is the branch of Vikunja task id.
 func taskBranch(id int64) string { return taskBranchPrefix + strconv.FormatInt(id, 10) }
-
-// pageBranch is the branch of wiki page id's follow-ups.
-func pageBranch(id int64) string { return wiki.Branch(id) }
 
 // readGitHub reads the pull requests of branch, in every state, in each
 // repository the story's runs name and in extra. Without a repository,

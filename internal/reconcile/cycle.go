@@ -90,7 +90,6 @@ func (l *Loop) readKelos(ctx context.Context) (cycleRun, []collector.Discovered,
 		Vikunja: meteredVikunja{src: l.src.Vikunja, meter: l.meterFor(model.SourceVikunja, l.ccfg.VikunjaInstance)},
 		Kelos:   read,
 		GitHub:  meteredGitHub{src: l.src.GitHub, meter: l.meterFor(model.SourceGitHub, l.ccfg.GitHubInstance)},
-		Wiki:    &cycleWiki{src: l.src.Wiki, meter: l.meterFor(model.SourceWiki, l.ccfg.WikiInstance)},
 	})
 	if err != nil {
 		return cycleRun{}, nil, err

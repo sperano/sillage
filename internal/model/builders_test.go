@@ -9,17 +9,14 @@ import (
 // Fabricated hosts and names shared by the tests of this package.
 const (
 	testVikunjaHost = "vikunja.example.com"
-	testWikiHost    = "wiki.example.com"
 	testGitHubHost  = "github.example.com"
 	testCluster     = "cluster-a"
 	testNamespace   = "agents"
 	testRepository  = "example-org/example-repo"
 	testBranch      = "kelos/task-42"
 	testSHA         = "0123456789abcdef0123456789abcdef01234567"
-	testLocale      = "en"
 
 	testTaskID  int64 = 42
-	testPageID  int64 = 7
 	testCheckID int64 = 1001
 	testPRNum         = 12
 )
@@ -58,10 +55,6 @@ func checkErr(t *testing.T, err error, want string) {
 }
 
 func testTaskKey() TaskKey { return TaskKey{Instance: testVikunjaHost, ID: testTaskID} }
-
-func testPageKey() PageKey {
-	return PageKey{Instance: testWikiHost, ID: testPageID, Locale: testLocale}
-}
 
 func testRunKey(uid string) RunKey {
 	return RunKey{Cluster: testCluster, Namespace: testNamespace, UID: uid}

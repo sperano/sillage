@@ -17,15 +17,15 @@ const DOMAIN = {
 };
 
 test('a source with no coverage is unknown throughout', () => {
-	expect(unknownSpans(story().coverage, 'wiki/w', DOMAIN, 'utc')).toEqual([
-		{ ...DOMAIN, reason: 'wiki/w: no coverage recorded' }
+	expect(unknownSpans(story().coverage, 'github/g', DOMAIN, 'utc')).toEqual([
+		{ ...DOMAIN, reason: 'github/g: no coverage recorded' }
 	]);
 });
 
 test('a source never read is unknown throughout', () => {
-	const s = story({ coverage: [{ source: 'wiki', instance: 'w' }] });
-	expect(unknownSpans(s.coverage, 'wiki/w', DOMAIN, 'utc')[0]!.reason).toBe(
-		'wiki/w: never read successfully'
+	const s = story({ coverage: [{ source: 'github', instance: 'g' }] });
+	expect(unknownSpans(s.coverage, 'github/g', DOMAIN, 'utc')[0]!.reason).toBe(
+		'github/g: never read successfully'
 	);
 });
 
@@ -57,10 +57,10 @@ test('gaps keep their reason, clipped to the window, and time after the last rea
 });
 
 test('lists covered sources and those rows read', () => {
-	expect(storySources(golden('wiki-rooted-request'), [['vikunja/v']])).toEqual([
+	expect(storySources(golden('failed-run-retry'), [['vikunja/v']])).toEqual([
 		'kelos/cluster-a',
 		'vikunja/v',
-		'wiki/wiki.example.com'
+		'vikunja/vikunja.example.com'
 	]);
 });
 

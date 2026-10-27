@@ -16,7 +16,7 @@ import (
 var update = flag.Bool("update", false, "rewrite the golden overview")
 
 // TestOverviewGolden builds the afternoon's overview, unfiltered and on one
-// page, and compares it with the golden file the web tests render.
+// page and compares it with the golden file the web tests render.
 func TestOverviewGolden(t *testing.T) {
 	rows, err := Build(afternoon, loadInputs(t))
 	if err != nil {
@@ -211,15 +211,15 @@ func TestAmbiguousCandidateIsNotTheRows(t *testing.T) {
 	own, candidate, unlinked := testRun("own", model.UnknownBound(), model.UnknownBound(), model.OutcomeSucceeded),
 		testRun("candidate", model.UnknownBound(), model.UnknownBound(), model.OutcomeSucceeded),
 		testRun("unlinked", model.UnknownBound(), model.UnknownBound(), model.OutcomeSucceeded)
-	root := model.Ref{Kind: model.RefPage, ID: "wiki.example.com/pages/1/en"}
-	edit := model.Ref{Kind: model.RefEvent, ID: "wiki/wiki.example.com/edit"}
+	root := model.Ref{Kind: model.RefTask, ID: "vikunja.example.com/tasks/1"}
+	comment := model.Ref{Kind: model.RefEvent, ID: "vikunja/vikunja.example.com/comments/1"}
 	link := func(from, to model.Ref, ambiguous bool) model.Correlation {
 		return model.Correlation{From: from, To: to, Confidence: model.ConfidenceHeuristic, Ambiguous: ambiguous}
 	}
 	got := ownRuns([]model.Run{own, candidate, unlinked}, []model.Correlation{
 		link(own.Key.Ref(), root, false),
-		link(edit, own.Key.Ref(), true),
-		link(edit, candidate.Key.Ref(), true),
+		link(comment, own.Key.Ref(), true),
+		link(comment, candidate.Key.Ref(), true),
 	})
 	if want := []string{"own", "unlinked"}; !slices.Equal(runUIDs(got), want) {
 		t.Errorf("runs = %v, want %v", runUIDs(got), want)

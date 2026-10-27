@@ -77,7 +77,6 @@ func TestNoStore(t *testing.T) {
 	h := New(Config{Version: testVersion})
 	for _, path := range []string{
 		"/api/v1/stories/task/vikunja.example.com/101",
-		"/api/v1/stories/page/wiki.example.com/57/en",
 		"/api/v1/coverage/task/vikunja.example.com/101",
 		"/api/v1/coverage",
 		"/api/v1/resolve?url=https://vikunja.example.com/tasks/101",
@@ -174,7 +173,6 @@ func TestProblemsFitTheLowestBound(t *testing.T) {
 		{"story past the bound", "/api/v1/stories/task/vikunja.example.com/101", http.StatusInternalServerError},
 		{"long unknown path", "/api/v1/" + long, http.StatusNotFound},
 		{"long id", "/api/v1/stories/task/vikunja.example.com/" + long, http.StatusBadRequest},
-		{"long locale", "/api/v1/stories/page/wiki.example.com/57/" + long, http.StatusBadRequest},
 		{"escaped id", "/api/v1/stories/task/vikunja.example.com/" + escaped, http.StatusBadRequest},
 	}
 	for _, tt := range tests {

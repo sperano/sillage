@@ -55,20 +55,6 @@ function showPhase(match: (p: Phase) => boolean) {
 	});
 }
 
-test('inconsistent markers show both edges, the earlier first', async () => {
-	showPhase((p) => p.state === 'inconsistent' && p.end.kind === 'wiki-login');
-	await expect
-		.element(page.getByText(/^end 2026-03-14 10:19:58 UTC · start 2026-03-14 10:20:00 UTC/))
-		.toBeInTheDocument();
-});
-
-test('inconsistent markers in order show the start first', async () => {
-	showPhase((p) => p.state === 'inconsistent' && p.end.kind === 'agent');
-	await expect
-		.element(page.getByText(/^start 2026-03-14 10:25:00 UTC · end 2026-03-14 10:26:00 UTC/))
-		.toBeInTheDocument();
-});
-
 test('a phase whose start was not recorded says when it ended', async () => {
 	showPhase((p) => p.state === 'start-not-recorded');
 	await expect.element(page.getByText(/^start not recorded · ended /)).toBeInTheDocument();

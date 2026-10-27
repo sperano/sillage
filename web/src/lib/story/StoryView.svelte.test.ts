@@ -5,6 +5,7 @@ import StoryView from './StoryView.svelte';
 import StoryWithGraph from '../testing/StoryWithGraph.svelte';
 import { Selection } from '../selection.svelte';
 import { goldenStory } from '../testing/stories';
+import { eventKey, runKeyString } from '../keys';
 
 const NARROW = { width: 400, height: 900 };
 const WIDE = { width: 1400, height: 900 };
@@ -34,23 +35,21 @@ describe('announced-run-only', () => {
 	});
 });
 
-describe('wiki-rooted-request', () => {
-	const live = 'https://wiki.example.com/en/widgets/design/storage-layout';
-
-	test('the live edit links the live page, in the list and in the detail', async () => {
-		render(StoryView, { story: goldenStory('wiki-rooted-request') });
-		const row = page.getByRole('listitem').filter({ hasText: 'Page edited (live version)' });
-		await expect.element(row.getByRole('link')).toHaveAttribute('href', live);
-		await row.getByRole('button').click();
-		const detail = page.getByRole('region', { name: 'Detail' });
-		await expect
-			.element(detail.getByRole('link', { name: 'wiki page, live version' }))
-			.toHaveAttribute('href', live);
-	});
-
-	test('the ambiguous live edit lists both candidate runs and selects one', async () => {
-		render(StoryView, { story: goldenStory('wiki-rooted-request') });
-		await page.getByRole('button', { name: /Page edited \(live version\)/ }).click();
+describe('ambiguous correlations', () => {
+	test('an event lists both candidate runs and selects one', async () => {
+		const story = goldenStory('failed-run-retry');
+		const event = story.events[0]!;
+		story.correlations.push(
+			...story.runs.map((run) => ({
+				from: { kind: 'event' as const, id: eventKey(event) },
+				to: { kind: 'run' as const, id: runKeyString(run.key) },
+				confidence: 'heuristic' as const,
+				ambiguous: true,
+				evidence: [event.evidence]
+			}))
+		);
+		render(StoryView, { story });
+		await page.getByRole('button', { name: /Task created/ }).click();
 		const detail = page.getByRole('region', { name: 'Detail' });
 		await expect
 			.element(
@@ -58,14 +57,11 @@ describe('wiki-rooted-request', () => {
 			)
 			.toBeVisible();
 		await expect.element(detail.getByText(/confidence: heuristic/).first()).toBeVisible();
-		await detail
-			.getByRole('button', { name: 'Run vikunja-widgets-agent-opus-103' })
-			.first()
-			.click();
+		await detail.getByRole('button', { name: 'Run vikunja-widgets-agent-opus-104' }).last().click();
 		const heading = detail.getByRole('heading', { level: 3 });
 		await expect
 			.element(heading)
-			.toHaveTextContent('Run vikunja-widgets-agent-opus-103 (implementation): succeeded');
+			.toHaveTextContent('Run vikunja-widgets-agent-opus-104 (implementation): succeeded');
 		// The button is gone with the detail it was in; the focus is not lost.
 		await expect.element(heading).toHaveFocus();
 	});

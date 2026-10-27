@@ -53,7 +53,7 @@ func TestPlacementsFromAnnotations(t *testing.T) {
 	if follow.Origin == nil || follow.Origin.Value(AnnotationComment) != "9101" || follow.Origin.remembered {
 		t.Errorf("follow-up origin = %+v, want the Task's annotations", follow.Origin)
 	}
-	if len(got) != 3 {
+	if len(got) != 2 {
 		t.Errorf("Placements() = %v, want one per Task", got)
 	}
 }

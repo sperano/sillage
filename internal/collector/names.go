@@ -40,9 +40,6 @@ var (
 		regexp.MustCompile(`^vikunja-merge-(` + k8sLabelPattern + `)-(` + idPattern + `)-(?:true|false)$`),
 		regexp.MustCompile(`^vikunja-pr-open-(` + k8sLabelPattern + `)-(` + idPattern + `)-[a-z_]+$`),
 	}
-	// wikiFollowUpName: wiki-fu-<workspace>-<page>-c<comment>.
-	wikiFollowUpName = regexp.MustCompile(`^wiki-fu-(` + k8sLabelPattern + `)-(` + idPattern + `)-c(` +
-		idPattern + `)` + retrySuffix + `$`)
 )
 
 // taskOfName returns the Vikunja task id a Task name names by the task
@@ -85,34 +82,10 @@ func prOfName(name string) (workspace string, number int, ok bool) {
 	return "", 0, false
 }
 
-// wikiRequest is what a wiki follow-up's Task name names.
-type wikiRequest struct {
-	workspace string
-	page      int64
-	comment   int64
-}
-
-// pageOfName returns what a wiki follow-up's Task name names.
-func pageOfName(name string) (wikiRequest, bool) {
-	m := wikiFollowUpName.FindStringSubmatch(name)
-	if m == nil {
-		return wikiRequest{}, false
-	}
-	page, okPage := parseID(m[2])
-	comment, okComment := parseID(m[3])
-	if !okPage || !okComment {
-		return wikiRequest{}, false
-	}
-	return wikiRequest{workspace: m[1], page: page, comment: comment}, true
-}
-
 // roleOfName is the role a Task name implies, or unknown.
 func roleOfName(name string) model.RunRole {
 	if _, role, ok := taskOfName(name); ok {
 		return role
-	}
-	if _, ok := pageOfName(name); ok {
-		return model.RoleWikiFollowUp
 	}
 	return model.RoleUnknown
 }

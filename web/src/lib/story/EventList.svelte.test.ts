@@ -83,8 +83,8 @@ test('a phase row has no source link: its markers came from the pod', async () =
 	await expect.element(phases.first()).toBeInTheDocument();
 	expect(phases.elements().every((r) => r.querySelector('a') === null)).toBe(true);
 	await expect
-		.element(row(/inconsistent markers: wiki login start, wiki login end/))
-		.toHaveTextContent('end 2026-03-14 10:19:58 UTC · start 2026-03-14 10:20:00 UTC');
+		.element(row(/agent: failed, start not recorded/))
+		.toHaveTextContent('start not recorded · ended 2026-03-14 10:26:00 UTC');
 });
 
 test('row links are not tab stops: the list is one', async () => {

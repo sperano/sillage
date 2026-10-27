@@ -1,5 +1,5 @@
 // Package api serves sillage's private, read-only JSON API over the store,
-// under /api/v1/: the story of a task or wiki page (model.Story as JSON,
+// under /api/v1/: the story of a task (model.Story as JSON,
 // unchanged: the golden stories under testdata/fixtures/stories are its
 // contract), a root's coverage, how fresh each source's reads are, root
 // search, the resolution of a pasted link to the story it belongs to, the

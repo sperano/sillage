@@ -102,7 +102,6 @@ func TestEventKindObserved(t *testing.T) {
 
 func TestEventValidateParts(t *testing.T) {
 	badTask := TaskKey{}
-	badPage := PageKey{}
 	badRun := RunKey{}
 	badPR := PRKey{}
 	tests := []eventCase{
@@ -130,7 +129,6 @@ func TestEventValidateParts(t *testing.T) {
 			"executor name and kind",
 		},
 		{"invalid related task", func(e *Event) { e.Related.Task = &badTask }, "task key"},
-		{"invalid related page", func(e *Event) { e.Related.Page = &badPage }, "page key"},
 		{"invalid related run", func(e *Event) { e.Related.Run = &badRun }, "run key"},
 		{"invalid related pr", func(e *Event) { e.Related.PR = &badPR }, "pull request key"},
 		{"no related keys", func(e *Event) { e.Related = Related{} }, ""},
@@ -150,7 +148,7 @@ func TestEventValidateNamesEvent(t *testing.T) {
 }
 
 func TestEventValidateKindSources(t *testing.T) {
-	sources := []Source{SourceVikunja, SourceKelos, SourceGitHub, SourceWiki}
+	sources := []Source{SourceVikunja, SourceKelos, SourceGitHub}
 	for kind, allowed := range kindSources {
 		for _, source := range sources {
 			t.Run(string(kind)+"/"+string(source), func(t *testing.T) {

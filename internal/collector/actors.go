@@ -12,13 +12,11 @@ import (
 
 // actorKinds are the events an agent's account makes while it works: the
 // run that made one is guessed from who made it and when.
-var actorKinds = []model.EventKind{model.KindPageCreated, model.KindPageEdited, model.KindPROpened, model.KindComment}
+var actorKinds = []model.EventKind{model.KindPROpened, model.KindComment}
 
 // actorRuns joins each event an agent made to the runs of that agent
 // running at the time: a heuristic, ambiguous when several were running.
-// An event on the root or its pull requests may come from any run of the
-// namespace; one on a page the task only links, from the story's runs
-// alone, so that a linked page's history pulls in no other task's runs.
+// An event on the root or its pull requests may come from any run of the namespace.
 // The agent is the event's executor, else its agent account's login and
 // the agents its own start announcements name.
 func (a *assembly) actorRuns() {
@@ -65,8 +63,8 @@ func actorNote(e model.Event, agents []string, candidates int) string {
 	return note + "no other run of " + agentNames + " with a known start was running"
 }
 
-// onRoot reports whether e is on the story's root or one of its pull
-// requests, rather than on a page the task links.
+// onRoot reports whether e is on the story's task or one of its pull
+// requests.
 func (a *assembly) onRoot(e model.Event) bool {
 	r := e.Related
 	switch {
@@ -74,8 +72,6 @@ func (a *assembly) onRoot(e model.Event) bool {
 		return true
 	case r.Task != nil:
 		return r.Task.Ref() == a.rootRef
-	case r.Page != nil:
-		return r.Page.Ref() == a.rootRef
 	}
 	return false
 }
@@ -86,7 +82,7 @@ func accountKey(e model.Event) string {
 }
 
 // announcingAccounts maps each agent account that posted a start
-// announcement itself (a wiki follow-up's) to the agents they name.
+// announcement to the agents they name.
 func (a *assembly) announcingAccounts() map[string][]string {
 	out := make(map[string][]string)
 	for _, e := range a.eventsOf(model.KindRunAnnounced) {

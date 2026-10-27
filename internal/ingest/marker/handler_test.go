@@ -145,7 +145,7 @@ func TestRefusesBodies(t *testing.T) {
 	}{
 		{"content", strings.Replace(body(), `"version":1`, `"version":1,"prompt":"hello"`, 1), http.StatusBadRequest},
 		{"an op field", strings.Replace(body(), `"version":1`, `"version":1,"op":"read"`, 1), http.StatusBadRequest},
-		{"a wiki request", strings.Replace(body(), `"blocker-wait"`, `"wiki-request"`, 1), http.StatusBadRequest},
+		{"an unknown marker kind", strings.Replace(body(), `"blocker-wait"`, `"other"`, 1), http.StatusBadRequest},
 		{"version 2", strings.Replace(body(), `"version":1`, `"version":2`, 1), http.StatusBadRequest},
 		{"two objects", body() + body(), http.StatusBadRequest},
 		{"no JSON", "start blocker-wait", http.StatusBadRequest},

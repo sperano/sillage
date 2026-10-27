@@ -23,7 +23,6 @@ import {
 } from './check';
 import {
 	ACTOR_KINDS,
-	ATTEMPTS_KIND,
 	BOUND_STATES,
 	CHECK_CONCLUSIONS,
 	CONFIDENCES,
@@ -52,7 +51,6 @@ import {
 	type Gap,
 	type Interval,
 	type PRKey,
-	type PageKey,
 	type Phase,
 	type PhaseMark,
 	type PhaseState,
@@ -73,12 +71,6 @@ const actorKind = oneOf(ACTOR_KINDS);
 
 export const taskKey: Decoder<TaskKey> = object({ instance: text, id: positiveInteger });
 
-export const pageKey: Decoder<PageKey> = object({
-	instance: text,
-	id: positiveInteger,
-	locale: text
-});
-
 const runKeyFields = object({ cluster: text, namespace: text }, { uid: text, pod: text });
 
 export const runKey: Decoder<RunKey> = (value, path) => {
@@ -94,14 +86,7 @@ export const prKey: Decoder<PRKey> = object({
 	number: positiveInteger
 });
 
-const rootFields = object({}, { task: taskKey, page: pageKey });
-
-export const root: Decoder<Root> = (value, path) => {
-	const { task, page } = rootFields(value, path);
-	if (task !== undefined && page === undefined) return { task };
-	if (page !== undefined && task === undefined) return { page };
-	return fail(path, 'exactly one of task and page is required');
-};
+export const root: Decoder<Root> = object({ task: taskKey });
 
 const ref: Decoder<Ref> = object({ kind: oneOf(REF_KINDS), id: text });
 
@@ -118,10 +103,7 @@ const account: Decoder<Account> = (value, path) => {
 
 const executor: Decoder<Executor> = object({ name: text, kind: actorKind });
 
-const related: Decoder<Related> = object(
-	{},
-	{ task: taskKey, page: pageKey, run: runKey, pr: prKey }
-);
+const related: Decoder<Related> = object({}, { task: taskKey, run: runKey, pr: prKey });
 
 // A fingerprint id: "sha256:" and a lowercase hex SHA-256 digest.
 const FINGERPRINT = /^sha256:[0-9a-f]{64}$/;
@@ -228,7 +210,7 @@ const markerOutcomes = Object.freeze([...new Set(Object.values(MARKER_KIND_OUTCO
 const phaseMark: Decoder<PhaseMark> = refine(
 	object(
 		{ kind: oneOf(MARKER_KINDS), emitter: oneOf(markerEmitters), at: timestamp },
-		{ outcome: oneOf(markerOutcomes), attempts: positiveInteger }
+		{ outcome: oneOf(markerOutcomes) }
 	),
 	(m, path) => {
 		if (MARKER_KIND_EMITTERS[m.kind] !== m.emitter) {
@@ -237,20 +219,16 @@ const phaseMark: Decoder<PhaseMark> = refine(
 	}
 );
 
-// A start has no outcome and no attempts; an end has an outcome of its
-// kind, and attempts exactly when its kind counts them.
+// A start has no outcome; an end has an outcome of its kind.
 function checkEdges({ start, end }: PhaseFields, path: string): void {
 	if (!start && !end) fail(path, 'a phase has a recorded edge');
-	if (start && (start.outcome !== undefined || start.attempts !== undefined)) {
-		fail(`${path}.start`, 'a start has no outcome and no attempts');
+	if (start?.outcome !== undefined) {
+		fail(`${path}.start`, 'a start has no outcome');
 	}
 	if (!end) return;
 	const outcomes: readonly string[] = MARKER_KIND_OUTCOMES[end.kind];
 	if (end.outcome === undefined || !outcomes.includes(end.outcome)) {
 		fail(`${path}.end`, `an end of kind ${end.kind} has one of its outcomes`);
-	}
-	if ((end.attempts !== undefined) !== (end.kind === ATTEMPTS_KIND)) {
-		fail(`${path}.end`, `only the end of kind ${ATTEMPTS_KIND} counts its attempts`);
 	}
 }
 

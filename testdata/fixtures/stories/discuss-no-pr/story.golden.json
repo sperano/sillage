@@ -113,35 +113,6 @@
       }
     },
     {
-      "source": "wiki",
-      "instance": "wiki.example.com",
-      "id": "pages/41",
-      "idKind": "source",
-      "kind": "page.created",
-      "sourceTime": "2026-03-02T14:07:16Z",
-      "observedAt": "2026-03-02T14:10:00Z",
-      "actor": {
-        "login": "agent-opus",
-        "kind": "agent"
-      },
-      "related": {
-        "page": {
-          "instance": "wiki.example.com",
-          "id": 41,
-          "locale": "en"
-        }
-      },
-      "details": {
-        "path": "widgets/reports/caching-options"
-      },
-      "evidence": {
-        "source": "wiki",
-        "instance": "wiki.example.com",
-        "ref": "pages.single(id: 41)",
-        "note": "createdAt, creatorName"
-      }
-    },
-    {
       "source": "vikunja",
       "instance": "vikunja.example.com",
       "id": "comments/5002",
@@ -222,44 +193,6 @@
     },
     {
       "from": {
-        "kind": "event",
-        "id": "wiki/wiki.example.com/pages/41"
-      },
-      "to": {
-        "kind": "run",
-        "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000000101"
-      },
-      "confidence": "heuristic",
-      "evidence": [
-        {
-          "source": "wiki",
-          "instance": "wiki.example.com",
-          "ref": "pages.single(id: 41)",
-          "note": "created by agent-opus inside the run's interval; no other agent-opus run was running"
-        }
-      ]
-    },
-    {
-      "from": {
-        "kind": "page",
-        "id": "wiki.example.com/pages/41/en"
-      },
-      "to": {
-        "kind": "task",
-        "id": "vikunja.example.com/tasks/101"
-      },
-      "confidence": "identifier",
-      "evidence": [
-        {
-          "source": "vikunja",
-          "instance": "vikunja.example.com",
-          "ref": "GET /api/v1/tasks/101/comments",
-          "note": "comment 5002 links the page"
-        }
-      ]
-    },
-    {
-      "from": {
         "kind": "run",
         "id": "cluster-a/agents/uid/00000000-0000-4000-8000-000000000101"
       },
@@ -292,11 +225,6 @@
     {
       "source": "vikunja",
       "instance": "vikunja.example.com",
-      "lastSuccessfulRead": "2026-03-02T15:00:00Z"
-    },
-    {
-      "source": "wiki",
-      "instance": "wiki.example.com",
       "lastSuccessfulRead": "2026-03-02T15:00:00Z"
     }
   ]

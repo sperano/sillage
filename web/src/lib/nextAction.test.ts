@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { goldenStories, goldenStory } from './testing/stories';
 import { nextActions } from './nextAction';
 import type { Event, EventKind, Story } from './model';
+import { runKeyString } from './keys';
 
 const PR = { instance: 'github.example.com', repository: 'example-org/widgets', number: 7 };
 
@@ -160,7 +161,6 @@ describe('agent requests', () => {
 	test.each([
 		'vikunja-fu-widgets-104-c5499',
 		'vikunja-fu-widgets-104-c5499-retry1',
-		'wiki-fu-widgets-57-c5499',
 		'pr-followup-widgets-7-r5499',
 		'pr-followup-widgets-7-l5499-retry2'
 	])('an announcement whose Task name %s names the request answers it', (name) => {
@@ -211,8 +211,16 @@ describe('agent requests', () => {
 	});
 
 	test('a request a correlation links to a run is answered', () => {
-		const s = goldenStory('wiki-rooted-request');
+		const s = goldenStory('failed-run-retry');
 		s.events = s.events.filter((e) => e.kind !== 'run.announced');
+		const r = request('2026-03-05T14:00:00Z');
+		s.events.push(r);
+		s.correlations.push({
+			from: { kind: 'event', id: `${r.source}/${r.instance}/${r.id}` },
+			to: { kind: 'run', id: runKeyString(s.runs[0]!.key) },
+			confidence: 'identifier',
+			evidence: [r.evidence]
+		});
 		expect(nextActions(s)).toEqual([]);
 	});
 });

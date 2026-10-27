@@ -104,8 +104,8 @@ func New(cfg Config, st Store, sched Scheduler, m *Metrics, log *slog.Logger) (*
 		return nil, errors.New("ingest: a store, a scheduler, metrics and a logger are required")
 	}
 	c := cfg.Collector
-	if c.VikunjaInstance == "" || c.GitHubInstance == "" || c.WikiInstance == "" {
-		return nil, errors.New("ingest: the Vikunja, GitHub and wiki instances are required")
+	if c.VikunjaInstance == "" || c.GitHubInstance == "" {
+		return nil, errors.New("ingest: the Vikunja and GitHub instances are required")
 	}
 	return &Handler{
 		store: st, sched: sched, metrics: m, log: log, now: time.Now,

@@ -1,17 +1,15 @@
 import { describe, expect, test } from 'vitest';
 import { goldenStories } from './testing/stories';
-import { eventKey, pageKeyString, prKeyString, runKeyString, taskKeyString } from './keys';
+import { eventKey, prKeyString, runKeyString, taskKeyString } from './keys';
 import type { Ref, Story } from './model';
 
 function known(story: Story): Set<string> {
 	const refs = new Set<string>();
 	const add = (kind: Ref['kind'], id: string) => refs.add(`${kind}:${id}`);
-	if (story.root.task) add('task', taskKeyString(story.root.task));
-	if (story.root.page) add('page', pageKeyString(story.root.page));
+	add('task', taskKeyString(story.root.task));
 	for (const e of story.events) {
 		add('event', eventKey(e));
 		if (e.related.task) add('task', taskKeyString(e.related.task));
-		if (e.related.page) add('page', pageKeyString(e.related.page));
 	}
 	for (const r of story.runs) add('run', runKeyString(r.key));
 	for (const p of story.pullRequests) add('pr', prKeyString(p.key));
@@ -27,8 +25,7 @@ test('every golden story is loaded', () => {
 		'implementation-merged',
 		'phase-markers',
 		'reopened-task',
-		'second-pr-after-close',
-		'wiki-rooted-request'
+		'second-pr-after-close'
 	]);
 });
 

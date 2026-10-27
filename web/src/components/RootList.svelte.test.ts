@@ -12,7 +12,7 @@ test('each root links to its story, by its title or else its key', async () => {
 				title: 'Widgets: add a gear',
 				lastActivity: '2026-03-03T19:30:00Z'
 			},
-			{ root: { page: { instance: 'wiki.example.com', id: 57, locale: 'en' } } }
+			{ root: { task: { instance: 'vikunja.example.com', id: 103 } } }
 		]
 	});
 	const list = page.getByRole('list', { name: 'Matches' });
@@ -22,8 +22,8 @@ test('each root links to its story, by its title or else its key', async () => {
 			'Widgets: add a gear task 102 on vikunja.example.com last activity 2026-03-03 19:30:00 UTC'
 		);
 	await expect
-		.element(list.getByRole('link', { name: 'page 57 (en) on wiki.example.com' }))
-		.toHaveAttribute('href', '/page/wiki.example.com/57/en');
+		.element(list.getByRole('link', { name: 'task 103 on vikunja.example.com' }))
+		.toHaveAttribute('href', '/task/vikunja.example.com/103');
 	await expect
 		.element(list.getByText('2026-03-03 19:30:00 UTC'))
 		.toHaveAttribute('datetime', '2026-03-03T19:30:00Z');

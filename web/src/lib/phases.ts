@@ -7,7 +7,6 @@ import { named } from './named';
 
 const kindNames: Record<MarkerKind, string> = {
 	'blocker-wait': 'blocker wait',
-	'wiki-login': 'wiki login',
 	agent: 'agent'
 };
 
@@ -40,13 +39,9 @@ export function phaseKind(p: Phase): MarkerKind {
 	return firstEdge(p).kind;
 }
 
-/** How an end edge says its span ended: its outcome and, for a login, its attempts. */
+/** How an end edge says its span ended. */
 export function endText(mark: PhaseMark): string {
-	const attempts =
-		mark.attempts === undefined
-			? ''
-			: `, ${mark.attempts} ${mark.attempts === 1 ? 'attempt' : 'attempts'}`;
-	return `${mark.outcome ?? 'no outcome'}${attempts}`;
+	return mark.outcome ?? 'no outcome';
 }
 
 /**

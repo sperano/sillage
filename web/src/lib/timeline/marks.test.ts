@@ -26,9 +26,6 @@ test('an observed state is marked as observed and says so', () => {
 
 test('labels name what ended', () => {
 	expect(eventLabel(prEvent('pr.closed', '2026-03-01T10:00:00Z'))).toBe('PR closed, not merged');
-	expect(eventLabel(event({ kind: 'page.edited', details: { version: 'live' } }))).toBe(
-		'page edited (live version)'
-	);
 	expect(runExitLabel('failed')).toBe('run exit: failed');
 	expect(checkEnd('build', 'timed_out')).toEqual({
 		mark: 'check-end',
