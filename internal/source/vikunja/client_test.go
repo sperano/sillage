@@ -147,6 +147,35 @@ func fetchStory(t *testing.T, story string, taskID int64) (Snapshot, []int) {
 	return snap, fake.log.seen()
 }
 
+const (
+	// codeInvalidModel is Vikunja's error code for a request it cannot bind.
+	codeInvalidModel = 2004
+	// vikunjaInvalidModel is Vikunja's answer to such a request, as a task
+	// read whose id is not a number.
+	vikunjaInvalidModel = `{"code":2004,"message":"Invalid model provided: Bad Request"}`
+)
+
+// vikunjaMux returns a mux routed as Vikunja 2's API: a task path whose id
+// is not a number, the /api/v1/tasks/all of Vikunja 1 included, is a task
+// read it cannot bind, answered 400.
+func vikunjaMux() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/tasks/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := strconv.ParseInt(r.PathValue("id"), 10, 64); err == nil {
+			http.NotFound(w, r)
+			return
+		}
+		writeError(w, http.StatusBadRequest, vikunjaInvalidModel)
+	})
+	return mux
+}
+
+func writeError(w http.ResponseWriter, code int, body string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	_, _ = w.Write([]byte(body))
+}
+
 // handcrafted serves task testTaskID and answers comment reads with
 // comments(page, w).
 func handcrafted(comments func(page int, w http.ResponseWriter)) http.Handler {
@@ -298,6 +327,51 @@ func TestFetchStatusError(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), testToken) {
 		t.Errorf("error %q leaks the token", err)
+	}
+}
+
+func TestStatusErrorCarriesVikunjasError(t *testing.T) {
+	tests := []struct {
+		name    string
+		code    int
+		body    string
+		apiCode int
+		message string
+		want    string
+	}{
+		{"invalid model", http.StatusBadRequest, vikunjaInvalidModel, codeInvalidModel, "Invalid model provided: Bad Request",
+			"vikunja: GET /api/v1/tasks/4210: 400 Bad Request: Invalid model provided: Bad Request (code 2004)"},
+		{"message only", http.StatusUnauthorized, `{"message":"missing, invalid or expired token"}`, 0,
+			"missing, invalid or expired token",
+			"vikunja: GET /api/v1/tasks/4210: 401 Unauthorized: missing, invalid or expired token"},
+		{"not JSON", http.StatusForbidden, "<html>Forbidden</html>", 0, "",
+			"vikunja: GET /api/v1/tasks/4210: 403 Forbidden"},
+		{"cut at the bound", http.StatusBadRequest,
+			`{"code":2004,"message":"` + strings.Repeat("x", drainBytes) + `"}`, 0, "",
+			"vikunja: GET /api/v1/tasks/4210: 400 Bad Request"},
+		{"server error", http.StatusBadGateway, vikunjaInvalidModel, 0, "",
+			"vikunja: GET /api/v1/tasks/4210: 502 Bad Gateway"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { writeError(w, tt.code, tt.body) })
+			_, err := newTestClient(t, h).Fetch(t.Context(), testTaskID)
+			se, ok := errors.AsType[*StatusError](err)
+			if !ok || se.Code != tt.code || se.APICode != tt.apiCode || se.Message != tt.message {
+				t.Fatalf("Fetch error = %#v, want a %d StatusError with code %d and message %q", err, tt.code,
+					tt.apiCode, tt.message)
+			}
+			if err.Error() != tt.want {
+				t.Errorf("Error() = %q, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestFakeRejectsVikunja1Listing(t *testing.T) {
+	_, err := newTestClient(t, vikunjaMux()).get(t.Context(), apiPrefix+"/tasks/all", nil, new([]TaskChange))
+	if se, ok := errors.AsType[*StatusError](err); !ok || se.Code != http.StatusBadRequest || se.APICode != codeInvalidModel {
+		t.Errorf("GET /tasks/all error = %v, want Vikunja 2's 400 with code 2004", err)
 	}
 }
 
