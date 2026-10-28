@@ -16,9 +16,8 @@ frontend and the read-only JSON API under `/api/v1/`; the normalized model
 (`testdata/fixtures/stories/`); a read-only client per source; `sillage
 story`, which assembles one story from the live sources and prints it; a
 PostgreSQL store (`internal/store`); the collection loop, which keeps it
-current; a webhook receiver (`internal/ingest`) that stays off,
-answering 503, until the collection loop reads what its deliveries name;
-and the in-cluster endpoint of the phase markers Kelos runs' pods report
+current; a webhook receiver (`internal/ingest`) whose deliveries make
+the collection loop read the tasks they name; and the in-cluster endpoint of the phase markers Kelos runs' pods report
 (`internal/ingest/marker`), stored, joined to their runs and paired into
 the runs' phases in each story.
 The story page shows a task's history: the timeline graph
@@ -103,8 +102,18 @@ it is recorded or acted on. Each authenticated
 attempt is recorded as evidence that sillage received it, not that Kelos
 received or acted on its own delivery. It then asks the collector to read
 the task it names again; nothing is written from the payload, and the
-periodic reads stay authoritative. Until the collection loop reads the
-tasks deliveries name, both paths answer 503.
+periodic reads stay authoritative. A delivery cuts the collection loop's
+wait short: its next cycle starts `SILLAGE_DELIVERY_DELAY` (default `15s`)
+later, so the deliveries of one change share it, and reads the tasks
+deliveries named first, each once, at most
+`SILLAGE_DELIVERY_ROOTS_PER_CYCLE` (default 25) of them, the others left
+for the next cycle. Both paths answer 503 while this process does not
+collect: without a store, while another process holds the collector lock,
+or while the loop loads the store's state. `/metrics` counts the
+deliveries by source and outcome (`sillage_webhook_deliveries_total`), the
+reads they asked for (`sillage_collector_delivery_reads_total`: `caused`,
+or `coalesced` into a read the cycle had due anyway) and the cycles they
+started early (`sillage_collector_delivery_cycles_total`).
 
 `POST /ingest/marker` (`internal/ingest/marker`) takes the phase markers
 that wrappers in a Kelos run's pod report: one edge (`start` or `end`) of

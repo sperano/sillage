@@ -1,6 +1,7 @@
 package ingest
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/sperano/sillage/internal/model"
@@ -12,7 +13,7 @@ import (
 const DefaultQueueCapacity = 1000
 
 // Queue is a Scheduler for the collector loop: the roots asked for and not
-// taken yet, each once, in the order first asked for. Ready signals when
+// taken yet, each once, in the order first asked for. Ready signals while
 // there are some to Take.
 type Queue struct {
 	mu       sync.Mutex
@@ -46,25 +47,42 @@ func (q *Queue) Schedule(root model.Root) bool {
 	}
 	q.queued[ref] = true
 	q.pending = append(q.pending, root)
+	q.signal()
+	return true
+}
+
+// Ready is signalled while roots are queued: Schedule signals it, and a
+// Take that leaves none clears it. Once received, the signal is spent
+// until the next Schedule or a Take that leaves some queued.
+func (q *Queue) Ready() <-chan struct{} { return q.ready }
+
+// Take removes and returns the first limit queued roots (at least 1), in
+// the order first asked for; the others stay queued, Ready signalled.
+func (q *Queue) Take(limit int) []model.Root {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	n := min(max(limit, 1), len(q.pending))
+	out := slices.Clone(q.pending[:n])
+	q.pending = slices.Delete(q.pending, 0, n)
+	for _, root := range out {
+		ref, _ := refOf(root)
+		delete(q.queued, ref)
+	}
+	if len(q.pending) == 0 {
+		select {
+		case <-q.ready:
+		default:
+		}
+		return out
+	}
+	q.signal()
+	return out
+}
+
+// signal makes Ready ready, unless it is already; q.mu must be held.
+func (q *Queue) signal() {
 	select {
 	case q.ready <- struct{}{}:
 	default:
 	}
-	return true
-}
-
-// Ready is signalled once roots are queued after the last Take. A
-// receiver should Take, even when the signal predates a Take: it then
-// finds nothing.
-func (q *Queue) Ready() <-chan struct{} { return q.ready }
-
-// Take removes and returns every queued root, in the order first asked
-// for.
-func (q *Queue) Take() []model.Root {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	out := q.pending
-	q.pending = nil
-	clear(q.queued)
-	return out
 }

@@ -72,7 +72,9 @@ type fakeVikunja struct {
 	mu    sync.Mutex
 	err   error
 	reads int
-	also  []int64
+	// ids are the tasks read, in order.
+	ids  []int64
+	also []int64
 	// during runs inside each read, before it answers.
 	during func(ctx context.Context)
 }
@@ -80,6 +82,7 @@ type fakeVikunja struct {
 func (f *fakeVikunja) Fetch(ctx context.Context, id int64) (vikunja.Snapshot, error) {
 	f.mu.Lock()
 	f.reads++
+	f.ids = append(f.ids, id)
 	err, during, known := f.err, f.during, id == testTaskID || slices.Contains(f.also, id)
 	f.mu.Unlock()
 	if !known {
@@ -109,6 +112,13 @@ func (f *fakeVikunja) count() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.reads
+}
+
+// read returns the tasks read, in order.
+func (f *fakeVikunja) read() []int64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.ids)
 }
 
 // taskNameOf is the Kelos Task name of task id's run; testTaskName for
@@ -401,14 +411,16 @@ type harness struct {
 	vikunja  *fakeVikunja
 	kelos    *fakeKelos
 	projects *fakeProjects
-	reg      *prometheus.Registry
-	logs     *bytes.Buffer
+	// deliveries are the roots the tests' deliveries name.
+	deliveries *fakeDeliveries
+	reg        *prometheus.Registry
+	logs       *bytes.Buffer
 }
 
 func newHarness(t *testing.T, cfg Config) *harness {
 	t.Helper()
 	h := &harness{
-		store: newFakeStore(), vikunja: &fakeVikunja{}, projects: &fakeProjects{},
+		store: newFakeStore(), vikunja: &fakeVikunja{}, projects: &fakeProjects{}, deliveries: newFakeDeliveries(),
 		kelos: &fakeKelos{snap: kelos.Snapshot{Tasks: []kelos.Task{testKelosTask(kelos.PhaseRunning)}}},
 		reg:   prometheus.NewRegistry(), logs: &bytes.Buffer{},
 	}
@@ -417,16 +429,24 @@ func newHarness(t *testing.T, cfg Config) *harness {
 }
 
 // newLoop returns another loop over the same fakes and store: the same
-// sillage, restarted.
+// sillage, restarted. A cfg that does not set the deliveries' settings
+// gets a delay no test waits for and the default cap.
 func (h *harness) newLoop(t *testing.T, cfg Config) *Loop {
 	t.Helper()
+	if cfg.DeliveryDelay == 0 {
+		cfg.DeliveryDelay = time.Millisecond
+	}
+	if cfg.DeliveryRootsPerCycle == 0 {
+		cfg.DeliveryRootsPerCycle = DefaultDeliveryRootsPerCycle
+	}
 	src := Sources{
 		Sources:  collector.Sources{Vikunja: h.vikunja, Kelos: h.kelos, GitHub: noGitHub{}},
 		Projects: h.projects,
 	}
 	reg := prometheus.NewRegistry()
 	h.reg = reg
-	l, err := New(cfg, testCollectorConfig(), src, h.store, NewMetrics(reg), slog.New(slog.NewTextHandler(h.logs, nil)))
+	l, err := New(cfg, testCollectorConfig(), src, h.store, h.deliveries, NewMetrics(reg),
+		slog.New(slog.NewTextHandler(h.logs, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
