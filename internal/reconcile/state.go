@@ -111,6 +111,14 @@ func clonePointer[T any](p *T) *T {
 	return &v
 }
 
+// dropRetiredSources forgets the source instances of a source this binary
+// no longer reads (the wiki, until sperano/sillage#37), kept by a checkpoint
+// an older one wrote: their coverage fails validation, so every commit of
+// the root would fail and the root be read again each cycle.
+func (s *rootState) dropRetiredSources() {
+	maps.DeleteFunc(s.Sources, func(_ string, st *sourceState) bool { return !st.Source.Valid() })
+}
+
 // source returns the state of the source instance cov covers, adding it.
 func (s *rootState) source(cov model.Coverage) *sourceState {
 	st, ok := s.Sources[cov.Key()]

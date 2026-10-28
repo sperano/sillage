@@ -158,6 +158,7 @@ func (l *Loop) load(ctx context.Context) error {
 			if err := json.Unmarshal(data, st); err != nil {
 				return fmt.Errorf("%s: %w", key, err)
 			}
+			st.dropRetiredSources()
 			l.roots[st.Root.Ref()] = st
 		case strings.HasPrefix(key, projectPrefix+l.ccfg.VikunjaInstance+"/"):
 			if err := l.loadMark(key, data); err != nil {

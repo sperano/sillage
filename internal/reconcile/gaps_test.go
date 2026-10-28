@@ -164,3 +164,29 @@ func TestKelosFailureGapStartsAtTheRootsLastRead(t *testing.T) {
 		t.Errorf("open gap = %+v, want one from the root's own last read %v", open, read)
 	}
 }
+
+// retiredSource is a source no current binary reads, as the wiki was.
+const retiredSource model.Source = "wiki"
+
+func TestRestartDropsARetiredSource(t *testing.T) {
+	h := newHarness(t, hourly)
+	h.loop.cycle(t.Context())
+	key := rootKey(testRoot())
+	st := newRootState(model.Root{})
+	if err := json.Unmarshal(h.store.cps[key], st); err != nil {
+		t.Fatal(err)
+	}
+	retired := model.Coverage{Source: retiredSource, Instance: "wiki.example.com"}
+	st.source(retired).succeed(testStart, retired)
+	h.store.cps[key] = encode(st)
+	l := h.newLoop(t, hourly)
+	if _, ok := l.roots[testRoot().Ref()].Sources[retired.Key()]; ok {
+		t.Fatalf("the restart kept %s", retired.Key())
+	}
+	l.cycle(t.Context())
+	for _, cov := range h.store.lastCommit(t).Records.Coverage {
+		if err := cov.Validate(); err != nil {
+			t.Errorf("the read after the restart committed %v: the store refuses it", err)
+		}
+	}
+}
