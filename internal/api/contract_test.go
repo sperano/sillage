@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"os"
 	"testing"
+
+	"github.com/sperano/sillage/internal/model"
 )
 
 // responsesGolden holds the bodies the handlers answer the web client's
@@ -38,8 +40,16 @@ var contractPaths = []string{
 // fixture stories' cluster.
 var contractConsoles = map[string]string{"cluster-a": "https://kelos.example.com"}
 
+// contractOff are the sources the freshness says are off: GitHub, whose
+// token is missing, and the collector's as a whole, whose instance the
+// configuration does not name.
+var contractOff = []OffSource{
+	{Source: model.SourceGitHub, Instance: "github.example.com", Reason: "github: SILLAGE_GITHUB_TOKEN is not set"},
+	{Source: model.SourceKelos, Reason: "the collector is off: SILLAGE_KELOS_CLUSTER is not set"},
+}
+
 func TestResponsesGolden(t *testing.T) {
-	h := New(Config{Store: newFakeStore(t), KelosConsoles: contractConsoles})
+	h := New(Config{Store: newFakeStore(t), KelosConsoles: contractConsoles, Off: contractOff})
 	bodies := make(map[string]json.RawMessage, len(contractPaths))
 	for _, p := range contractPaths {
 		var body json.RawMessage

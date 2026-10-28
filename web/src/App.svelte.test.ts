@@ -25,7 +25,10 @@ afterEach(async () => {
 
 async function renderAt(href: string, handlers: Parameters<typeof fakeServer>[0] = {}) {
 	const history = memoryHistory(href);
-	const server = fakeServer({ [`${API_BASE}/coverage`]: () => json({ sources: [] }), ...handlers });
+	const server = fakeServer({
+		[`${API_BASE}/coverage`]: () => json({ sources: [], off: [] }),
+		...handlers
+	});
 	const router = new Router(history);
 	await render(App, { api: server.api, router });
 	return { history, server, router };

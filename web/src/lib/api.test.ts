@@ -103,8 +103,9 @@ describe('requests', () => {
 			},
 			{ source: 'github', instance: 'github.example.com', roots: 1, neverRead: 1 }
 		];
-		const fetchFn = answering(() => json({ sources }));
-		expect(await createApi({ fetch: fetchFn }).freshness()).toEqual(sources);
+		const off = [{ source: 'github', instance: 'github.example.com', reason: 'no token' }];
+		const fetchFn = answering(() => json({ sources, off }));
+		expect(await createApi({ fetch: fetchFn }).freshness()).toEqual({ sources, off });
 		expect(requested(fetchFn)).toEqual([`${API_BASE}/coverage`]);
 	});
 
@@ -172,7 +173,7 @@ describe('errors', () => {
 		await expect(createApi({ fetch: html }).freshness()).rejects.toThrow(InvalidResponseError);
 
 		const wrong = answering(() =>
-			json({ sources: [{ source: 'jira', instance: 'x', roots: 1, neverRead: 1 }] })
+			json({ sources: [{ source: 'jira', instance: 'x', roots: 1, neverRead: 1 }], off: [] })
 		);
 		await expect(createApi({ fetch: wrong }).freshness()).rejects.toThrow(/unknown value "jira"/);
 	});
@@ -277,7 +278,11 @@ describe('the Go responses', () => {
 	});
 
 	test('the freshness decodes, one record per source instance', async () => {
-		const sources = await createApi({ fetch: answeringGolden() }).freshness();
+		const { sources, off } = await createApi({ fetch: answeringGolden() }).freshness();
+		expect(off.map((o) => `${o.source}/${o.instance ?? ''}`)).toEqual([
+			'github/github.example.com',
+			'kelos/'
+		]);
 		expect(sources.map((s) => `${s.source}/${s.instance}`)).toEqual([
 			'github/github.example.com',
 			'kelos/cluster-a',

@@ -16,17 +16,22 @@ import (
 // newMarkerIngest returns the handler of marker.Path over st, reviewing
 // the pods' tokens through the client newClient returns, for the Kelos
 // cluster and namespace the environment configures, and counting markers
-// in reg. Without a store it returns a handler that answers 503 to every
-// request and records nothing, and says why. Unlike the webhook paths, it
-// needs no collector: a marker asks for no read.
+// in reg. Without a store, the Kelos configuration or a Kubernetes client,
+// it returns a handler that answers 503 to every request and records
+// nothing, and says why. Unlike the webhook paths, it needs no collector:
+// a marker asks for no read.
 func newMarkerIngest(getenv func(string) string, st *store.Store, reg prometheus.Registerer,
-	newClient func() (dynamic.Interface, error)) (http.Handler, error) {
-	if st == nil {
-		off := "no database is configured ($" + store.EnvDatabaseURL + ")"
-		slog.Warn("phase marker ingestion off: every marker is refused", "reason", off)
-		return unavailable("phase marker ingestion is off: " + off), nil
+	newClient func() (dynamic.Interface, error)) http.Handler {
+	off := "no database is configured ($" + store.EnvDatabaseURL + ")"
+	if st != nil {
+		h, err := buildMarkerIngest(getenv, st, reg, newClient)
+		if err == nil {
+			return h
+		}
+		off = err.Error()
 	}
-	return buildMarkerIngest(getenv, st, reg, newClient)
+	slog.Warn("phase marker ingestion off: every marker is refused", "reason", off)
+	return unavailable("phase marker ingestion is off: " + off)
 }
 
 // buildMarkerIngest returns the marker handler over st.

@@ -439,23 +439,40 @@ func newHarness(t *testing.T, cfg Config) *harness {
 }
 
 // newLoop returns another loop over the same fakes and store: the same
-// sillage, restarted. A cfg that does not set the deliveries' settings
-// gets a delay no test waits for and the default cap.
+// sillage, restarted.
 func (h *harness) newLoop(t *testing.T, cfg Config) *Loop {
 	t.Helper()
+	return h.loopOf(t, cfg, h.ccfg, h.sources())
+}
+
+// sources are every fake of h.
+func (h *harness) sources() Sources {
+	return Sources{
+		Sources:  collector.Sources{Vikunja: h.vikunja, Kelos: h.kelos, GitHub: h.github},
+		Projects: h.projects,
+	}
+}
+
+// withDeliveryDefaults returns cfg, given a delivery delay no test waits
+// for and the default cap where it sets none.
+func withDeliveryDefaults(cfg Config) Config {
 	if cfg.DeliveryDelay == 0 {
 		cfg.DeliveryDelay = time.Millisecond
 	}
 	if cfg.DeliveryRootsPerCycle == 0 {
 		cfg.DeliveryRootsPerCycle = DefaultDeliveryRootsPerCycle
 	}
-	src := Sources{
-		Sources:  collector.Sources{Vikunja: h.vikunja, Kelos: h.kelos, GitHub: h.github},
-		Projects: h.projects,
-	}
+	return cfg
+}
+
+// loopOf returns another loop over h's store and deliveries, reading src
+// as ccfg says. A cfg that does not set the deliveries' settings gets
+// withDeliveryDefaults'.
+func (h *harness) loopOf(t *testing.T, cfg Config, ccfg collector.Config, src Sources) *Loop {
+	t.Helper()
 	reg := prometheus.NewRegistry()
 	h.reg = reg
-	l, err := New(cfg, h.ccfg, src, h.store, h.deliveries, NewMetrics(reg),
+	l, err := New(withDeliveryDefaults(cfg), ccfg, src, h.store, h.deliveries, NewMetrics(reg),
 		slog.New(slog.NewTextHandler(h.logs, nil)))
 	if err != nil {
 		t.Fatal(err)

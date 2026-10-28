@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
@@ -85,10 +86,29 @@ func TestConfigValidate(t *testing.T) {
 	for name, tt := range tests {
 		c := testConfig()
 		tt.mutate(&c)
-		err := c.validate()
+		err := c.validate(nil)
 		if tt.want == "" && err != nil || tt.want != "" && (err == nil || !strings.Contains(err.Error(), tt.want)) {
 			t.Errorf("%s: validate() = %v, want %q", name, err, tt.want)
 		}
+	}
+}
+
+func TestConfigValidateWithKelosOff(t *testing.T) {
+	off := map[model.Source]string{model.SourceKelos: "off"}
+	c := testConfig()
+	c.Kelos = kelos.Config{Cluster: testCluster}
+	c.KelosTaskTTL = 0
+	if err := c.validate(off); err != nil {
+		t.Errorf("validate() = %v, want only the cluster required of Kelos off", err)
+	}
+	c.Kelos.Cluster = ""
+	if err := c.validate(off); err == nil || !strings.Contains(err.Error(), kelos.EnvCluster) {
+		t.Errorf("validate() without a cluster = %v, want it to name %s", err, kelos.EnvCluster)
+	}
+	c = testConfig()
+	c.Off = map[model.Source]string{model.SourceGitHub: ""}
+	if err := c.validate(c.Off); err == nil {
+		t.Error("validate() of a source off without a reason = nil")
 	}
 }
 
@@ -130,25 +150,73 @@ func TestConfigFromEnv(t *testing.T) {
 	}
 }
 
-func TestConfigFromEnvReportsEveryProblem(t *testing.T) {
+func TestConfigFromEnvTurnsSourcesOff(t *testing.T) {
 	env := testEnv()
 	delete(env, vikunja.EnvToken)
 	delete(env, github.EnvToken)
 	env[EnvWorkspaces] = "widgets"
 	env[EnvKelosTaskTTL] = "never"
-	_, err := ConfigFromEnv(func(k string) string { return env[k] })
-	for _, want := range []string{vikunja.EnvToken, github.EnvToken, EnvWorkspaces, EnvKelosTaskTTL} {
+	got, err := ConfigFromEnv(func(k string) string { return env[k] })
+	if err != nil {
+		t.Fatalf("ConfigFromEnv() error = %v, want the sources off instead", err)
+	}
+	c := got.Collector
+	if c.VikunjaInstance != testVikunjaHost || c.GitHubInstance != testGitHubHost || c.Kelos.Cluster != testCluster {
+		t.Errorf("instances = %q, %q, %q; want each still named", c.VikunjaInstance, c.GitHubInstance, c.Kelos.Cluster)
+	}
+	for source, wants := range map[model.Source][]string{
+		model.SourceVikunja: {vikunja.EnvToken},
+		model.SourceGitHub:  {github.EnvToken, EnvWorkspaces},
+		model.SourceKelos:   {EnvKelosTaskTTL},
+	} {
+		for _, want := range wants {
+			if !strings.Contains(c.Off[source], want) {
+				t.Errorf("Off[%s] = %q, want it to name %s", source, c.Off[source], want)
+			}
+		}
+	}
+}
+
+func TestConfigFromEnvNamesTheInstancesOfOffSources(t *testing.T) {
+	env := testEnv()
+	delete(env, vikunja.EnvURL)
+	delete(env, kelos.EnvNamespace)
+	delete(env, github.EnvAPIURL)
+	delete(env, github.EnvToken)
+	got, err := ConfigFromEnv(func(k string) string { return env[k] })
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := got.Collector
+	if c.VikunjaInstance != testVikunjaHost || c.Kelos.Cluster != testCluster || c.GitHubInstance != "github.com" {
+		t.Errorf("instances = %q, %q, %q; want them named from the settings left", c.VikunjaInstance, c.Kelos.Cluster,
+			c.GitHubInstance)
+	}
+	if len(c.Off) != 3 {
+		t.Errorf("Off = %q, want every source off", c.Off)
+	}
+}
+
+func TestConfigFromEnvRejectsUnnamedInstances(t *testing.T) {
+	_, err := ConfigFromEnv(func(k string) string {
+		return map[string]string{github.EnvAPIURL: "ftp://ghe.example.com"}[k]
+	})
+	for _, want := range []string{vikunja.EnvURL, kelos.EnvVikunjaInstance, kelos.EnvCluster, github.EnvAPIURL} {
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("ConfigFromEnv() error = %v, want it to name %s", err, want)
 		}
 	}
 }
 
-func TestConfigFromEnvRejectsAnotherVikunja(t *testing.T) {
+func TestConfigFromEnvTurnsKelosOffForAnotherVikunja(t *testing.T) {
 	env := testEnv()
 	env[kelos.EnvVikunjaInstance] = "vikunja.example.org"
-	if _, err := ConfigFromEnv(func(k string) string { return env[k] }); err == nil {
-		t.Error("ConfigFromEnv() error = nil, want the mismatched Vikunja hosts reported")
+	got, err := ConfigFromEnv(func(k string) string { return env[k] })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if off := got.Collector.Off; !strings.Contains(off[model.SourceKelos], kelos.EnvVikunjaInstance) || len(off) != 1 {
+		t.Errorf("Off = %q, want Kelos off for the mismatched Vikunja hosts", off)
 	}
 }
 
@@ -173,8 +241,24 @@ func TestOpen(t *testing.T) {
 	}
 }
 
-func TestNewRejectsMissingSource(t *testing.T) {
-	if _, err := New(testConfig(), Sources{}); err == nil {
-		t.Error("New() error = nil, want every source required")
+func TestOpenClientsTurnsKelosOffWithoutACluster(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	t.Setenv("KUBERNETES_SERVICE_PORT", "")
+	t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "missing"))
+	t.Setenv("HOME", t.TempDir())
+	env := testEnv()
+	cfg, err := ConfigFromEnv(func(k string) string { return env[k] })
+	if err != nil {
+		t.Fatal(err)
+	}
+	clients := cfg.OpenClients()
+	if clients.Kelos != nil || clients.Vikunja == nil || clients.GitHub == nil {
+		t.Errorf("clients = %+v, want every one but Kelos's", clients)
+	}
+	if cfg.Collector.Off[model.SourceKelos] == "" || len(cfg.Collector.Off) != 1 {
+		t.Errorf("Off = %q, want Kelos off and why", cfg.Collector.Off)
+	}
+	if _, err := New(cfg.Collector, clients.Sources()); err != nil {
+		t.Errorf("New() over the clients = %v", err)
 	}
 }

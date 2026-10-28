@@ -19,10 +19,11 @@ const notCollecting = "this process does not collect (another holds the collecto
 // newIngest returns the handler of the webhook ingest paths over st,
 // asking sched, which c's loop reads, to read the roots deliveries name,
 // and counting them in reg. It serves only while c collects. Without a
-// webhook secret, a store or a collection loop, it returns a handler that
-// answers 503 to every request and records nothing, and says why.
-func newIngest(getenv func(string) string, st *store.Store, sched ingest.Scheduler, c *collection,
-	reg prometheus.Registerer) (http.Handler, error) {
+// webhook secret, a store, a collection loop or the sources'
+// configuration, it returns a handler that answers 503 to every request
+// and records nothing, and says why.
+func newIngest(getenv func(string) string, st *store.Store, sched ingest.Scheduler, c collection,
+	reg prometheus.Registerer) http.Handler {
 	secrets := ingest.SecretsFromEnv(getenv)
 	var off string
 	switch {
@@ -30,17 +31,17 @@ func newIngest(getenv func(string) string, st *store.Store, sched ingest.Schedul
 		off = "no webhook secret is configured ($" + ingest.EnvGitHubSecret + ", $" + ingest.EnvVikunjaSecret + ")"
 	case st == nil:
 		off = "no database is configured ($" + store.EnvDatabaseURL + ")"
-	case c == nil:
+	case c.loop == nil:
 		off = "no collection loop reads the roots deliveries name"
 	default:
 		h, err := buildIngest(getenv, secrets, st, sched, reg)
-		if err != nil {
-			return nil, err
+		if err == nil {
+			return whileCollecting(c.collecting, h)
 		}
-		return whileCollecting(c.collecting, h), nil
+		off = err.Error()
 	}
 	slog.Warn("webhook ingestion off: every delivery is refused", "reason", off)
-	return ingestUnavailable(off), nil
+	return ingestUnavailable(off)
 }
 
 // whileCollecting serves h while collecting reports true, and otherwise

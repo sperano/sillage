@@ -112,9 +112,30 @@ const sourceFreshness: Decoder<SourceFreshness> = refine(
 	}
 );
 
-/** The sources' freshness (Go's api.FreshnessResponse): one record per source instance. */
-export const freshnessResponse: Decoder<{ sources: SourceFreshness[] }> = object({
-	sources: unique(array(sourceFreshness), (f) => coverageKey(f.source, f.instance))
+/**
+ * A source sillage does not read, and why (Go's api.OffSource): its
+ * configuration is incomplete, or the collector is off as a whole.
+ */
+export interface OffSource {
+	source: Source;
+	/** The source instance; absent when the configuration does not name it. */
+	instance?: string;
+	reason: string;
+}
+
+/** The sources' freshness, and those not read (Go's api.FreshnessResponse). */
+export interface Freshness {
+	/** One record per source instance a stored root's coverage names. */
+	sources: SourceFreshness[];
+	/** The sources off, one record per source instance. */
+	off: OffSource[];
+}
+
+const offSource: Decoder<OffSource> = object({ source, reason: text }, { instance: text });
+
+export const freshnessResponse: Decoder<Freshness> = object({
+	sources: unique(array(sourceFreshness), (f) => coverageKey(f.source, f.instance)),
+	off: unique(array(offSource), (o) => coverageKey(o.source, o.instance ?? ''))
 });
 
 /**

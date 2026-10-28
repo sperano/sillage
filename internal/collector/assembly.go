@@ -74,17 +74,7 @@ func (a *assembly) source(s model.Source) *sourceState {
 }
 
 // instance names the configured instance of a source.
-func (a *assembly) instance(s model.Source) string {
-	switch s {
-	case model.SourceVikunja:
-		return a.cfg.VikunjaInstance
-	case model.SourceKelos:
-		return a.cfg.Kelos.Cluster
-	case model.SourceGitHub:
-		return a.cfg.GitHubInstance
-	}
-	panic("collector: no instance configured for source " + string(s))
-}
+func (a *assembly) instance(s model.Source) string { return a.cfg.Instance(s) }
 
 // read records a successful read of s that started at at. With several
 // reads, the earliest start is how far all are known to reach.

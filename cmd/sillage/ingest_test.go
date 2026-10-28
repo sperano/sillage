@@ -91,21 +91,21 @@ func TestNewIngestUnavailable(t *testing.T) {
 		name string
 		env  map[string]string
 		st   *store.Store
-		c    *collection
+		c    collection
 		want string
 	}{
-		{"no secret", map[string]string{}, &store.Store{}, &collection{}, ingest.EnvGitHubSecret},
-		{"no store", ingestEnv(), nil, &collection{}, store.EnvDatabaseURL},
-		// The store is never used: newIngest stops at the missing loop.
-		{"no collection loop", ingestEnv(), &store.Store{}, nil, "no collection loop"},
+		{"no secret", map[string]string{}, &store.Store{}, collection{}, ingest.EnvGitHubSecret},
+		{"no store", ingestEnv(), nil, collection{}, store.EnvDatabaseURL},
+		// The store is never used: newIngest stops at the missing loop, or
+		// at the sources' configuration.
+		{"no collection loop", ingestEnv(), &store.Store{}, collection{}, "no collection loop"},
+		{"no source configured", map[string]string{ingest.EnvVikunjaSecret: testVikunjaSecret}, &store.Store{},
+			collection{loop: new(reconcile.Loop)}, vikunja.EnvURL},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h, err := newIngest(func(k string) string { return tt.env[k] }, tt.st, &recordingScheduler{}, tt.c,
+			h := newIngest(func(k string) string { return tt.env[k] }, tt.st, &recordingScheduler{}, tt.c,
 				prometheus.NewRegistry())
-			if err != nil {
-				t.Fatal(err)
-			}
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, ingest.PathVikunja, strings.NewReader("{}")))
 			if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), tt.want) {
@@ -197,12 +197,9 @@ func TestSignedDeliveryEndsInARead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := &collection{loop: loop, lock: noLock{}}
+	c := collection{loop: loop, lock: noLock{}}
 	env := ingestEnv()
-	h, err := newIngest(func(k string) string { return env[k] }, st, queue, c, reg)
-	if err != nil {
-		t.Fatal(err)
-	}
+	h := newIngest(func(k string) string { return env[k] }, st, queue, c, reg)
 	id := story.Root.Task.ID
 	if rec := serveRecorded(h, signedDelivery(id)); rec.Code != http.StatusServiceUnavailable {
 		t.Errorf("before the loop collects: status = %d (%s), want 503", rec.Code, rec.Body)
