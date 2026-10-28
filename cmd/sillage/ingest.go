@@ -11,12 +11,18 @@ import (
 	"github.com/sperano/sillage/internal/store"
 )
 
+// notCollecting is why the ingest paths refuse a delivery while the
+// collection loop of this process does not collect.
+const notCollecting = "this process does not collect (another holds the collector lock, or the store's " +
+	"state is loading): its periodic reads catch up"
+
 // newIngest returns the handler of the webhook ingest paths over st,
-// asking sched to read the roots deliveries name and counting them in reg.
-// Without a webhook secret, a store, a scheduler or the sources'
+// asking sched, which c's loop reads, to read the roots deliveries name,
+// and counting them in reg. It serves only while c collects. Without a
+// webhook secret, a store, a collection loop or the sources'
 // configuration, it returns a handler that answers 503 to every request
 // and records nothing, and says why.
-func newIngest(getenv func(string) string, st *store.Store, sched ingest.Scheduler,
+func newIngest(getenv func(string) string, st *store.Store, sched ingest.Scheduler, c collection,
 	reg prometheus.Registerer) http.Handler {
 	secrets := ingest.SecretsFromEnv(getenv)
 	var off string
@@ -25,17 +31,33 @@ func newIngest(getenv func(string) string, st *store.Store, sched ingest.Schedul
 		off = "no webhook secret is configured ($" + ingest.EnvGitHubSecret + ", $" + ingest.EnvVikunjaSecret + ")"
 	case st == nil:
 		off = "no database is configured ($" + store.EnvDatabaseURL + ")"
-	case sched == nil:
-		off = "the collection loop does not read the roots deliveries name yet"
+	case c.loop == nil:
+		off = "no collection loop reads the roots deliveries name"
 	default:
 		h, err := buildIngest(getenv, secrets, st, sched, reg)
 		if err == nil {
-			return h
+			return whileCollecting(c.collecting, h)
 		}
 		off = err.Error()
 	}
 	slog.Warn("webhook ingestion off: every delivery is refused", "reason", off)
 	return ingestUnavailable(off)
+}
+
+// whileCollecting serves h while collecting reports true, and otherwise
+// answers 503 and records nothing: only the process that collects takes
+// deliveries, so that no read they ask for waits in the queue of a
+// process that reads none. Vikunja retries a delivery refused so; GitHub
+// does not, and the periodic reads find what it named.
+func whileCollecting(collecting func() bool, h http.Handler) http.Handler {
+	off := ingestUnavailable(notCollecting)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !collecting() {
+			off.ServeHTTP(w, r)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 // buildIngest returns the ingest handler over st, for the sources the

@@ -41,13 +41,14 @@ type collection struct {
 	off []api.OffSource
 }
 
-// newCollection reads the collection loop's configuration into st. A
-// source whose configuration is incomplete is off, and logged once; a
-// configuration that names no source instance, or no loop setting, turns
-// the collector off as a whole, logged too. Without a store it reads
-// nothing. It fails only when the lock cannot be made on st's database.
-func newCollection(getenv func(string) string, st *store.Store, m *reconcile.Metrics, log *slog.Logger) (
-	collection, error) {
+// newCollection reads the collection loop's configuration into st, a
+// loop which reads the roots deliveries name too. A source whose
+// configuration is incomplete is off, and logged once; a configuration
+// that names no source instance, or no loop setting, turns the collector
+// off as a whole, logged too. Without a store it reads nothing. It fails
+// only when the lock cannot be made on st's database.
+func newCollection(getenv func(string) string, st *store.Store, deliveries reconcile.Deliveries,
+	m *reconcile.Metrics, log *slog.Logger) (collection, error) {
 	if st == nil {
 		log.Info("collector off: no store", "env", store.EnvDatabaseURL)
 		return collection{}, nil
@@ -74,7 +75,7 @@ func newCollection(getenv func(string) string, st *store.Store, m *reconcile.Met
 		log.Warn("source off: its configuration is incomplete, so it is not read", "source", o.Source,
 			"instance", o.Instance, "reason", o.Reason)
 	}
-	loop, err := reconcile.New(cfg, env.Collector, reconcile.SourcesOf(clients), loopStore{st}, m, log)
+	loop, err := reconcile.New(cfg, env.Collector, reconcile.SourcesOf(clients), loopStore{st}, deliveries, m, log)
 	if err != nil {
 		return collectorOff(log, err), nil
 	}
@@ -115,3 +116,7 @@ func (c collection) start(ctx context.Context) func() {
 	}()
 	return func() { <-done }
 }
+
+// collecting reports whether the loop collects: it holds the lock and
+// has loaded the store's state. With the collector off, it never does.
+func (c collection) collecting() bool { return c.loop != nil && c.loop.Collecting() }

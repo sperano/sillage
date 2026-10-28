@@ -73,7 +73,7 @@ func TestNewCollection(t *testing.T) {
 			if tt.env != nil {
 				st = new(store.Store)
 			}
-			c, err := newCollection(func(k string) string { return tt.env[k] }, st, m,
+			c, err := newCollection(func(k string) string { return tt.env[k] }, st, nil, m,
 				slog.New(slog.NewTextHandler(&logs, nil)))
 			if err != nil {
 				t.Fatalf("newCollection() error = %v, want the collector or its sources off", err)
@@ -100,7 +100,7 @@ func TestNewCollection(t *testing.T) {
 
 func TestNewCollectionNeedsTheDatabaseURL(t *testing.T) {
 	_, m, _ := newMetrics()
-	if _, err := newCollection(emptyEnv, new(store.Store), m, slog.New(slog.DiscardHandler)); err == nil {
+	if _, err := newCollection(emptyEnv, new(store.Store), nil, m, slog.New(slog.DiscardHandler)); err == nil {
 		t.Error("newCollection() without the database URL succeeded, want the lock refused")
 	}
 }

@@ -11,8 +11,10 @@ import (
 )
 
 // allTasksPath lists the tasks of every project the token can read,
-// filtered with Vikunja's filter syntax.
-const allTasksPath = apiPrefix + "/tasks/all"
+// filtered with Vikunja's filter syntax. Vikunja 2 moved it from
+// /tasks/all, which it now routes to the read of a task whose id is
+// "all", answering 400 (code 2004, invalid model).
+const allTasksPath = apiPrefix + "/tasks"
 
 // TaskChange is a task as a listing names it: its id, and when it last
 // changed.

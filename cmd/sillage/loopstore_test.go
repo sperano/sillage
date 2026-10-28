@@ -222,7 +222,8 @@ func runOneCycle(t *testing.T, st *store.Store) {
 func runCycle(t *testing.T, st *store.Store, cfg reconcile.Config, ccfg collector.Config, src reconcile.Sources) {
 	t.Helper()
 	reg := prometheus.NewRegistry()
-	loop, err := reconcile.New(cfg, ccfg, src, loopStore{st}, reconcile.NewMetrics(reg), slog.New(slog.DiscardHandler))
+	loop, err := reconcile.New(cfg, ccfg, src, loopStore{st}, nil, reconcile.NewMetrics(reg),
+		slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}

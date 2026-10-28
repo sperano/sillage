@@ -72,7 +72,9 @@ type fakeVikunja struct {
 	mu    sync.Mutex
 	err   error
 	reads int
-	also  []int64
+	// ids are the tasks read, in order.
+	ids  []int64
+	also []int64
 	// during runs inside each read, before it answers.
 	during func(ctx context.Context)
 }
@@ -80,6 +82,7 @@ type fakeVikunja struct {
 func (f *fakeVikunja) Fetch(ctx context.Context, id int64) (vikunja.Snapshot, error) {
 	f.mu.Lock()
 	f.reads++
+	f.ids = append(f.ids, id)
 	err, during, known := f.err, f.during, id == testTaskID || slices.Contains(f.also, id)
 	f.mu.Unlock()
 	if !known {
@@ -109,6 +112,13 @@ func (f *fakeVikunja) count() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.reads
+}
+
+// read returns the tasks read, in order.
+func (f *fakeVikunja) read() []int64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.ids)
 }
 
 // taskNameOf is the Kelos Task name of task id's run; testTaskName for
@@ -187,17 +197,34 @@ func (noGitHub) FetchBranch(context.Context, github.Repository, github.Branch) (
 }
 
 // fakeProjects lists changes, by project, and records each since asked.
+// While err is set, every listing fails with it.
 type fakeProjects struct {
 	mu      sync.Mutex
 	changes map[int64][]vikunja.TaskChange
 	since   []time.Time
+	err     error
 }
 
 func (f *fakeProjects) ChangedTasks(_ context.Context, project int64, since time.Time) ([]vikunja.TaskChange, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.since = append(f.since, since)
+	if f.err != nil {
+		return nil, f.err
+	}
 	return slices.Clone(f.changes[project]), nil
+}
+
+func (f *fakeProjects) fail(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.err = err
+}
+
+func (f *fakeProjects) asked() []time.Time {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.since)
 }
 
 func (f *fakeProjects) set(project int64, changes ...vikunja.TaskChange) {
@@ -384,14 +411,16 @@ type harness struct {
 	vikunja  *fakeVikunja
 	kelos    *fakeKelos
 	projects *fakeProjects
-	reg      *prometheus.Registry
-	logs     *bytes.Buffer
+	// deliveries are the roots the tests' deliveries name.
+	deliveries *fakeDeliveries
+	reg        *prometheus.Registry
+	logs       *bytes.Buffer
 }
 
 func newHarness(t *testing.T, cfg Config) *harness {
 	t.Helper()
 	h := &harness{
-		store: newFakeStore(), vikunja: &fakeVikunja{}, projects: &fakeProjects{},
+		store: newFakeStore(), vikunja: &fakeVikunja{}, projects: &fakeProjects{}, deliveries: newFakeDeliveries(),
 		kelos: &fakeKelos{snap: kelos.Snapshot{Tasks: []kelos.Task{testKelosTask(kelos.PhaseRunning)}}},
 		reg:   prometheus.NewRegistry(), logs: &bytes.Buffer{},
 	}
@@ -414,12 +443,27 @@ func (h *harness) sources() Sources {
 	}
 }
 
-// loopOf returns another loop over h's store, reading src as ccfg says.
+// withDeliveryDefaults returns cfg, given a delivery delay no test waits
+// for and the default cap where it sets none.
+func withDeliveryDefaults(cfg Config) Config {
+	if cfg.DeliveryDelay == 0 {
+		cfg.DeliveryDelay = time.Millisecond
+	}
+	if cfg.DeliveryRootsPerCycle == 0 {
+		cfg.DeliveryRootsPerCycle = DefaultDeliveryRootsPerCycle
+	}
+	return cfg
+}
+
+// loopOf returns another loop over h's store and deliveries, reading src
+// as ccfg says. A cfg that does not set the deliveries' settings gets
+// withDeliveryDefaults'.
 func (h *harness) loopOf(t *testing.T, cfg Config, ccfg collector.Config, src Sources) *Loop {
 	t.Helper()
 	reg := prometheus.NewRegistry()
 	h.reg = reg
-	l, err := New(cfg, ccfg, src, h.store, NewMetrics(reg), slog.New(slog.NewTextHandler(h.logs, nil)))
+	l, err := New(withDeliveryDefaults(cfg), ccfg, src, h.store, h.deliveries, NewMetrics(reg),
+		slog.New(slog.NewTextHandler(h.logs, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}

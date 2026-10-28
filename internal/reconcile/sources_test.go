@@ -35,8 +35,8 @@ func TestTimedBoundsEachRead(t *testing.T) {
 }
 
 func TestSourcesOfUnsetClientsAreOff(t *testing.T) {
-	l, err := New(everyCycle, testCollectorConfig(), SourcesOf(collector.Clients{}), newFakeStore(),
-		NewMetrics(prometheus.NewRegistry()), slog.New(slog.DiscardHandler))
+	l, err := New(withDeliveryDefaults(everyCycle), testCollectorConfig(), SourcesOf(collector.Clients{}),
+		newFakeStore(), nil, NewMetrics(prometheus.NewRegistry()), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatalf("New() over unset clients = %v, want every source off", err)
 	}

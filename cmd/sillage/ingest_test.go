@@ -6,15 +6,22 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"log/slog"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/sperano/sillage/internal/collector"
+	"github.com/sperano/sillage/internal/collector/collectortest"
 	"github.com/sperano/sillage/internal/ingest"
 	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/reconcile"
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
@@ -36,6 +43,17 @@ func ingestEnv() map[string]string {
 		github.EnvToken:          "token",
 		ingest.EnvVikunjaSecret:  testVikunjaSecret,
 	}
+}
+
+// signedDelivery is a Vikunja delivery of a comment on task id, signed
+// with testVikunjaSecret.
+func signedDelivery(id int64) *http.Request {
+	body := []byte(`{"event_name":"task.comment.created","data":{"task":{"id":` + strconv.FormatInt(id, 10) + `}}}`)
+	mac := hmac.New(sha256.New, []byte(testVikunjaSecret))
+	mac.Write(body)
+	r := httptest.NewRequest(http.MethodPost, ingest.PathVikunja, bytes.NewReader(body))
+	r.Header.Set("X-Vikunja-Signature", hex.EncodeToString(mac.Sum(nil)))
+	return r
 }
 
 type recordingScheduler struct{ roots []model.Root }
@@ -70,23 +88,24 @@ func (*acceptingStore) RootsOfPullRequest(context.Context, model.PRKey) ([]store
 
 func TestNewIngestUnavailable(t *testing.T) {
 	tests := []struct {
-		name  string
-		env   map[string]string
-		st    *store.Store
-		sched ingest.Scheduler
-		want  string
+		name string
+		env  map[string]string
+		st   *store.Store
+		c    collection
+		want string
 	}{
-		{"no secret", map[string]string{}, &store.Store{}, &recordingScheduler{}, ingest.EnvGitHubSecret},
-		{"no store", ingestEnv(), nil, &recordingScheduler{}, store.EnvDatabaseURL},
-		// The store is never used: newIngest stops at the missing scheduler,
-		// or at the sources' configuration.
-		{"no scheduler", ingestEnv(), &store.Store{}, nil, "collection loop does not read"},
+		{"no secret", map[string]string{}, &store.Store{}, collection{}, ingest.EnvGitHubSecret},
+		{"no store", ingestEnv(), nil, collection{}, store.EnvDatabaseURL},
+		// The store is never used: newIngest stops at the missing loop, or
+		// at the sources' configuration.
+		{"no collection loop", ingestEnv(), &store.Store{}, collection{}, "no collection loop"},
 		{"no source configured", map[string]string{ingest.EnvVikunjaSecret: testVikunjaSecret}, &store.Store{},
-			&recordingScheduler{}, vikunja.EnvURL},
+			collection{loop: new(reconcile.Loop)}, vikunja.EnvURL},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := newIngest(func(k string) string { return tt.env[k] }, tt.st, tt.sched, prometheus.NewRegistry())
+			h := newIngest(func(k string) string { return tt.env[k] }, tt.st, &recordingScheduler{}, tt.c,
+				prometheus.NewRegistry())
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, ingest.PathVikunja, strings.NewReader("{}")))
 			if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), tt.want) {
@@ -104,13 +123,8 @@ func TestBuildIngestServesDeliveries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body := []byte(`{"event_name":"task.updated","data":{"task":{"id":42}}}`)
-	mac := hmac.New(sha256.New, []byte(testVikunjaSecret))
-	mac.Write(body)
-	r := httptest.NewRequest(http.MethodPost, ingest.PathVikunja, bytes.NewReader(body))
-	r.Header.Set("X-Vikunja-Signature", hex.EncodeToString(mac.Sum(nil)))
 	rec := httptest.NewRecorder()
-	newHandler(nil, http.NotFoundHandler(), h, http.NotFoundHandler()).ServeHTTP(rec, r)
+	newHandler(nil, http.NotFoundHandler(), h, http.NotFoundHandler()).ServeHTTP(rec, signedDelivery(42))
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("status = %d (%s), want 202", rec.Code, rec.Body)
 	}
@@ -141,4 +155,118 @@ func TestIngestPathsAreRouted(t *testing.T) {
 			t.Errorf("POST %s: status = %d, want the ingest handler's 503", path, rec.Code)
 		}
 	}
+}
+
+func TestWhileCollecting(t *testing.T) {
+	var collecting bool
+	h := whileCollecting(func() bool { return collecting }, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	for _, tt := range []struct {
+		collecting bool
+		want       int
+	}{{false, http.StatusServiceUnavailable}, {true, http.StatusAccepted}} {
+		collecting = tt.collecting
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, ingest.PathVikunja, nil))
+		if rec.Code != tt.want {
+			t.Errorf("collecting %v: status = %d (%s), want %d", tt.collecting, rec.Code, rec.Body, tt.want)
+		}
+	}
+}
+
+// TestSignedDeliveryEndsInARead serves the ingest paths and runs the
+// collection loop over PostgreSQL, the real clients answered from the
+// corpus story of a task no Kelos run names and no project listing
+// lists, the interval an hour: a signed Vikunja delivery naming the task
+// is refused while the loop does not collect, then accepted once it
+// does, and the next cycle, which the delivery starts, stores the root as
+// the collector assembles it.
+func TestSignedDeliveryEndsInARead(t *testing.T) {
+	st := newTestStore(t)
+	story := collectortest.Stories["reopened-task"]
+	cl := collectortest.New(t, corpusFixtures, story.Dirs, collectortest.Report{Elsewhere: t.Errorf, Broken: t.Errorf})
+	cfg := reconcile.DefaultConfig()
+	cfg.Interval, cfg.DeliveryDelay = time.Hour, time.Millisecond
+	reg := prometheus.NewRegistry()
+	queue := ingest.NewQueue(ingest.DefaultQueueCapacity)
+	loop, err := reconcile.New(cfg, corpusCollectorConfig(), reconcile.Sources{
+		Sources:  collector.Sources{Vikunja: cl.Vikunja, Kelos: cl.Kelos, GitHub: cl.GitHub},
+		Projects: corpusProjects{},
+	}, loopStore{st}, queue, reconcile.NewMetrics(reg), slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := collection{loop: loop, lock: noLock{}}
+	env := ingestEnv()
+	h := newIngest(func(k string) string { return env[k] }, st, queue, c, reg)
+	id := story.Root.Task.ID
+	if rec := serveRecorded(h, signedDelivery(id)); rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("before the loop collects: status = %d (%s), want 503", rec.Code, rec.Body)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	wait := c.start(ctx)
+	defer func() {
+		cancel()
+		wait()
+	}()
+	// The first cycle reads nothing: nothing but a delivery names the task.
+	pollUntil(t, "the first cycle", func() bool { return cycles(t, reg) > 0 })
+	if rec := serveRecorded(h, signedDelivery(id)); rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d (%s), want 202", rec.Code, rec.Body)
+	}
+	pollUntil(t, "the delivered task's story", func() bool {
+		_, err := st.Story(t.Context(), story.Root)
+		return err == nil
+	})
+	checkRootCollected(t, st, story)
+	if got := counterValue(t, reg, "sillage_webhook_deliveries_total",
+		map[string]string{"source": "vikunja", "outcome": "accepted"}); got != 1 {
+		t.Errorf("accepted deliveries = %v, want 1", got)
+	}
+	if got := counterValue(t, reg, "sillage_collector_delivery_reads_total", map[string]string{"kind": "caused"}); got != 1 {
+		t.Errorf("reads deliveries caused = %v, want 1", got)
+	}
+}
+
+func serveRecorded(h http.Handler, r *http.Request) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, r)
+	return rec
+}
+
+// pollUntil polls cond every cyclePoll until it holds, failing the test
+// after cycleTimeout.
+func pollUntil(t *testing.T, what string, cond func() bool) {
+	t.Helper()
+	for deadline := time.Now().Add(cycleTimeout); !cond(); time.Sleep(cyclePoll) {
+		if time.Now().After(deadline) {
+			t.Fatalf("no %s within %s", what, cycleTimeout)
+		}
+	}
+}
+
+// counterValue returns the value of reg's counter name with labels; 0
+// without one.
+func counterValue(t *testing.T, reg *prometheus.Registry, name string, labels map[string]string) float64 {
+	t.Helper()
+	families, err := reg.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range families {
+		if f.GetName() != name {
+			continue
+		}
+		for _, m := range f.GetMetric() {
+			got := make(map[string]string)
+			for _, l := range m.GetLabel() {
+				got[l.GetName()] = l.GetValue()
+			}
+			if maps.Equal(got, labels) {
+				return m.GetCounter().GetValue()
+			}
+		}
+	}
+	return 0
 }

@@ -1,6 +1,8 @@
 package reconcile
 
 import (
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,5 +81,65 @@ func TestTaskListedByTwoProjectsKeepsTheLatestUpdate(t *testing.T) {
 	h.loop.cycle(t.Context())
 	if got := h.loop.roots[testRoot().Ref()].Updated; got == nil || !got.Equal(later) {
 		t.Errorf("updated = %v, want the latest listing's %v", got, later)
+	}
+}
+
+// codeInvalidModel is Vikunja's error code for a request it cannot bind.
+const codeInvalidModel = 2004
+
+// errInvalidModel is Vikunja 2's answer to the listing path of Vikunja 1.
+var errInvalidModel = &vikunja.StatusError{
+	Path: "/api/v1/tasks/all", Code: http.StatusBadRequest, Status: "400 Bad Request",
+	APICode: codeInvalidModel, Message: "Invalid model provided: Bad Request",
+}
+
+func TestListingFailureLogsVikunjasError(t *testing.T) {
+	h := projectHarness(t)
+	h.projects.fail(errInvalidModel)
+	h.loop.cycle(t.Context())
+	for _, want := range []string{"source read failed", "project=3", "Invalid model provided: Bad Request (code 2004)"} {
+		if !strings.Contains(h.logs.String(), want) {
+			t.Errorf("logs lack %q:\n%s", want, h.logs)
+		}
+	}
+}
+
+// failingCycles is how many cycles a listing fails before it works again.
+const failingCycles = 3
+
+func TestFirstListingAfterFailuresIsSinceTheLastSuccess(t *testing.T) {
+	updated := time.Date(2026, 3, 6, 9, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name string
+		// listed is whether a listing succeeded before the failures.
+		listed bool
+		want   time.Time
+	}{
+		{"after a success", true, updated.Add(-listingOverlap)},
+		{"never listed", false, time.Time{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := projectHarness(t)
+			h.projects.set(testProject, vikunja.TaskChange{ID: testTaskID, Updated: updated})
+			if tt.listed {
+				h.loop.cycle(t.Context())
+			}
+			h.projects.fail(errInvalidModel)
+			for range failingCycles {
+				h.loop.cycle(t.Context())
+			}
+			// A restart while the listing fails keeps the committed mark.
+			h.loop = h.newLoop(t, h.loop.cfg)
+			h.projects.fail(nil)
+			h.loop.cycle(t.Context())
+			asked := h.projects.asked()
+			if got := asked[len(asked)-1]; !got.Equal(tt.want) {
+				t.Errorf("first listing after the failures since %v, want %v", got, tt.want)
+			}
+			if got := h.loop.marks[testProject]; !got.Equal(updated) {
+				t.Errorf("mark = %v, want %v", got, updated)
+			}
+		})
 	}
 }

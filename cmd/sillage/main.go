@@ -4,13 +4,13 @@
 // ingest paths (internal/ingest, under /ingest/, authenticated by each
 // delivery's signature) and the embedded frontend. With
 // SILLAGE_DATABASE_URL set, it migrates and prunes the store at startup,
-// then runs the collector, which keeps the store current; without,
-// nothing is collected and the API answers 503 for what it would read. A
-// source whose configuration is incomplete is off: logged at startup, never
-// read, and named by the stories' coverage and the API's freshness. Only a
-// bad listen address or database fails the start.
-// The collector does not take the reads deliveries ask for yet; until it
-// does, the webhook paths answer 503 to every delivery and record nothing.
+// then runs the collector, which keeps the store current and reads the
+// roots deliveries name; without, nothing is collected and the API
+// answers 503 for what it would read. A source whose configuration is
+// incomplete is off: logged at startup, never read, and named by the
+// stories' coverage and the API's freshness. Only a bad listen address or
+// database fails the start. While this process does not collect, the
+// webhook paths answer 503 to every delivery and record nothing.
 // The phase markers that Kelos runs' pods report (internal/ingest/marker,
 // on /ingest/marker, authenticated by a TokenReview of each pod's token)
 // are recorded with a store, and refused without.
@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/sperano/sillage/internal/api"
+	"github.com/sperano/sillage/internal/ingest"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/web"
 )
@@ -132,17 +133,16 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 	// What is configured is read before the collector starts, so that a
 	// failure leaves nothing running. A source, an endpoint or the collector
 	// whose configuration is incomplete is off, and says so: only the
-	// listen address and the database fail the start.
-	col, err := newCollection(getenv, st, m, slog.Default())
+	// listen address and the database fail the start. The loop reads the
+	// roots deliveries name from queue.
+	queue := ingest.NewQueue(ingest.DefaultQueueCapacity)
+	col, err := newCollection(getenv, st, queue, m, slog.Default())
 	if err != nil {
 		_ = ln.Close()
 		return err
 	}
 	apiHandler := newAPI(getenv, st, col.off)
-	// The collection loop does not take the reads deliveries ask for (an
-	// ingest.Queue) yet: until it does, the ingest paths refuse every
-	// delivery.
-	ingestHandler := newIngest(getenv, st, nil, nil)
+	ingestHandler := newIngest(getenv, st, queue, col, reg)
 	markerHandler := newMarkerIngest(getenv, st, reg, kelos.NewDynamicClient)
 	collectCtx, stopCollecting := context.WithCancel(ctx)
 	defer stopCollecting()
