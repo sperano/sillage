@@ -187,7 +187,7 @@ func TestRestartDropsRetiredSources(t *testing.T) {
 		t.Errorf("logs = %q, want the dropped retired source said", h.logs.String())
 	}
 	l.cycle(t.Context())
-	// The fake store accepts any coverage; Validate is what the store refuses.
+	// The commit after the restart itself, not the story merged from every commit.
 	for _, c := range h.store.lastCommit(t).Records.Coverage {
 		if err := c.Validate(); err != nil {
 			t.Errorf("the next read committed %v: the store refuses it", err)
