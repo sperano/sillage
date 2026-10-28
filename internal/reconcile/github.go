@@ -100,15 +100,30 @@ func (l *Loop) scheduleBackstop(st *rootState) {
 	st.backstop = st.GitHubRead.Add(l.jitter(wait))
 }
 
-// scheduleLoaded schedules the backstop of a root state the store held:
-// one overdue at now, the restart's downtime or a state from before the
-// backstop, is spread over the backstop interval from now, so that a
+// scheduleLoaded schedules the backstop of a root state the store held.
+// One that can close the restart's GitHub gap with a check, which costs
+// no rate limit when nothing changed, is checked within a refresh
+// interval from now, so the gap is no longer than before the backstop.
+// Another overdue at now, the restart's downtime or a state from before
+// the backstop, is spread over the backstop interval from now, so that a
 // restart does not read every root's GitHub side in its first cycle.
 func (l *Loop) scheduleLoaded(st *rootState, now time.Time) {
 	l.scheduleBackstop(st)
-	if !st.backstop.After(now) {
+	switch {
+	case l.checkable(st):
+		if soon := now.Add(l.spread(l.cfg.RefreshInterval)); !st.backstop.After(now) || st.backstop.After(soon) {
+			st.backstop = soon
+		}
+	case !st.backstop.After(now):
 		st.backstop = now.Add(l.spread(l.cfg.BackstopInterval))
 	}
+}
+
+// checkable reports whether st's root has a gap open on its GitHub
+// coverage that the backstop can close by asking whether its lists
+// changed: the source answers that, and the last read left validators.
+func (l *Loop) checkable(st *rootState) bool {
+	return l.conditional != nil && len(st.ETags) > 0 && st.githubGapOpen(l.ccfg.GitHubInstance)
 }
 
 // backstopAllowed reports whether the rate limit's window leaves more

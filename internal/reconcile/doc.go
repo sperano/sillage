@@ -20,7 +20,9 @@
 // pull requests closed or merged, runs finished) gets no backstop unless
 // a gap is open on its GitHub coverage, and no backstop read is made
 // while the rate limit's window has less than githubReserve left. A
-// restart spreads the backstop reads it finds overdue over the interval.
+// restart checks the roots whose last read left ETags within a
+// RefreshInterval, closing their restart gap on GitHub, and spreads the
+// other overdue backstop reads over the BackstopInterval.
 //
 // The roots webhook deliveries name (Deliveries) are
 // read too, first, at most DeliveryRootsPerCycle a cycle, the others left

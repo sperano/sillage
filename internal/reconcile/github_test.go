@@ -372,16 +372,47 @@ func TestReserveHoldsTheBackstopBack(t *testing.T) {
 	}
 }
 
+// A restart checks a root whose last read left validators within a
+// refresh interval, whether or not its backstop is overdue, and the
+// check closes the restart's gap on its GitHub coverage.
+func TestRestartChecksRootsWithValidatorsSoon(t *testing.T) {
+	h, gh := githubHarness(t, rarely)
+	h.loop.cycle(t.Context())
+	h.spread = func(d time.Duration) time.Duration { return d / 2 }
+	before := time.Now()
+	h.loop = h.withGitHub(t, rarely, gh)
+	st := h.loop.roots[testRoot().Ref()]
+	if half := rarely.RefreshInterval / 2; st.backstop.Before(before.Add(half)) || st.backstop.After(time.Now().Add(half)) {
+		t.Errorf("backstop after the restart = %v, want spread to %v from the restart", st.backstop, half)
+	}
+	h.loop.cycle(t.Context())
+	if _, checks := gh.counts(); checks != 0 {
+		t.Errorf("GitHub asked %d times in the restart's first cycle, want not yet", checks)
+	}
+	makeBackstopDue(h)
+	h.loop.cycle(t.Context())
+	if fetches, checks := gh.counts(); fetches != 1 || checks != 1 {
+		t.Errorf("GitHub read %d times and asked %d, want asked once", fetches, checks)
+	}
+	if h.loop.roots[testRoot().Ref()].githubGapOpen(h.ccfg.GitHubInstance) {
+		t.Error("the restart's gap on GitHub is still open after the check")
+	}
+}
+
 // A restart spreads the backstop reads it finds overdue over the backstop
-// interval, and keeps the others' schedule; its first cycle reads the
-// task and Kelos, not GitHub.
+// interval, and keeps the others' schedule, for roots whose last read left
+// no validators; its first cycle reads the task and Kelos, not GitHub.
 func TestRestartSpreadsTheBackstop(t *testing.T) {
 	h, gh := githubHarness(t, rarely)
+	gh.validators = nil
 	h.loop.cycle(t.Context())
 	key := rootKey(testRoot())
 	var stored rootState
 	if err := json.Unmarshal(h.store.cps[key], &stored); err != nil {
 		t.Fatal(err)
+	}
+	if len(stored.ETags) != 0 {
+		t.Fatalf("stored validators %v, want none", stored.ETags)
 	}
 	recent := *stored.GitHubRead
 	h.loop = h.withGitHub(t, rarely, gh)
