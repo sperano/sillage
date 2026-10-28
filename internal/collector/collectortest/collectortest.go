@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -214,13 +215,21 @@ func (f *fake) refuse(w http.ResponseWriter, r *http.Request, report func(string
 }
 
 // serve answers with dir's file name, or with empty when the story has
-// none and empty is set.
+// none and empty is set. A refused response, name with its status before
+// the extension (check-runs-<sha>.403.json), answers that status with its
+// body instead.
 func (f *fake) serve(w http.ResponseWriter, r *http.Request, dir, name, empty string) {
 	if dir == "" {
 		f.refuse(w, r, f.report.Elsewhere, "the story reads nothing from %s", r.Host)
 		return
 	}
+	status := http.StatusOK
 	body, err := os.ReadFile(filepath.Join(f.fixtures, dir, name))
+	if os.IsNotExist(err) {
+		if code, refused, ok := f.refused(dir, name); ok {
+			status, body, err = code, refused, nil
+		}
+	}
 	switch {
 	case err == nil:
 	case os.IsNotExist(err) && empty != "":
@@ -230,7 +239,34 @@ func (f *fake) serve(w http.ResponseWriter, r *http.Request, dir, name, empty st
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
 	_, _ = w.Write(body)
+}
+
+// refusedPattern matches a refused response's status and extension, after
+// the name it stands for without its extension.
+const refusedPattern = ".[1-5][0-9][0-9].json"
+
+// refused returns the status and body of dir's refused response for name,
+// if it has one.
+func (f *fake) refused(dir, name string) (int, []byte, bool) {
+	base := filepath.Join(f.fixtures, dir, strings.TrimSuffix(name, ".json"))
+	matches, err := filepath.Glob(base + refusedPattern)
+	if err != nil || len(matches) == 0 {
+		return 0, nil, false
+	}
+	if len(matches) > 1 {
+		f.t.Fatalf("%s/%s: several refused responses %v", dir, name, matches)
+	}
+	code, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(matches[0], base+"."), ".json"))
+	if err != nil {
+		f.t.Fatalf("%s: %v", matches[0], err)
+	}
+	body, err := os.ReadFile(matches[0])
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return code, body, true
 }
 
 // taskID is the id of the task the story's Vikunja responses hold.

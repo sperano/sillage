@@ -9,9 +9,9 @@
       {
         "source": "github",
         "instance": "github.example.com",
-        "roots": 4,
+        "roots": 5,
         "neverRead": 0,
-        "newestRead": "2026-03-13T10:00:00Z",
+        "newestRead": "2026-03-15T10:00:00Z",
         "oldestRead": "2026-03-02T15:00:00Z"
       },
       {

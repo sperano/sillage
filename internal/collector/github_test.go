@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 
@@ -53,6 +54,36 @@ func TestUncheckedSHAsNoted(t *testing.T) {
 	cov := coverageOf(t, s, model.SourceGitHub)
 	if cov.LastSuccessfulRead == nil || !hasNote(cov, "pull/7: the checks of its 2 oldest commits were not read") {
 		t.Errorf("github coverage = %+v, want a read and a note naming the unchecked commits", cov)
+	}
+}
+
+// Refused sub-reads keep the pull request and add one note per resource
+// and status, saying what is unknown.
+func TestRefusedSubReadsNoted(t *testing.T) {
+	pr := pullRequest(7, taskBranch(104))
+	pr.SHAs = []string{"a", "b", "c"}
+	pr.Refused = []github.Refusal{
+		{Resource: github.ResourceCheckRuns, SHA: "a", Code: http.StatusForbidden},
+		{Resource: github.ResourceReviewComments, Code: http.StatusNotFound},
+		{Resource: github.ResourceCheckRuns, SHA: "b", Code: http.StatusForbidden},
+		{Resource: github.ResourceCheckRuns, SHA: "c", Code: http.StatusNotFound},
+	}
+	s := collectPRs(t, kelos.Snapshot{}, pr)
+	if len(s.PullRequests) != 1 {
+		t.Fatalf("pull requests = %v, want #7 kept", s.PullRequests)
+	}
+	cov := coverageOf(t, s, model.SourceGitHub)
+	if cov.LastSuccessfulRead == nil {
+		t.Errorf("github coverage = %+v, want a read", cov)
+	}
+	for _, want := range []string{
+		"pull/7: check runs: forbidden (GitHub answered 403 for 2 of its 3 commits), so those commits' checks are unknown",
+		"pull/7: check runs: not found (GitHub answered 404 for 1 of its 3 commits)",
+		"pull/7: review comments: not found (GitHub answered 404), so its inline review comments are unknown",
+	} {
+		if !hasNote(cov, want) {
+			t.Errorf("github notes = %q, want one with %q", cov.Notes, want)
+		}
 	}
 }
 

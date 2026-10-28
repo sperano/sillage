@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"net/http"
 	"slices"
 	"strconv"
 	"strings"
@@ -62,7 +63,7 @@ func (a *assembly) readGitHub(ctx context.Context, branch string, extra []github
 
 // branchRecords reads and normalizes branch's pull requests in repo, each
 // joined to the root by its head branch, and notes the commits whose
-// checks were not read.
+// checks were not read and the sub-reads GitHub refused.
 func (a *assembly) branchRecords(ctx context.Context, repo github.Repository, branch string) (
 	model.Records, []string, error) {
 	snaps, err := a.c.src.GitHub.FetchBranch(ctx, repo, github.Branch{Repository: repo, Name: branch})
@@ -90,9 +91,42 @@ func (a *assembly) branchRecords(ctx context.Context, repo github.Repository, br
 				notes = append(notes, fmt.Sprintf("pull request %s: the checks of its %d oldest commits "+
 					"were not read, so their results are unknown", p.Key, n))
 			}
+			notes = append(notes, refusalNotes(p.Key, s)...)
 		}
 	}
 	return out, notes, nil
+}
+
+// refusalNotes says, for each resource and status GitHub refused in s,
+// what of pull request key is unknown: "check runs: forbidden" for a token
+// without the Checks permission.
+func refusalNotes(key model.PRKey, s github.Snapshot) []string {
+	type refused struct {
+		resource string
+		code     int
+	}
+	var order []refused
+	commits := make(map[refused]int)
+	for _, r := range s.Refused {
+		k := refused{r.Resource, r.Code}
+		if _, ok := commits[k]; !ok {
+			order = append(order, k)
+		}
+		if r.SHA != "" {
+			commits[k]++
+		}
+	}
+	notes := make([]string, 0, len(order))
+	for _, k := range order {
+		answered, unknown := fmt.Sprintf("GitHub answered %d", k.code), "its inline review comments are unknown"
+		if k.resource == github.ResourceCheckRuns {
+			answered += fmt.Sprintf(" for %d of its %d commits", commits[k], len(s.SHAs))
+			unknown = "those commits' checks are unknown"
+		}
+		notes = append(notes, fmt.Sprintf("pull request %s: %s: %s (%s), so %s",
+			key, k.resource, strings.ToLower(http.StatusText(k.code)), answered, unknown))
+	}
+	return notes
 }
 
 // repositories returns the repositories to read, in order: those the
