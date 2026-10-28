@@ -70,10 +70,31 @@ func (f Failure) Error() string { return fmt.Sprintf("%s %s: %v", f.Source, f.In
 
 func (f Failure) Unwrap() error { return f.Err }
 
-// Result is a story and the reads that failed while assembling it.
+// Refusal is a part of a source read the source refused (403 Forbidden or
+// 404 Not Found) while the rest was read: the read still succeeded, and
+// the story's coverage notes what is unknown.
+type Refusal struct {
+	Source   model.Source
+	Instance string
+	// Resource is what was refused: github.ResourceCheckRuns or
+	// github.ResourceReviewComments.
+	Resource string
+	// Code is the HTTP status the source answered; Count how many of the
+	// read's requests it answered with it.
+	Code  int
+	Count int
+}
+
+func (r Refusal) String() string {
+	return fmt.Sprintf("%s %s: %s: %d on %d requests", r.Source, r.Instance, r.Resource, r.Code, r.Count)
+}
+
+// Result is a story, the reads that failed while assembling it, and the
+// parts of the others that were refused.
 type Result struct {
 	Story    model.Story
 	Failures []Failure
+	Refusals []Refusal
 }
 
 // Collect reads root's records from every source and assembles its story.
@@ -101,5 +122,5 @@ func (c *Collector) collect(ctx context.Context, root model.Root, kept Kept, rep
 	if err != nil {
 		return Result{}, fmt.Errorf("collector: the assembled records are invalid (a collector bug): %w", err)
 	}
-	return Result{Story: story, Failures: a.failures}, nil
+	return Result{Story: story, Failures: a.failures, Refusals: a.refusals}, nil
 }

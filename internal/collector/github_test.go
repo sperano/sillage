@@ -2,6 +2,7 @@ package collector
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -84,6 +85,32 @@ func TestRefusedSubReadsNoted(t *testing.T) {
 		if !hasNote(cov, want) {
 			t.Errorf("github notes = %q, want one with %q", cov.Notes, want)
 		}
+	}
+}
+
+// The read's refusals are counted by resource and status over every pull
+// request, for the loop to report.
+func TestRefusalsCounted(t *testing.T) {
+	branch := taskBranch(104)
+	first, second := pullRequest(7, branch), pullRequest(8, branch)
+	first.Refused = []github.Refusal{
+		{Resource: github.ResourceCheckRuns, SHA: "a", Code: http.StatusForbidden},
+		{Resource: github.ResourceReviewComments, Code: http.StatusNotFound},
+	}
+	second.Refused = []github.Refusal{{Resource: github.ResourceCheckRuns, SHA: "b", Code: http.StatusForbidden}}
+	src := emptySources()
+	src.Vikunja = fixedVikunja{announcedTask(104, "", nil)}
+	src.GitHub = fixedGitHub{[]github.Snapshot{first, second}}
+	res := collectWith(t, testConfig(), src, taskRoot(104), testRepo)
+	instance := coverageOf(t, res.Story, model.SourceGitHub).Instance
+	want := []Refusal{
+		{Source: model.SourceGitHub, Instance: instance, Resource: github.ResourceCheckRuns,
+			Code: http.StatusForbidden, Count: 2},
+		{Source: model.SourceGitHub, Instance: instance, Resource: github.ResourceReviewComments,
+			Code: http.StatusNotFound, Count: 1},
+	}
+	if !slices.Equal(res.Refusals, want) {
+		t.Errorf("refusals = %+v, want %+v", res.Refusals, want)
 	}
 }
 

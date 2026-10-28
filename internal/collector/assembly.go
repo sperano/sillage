@@ -22,6 +22,7 @@ type assembly struct {
 	links    links
 	sources  map[model.Source]*sourceState
 	failures []Failure
+	refusals []Refusal
 	// kelos is the namespace's runs; nil until read, and when the read
 	// failed.
 	kelos *kelosView
