@@ -190,10 +190,16 @@ func kelosTaskOf(id int64, phase kelos.Phase) kelos.Task {
 	return t
 }
 
-type noGitHub struct{}
+// fakeGitHub answers every branch with snaps.
+type fakeGitHub struct {
+	mu    sync.Mutex
+	snaps []github.Snapshot
+}
 
-func (noGitHub) FetchBranch(context.Context, github.Repository, github.Branch) ([]github.Snapshot, error) {
-	return nil, nil
+func (f *fakeGitHub) FetchBranch(context.Context, github.Repository, github.Branch) ([]github.Snapshot, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.snaps, nil
 }
 
 // fakeProjects lists changes, by project, and records each since asked.
@@ -410,7 +416,10 @@ type harness struct {
 	store    *fakeStore
 	vikunja  *fakeVikunja
 	kelos    *fakeKelos
+	github   *fakeGitHub
 	projects *fakeProjects
+	// ccfg is the collector's configuration of each loop newLoop starts.
+	ccfg collector.Config
 	// deliveries are the roots the tests' deliveries name.
 	deliveries *fakeDeliveries
 	reg        *prometheus.Registry
@@ -420,7 +429,8 @@ type harness struct {
 func newHarness(t *testing.T, cfg Config) *harness {
 	t.Helper()
 	h := &harness{
-		store: newFakeStore(), vikunja: &fakeVikunja{}, projects: &fakeProjects{}, deliveries: newFakeDeliveries(),
+		store: newFakeStore(), vikunja: &fakeVikunja{}, github: &fakeGitHub{}, projects: &fakeProjects{},
+		deliveries: newFakeDeliveries(), ccfg: testCollectorConfig(),
 		kelos: &fakeKelos{snap: kelos.Snapshot{Tasks: []kelos.Task{testKelosTask(kelos.PhaseRunning)}}},
 		reg:   prometheus.NewRegistry(), logs: &bytes.Buffer{},
 	}
@@ -429,23 +439,40 @@ func newHarness(t *testing.T, cfg Config) *harness {
 }
 
 // newLoop returns another loop over the same fakes and store: the same
-// sillage, restarted. A cfg that does not set the deliveries' settings
-// gets a delay no test waits for and the default cap.
+// sillage, restarted.
 func (h *harness) newLoop(t *testing.T, cfg Config) *Loop {
 	t.Helper()
+	return h.loopOf(t, cfg, h.ccfg, h.sources())
+}
+
+// sources are every fake of h.
+func (h *harness) sources() Sources {
+	return Sources{
+		Sources:  collector.Sources{Vikunja: h.vikunja, Kelos: h.kelos, GitHub: h.github},
+		Projects: h.projects,
+	}
+}
+
+// withDeliveryDefaults returns cfg, given a delivery delay no test waits
+// for and the default cap where it sets none.
+func withDeliveryDefaults(cfg Config) Config {
 	if cfg.DeliveryDelay == 0 {
 		cfg.DeliveryDelay = time.Millisecond
 	}
 	if cfg.DeliveryRootsPerCycle == 0 {
 		cfg.DeliveryRootsPerCycle = DefaultDeliveryRootsPerCycle
 	}
-	src := Sources{
-		Sources:  collector.Sources{Vikunja: h.vikunja, Kelos: h.kelos, GitHub: noGitHub{}},
-		Projects: h.projects,
-	}
+	return cfg
+}
+
+// loopOf returns another loop over h's store and deliveries, reading src
+// as ccfg says. A cfg that does not set the deliveries' settings gets
+// withDeliveryDefaults'.
+func (h *harness) loopOf(t *testing.T, cfg Config, ccfg collector.Config, src Sources) *Loop {
+	t.Helper()
 	reg := prometheus.NewRegistry()
 	h.reg = reg
-	l, err := New(cfg, testCollectorConfig(), src, h.store, h.deliveries, NewMetrics(reg),
+	l, err := New(withDeliveryDefaults(cfg), ccfg, src, h.store, h.deliveries, NewMetrics(reg),
 		slog.New(slog.NewTextHandler(h.logs, nil)))
 	if err != nil {
 		t.Fatal(err)

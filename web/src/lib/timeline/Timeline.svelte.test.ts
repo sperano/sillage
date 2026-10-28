@@ -12,6 +12,7 @@ import Timeline from './Timeline.svelte';
 const STORIES = [
 	'announced-run-only',
 	'checks-after-force-push',
+	'checks-forbidden',
 	'discuss-no-pr',
 	'failed-run-retry',
 	'implementation-merged',

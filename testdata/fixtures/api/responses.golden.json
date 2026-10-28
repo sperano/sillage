@@ -9,9 +9,9 @@
       {
         "source": "github",
         "instance": "github.example.com",
-        "roots": 4,
+        "roots": 5,
         "neverRead": 0,
-        "newestRead": "2026-03-13T10:00:00Z",
+        "newestRead": "2026-03-15T10:00:00Z",
         "oldestRead": "2026-03-02T15:00:00Z"
       },
       {
@@ -29,6 +29,17 @@
         "neverRead": 0,
         "newestRead": "2026-03-14T11:30:00Z",
         "oldestRead": "2026-03-01T12:00:00Z"
+      }
+    ],
+    "off": [
+      {
+        "source": "github",
+        "instance": "github.example.com",
+        "reason": "github: SILLAGE_GITHUB_TOKEN is not set"
+      },
+      {
+        "source": "kelos",
+        "reason": "the collector is off: SILLAGE_KELOS_CLUSTER is not set"
       }
     ]
   },

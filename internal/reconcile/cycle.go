@@ -91,18 +91,17 @@ func (l *Loop) meterFor(src model.Source, instance string) meter {
 // readKelos reads the namespace once for the cycle, and returns the
 // cycle's collector over that read and the roots it names. A read whose
 // objects do not normalize serves no root: it fails, as metrics and gaps
-// say.
+// say. With Kelos off, nothing is read and no root is named.
 func (l *Loop) readKelos(ctx context.Context) (cycleRun, []collector.Discovered, error) {
 	read := &cycleKelos{}
-	c, err := collector.New(l.ccfg, collector.Sources{
-		Vikunja: meteredVikunja{src: l.src.Vikunja, meter: l.meterFor(model.SourceVikunja, l.ccfg.VikunjaInstance)},
-		Kelos:   read,
-		GitHub:  meteredGitHub{src: l.src.GitHub, meter: l.meterFor(model.SourceGitHub, l.ccfg.GitHubInstance)},
-	})
+	c, err := collector.New(l.ccfg, l.cycleSources(read))
 	if err != nil {
 		return cycleRun{}, nil, err
 	}
 	cr := cycleRun{c: c, kelosAt: l.now()}
+	if l.src.Kelos == nil {
+		return cr, nil, nil
+	}
 	var discovered []collector.Discovered
 	read.snap, read.err = timed(ctx, l.meterFor(model.SourceKelos, l.ccfg.Kelos.Cluster),
 		func(ctx context.Context) (kelos.Snapshot, error) {
@@ -122,6 +121,23 @@ func (l *Loop) readKelos(ctx context.Context) (cycleRun, []collector.Discovered,
 		return cr, nil, nil
 	}
 	return cr, discovered, nil
+}
+
+// cycleSources are the sources of a cycle's collector: each read metered,
+// and Kelos answered by the cycle's one read. A source that is off stays
+// without a client.
+func (l *Loop) cycleSources(read *cycleKelos) collector.Sources {
+	var s collector.Sources
+	if l.src.Vikunja != nil {
+		s.Vikunja = meteredVikunja{src: l.src.Vikunja, meter: l.meterFor(model.SourceVikunja, l.ccfg.VikunjaInstance)}
+	}
+	if l.src.Kelos != nil {
+		s.Kelos = read
+	}
+	if l.src.GitHub != nil {
+		s.GitHub = meteredGitHub{src: l.src.GitHub, meter: l.meterFor(model.SourceGitHub, l.ccfg.GitHubInstance)}
+	}
+	return s
 }
 
 // kelosDue returns the roots Kelos names that are due: never read, named

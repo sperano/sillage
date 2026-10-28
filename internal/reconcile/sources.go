@@ -2,7 +2,6 @@ package reconcile
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/sperano/sillage/internal/collector"
@@ -18,14 +17,17 @@ type ProjectLister interface {
 	ChangedTasks(ctx context.Context, project int64, since time.Time) ([]vikunja.TaskChange, error)
 }
 
-// Sources are the clients the loop reads through; each must be set.
+// Sources are the clients the loop reads through. A source without a
+// client is off, as the collector's are: it is never read, and its
+// coverage of every root read says why. Without Projects, no project is
+// listed.
 type Sources struct {
 	collector.Sources
 	Projects ProjectLister
 }
 
 // SourcesOf returns the loop's sources of the live clients. A client that
-// is not set stays nil, so that New refuses it.
+// is not set stays nil, so that its source is off.
 func SourcesOf(c collector.Clients) Sources {
 	s := Sources{Sources: c.Sources()}
 	if c.Vikunja != nil {
@@ -34,11 +36,19 @@ func SourcesOf(c collector.Clients) Sources {
 	return s
 }
 
-func (s Sources) validate() error {
-	if s.Vikunja == nil || s.Kelos == nil || s.GitHub == nil || s.Projects == nil {
-		return errors.New("reconcile: every source needs a client")
+// without returns s without the clients of the sources off names: those
+// are never read, whatever client they have.
+func (s Sources) without(off map[model.Source]string) Sources {
+	if _, ok := off[model.SourceVikunja]; ok {
+		s.Vikunja, s.Projects = nil, nil
 	}
-	return nil
+	if _, ok := off[model.SourceKelos]; ok {
+		s.Kelos = nil
+	}
+	if _, ok := off[model.SourceGitHub]; ok {
+		s.GitHub = nil
+	}
+	return s
 }
 
 // meter times each read of one source instance into the metrics.

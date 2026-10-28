@@ -1,10 +1,13 @@
 package reconcile
 
 import (
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/sperano/sillage/internal/collector"
 	"github.com/sperano/sillage/internal/model"
 )
 
@@ -16,6 +19,8 @@ const (
 	labelReason     = "reason"
 	labelKind       = "kind"
 	labelOperation  = "operation"
+	labelResource   = "resource"
+	labelCode       = "code"
 	// The kinds of record written, as labelKind values.
 	kindEvents       = "events"
 	kindRuns         = "runs"
@@ -35,6 +40,7 @@ var readDurationBuckets = prometheus.ExponentialBuckets(0.05, 2, 16)
 type Metrics struct {
 	lastSuccess  *prometheus.GaugeVec
 	readErrors   *prometheus.CounterVec
+	refusals     *prometheus.CounterVec
 	readDuration *prometheus.HistogramVec
 	written      *prometheus.CounterVec
 	storeErrors  *prometheus.CounterVec
@@ -59,6 +65,10 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 			Namespace: metricNamespace, Name: "source_read_errors_total",
 			Help: "Failed reads of a source instance, by reason: timeout, rate_limited, server_error or failed.",
 		}, append(source, labelReason)),
+		refusals: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: metricNamespace, Name: "source_refusals_total",
+			Help: "Requests a source refused (403 or 404) within a read that succeeded, by resource and status code.",
+		}, append(source, labelResource, labelCode)),
 		readDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: metricNamespace, Name: "source_read_duration_seconds",
 			Help: "How long one read of a source instance took, failed or not.", Buckets: readDurationBuckets,
@@ -91,7 +101,7 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 			Help: "Collection cycles a webhook delivery started before the interval ended.",
 		}),
 	}
-	reg.MustRegister(m.lastSuccess, m.readErrors, m.readDuration, m.written, m.storeErrors, m.cycles, m.roots,
+	reg.MustRegister(m.lastSuccess, m.readErrors, m.refusals, m.readDuration, m.written, m.storeErrors, m.cycles, m.roots,
 		m.lockHeld, m.deliveryReads, m.deliveryCycles)
 	// Every series exists from the start, so that a rate over it is
 	// defined before the first delivery.
@@ -111,6 +121,13 @@ func (m *Metrics) observeRead(src model.Source, instance string, start, end time
 	case reason != "":
 		m.readErrors.WithLabelValues(string(src), instance, reason).Inc()
 	}
+}
+
+// observeRefusal counts the requests of r. Its resource, "check runs",
+// is labeled check_runs.
+func (m *Metrics) observeRefusal(r collector.Refusal) {
+	resource := strings.ReplaceAll(r.Resource, " ", "_")
+	m.refusals.WithLabelValues(string(r.Source), r.Instance, resource, strconv.Itoa(r.Code)).Add(float64(r.Count))
 }
 
 // observeWritten counts the records of a commit.

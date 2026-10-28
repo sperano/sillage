@@ -18,19 +18,21 @@ import (
 const kelosConsoleURLEnv = "SILLAGE_KELOS_CONSOLE_URL"
 
 // newAPI returns the read API over st, nil without a database, with the
-// Kelos console the frontend links runs to.
-func newAPI(getenv func(string) string, st *store.Store) (http.Handler, error) {
-	cfg := api.Config{Version: version}
+// Kelos console the frontend links runs to and the sources that are off.
+// A console that is misconfigured is left out, and logged: runs then have
+// no link.
+func newAPI(getenv func(string) string, st *store.Store, off []api.OffSource) http.Handler {
+	cfg := api.Config{Version: version, Off: off}
 	if st != nil {
 		// Only a real store: a nil *Store would be a non-nil Reader.
 		cfg.Store = st
 	}
 	consoles, err := kelosConsoles(getenv)
 	if err != nil {
-		return nil, err
+		slog.Warn("no Kelos console: runs have no link", "error", err)
 	}
 	cfg.KelosConsoles = consoles
-	return api.New(cfg), nil
+	return api.New(cfg)
 }
 
 // kelosConsoles reads the Kelos console's base URL, keyed by the cluster

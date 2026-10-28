@@ -134,6 +134,19 @@ func TestFreshness(t *testing.T) {
 	if !slices.ContainsFunc(got.Sources, func(s store.SourceFreshness) bool { return s.NewestRead != nil }) {
 		t.Error("no source was read: the fixtures check no read times")
 	}
+	if got.Off == nil || len(got.Off) != 0 {
+		t.Errorf("off = %#v, want an empty list with every source read", got.Off)
+	}
+}
+
+func TestFreshnessNamesTheSourcesOff(t *testing.T) {
+	off := []OffSource{{Source: model.SourceGitHub, Instance: "github.example.com", Reason: "github: no token"}}
+	h := New(Config{Store: newFakeStore(t), Off: off})
+	var got FreshnessResponse
+	decode(t, get(t, h, "/api/v1/coverage"), &got)
+	if !slices.Equal(got.Off, off) {
+		t.Errorf("off = %+v, want %+v", got.Off, off)
+	}
 }
 
 // sameFreshness compares two freshness records, their reads by instant.

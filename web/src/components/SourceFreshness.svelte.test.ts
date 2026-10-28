@@ -14,9 +14,22 @@ test("shows each source's latest and stalest successful read", async () => {
 	await expect
 		.element(page.getByRole('listitem').filter({ hasText: 'github.example.com' }))
 		.toHaveTextContent(
-			'GitHub github.example.com Read for 4 tasks. Last read successfully at 2026-03-13 10:00:00 UTC; the least recently read of them at 2026-03-02 15:00:00 UTC.'
+			'Read for 5 tasks. Last read successfully at 2026-03-15 10:00:00 UTC; the least recently read of them at 2026-03-02 15:00:00 UTC.'
 		);
 	expect(server.requests.map((r) => r.path)).toEqual([COVERAGE]);
+});
+
+test('names the sources off, and why', async () => {
+	const server = fakeServer({ [COVERAGE]: () => json(goldenResponse(COVERAGE)) });
+	await render(SourceFreshness, { api: server.api });
+	await expect
+		.element(page.getByRole('listitem').filter({ hasText: 'github.example.com' }))
+		.toHaveTextContent(
+			'GitHub github.example.com Off: sillage does not read it (github: SILLAGE_GITHUB_TOKEN is not set).'
+		);
+	await expect
+		.element(page.getByRole('listitem').filter({ hasText: 'the collector is off' }))
+		.toHaveTextContent('Kelos Off: sillage does not read it');
 });
 
 test('a failed read says the freshness is unknown', async () => {

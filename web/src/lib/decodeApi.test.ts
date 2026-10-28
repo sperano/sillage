@@ -7,7 +7,8 @@ const READ = { newestRead: '2026-03-03T20:00:00Z', oldestRead: '2026-03-02T20:00
 
 function freshness(fields: Record<string, unknown>) {
 	return decode(freshnessResponse, {
-		sources: [{ source: 'kelos', instance: 'cluster-a', roots: 2, neverRead: 0, ...fields }]
+		sources: [{ source: 'kelos', instance: 'cluster-a', roots: 2, neverRead: 0, ...fields }],
+		off: []
 	});
 }
 
@@ -58,7 +59,24 @@ describe('freshness', () => {
 
 	test('one record per source instance', () => {
 		const one = { source: 'github', instance: 'github.example.com', roots: 1, neverRead: 1 };
-		expect(() => decode(freshnessResponse, { sources: [one, one] })).toThrow(/duplicate record/);
+		expect(() => decode(freshnessResponse, { sources: [one, one], off: [] })).toThrow(
+			/duplicate record/
+		);
+	});
+
+	test('a source off has a reason, and an instance when one is named', () => {
+		const off = [
+			{ source: 'github', instance: 'github.example.com', reason: 'no token' },
+			{ source: 'kelos', reason: 'the collector is off' }
+		];
+		expect(decode(freshnessResponse, { sources: [], off }).off).toEqual(off);
+		expect(() => decode(freshnessResponse, { sources: [], off: [off[1], off[1]] })).toThrow(
+			/duplicate record/
+		);
+		expect(() => decode(freshnessResponse, { sources: [], off: [{ source: 'kelos' }] })).toThrow(
+			/reason/
+		);
+		expect(() => decode(freshnessResponse, { sources: [] })).toThrow(/off/);
 	});
 });
 

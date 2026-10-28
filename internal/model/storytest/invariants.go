@@ -24,6 +24,7 @@ var invariants = map[string]func(*testing.T, model.Story){
 	"failed-run-retry":        checkFailedRunRetry,
 	"announced-run-only":      checkAnnouncedRunOnly,
 	"checks-after-force-push": checkChecksAfterForcePush,
+	"checks-forbidden":        checkChecksForbidden,
 	"reopened-task":           checkReopenedTask,
 	"second-pr-after-close":   checkSecondPRAfterClose,
 	"phase-markers":           checkPhaseMarkers,
@@ -189,6 +190,35 @@ func checkChecksAfterForcePush(t *testing.T, s model.Story) {
 	}
 	if len(want) != 0 {
 		t.Errorf("checks = %v, want failures and successes retained", pr.Checks)
+	}
+}
+
+// forbiddenChecksNote is what GitHub's coverage says of check runs it
+// answered 403 Forbidden.
+const forbiddenChecksNote = "check runs: forbidden"
+
+// checkChecksForbidden: a pull request whose check runs GitHub refused
+// stays in the story with its review; its checks are absent, and GitHub's
+// coverage, still read, says they were forbidden, not that there were none.
+func checkChecksForbidden(t *testing.T, s model.Story) {
+	if len(s.PullRequests) != 1 {
+		t.Fatalf("pull requests = %d, want the one whose checks were refused", len(s.PullRequests))
+	}
+	pr := s.PullRequests[0]
+	if len(pr.Checks) != 0 {
+		t.Errorf("checks = %v, want none: GitHub refused them", pr.Checks)
+	}
+	if len(eventsForPR(s, model.KindReviewSubmitted, pr.Key)) != 1 {
+		t.Error("the pull request's review is missing: a refused check-runs read must not drop it")
+	}
+	if !hasCoverage(s, model.SourceGitHub) {
+		t.Fatal("no successful GitHub read: refused checks must not fail the whole read")
+	}
+	notes := coverageOf(s, model.SourceGitHub).Notes
+	if !slices.ContainsFunc(notes, func(n string) bool {
+		return strings.Contains(n, pr.Key.String()) && strings.Contains(n, forbiddenChecksNote)
+	}) {
+		t.Errorf("GitHub notes = %q, want one saying %s's %s", notes, pr.Key, forbiddenChecksNote)
 	}
 }
 

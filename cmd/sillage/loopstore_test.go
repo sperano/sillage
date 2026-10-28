@@ -40,6 +40,19 @@ var testSchemas atomic.Int64
 // or skips the test without a database.
 func newTestStore(t *testing.T) *store.Store {
 	t.Helper()
+	st, err := store.Open(t.Context(), store.Config{DatabaseURL: store.DatabaseURL(newTestDatabaseURL(t))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(st.Close)
+	return st
+}
+
+// newTestDatabaseURL creates a new schema, dropped when the test ends,
+// and returns the database URL whose search path it is; or skips the test
+// without a database.
+func newTestDatabaseURL(t *testing.T) string {
+	t.Helper()
 	base := os.Getenv(testDatabaseEnv)
 	if base == "" {
 		t.Skipf("%s is not set: no PostgreSQL to test against", testDatabaseEnv)
@@ -66,12 +79,7 @@ func newTestStore(t *testing.T) *store.Store {
 	q := u.Query()
 	q.Set("search_path", schema)
 	u.RawQuery = q.Encode()
-	st, err := store.Open(t.Context(), store.Config{DatabaseURL: store.DatabaseURL(u.String())})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(st.Close)
-	return st
+	return u.String()
 }
 
 func TestLoopStoreContract(t *testing.T) {

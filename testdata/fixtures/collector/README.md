@@ -19,7 +19,9 @@ these differences:
 - `github/`: `pulls.json` for the branch, then `<list>-<number>.json` and
   `check-runs-<sha>.json`, one page each, for the repository
   `example-org/widgets` (workspace `widgets`). A list without a file is
-  empty.
+  empty. A file with a status before its extension
+  (`check-runs-<sha>.403.json`) is a refused response: its body, answered
+  with that status.
 - `markers/`: `markers.json`, the phase markers the store joined to the
   story's runs (`model.Marker`, with its join). No source is read for
   them: the tests pass them to the collector as kept
@@ -35,4 +37,5 @@ test.
 | `implementation-merged` | task 102 | The implementation run; PR 7 by its head branch; the merge bookkeeping Task by its branch and name (identifier); a PR follow-up known only from its TaskRecord, by its name (heuristic); the PR's opening to the run by its executor inside the run's interval. |
 | `failed-run-retry` | task 104 | Two attempts of one Task name: the failed one known only from its TaskRecord, so its announcement is joined by time (heuristic), the retry by its pod. Two runs, never merged. |
 | `announced-run-only` | task 105 | No Kelos object of the announced run: a run keyed by pod, its interval and outcome unknown, and a Kelos gap over it. No repository known, so GitHub is not read and says so. |
+| `checks-forbidden` | task 110 | PR 64 by its head branch, with its review; the check runs of both its commits answered 403, so its checks are absent and GitHub's coverage notes them forbidden, the read still successful. |
 | `phase-markers` | task 109 | The failed attempt from its TaskRecord, the retry from its running Task; the kept markers onto those two runs as phases, one of them joined by Task name and time (heuristic). In `cmd/sillage`, the markers recorded before the loop's first read join once it saves the runs. |

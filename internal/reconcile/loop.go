@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"math/rand/v2"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -43,21 +45,23 @@ type Loop struct {
 
 // New returns a loop reading src as ccfg describes, into store, each
 // store operation within storeTimeout, and the roots deliveries ask for
-// too unless it is nil.
+// too unless it is nil. A source ccfg.Off names, or without a client, is
+// off: never read.
 func New(cfg Config, ccfg collector.Config, src Sources, store Store, deliveries Deliveries, m *Metrics,
 	log *slog.Logger) (*Loop, error) {
-	if err := errors.Join(cfg.validate(), src.validate()); err != nil {
+	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
 	if store == nil || m == nil || log == nil {
 		return nil, errors.New("reconcile: a store, metrics and a logger are required")
 	}
-	if _, err := collector.New(ccfg, src.Sources); err != nil {
+	c, err := collector.New(ccfg, src.Sources)
+	if err != nil {
 		return nil, err
 	}
 	return &Loop{
-		cfg: cfg, ccfg: ccfg, src: src, store: boundedStore{s: store, timeout: storeTimeout}, deliveries: deliveries,
-		metrics: m, log: log, now: time.Now, jitter: jitter,
+		cfg: cfg, ccfg: ccfg, src: src.without(c.Off()), store: boundedStore{s: store, timeout: storeTimeout},
+		deliveries: deliveries, metrics: m, log: log, now: time.Now, jitter: jitter,
 	}, nil
 }
 
@@ -151,6 +155,7 @@ func (l *Loop) load(ctx context.Context) error {
 			return fmt.Errorf("%s: %w", heartbeatKey(l.ccfg.Kelos.Cluster), err)
 		}
 	}
+	retired := make(map[string]int)
 	for key, data := range cps {
 		switch {
 		case strings.HasPrefix(key, rootPrefix):
@@ -158,13 +163,18 @@ func (l *Loop) load(ctx context.Context) error {
 			if err := json.Unmarshal(data, st); err != nil {
 				return fmt.Errorf("%s: %w", key, err)
 			}
-			st.dropRetiredSources()
+			for _, source := range st.dropRetiredSources() {
+				retired[source]++
+			}
 			l.roots[st.Root.Ref()] = st
 		case strings.HasPrefix(key, projectPrefix+l.ccfg.VikunjaInstance+"/"):
 			if err := l.loadMark(key, data); err != nil {
 				return err
 			}
 		}
+	}
+	for _, source := range slices.Sorted(maps.Keys(retired)) {
+		l.log.Warn("dropped a retired source from the stored root states", "source", source, "roots", retired[source])
 	}
 	reason := restartReason(lastCycle, l.now())
 	err = l.openGaps(ctx, func(st *sourceState) bool {

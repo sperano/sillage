@@ -2,8 +2,8 @@ package collector
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/sperano/sillage/internal/model"
@@ -27,35 +27,66 @@ type GitHubSource interface {
 	FetchBranch(ctx context.Context, base github.Repository, head github.Branch) ([]github.Snapshot, error)
 }
 
-// Sources are the clients the collector reads through; each must be set.
+// Sources are the clients the collector reads through. A source without
+// a client is off: it is never read, and its coverage says why.
 type Sources struct {
 	Vikunja VikunjaSource
 	Kelos   KelosSource
 	GitHub  GitHubSource
 }
 
+// NoClient is why a source without a client is off, when Config.Off
+// gives no other reason.
+const NoClient = "no client is configured"
+
 // Collector assembles stories from its sources.
 type Collector struct {
 	cfg Config
 	src Sources
+	// off says why each source that is off is not read.
+	off map[model.Source]string
 	now func() time.Time
 	// origins keeps and recalls the Tasks' origins; nil without one.
 	origins OriginMemory
 }
 
-// New returns a collector reading src as cfg describes.
+// New returns a collector reading src as cfg describes. A source cfg.Off
+// names, or without a client, is off.
 func New(cfg Config, src Sources, opts ...Option) (*Collector, error) {
-	if src.Vikunja == nil || src.Kelos == nil || src.GitHub == nil {
-		return nil, errors.New("collector: every source needs a client")
-	}
-	if err := cfg.validate(); err != nil {
+	off := offSources(cfg, src)
+	if err := cfg.validate(off); err != nil {
 		return nil, err
 	}
-	c := &Collector{cfg: cfg, src: src, now: time.Now}
+	c := &Collector{cfg: cfg, src: src, off: off, now: time.Now}
 	for _, opt := range opts {
 		opt(c)
 	}
 	return c, nil
+}
+
+// offSources says why each source cfg or src leaves off is not read.
+func offSources(cfg Config, src Sources) map[model.Source]string {
+	off := maps.Clone(cfg.Off)
+	if off == nil {
+		off = make(map[model.Source]string)
+	}
+	for s, set := range map[model.Source]bool{
+		model.SourceVikunja: src.Vikunja != nil, model.SourceKelos: src.Kelos != nil, model.SourceGitHub: src.GitHub != nil,
+	} {
+		if _, ok := off[s]; !ok && !set {
+			off[s] = NoClient
+		}
+	}
+	return off
+}
+
+// Off says why each source that is off is not read.
+func (c *Collector) Off() map[model.Source]string { return maps.Clone(c.off) }
+
+// on reports whether source s is read.
+func (c *Collector) on(s model.Source) bool {
+	_, off := c.off[s]
+	return !off
 }
 
 // Failure is a source read that failed: its source contributes no record
@@ -70,10 +101,31 @@ func (f Failure) Error() string { return fmt.Sprintf("%s %s: %v", f.Source, f.In
 
 func (f Failure) Unwrap() error { return f.Err }
 
-// Result is a story and the reads that failed while assembling it.
+// Refusal is a part of a source read the source refused (403 Forbidden or
+// 404 Not Found) while the rest was read: the read still succeeded, and
+// the story's coverage notes what is unknown.
+type Refusal struct {
+	Source   model.Source
+	Instance string
+	// Resource is what was refused: github.ResourceCheckRuns or
+	// github.ResourceReviewComments.
+	Resource string
+	// Code is the HTTP status the source answered; Count how many of the
+	// read's requests it answered with it.
+	Code  int
+	Count int
+}
+
+func (r Refusal) String() string {
+	return fmt.Sprintf("%s %s: %s: %d on %d requests", r.Source, r.Instance, r.Resource, r.Code, r.Count)
+}
+
+// Result is a story, the reads that failed while assembling it, and the
+// parts of the others that were refused.
 type Result struct {
 	Story    model.Story
 	Failures []Failure
+	Refusals []Refusal
 }
 
 // Collect reads root's records from every source and assembles its story.
@@ -101,5 +153,5 @@ func (c *Collector) collect(ctx context.Context, root model.Root, kept Kept, rep
 	if err != nil {
 		return Result{}, fmt.Errorf("collector: the assembled records are invalid (a collector bug): %w", err)
 	}
-	return Result{Story: story, Failures: a.failures}, nil
+	return Result{Story: story, Failures: a.failures, Refusals: a.refusals}, nil
 }

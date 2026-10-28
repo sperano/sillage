@@ -7,6 +7,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 
 	"github.com/sperano/sillage/internal/collector"
 	"github.com/sperano/sillage/internal/model"
@@ -40,7 +42,9 @@ type storyCollector interface {
 // configuration.
 type openFunc func(getenv func(string) string) (storyCollector, collector.Config, error)
 
-// openCollector opens the live sources the environment configures.
+// openCollector opens the live sources the environment configures. Unlike
+// the server, it refuses a source that is off: a story printed without
+// one would say less than asked.
 func openCollector(getenv func(string) string) (storyCollector, collector.Config, error) {
 	cfg, err := collector.ConfigFromEnv(getenv)
 	if err != nil {
@@ -49,6 +53,13 @@ func openCollector(getenv func(string) string) (storyCollector, collector.Config
 	c, err := cfg.Open()
 	if err != nil {
 		return nil, collector.Config{}, err
+	}
+	if len(cfg.Collector.Off) > 0 {
+		var errs []error
+		for _, s := range slices.Sorted(maps.Keys(cfg.Collector.Off)) {
+			errs = append(errs, fmt.Errorf("%s is off: %s", s, cfg.Collector.Off[s]))
+		}
+		return nil, collector.Config{}, errors.Join(errs...)
 	}
 	return c, cfg.Collector, nil
 }
@@ -118,6 +129,9 @@ func runStory(ctx context.Context, args []string, getenv func(string) string, st
 	}
 	for _, f := range res.Failures {
 		fmt.Fprintln(stderr, "sillage: not read:", f)
+	}
+	for _, r := range res.Refusals {
+		fmt.Fprintln(stderr, "sillage: refused:", r)
 	}
 	if len(res.Failures) > 0 {
 		return errPartial

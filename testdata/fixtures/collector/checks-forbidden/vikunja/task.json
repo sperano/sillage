@@ -1,0 +1,15 @@
+{
+  "id": 110,
+  "project_id": 30,
+  "title": "Exercise fabricated refused checks",
+  "identifier": "#10",
+  "created": "2026-03-15T08:30:00Z",
+  "updated": "2026-03-15T08:30:00Z",
+  "created_by": { "id": 7, "username": "owner", "name": "Robin Owner" },
+  "done": false,
+  "done_at": "0001-01-01T00:00:00Z",
+  "labels": [],
+  "assignees": [],
+  "bucket_id": 0,
+  "buckets": []
+}

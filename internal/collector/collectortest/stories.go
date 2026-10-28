@@ -37,6 +37,10 @@ var Stories = map[string]Story{
 		Vikunja: "collector/checks-after-force-push/vikunja",
 		GitHub:  "collector/checks-after-force-push/github",
 	}, []github.Repository{Repo}},
+	"checks-forbidden": {taskRoot(110), Dirs{
+		Vikunja: "collector/checks-forbidden/vikunja",
+		GitHub:  "collector/checks-forbidden/github",
+	}, []github.Repository{Repo}},
 	"reopened-task": {taskRoot(107), Dirs{
 		Vikunja: "collector/reopened-task/vikunja",
 	}, nil},
