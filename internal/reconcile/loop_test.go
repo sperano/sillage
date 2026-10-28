@@ -2,6 +2,7 @@ package reconcile
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -161,6 +162,34 @@ func TestRestartRecordsTheDowntime(t *testing.T) {
 		if missed != (src == model.SourceKelos) {
 			t.Errorf("%s restart gap %q says markers may be missing: %v, want %v", src, restart[0].Reason, missed,
 				src == model.SourceKelos)
+		}
+	}
+}
+
+func TestRestartDropsRetiredSources(t *testing.T) {
+	const retired = "wiki/wiki.example.com"
+	h := newHarness(t, everyCycle)
+	h.loop.cycle(t.Context())
+	key := rootKey(testRoot())
+	var stored rootState
+	if err := json.Unmarshal(h.store.cps[key], &stored); err != nil {
+		t.Fatal(err)
+	}
+	read := testStart
+	stored.Sources[retired] = &sourceState{Source: "wiki", Instance: "wiki.example.com", LastSuccess: &read}
+	h.store.cps[key] = encode(&stored)
+
+	l := h.newLoop(t, everyCycle)
+	if _, ok := l.roots[testRoot().Ref()].Sources[retired]; ok {
+		t.Fatalf("the loaded root state keeps the retired source %s", retired)
+	}
+	if !strings.Contains(h.logs.String(), "dropped a retired source") {
+		t.Errorf("logs = %q, want the dropped retired source said", h.logs.String())
+	}
+	l.cycle(t.Context())
+	for _, c := range h.store.story(t, testRoot()).Coverage {
+		if !c.Source.Valid() {
+			t.Errorf("the next read committed coverage of the retired source %s", c.Key())
 		}
 	}
 }

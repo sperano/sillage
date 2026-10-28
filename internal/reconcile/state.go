@@ -111,6 +111,20 @@ func clonePointer[T any](p *T) *T {
 	return &v
 }
 
+// dropRetiredSources removes the sources sillage no longer reads, whose
+// coverage no store commit accepts, and returns their keys, sorted.
+func (s *rootState) dropRetiredSources() []string {
+	var dropped []string
+	for key, st := range s.Sources {
+		if !st.Source.Valid() {
+			dropped = append(dropped, key)
+			delete(s.Sources, key)
+		}
+	}
+	slices.Sort(dropped)
+	return dropped
+}
+
 // source returns the state of the source instance cov covers, adding it.
 func (s *rootState) source(cov model.Coverage) *sourceState {
 	st, ok := s.Sources[cov.Key()]

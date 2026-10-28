@@ -1,6 +1,8 @@
 package reconcile
 
 import (
+	"maps"
+	"slices"
 	"testing"
 	"time"
 
@@ -8,6 +10,23 @@ import (
 )
 
 func minute(n int) time.Time { return testStart.Add(time.Duration(n) * time.Minute) }
+
+func TestDropRetiredSources(t *testing.T) {
+	st := newRootState(testRoot())
+	st.Sources["vikunja/"+testVikunjaHost] = &sourceState{Source: model.SourceVikunja, Instance: testVikunjaHost}
+	st.Sources["wiki/b.example.com"] = &sourceState{Source: "wiki", Instance: "b.example.com"}
+	st.Sources["wiki/a.example.com"] = &sourceState{Source: "wiki", Instance: "a.example.com"}
+	got := st.dropRetiredSources()
+	if want := []string{"wiki/a.example.com", "wiki/b.example.com"}; !slices.Equal(got, want) {
+		t.Errorf("dropped = %v, want %v", got, want)
+	}
+	if len(st.Sources) != 1 || st.Sources["vikunja/"+testVikunjaHost] == nil {
+		t.Errorf("sources left = %v, want only the Vikunja one", slices.Sorted(maps.Keys(st.Sources)))
+	}
+	if cov := st.coverage(); len(cov) != 1 || cov[0].Source != model.SourceVikunja {
+		t.Errorf("coverage = %+v, want only the Vikunja source's", cov)
+	}
+}
 
 func TestSourceStateGaps(t *testing.T) {
 	cov := model.Coverage{Source: model.SourceVikunja, Instance: testVikunjaHost}
