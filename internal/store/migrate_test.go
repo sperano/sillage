@@ -9,7 +9,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const retireWikiMigrationVersion = 7
+const (
+	retireWikiMigrationVersion          = 7
+	retireWikiRootStateMigrationVersion = 8
+)
 
 func TestEmbeddedMigrationsLoad(t *testing.T) {
 	migrations, err := loadMigrations(migrationFiles)
@@ -106,7 +109,10 @@ func TestCheckApplied(t *testing.T) {
 	}
 }
 
-func TestRetireWikiMigrationDropsLegacyData(t *testing.T) {
+// migratedBefore returns a pool on a test schema with every migration
+// before version applied.
+func migratedBefore(t *testing.T, version int) *pgxpool.Pool {
+	t.Helper()
 	ctx := t.Context()
 	pool, err := pgxpool.NewWithConfig(ctx, testPoolConfig(t))
 	if err != nil {
@@ -117,8 +123,8 @@ func TestRetireWikiMigrationDropsLegacyData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(migrations) < retireWikiMigrationVersion {
-		t.Fatalf("have %d migrations, want at least %d", len(migrations), retireWikiMigrationVersion)
+	if len(migrations) < version {
+		t.Fatalf("have %d migrations, want at least %d", len(migrations), version)
 	}
 	if err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
 		_, err := appliedMigrations(ctx, tx)
@@ -126,11 +132,17 @@ func TestRetireWikiMigrationDropsLegacyData(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	for _, migration := range migrations[:retireWikiMigrationVersion-1] {
+	for _, migration := range migrations[:version-1] {
 		if err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error { return apply(ctx, tx, migration) }); err != nil {
 			t.Fatal(err)
 		}
 	}
+	return pool
+}
+
+func TestRetireWikiMigrationDropsLegacyData(t *testing.T) {
+	ctx := t.Context()
+	pool := migratedBefore(t, retireWikiMigrationVersion)
 	seedLegacyWikiData(t, pool)
 	if err := migrate(ctx, pool); err != nil {
 		t.Fatal(err)
@@ -158,6 +170,40 @@ func TestRetireWikiMigrationDropsLegacyData(t *testing.T) {
 	if role != "unknown" {
 		t.Errorf("surviving retired run role = %q, want unknown", role)
 	}
+}
+
+func TestRetireWikiRootStateMigrationDropsWikiSources(t *testing.T) {
+	ctx := t.Context()
+	pool := migratedBefore(t, retireWikiRootStateMigrationVersion)
+	_, err := pool.Exec(ctx, `
+		INSERT INTO roots (ref, body) VALUES
+			('task:vikunja.example.com/tasks/1', '{"task":{"instance":"vikunja.example.com","id":1}}');
+		INSERT INTO checkpoints (source, instance, scope, value, root_id, updated_at)
+		SELECT 'vikunja', 'vikunja.example.com', 'collector/roots/task:vikunja.example.com/tasks/1',
+			'{"root":{"task":{"instance":"vikunja.example.com","id":1}},"read":"2026-10-27T00:00:00Z","sources":{`+
+		`"github/github.example.com":{"source":"github","instance":"github.example.com"},`+
+		`"wiki/wiki.example.com":{"source":"wiki","instance":"wiki.example.com"}}}', id, now() FROM roots;
+		INSERT INTO checkpoints (source, instance, scope, value, updated_at) VALUES
+			('vikunja', 'vikunja.example.com', 'collector/roots/task:vikunja.example.com/tasks/2',
+			 '{"read":"2026-10-27T00:00:00Z","sources":{"wiki/wiki.example.com":{"source":"wiki","instance":"wiki.example.com"}}}', now()),
+			('github', 'github.example.com', 'etag/example/widgets', 'W/"not json"', now());
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := migrate(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+
+	wantCount(t, pool, `SELECT count(*) FROM checkpoints
+		WHERE scope LIKE 'collector/roots/%' AND jsonb_path_exists(value::jsonb, '$.sources.* ? (@.source == "wiki")')`, 0)
+	wantCount(t, pool, `SELECT count(*) FROM checkpoints
+		WHERE scope = 'collector/roots/task:vikunja.example.com/tasks/1'
+		AND value::jsonb -> 'sources' ? 'github/github.example.com'
+		AND value::jsonb ->> 'read' = '2026-10-27T00:00:00Z'`, 1)
+	wantCount(t, pool, `SELECT count(*) FROM checkpoints
+		WHERE scope = 'collector/roots/task:vikunja.example.com/tasks/2' AND value::jsonb -> 'sources' = '{}'::jsonb`, 1)
+	wantCount(t, pool, `SELECT count(*) FROM checkpoints WHERE value = 'W/"not json"'`, 1)
 }
 
 func seedLegacyWikiData(t *testing.T, pool *pgxpool.Pool) {
