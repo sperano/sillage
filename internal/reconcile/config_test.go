@@ -19,20 +19,29 @@ func TestConfigFromEnv(t *testing.T) {
 			name: "overrides",
 			env: map[string]string{
 				EnvInterval: "1m", EnvRefreshInterval: " 2h ", EnvLockRetryInterval: "30s", EnvVikunjaProjects: "3, 5,3,",
+				EnvDeliveryDelay: "5s", EnvDeliveryRootsPerCycle: " 7 ",
 			},
 			want: Config{
 				Interval: time.Minute, RefreshInterval: 2 * time.Hour, LockRetryInterval: 30 * time.Second,
-				VikunjaProjects: []int64{3, 5},
+				VikunjaProjects: []int64{3, 5}, DeliveryDelay: 5 * time.Second, DeliveryRootsPerCycle: 7,
 			},
 		},
 		{
 			name: "every problem",
 			env: map[string]string{
 				EnvInterval: "0s", EnvRefreshInterval: "soon", EnvLockRetryInterval: "-1m", EnvVikunjaProjects: "3,x",
+				EnvDeliveryDelay: "0", EnvDeliveryRootsPerCycle: "0",
 			},
-			wantErr: []string{EnvInterval, EnvRefreshInterval, EnvLockRetryInterval, EnvVikunjaProjects},
+			wantErr: []string{
+				EnvInterval, EnvRefreshInterval, EnvLockRetryInterval, EnvVikunjaProjects, EnvDeliveryDelay,
+				EnvDeliveryRootsPerCycle,
+			},
 		},
 		{name: "negative project", env: map[string]string{EnvVikunjaProjects: "-3"}, wantErr: []string{EnvVikunjaProjects}},
+		{
+			name: "roots per cycle not a number", env: map[string]string{EnvDeliveryRootsPerCycle: "many"},
+			wantErr: []string{EnvDeliveryRootsPerCycle},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -49,7 +58,8 @@ func TestConfigFromEnv(t *testing.T) {
 				t.Fatal(err)
 			}
 			if got.Interval != tt.want.Interval || got.RefreshInterval != tt.want.RefreshInterval ||
-				got.LockRetryInterval != tt.want.LockRetryInterval || !slices.Equal(got.VikunjaProjects, tt.want.VikunjaProjects) {
+				got.LockRetryInterval != tt.want.LockRetryInterval || !slices.Equal(got.VikunjaProjects, tt.want.VikunjaProjects) ||
+				got.DeliveryDelay != tt.want.DeliveryDelay || got.DeliveryRootsPerCycle != tt.want.DeliveryRootsPerCycle {
 				t.Errorf("ConfigFromEnv() = %+v, want %+v", got, tt.want)
 			}
 		})

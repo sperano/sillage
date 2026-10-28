@@ -41,6 +41,10 @@ type Metrics struct {
 	cycles       prometheus.Counter
 	roots        prometheus.Gauge
 	lockHeld     prometheus.Gauge
+	// deliveryReads and deliveryCycles are what webhook deliveries asked
+	// of the loop.
+	deliveryReads  *prometheus.CounterVec
+	deliveryCycles prometheus.Counter
 }
 
 // NewMetrics registers the loop's metrics with reg.
@@ -77,9 +81,23 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 			Namespace: metricNamespace, Name: "collector_lock_held",
 			Help: "1 while this process holds the collector lock and collects, 0 while another does.",
 		}),
+		deliveryReads: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: metricNamespace, Name: "collector_delivery_reads_total",
+			Help: "Root reads webhook deliveries asked for, by kind: caused (read because a delivery named the " +
+				"root) or coalesced (due anyway in that cycle, and read once).",
+		}, []string{labelKind}),
+		deliveryCycles: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: metricNamespace, Name: "collector_delivery_cycles_total",
+			Help: "Collection cycles a webhook delivery started before the interval ended.",
+		}),
 	}
 	reg.MustRegister(m.lastSuccess, m.readErrors, m.readDuration, m.written, m.storeErrors, m.cycles, m.roots,
-		m.lockHeld)
+		m.lockHeld, m.deliveryReads, m.deliveryCycles)
+	// Every series exists from the start, so that a rate over it is
+	// defined before the first delivery.
+	for _, kind := range []string{deliveryCaused, deliveryCoalesced} {
+		m.deliveryReads.WithLabelValues(kind)
+	}
 	return m
 }
 

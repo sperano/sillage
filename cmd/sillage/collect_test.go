@@ -29,7 +29,7 @@ func TestMetricsServed(t *testing.T) {
 	}
 }
 
-func TestStartCollector(t *testing.T) {
+func TestNewCollector(t *testing.T) {
 	tests := []struct {
 		name  string
 		env   map[string]string
@@ -52,17 +52,20 @@ func TestStartCollector(t *testing.T) {
 			if tt.env != nil {
 				st = new(store.Store)
 			}
-			wait, err := startCollector(t.Context(), func(k string) string { return tt.env[k] }, st, m,
+			c, err := newCollector(func(k string) string { return tt.env[k] }, st, nil, m,
 				slog.New(slog.NewTextHandler(&logs, nil)))
 			switch {
 			case tt.inErr != "":
 				if err == nil || !strings.Contains(err.Error(), tt.inErr) {
-					t.Errorf("startCollector() error = %v, want one naming %s", err, tt.inErr)
+					t.Errorf("newCollector() error = %v, want one naming %s", err, tt.inErr)
 				}
 			case err != nil:
-				t.Fatalf("startCollector() error = %v", err)
+				t.Fatalf("newCollector() error = %v", err)
 			default:
-				wait()
+				if c != nil {
+					t.Fatal("newCollector() without a store returned a loop")
+				}
+				c.start(t.Context())()
 				if !strings.Contains(logs.String(), "collector off") {
 					t.Errorf("logs = %q, want them to say the collector is off", logs.String())
 				}
