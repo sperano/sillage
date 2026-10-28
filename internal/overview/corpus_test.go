@@ -42,6 +42,7 @@ var corpusCases = map[string]corpusCase{
 	"failed-run-retry":        {"2026-03-05T14:00:00Z", 0, checkCorpusRetry},
 	"announced-run-only":      {"2026-01-12T14:00:00Z", 0, checkCorpusAnnounced},
 	"checks-after-force-push": {"2026-03-11T00:00:00Z", day, checkCorpusChecksOnly},
+	"checks-forbidden":        {"2026-03-15T09:00:00Z", 0, checkCorpusChecksForbidden},
 	"reopened-task":           {"2026-03-12T11:00:00Z", 0, checkCorpusReopened},
 	"second-pr-after-close":   {"2026-03-13T09:00:00Z", 0, checkCorpusSecondPR},
 	"phase-markers":           {"2026-03-14T10:00:00Z", 0, checkCorpusPhases},
@@ -193,6 +194,7 @@ const (
 	corpusMergedPR     = 7
 	corpusClosedPR     = 62
 	corpusSecondPR     = 63
+	corpusRefusedPR    = 64
 )
 
 // A discussion: its run and announcement, no pull request, complete
@@ -284,6 +286,22 @@ func checkCorpusAnnounced(t *testing.T, _ Window, rows []Row) {
 func checkCorpusChecksOnly(t *testing.T, w Window, rows []Row) {
 	if len(rows) != 0 {
 		t.Errorf("window %s: rows = %+v, want none", w.From, rows)
+	}
+}
+
+// The pull request whose checks GitHub refused is open with its review,
+// and the row's GitHub coverage, read, says why it has no checks.
+func checkCorpusChecksForbidden(t *testing.T, _ Window, rows []Row) {
+	row := onlyRow(t, rows)
+	if got := prStates(row); len(got) != 1 || got[corpusRefusedPR] != PROpen {
+		t.Errorf("pull requests = %v, want #%d open", got, corpusRefusedPR)
+	}
+	if !hasMark(row, model.KindReviewSubmitted) {
+		t.Error("the review of the pull request whose checks were refused is not a mark")
+	}
+	i := slices.IndexFunc(row.Coverage, func(c model.Coverage) bool { return c.Source == model.SourceGitHub })
+	if i < 0 || row.Coverage[i].LastSuccessfulRead == nil || len(row.Coverage[i].Notes) != 1 {
+		t.Errorf("coverage = %+v, want GitHub read, with a note on the refused checks", row.Coverage)
 	}
 }
 

@@ -1,10 +1,13 @@
 package github
 
 import (
+	"errors"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 // fetchBranch reads branch of testRepo from a story's recorded responses
@@ -100,6 +103,85 @@ func TestFetchPRChecksOnTwoSHAs(t *testing.T) {
 	}
 	if want := []int64{9401, 9402, 9403, 9404, 9405, 9406}; !slices.Equal(ids, want) {
 		t.Errorf("check runs = %v, want %v", ids, want)
+	}
+}
+
+// refusePath makes f answer path with code and a GitHub-like message.
+func refusePath(f *fakeGitHub, path string, code int, header http.Header) {
+	f.mux.HandleFunc("GET "+path, func(w http.ResponseWriter, _ *http.Request) {
+		for k, v := range header {
+			w.Header()[k] = v
+		}
+		http.Error(w, `{"message":"Resource not accessible by personal access token"}`, code)
+	})
+}
+
+// A 403 or 404 on a commit's check runs or on the inline review comments
+// is kept as a refusal; the rest of the read, the other commit's checks
+// included, is kept.
+func TestFetchPRKeepsRefusedSubReads(t *testing.T) {
+	shaA, shaB := strings.Repeat("a", 40), strings.Repeat("b", 40)
+	checksA := testRepoPath + "/commits/" + shaA + "/check-runs"
+	reviewComments := testRepoPath + "/pulls/41/comments"
+	for _, code := range []int{http.StatusForbidden, http.StatusNotFound} {
+		t.Run(strconv.Itoa(code), func(t *testing.T) {
+			f := newFakeGitHub(t, "checks-two-shas")
+			refusePath(f, checksA, code, nil)
+			refusePath(f, reviewComments, code, nil)
+			snap, err := newTestClient(t, f).FetchPR(t.Context(), testRepo, 41)
+			if err != nil {
+				t.Fatalf("FetchPR: %v", err)
+			}
+			want := []Refusal{
+				{Resource: ResourceReviewComments, Path: reviewComments, Code: code},
+				{Resource: ResourceCheckRuns, SHA: shaA, Path: checksA, Code: code},
+			}
+			if !slices.Equal(snap.Refused, want) {
+				t.Errorf("refused = %+v, want %+v", snap.Refused, want)
+			}
+			if len(snap.Checks) == 0 || slices.ContainsFunc(snap.Checks, func(c CheckRun) bool { return c.HeadSHA != shaB }) {
+				t.Errorf("checks = %+v, want only those of %s", snap.Checks, shaB)
+			}
+			if len(snap.ReviewComments) != 0 || len(snap.Timeline) == 0 {
+				t.Errorf("review comments %d, timeline %d: want the refused list empty, the timeline read",
+					len(snap.ReviewComments), len(snap.Timeline))
+			}
+		})
+	}
+}
+
+// A refusal of the pull request's own records, another status on a
+// sub-read, or a rate limit fails the read.
+func TestFetchPRFailsOnOtherRefusals(t *testing.T) {
+	checksB := testRepoPath + "/commits/" + strings.Repeat("b", 40) + "/check-runs"
+	exhausted := http.Header{
+		headerRateRemaining: {rateLimitExhausted},
+		headerRateReset:     {strconv.FormatInt(testObservedAt.Add(time.Hour).Unix(), 10)},
+	}
+	tests := []struct {
+		name   string
+		path   string
+		code   int
+		header http.Header
+	}{
+		{"timeline forbidden", testRepoPath + "/issues/41/timeline", http.StatusForbidden, nil},
+		{"reviews forbidden", testRepoPath + "/pulls/41/reviews", http.StatusForbidden, nil},
+		{"check runs unauthorized", checksB, http.StatusUnauthorized, nil},
+		{"check runs failing", checksB, http.StatusInternalServerError, nil},
+		{"check runs rate-limited", checksB, http.StatusForbidden, exhausted},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFakeGitHub(t, "checks-two-shas")
+			refusePath(f, tt.path, tt.code, tt.header)
+			_, err := newTestClient(t, f).FetchPR(t.Context(), testRepo, 41)
+			if err == nil || !strings.Contains(err.Error(), tt.path) {
+				t.Fatalf("FetchPR error = %v, want one naming %s", err, tt.path)
+			}
+			if _, limited := errors.AsType[*RateLimitError](err); limited != (tt.header != nil) {
+				t.Errorf("error %v: rate limit %t, want %t", err, limited, tt.header != nil)
+			}
+		})
 	}
 }
 

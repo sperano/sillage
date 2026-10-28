@@ -20,6 +20,7 @@ test('every golden story is loaded', () => {
 	expect([...goldenStories.keys()].sort()).toEqual([
 		'announced-run-only',
 		'checks-after-force-push',
+		'checks-forbidden',
 		'discuss-no-pr',
 		'failed-run-retry',
 		'implementation-merged',

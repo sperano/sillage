@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"net/http"
 	"slices"
 	"strconv"
 	"strings"
@@ -34,48 +35,69 @@ func (a *assembly) readGitHub(ctx context.Context, branch string, extra []github
 		return
 	}
 	at := a.c.now()
-	var all model.Records
-	var notes []string
+	var all branchRead
 	for _, repo := range repos {
-		recs, unchecked, err := a.branchRecords(ctx, repo, branch)
+		r, err := a.branchRecords(ctx, repo, branch)
 		if err != nil {
 			a.fail(model.SourceGitHub, err)
 			return
 		}
-		all.Events = append(all.Events, recs.Events...)
-		all.PullRequests = append(all.PullRequests, recs.PullRequests...)
-		all.Correlations = append(all.Correlations, recs.Correlations...)
-		notes = append(notes, unchecked...)
+		all.add(r)
 	}
 	a.read(model.SourceGitHub, at)
-	a.addEvents(all.Events)
-	for _, p := range all.PullRequests {
+	a.refusals = append(a.refusals, refusalsOf(a.source(model.SourceGitHub).cov.Instance, all.refused)...)
+	a.addGitHub(all)
+}
+
+// addGitHub adds what the branches' reads hold to the story.
+func (a *assembly) addGitHub(all branchRead) {
+	a.addEvents(all.recs.Events)
+	for _, p := range all.recs.PullRequests {
 		a.prs[p.Key] = p
 	}
-	for _, c := range all.Correlations {
+	for _, c := range all.recs.Correlations {
 		a.links.add(c)
 	}
-	for _, n := range notes {
+	for _, n := range all.notes {
 		a.note(model.SourceGitHub, n)
 	}
 }
 
+// branchRead is what was read of one branch's pull requests, or of
+// several branches'.
+type branchRead struct {
+	recs model.Records
+	// notes say what the read left unknown; refused are the sub-reads
+	// GitHub refused.
+	notes   []string
+	refused []github.Refusal
+}
+
+// add appends r to b.
+func (b *branchRead) add(r branchRead) {
+	b.recs.Events = append(b.recs.Events, r.recs.Events...)
+	b.recs.PullRequests = append(b.recs.PullRequests, r.recs.PullRequests...)
+	b.recs.Correlations = append(b.recs.Correlations, r.recs.Correlations...)
+	b.notes = append(b.notes, r.notes...)
+	b.refused = append(b.refused, r.refused...)
+}
+
 // branchRecords reads and normalizes branch's pull requests in repo, each
 // joined to the root by its head branch, and notes the commits whose
-// checks were not read.
-func (a *assembly) branchRecords(ctx context.Context, repo github.Repository, branch string) (
-	model.Records, []string, error) {
+// checks were not read and the sub-reads GitHub refused.
+func (a *assembly) branchRecords(ctx context.Context, repo github.Repository, branch string) (branchRead, error) {
 	snaps, err := a.c.src.GitHub.FetchBranch(ctx, repo, github.Branch{Repository: repo, Name: branch})
 	if err != nil {
-		return model.Records{}, nil, fmt.Errorf("%s branch %s: %w", repo, branch, err)
+		return branchRead{}, fmt.Errorf("%s branch %s: %w", repo, branch, err)
 	}
-	var out model.Records
-	var notes []string
+	var b branchRead
+	out := &b.recs
 	ref := "GET /repos/" + repo.String() + "/pulls?state=all&head=" + repo.Owner + ":" + branch
 	for _, s := range snaps {
+		b.refused = append(b.refused, s.Refused...)
 		recs, err := github.Normalize(s, a.cfg.GitHubAnnouncers)
 		if err != nil {
-			return model.Records{}, nil, fmt.Errorf("%s#%d: %w", repo, s.PullRequest.Number, err)
+			return branchRead{}, fmt.Errorf("%s#%d: %w", repo, s.PullRequest.Number, err)
 		}
 		out.Events = append(out.Events, recs.Events...)
 		out.PullRequests = append(out.PullRequests, recs.PullRequests...)
@@ -87,12 +109,67 @@ func (a *assembly) branchRecords(ctx context.Context, repo github.Repository, br
 				}},
 			})
 			if n := len(s.UncheckedSHAs); n > 0 {
-				notes = append(notes, fmt.Sprintf("pull request %s: the checks of its %d oldest commits "+
+				b.notes = append(b.notes, fmt.Sprintf("pull request %s: the checks of its %d oldest commits "+
 					"were not read, so their results are unknown", p.Key, n))
 			}
+			b.notes = append(b.notes, refusalNotes(p.Key, s)...)
 		}
 	}
-	return out, notes, nil
+	return b, nil
+}
+
+// refusalKey is a resource GitHub refused and the status it answered.
+type refusalKey struct {
+	resource string
+	code     int
+}
+
+// refusalsOf counts refused by resource and status, in the order first
+// refused, as GitHub instance's.
+func refusalsOf(instance string, refused []github.Refusal) []Refusal {
+	var out []Refusal
+	at := make(map[refusalKey]int)
+	for _, r := range refused {
+		k := refusalKey{r.Resource, r.Code}
+		i, ok := at[k]
+		if !ok {
+			i = len(out)
+			at[k] = i
+			out = append(out, Refusal{
+				Source: model.SourceGitHub, Instance: instance, Resource: r.Resource, Code: r.Code,
+			})
+		}
+		out[i].Count++
+	}
+	return out
+}
+
+// refusalNotes says, for each resource and status GitHub refused in s,
+// what of pull request key is unknown: "check runs: forbidden" for a token
+// without the Checks permission.
+func refusalNotes(key model.PRKey, s github.Snapshot) []string {
+	var order []refusalKey
+	commits := make(map[refusalKey]int)
+	for _, r := range s.Refused {
+		k := refusalKey{r.Resource, r.Code}
+		if _, ok := commits[k]; !ok {
+			order = append(order, k)
+		}
+		if r.SHA != "" {
+			commits[k]++
+		}
+	}
+	notes := make([]string, 0, len(order))
+	for _, k := range order {
+		answered, unknown := fmt.Sprintf("GitHub answered %d", k.code), "its inline review comments are unknown"
+		if k.resource == github.ResourceCheckRuns {
+			answered += fmt.Sprintf(" for %d of its %d commits", commits[k], len(s.SHAs))
+			unknown = "those commits' checks are unknown"
+		}
+		notes = append(notes, fmt.Sprintf("pull request %s: %s: %s (%s), so %s",
+			key, k.resource, strings.ToLower(http.StatusText(k.code)), answered, unknown))
+	}
+	return notes
 }
 
 // repositories returns the repositories to read, in order: those the

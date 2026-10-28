@@ -1,0 +1,63 @@
+{
+  "description": "GitHub refused the check runs of a pull request's commits (403 Forbidden: the token lacks the Checks permission) while the pull request and its review were readable. The pull request and its review stay in the story, its checks are absent, and GitHub's coverage says they were forbidden, not that there were none.",
+  "root": {
+    "task": { "instance": "vikunja.example.com", "id": 110 }
+  },
+  "events": [
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "pulls/7064",
+      "idKind": "source",
+      "kind": "pr.opened",
+      "sourceTime": "2026-03-15T09:00:00Z",
+      "observedAt": "2026-03-15T10:00:00Z",
+      "actor": { "login": "owner-gh", "kind": "person" },
+      "related": { "pr": { "instance": "github.example.com", "repository": "example-org/widgets", "number": 64 } },
+      "details": { "branch": "kelos/vikunja-110" },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/64",
+        "note": "user owner-gh"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "reviews/8641",
+      "idKind": "source",
+      "kind": "pr.review_submitted",
+      "sourceTime": "2026-03-15T09:20:00Z",
+      "observedAt": "2026-03-15T10:00:00Z",
+      "actor": { "login": "reviewer-gh", "kind": "person" },
+      "related": { "pr": { "instance": "github.example.com", "repository": "example-org/widgets", "number": 64 } },
+      "details": { "state": "approved" },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/pulls/64/reviews",
+        "note": "review 8641"
+      }
+    }
+  ],
+  "runs": [],
+  "pullRequests": [
+    {
+      "key": { "instance": "github.example.com", "repository": "example-org/widgets", "number": 64 },
+      "branch": "kelos/vikunja-110",
+      "checks": []
+    }
+  ],
+  "correlations": [],
+  "coverage": [
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "lastSuccessfulRead": "2026-03-15T10:00:00Z",
+      "notes": [
+        "pull request github.example.com/example-org/widgets/pull/64: check runs: forbidden (GitHub answered 403 for 2 of its 2 commits), so those commits' checks are unknown"
+      ]
+    }
+  ]
+}

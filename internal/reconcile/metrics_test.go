@@ -1,12 +1,16 @@
 package reconcile
 
 import (
+	"net/http"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/source/github"
 )
 
 // readCount is how many reads of src's instance the duration histogram
@@ -71,4 +75,56 @@ func TestMetricsAfterACycle(t *testing.T) {
 	if got := testutil.CollectAndCount(m.storeErrors); got != 0 {
 		t.Errorf("store error series = %d, want none", got)
 	}
+}
+
+// A read GitHub refused in part succeeds, and the loop logs and counts
+// each resource and status it refused.
+func TestRefusalsLoggedAndCounted(t *testing.T) {
+	const commits, cycles = 2, 2
+	repo := github.Repository{Owner: "acme", Name: "widgets"}
+	h := newHarness(t, everyCycle)
+	h.ccfg.Workspaces = map[string]github.Repository{"widgets": repo}
+	h.github.snaps = []github.Snapshot{refusedChecks(repo, "kelos/vikunja-"+strconv.Itoa(testTaskID))}
+	h.loop = h.newLoop(t, everyCycle)
+	for range cycles {
+		h.loop.cycle(t.Context())
+	}
+	m := h.loop.metrics
+	gh := string(model.SourceGitHub)
+	got := testutil.ToFloat64(m.refusals.WithLabelValues(gh, testGitHubHost, "check_runs", "403"))
+	if got != commits*cycles {
+		t.Errorf("refused check runs = %v, want both commits' in each of the two cycles", got)
+	}
+	if got := testutil.CollectAndCount(m.readErrors); got != 0 {
+		t.Errorf("read error series = %d, want none: the read succeeded", got)
+	}
+	if got := strings.Count(h.logs.String(), "source read refused in part"); got != cycles {
+		t.Errorf("logs warn %d times of the refusal, want once a cycle:\n%s", got, h.logs)
+	}
+	if !strings.Contains(h.logs.String(), `resource="check runs" code=403 requests=2`) {
+		t.Errorf("logs do not say what was refused:\n%s", h.logs)
+	}
+}
+
+// refusedChecks is a pull request of branch in repo whose two commits'
+// check runs GitHub answered 403.
+func refusedChecks(repo github.Repository, branch string) github.Snapshot {
+	r := &github.Repo{FullName: repo.String()}
+	head, first := strings.Repeat("c", 40), strings.Repeat("d", 40)
+	snap := github.Snapshot{
+		Instance: testGitHubHost, Repository: repo, ObservedAt: testStart, SHAs: []string{first, head},
+		PullRequest: github.PullRequest{
+			ID: 7064, Number: 64, State: "open", CreatedAt: testStart,
+			User: &github.User{Login: "owner-gh", Type: "User"},
+			Head: github.Ref{Ref: branch, SHA: head, Repo: r},
+			Base: github.Ref{Ref: "main", SHA: strings.Repeat("0", 40), Repo: r},
+		},
+	}
+	for _, sha := range snap.SHAs {
+		snap.Refused = append(snap.Refused, github.Refusal{
+			Resource: github.ResourceCheckRuns, SHA: sha, Code: http.StatusForbidden,
+			Path: "/repos/" + repo.String() + "/commits/" + sha + "/check-runs",
+		})
+	}
+	return snap
 }

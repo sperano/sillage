@@ -138,8 +138,9 @@ type Snapshot struct {
 	// ReviewComments are the inline comments on the diff.
 	ReviewComments []Comment
 	Reviews        []Review
-	// SHAs are the commits whose check runs were read: those the timeline
-	// names, in its order, then the head.
+	// SHAs are the commits whose check runs were asked for: those the
+	// timeline names, in its order, then the head. Those GitHub refused
+	// are in Refused.
 	SHAs []string
 	// UncheckedSHAs are older commits whose check runs were not read, past
 	// maxCheckedCommits: their results are unknown, not absent.
@@ -147,6 +148,28 @@ type Snapshot struct {
 	// Checks holds every check run of every commit in SHAs, attempts
 	// included: a later commit's results never replace an earlier one's.
 	Checks []CheckRun
+	// Refused are the sub-reads GitHub refused while the pull request
+	// itself was readable: what they hold is unknown, not absent.
+	Refused []Refusal
 	// ObservedAt is when the last of these was read.
 	ObservedAt time.Time
+}
+
+// The parts of a pull request's read that may be refused without failing
+// it: Refusal.Resource.
+const (
+	ResourceCheckRuns      = "check runs"
+	ResourceReviewComments = "review comments"
+)
+
+// Refusal is one sub-read of a pull request GitHub answered 403 Forbidden
+// or 404 Not Found, as when a token may read pull requests but not checks.
+type Refusal struct {
+	// Resource is ResourceCheckRuns or ResourceReviewComments.
+	Resource string
+	// SHA is the commit whose check runs were refused; "" otherwise.
+	SHA string
+	// Path is the API path refused; Code its HTTP status code.
+	Path string
+	Code int
 }
