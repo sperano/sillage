@@ -32,7 +32,7 @@ func TestTimedBoundsEachRead(t *testing.T) {
 }
 
 func TestSourcesOfUnsetClientsAreRefused(t *testing.T) {
-	_, err := New(everyCycle, testCollectorConfig(), SourcesOf(collector.Clients{}), newFakeStore(),
+	_, err := New(DefaultConfig(), testCollectorConfig(), SourcesOf(collector.Clients{}), newFakeStore(), nil,
 		NewMetrics(prometheus.NewRegistry()), slog.New(slog.DiscardHandler))
 	if err == nil {
 		t.Error("New() over unset clients = nil error, want them refused")

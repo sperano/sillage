@@ -28,8 +28,8 @@ const (
 	defaultMaxResponseBytes = 16 << 20
 	// defaultMaxCommentPages stops a server that never returns a short page.
 	defaultMaxCommentPages = 10_000
-	// drainBytes is how much of an error response is read and discarded so
-	// the connection can be reused.
+	// drainBytes is how much of an error response is read: parsed for
+	// Vikunja's error on a 4xx, and so the connection can be reused.
 	drainBytes = 4 << 10
 	// headerTotalPages is Vikunja's page-count header on paginated lists.
 	headerTotalPages = "X-Pagination-Total-Pages"
@@ -44,10 +44,40 @@ type StatusError struct {
 	// Code is the HTTP status code; Status its full text ("404 Not Found").
 	Code   int
 	Status string
+	// APICode and Message are Vikunja's error code and message, from the
+	// body of a 4xx response that holds them (2004 is an invalid model).
+	APICode int
+	Message string
 }
 
 func (e *StatusError) Error() string {
-	return "vikunja: GET " + e.Path + ": " + e.Status
+	msg := "vikunja: GET " + e.Path + ": " + e.Status
+	if e.Message != "" {
+		msg += ": " + e.Message
+	}
+	if e.APICode != 0 {
+		msg += " (code " + strconv.Itoa(e.APICode) + ")"
+	}
+	return msg
+}
+
+// newStatusError reads at most drainBytes of resp's body, and Vikunja's
+// error from it when the status is a 4xx: a body cut at the bound, or
+// not Vikunja's JSON (a proxy's page), leaves the error without them.
+func newStatusError(path string, resp *http.Response) *StatusError {
+	se := &StatusError{Path: path, Code: resp.StatusCode, Status: resp.Status}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, drainBytes))
+	if resp.StatusCode < http.StatusBadRequest || resp.StatusCode >= http.StatusInternalServerError {
+		return se
+	}
+	var apiErr struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(body, &apiErr) == nil {
+		se.APICode, se.Message = apiErr.Code, apiErr.Message
+	}
+	return se
 }
 
 // Client reads tasks and comments from one Vikunja instance. It only sends
@@ -192,8 +222,7 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, out any
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, drainBytes))
-		return nil, &StatusError{Path: path, Code: resp.StatusCode, Status: resp.Status}
+		return nil, newStatusError(path, resp)
 	}
 	body := http.MaxBytesReader(nil, resp.Body, c.maxBody)
 	if err := json.NewDecoder(body).Decode(out); err != nil {

@@ -26,15 +26,21 @@ func newMetrics() (http.Handler, *reconcile.Metrics, prometheus.Registerer) {
 	return promhttp.HandlerFor(reg, promhttp.HandlerOpts{}), m, reg
 }
 
-// startCollector starts the collection loop the environment configures
-// into st, until ctx is done, and returns a function that waits for it to
-// stop. Without a store it starts nothing. The loop's lock is on st's
-// database.
-func startCollector(ctx context.Context, getenv func(string) string, st *store.Store, m *reconcile.Metrics,
-	log *slog.Logger) (func(), error) {
+// collection is the collection loop the environment configures, and the
+// lock it collects under.
+type collection struct {
+	loop *reconcile.Loop
+	lock reconcile.Locker
+}
+
+// newCollector returns the collection loop the environment configures
+// into st, which reads the roots deliveries name too; nil, and nothing to
+// start, without a store. The loop's lock is on st's database.
+func newCollector(getenv func(string) string, st *store.Store, deliveries reconcile.Deliveries,
+	m *reconcile.Metrics, log *slog.Logger) (*collection, error) {
 	if st == nil {
 		log.Info("collector off: no store", "env", store.EnvDatabaseURL)
-		return func() {}, nil
+		return nil, nil
 	}
 	cfg, err := reconcile.ConfigFromEnv(getenv)
 	if err != nil {
@@ -56,14 +62,27 @@ func startCollector(ctx context.Context, getenv func(string) string, st *store.S
 	if err != nil {
 		return nil, err
 	}
-	loop, err := reconcile.New(cfg, env.Collector, reconcile.SourcesOf(clients), loopStore{st}, m, log)
+	loop, err := reconcile.New(cfg, env.Collector, reconcile.SourcesOf(clients), loopStore{st}, deliveries, m, log)
 	if err != nil {
 		return nil, err
+	}
+	return &collection{loop: loop, lock: lock}, nil
+}
+
+// start runs the loop until ctx is done, and returns a function that
+// waits for it to stop. A nil c starts nothing.
+func (c *collection) start(ctx context.Context) func() {
+	if c == nil {
+		return func() {}
 	}
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		loop.Run(ctx, lock)
+		c.loop.Run(ctx, c.lock)
 	}()
-	return func() { <-done }, nil
+	return func() { <-done }
 }
+
+// collecting reports whether the loop collects: it holds the lock and
+// has loaded the store's state.
+func (c *collection) collecting() bool { return c.loop.Collecting() }

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/sperano/sillage/internal/collector"
@@ -25,6 +26,8 @@ type Loop struct {
 	now     func() time.Time
 	// jitter spreads a wait; the identity in tests.
 	jitter func(time.Duration) time.Duration
+	// deliveries are the reads webhook deliveries ask for; nil without.
+	deliveries Deliveries
 
 	// roots and marks are what the store holds, loaded when the lock is
 	// taken: each root's state, by ref, and each project's listing mark.
@@ -33,11 +36,16 @@ type Loop struct {
 	// unsaved are the roots whose state in roots has gaps the store does
 	// not hold yet: their commit failed.
 	unsaved map[model.Ref]bool
+	// collecting is whether the loop holds the lock and has loaded the
+	// store's state.
+	collecting atomic.Bool
 }
 
 // New returns a loop reading src as ccfg describes, into store, each
-// store operation within storeTimeout.
-func New(cfg Config, ccfg collector.Config, src Sources, store Store, m *Metrics, log *slog.Logger) (*Loop, error) {
+// store operation within storeTimeout, and the roots deliveries ask for
+// too unless it is nil.
+func New(cfg Config, ccfg collector.Config, src Sources, store Store, deliveries Deliveries, m *Metrics,
+	log *slog.Logger) (*Loop, error) {
 	if err := errors.Join(cfg.validate(), src.validate()); err != nil {
 		return nil, err
 	}
@@ -48,8 +56,8 @@ func New(cfg Config, ccfg collector.Config, src Sources, store Store, m *Metrics
 		return nil, err
 	}
 	return &Loop{
-		cfg: cfg, ccfg: ccfg, src: src, store: boundedStore{s: store, timeout: storeTimeout}, metrics: m, log: log,
-		now: time.Now, jitter: jitter,
+		cfg: cfg, ccfg: ccfg, src: src, store: boundedStore{s: store, timeout: storeTimeout}, deliveries: deliveries,
+		metrics: m, log: log, now: time.Now, jitter: jitter,
 	}, nil
 }
 
@@ -86,6 +94,7 @@ func (l *Loop) Run(ctx context.Context, lock Locker) {
 		err := lock.WithLock(ctx, func(ctx context.Context) error {
 			return l.collect(ctx, func() { said = "" })
 		})
+		l.collecting.Store(false)
 		l.metrics.lockHeld.Set(0)
 		switch {
 		case ctx.Err() != nil:
@@ -113,13 +122,19 @@ func (l *Loop) collect(ctx context.Context, started func()) error {
 		return fmt.Errorf("reconcile: loading the collector's checkpoints: %w", err)
 	}
 	started()
+	l.collecting.Store(true)
 	for {
 		l.cycle(ctx)
-		if !sleep(ctx, l.jitter(l.cfg.Interval)) {
+		if !l.wait(ctx) {
 			return ctx.Err()
 		}
 	}
 }
+
+// Collecting reports whether the loop is collecting: it holds the lock
+// and has loaded the store's state, so that the reads deliveries ask for
+// are taken by its next cycle.
+func (l *Loop) Collecting() bool { return l.collecting.Load() }
 
 // load reads every root's state and project's mark, and opens a gap for
 // every source of every root: from the root's last read, or the last

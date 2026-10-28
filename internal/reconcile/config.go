@@ -36,6 +36,22 @@ const (
 	// Vikunja project ids whose changed tasks are read, comma-separated.
 	// Unset, only the tasks Kelos names are read.
 	EnvVikunjaProjects = "SILLAGE_VIKUNJA_PROJECTS"
+	// EnvDeliveryDelay names the environment variable holding how long a
+	// webhook delivery's read waits for the deliveries that follow it, as
+	// a Go duration. Unset means DefaultDeliveryDelay.
+	EnvDeliveryDelay = "SILLAGE_DELIVERY_DELAY"
+	// DefaultDeliveryDelay lets the deliveries of one change (a review and
+	// its comments, a merge and its checks) share a cycle, and spaces the
+	// cycles a flood of deliveries starts.
+	DefaultDeliveryDelay = 15 * time.Second
+	// EnvDeliveryRootsPerCycle names the environment variable holding how
+	// many roots webhook deliveries name a cycle reads at most. Unset
+	// means DefaultDeliveryRootsPerCycle.
+	EnvDeliveryRootsPerCycle = "SILLAGE_DELIVERY_ROOTS_PER_CYCLE"
+	// DefaultDeliveryRootsPerCycle bounds how long a flood of deliveries
+	// delays the periodic reads of a cycle, which come after theirs; one
+	// change names a few roots at most.
+	DefaultDeliveryRootsPerCycle = 25
 
 	// jitterFraction spreads every wait by up to this fraction either way,
 	// so that two loops, or a loop and a source's own schedule, drift
@@ -61,12 +77,19 @@ type Config struct {
 	LockRetryInterval time.Duration
 	// VikunjaProjects are the projects whose changed tasks are read.
 	VikunjaProjects []int64
+	// DeliveryDelay is how long after a delivery asks for a read the
+	// cycle that reads it starts, unless the interval ends first.
+	DeliveryDelay time.Duration
+	// DeliveryRootsPerCycle is how many roots deliveries name a cycle
+	// reads at most; the others wait for the next cycle.
+	DeliveryRootsPerCycle int
 }
 
 // DefaultConfig is the configuration with every default and no project.
 func DefaultConfig() Config {
 	return Config{
 		Interval: DefaultInterval, RefreshInterval: DefaultRefreshInterval, LockRetryInterval: DefaultLockRetryInterval,
+		DeliveryDelay: DefaultDeliveryDelay, DeliveryRootsPerCycle: DefaultDeliveryRootsPerCycle,
 	}
 }
 
@@ -82,10 +105,15 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 		{EnvInterval, &cfg.Interval},
 		{EnvRefreshInterval, &cfg.RefreshInterval},
 		{EnvLockRetryInterval, &cfg.LockRetryInterval},
+		{EnvDeliveryDelay, &cfg.DeliveryDelay},
 	} {
 		if err := parseDuration(getenv(d.env), d.env, d.dst); err != nil {
 			errs = append(errs, err)
 		}
+	}
+	if err := parseCount(getenv(EnvDeliveryRootsPerCycle), EnvDeliveryRootsPerCycle,
+		&cfg.DeliveryRootsPerCycle); err != nil {
+		errs = append(errs, err)
 	}
 	projects, err := parseProjects(getenv(EnvVikunjaProjects))
 	if err != nil {
@@ -98,10 +126,14 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 	return cfg, nil
 }
 
-// validate reports whether every interval is positive.
+// validate reports whether every interval and the deliveries' cap are
+// positive.
 func (c Config) validate() error {
-	if c.Interval <= 0 || c.RefreshInterval <= 0 || c.LockRetryInterval <= 0 {
+	if c.Interval <= 0 || c.RefreshInterval <= 0 || c.LockRetryInterval <= 0 || c.DeliveryDelay <= 0 {
 		return errors.New("reconcile: every interval must be positive")
+	}
+	if c.DeliveryRootsPerCycle <= 0 {
+		return errors.New("reconcile: the roots deliveries name read per cycle must be positive")
 	}
 	return nil
 }
@@ -117,6 +149,20 @@ func parseDuration(value, env string, dst *time.Duration) error {
 		return fmt.Errorf("reconcile: %s: %q is not a positive duration", env, value)
 	}
 	*dst = d
+	return nil
+}
+
+// parseCount sets dst from value, a positive integer, unless value is
+// empty.
+func parseCount(value, env string, dst *int) error {
+	if value = strings.TrimSpace(value); value == "" {
+		return nil
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil || n <= 0 {
+		return fmt.Errorf("reconcile: %s: %q is not a positive integer", env, value)
+	}
+	*dst = n
 	return nil
 }
 

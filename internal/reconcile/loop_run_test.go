@@ -49,6 +49,9 @@ func TestStandbyReadsNothingAndSaysWhy(t *testing.T) {
 	if got := testutil.ToFloat64(h.loop.metrics.lockHeld); got != 0 {
 		t.Errorf("lock held = %v, want 0", got)
 	}
+	if h.loop.Collecting() {
+		t.Error("a standby says it is collecting")
+	}
 }
 
 func TestRunCollectsWhileItHoldsTheLock(t *testing.T) {

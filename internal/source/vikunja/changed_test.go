@@ -11,11 +11,12 @@ import (
 )
 
 // changedServer answers task listings from pages, by page number, and
-// records the filters it was sent.
+// records the filters it was sent. It is routed as Vikunja 2 is: the
+// listing is /api/v1/tasks, and /api/v1/tasks/all a task read answered 400.
 func changedServer(t *testing.T, pages map[int][]TaskChange, totalPages int, filters *[]string) http.Handler {
 	t.Helper()
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET "+allTasksPath, func(w http.ResponseWriter, r *http.Request) {
+	mux := vikunjaMux()
+	mux.HandleFunc("GET /api/v1/tasks", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		if q.Get("sort_by") != "id" || q.Get("order_by") != "asc" {
 			t.Errorf("sorted by %q %q, want id asc", q.Get("sort_by"), q.Get("order_by"))

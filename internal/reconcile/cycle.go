@@ -25,6 +25,9 @@ type due struct {
 	updated *time.Time
 	// projects are the projects whose listings named it.
 	projects []int64
+	// delivery is the kind of read a webhook delivery asked for
+	// (deliveryCaused, deliveryCoalesced); empty when none did.
+	delivery string
 }
 
 // cycleRun is one cycle's collector, over the cycle's one Kelos read, and
@@ -34,8 +37,9 @@ type cycleRun struct {
 	kelosAt time.Time
 }
 
-// cycle reads what changed, and commits each root it read, then the
-// project marks and when the cycle ended. The shutdown stops it between
+// cycle reads what changed and what deliveries asked for, those first,
+// and commits each root it read, then the project marks and when the
+// cycle ended. The shutdown stops it between
 // two roots or inside one, which then commits nothing.
 func (l *Loop) cycle(ctx context.Context) {
 	start := l.now()
@@ -46,13 +50,17 @@ func (l *Loop) cycle(ctx context.Context) {
 	}
 	dues := l.kelosDue(discovered)
 	marks := l.listProjects(ctx, dues)
+	l.addDelivered(dues)
 	incomplete := make(map[int64]bool)
-	committed := 0
-	for _, ref := range slices.SortedFunc(maps.Keys(dues), compareRefs) {
+	committed, delivered := 0, 0
+	for _, d := range slices.SortedFunc(maps.Values(dues), compareDues) {
 		if ctx.Err() != nil {
 			return
 		}
-		d := dues[ref]
+		if d.delivery != "" {
+			delivered++
+			l.metrics.deliveryReads.WithLabelValues(d.delivery).Inc()
+		}
 		ok, read := l.collectRoot(ctx, cr, d)
 		if ok {
 			committed++
@@ -68,7 +76,7 @@ func (l *Loop) cycle(ctx context.Context) {
 	}
 	l.commitCycle(ctx, marks, incomplete)
 	l.metrics.cycles.Inc()
-	l.log.Info("collection cycle", "due", len(dues), "committed", committed, "duration", l.now().Sub(start))
+	l.log.Info("collection cycle", "due", len(dues), "delivered", delivered, "committed", committed, "duration", l.now().Sub(start))
 }
 
 func compareRefs(a, b model.Ref) int {
