@@ -51,6 +51,13 @@ type Metrics struct {
 	// of the loop.
 	deliveryReads  *prometheus.CounterVec
 	deliveryCycles prometheus.Counter
+	// githubReads are the roots' GitHub sides by what read them, or did
+	// not; githubRequests, githubNotModified and githubRemaining what the
+	// GitHub client asked and was left.
+	githubReads       *prometheus.CounterVec
+	githubRequests    prometheus.Counter
+	githubNotModified prometheus.Counter
+	githubRemaining   prometheus.Gauge
 }
 
 // NewMetrics registers the loop's metrics with reg.
@@ -101,14 +108,40 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 			Help: "Collection cycles a webhook delivery started before the interval ended.",
 		}),
 	}
+	m.registerGitHub()
 	reg.MustRegister(m.lastSuccess, m.readErrors, m.refusals, m.readDuration, m.written, m.storeErrors, m.cycles, m.roots,
-		m.lockHeld, m.deliveryReads, m.deliveryCycles)
+		m.lockHeld, m.deliveryReads, m.deliveryCycles, m.githubReads, m.githubRequests, m.githubNotModified,
+		m.githubRemaining)
 	// Every series exists from the start, so that a rate over it is
 	// defined before the first delivery.
 	for _, kind := range []string{deliveryCaused, deliveryCoalesced} {
 		m.deliveryReads.WithLabelValues(kind)
 	}
+	for _, kind := range githubTriggers {
+		m.githubReads.WithLabelValues(kind)
+	}
 	return m
+}
+
+// registerGitHub makes the metrics of the roots' GitHub sides.
+func (m *Metrics) registerGitHub() {
+	m.githubReads = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricNamespace, Name: "collector_github_reads_total",
+		Help: "Root reads' GitHub sides, by kind: read for a delivery, a run (a new root or changed runs) or a task " +
+			"change; by the backstop, whole (backstop) or found unchanged from 304s (unchanged); or held back by " +
+			"the rate limit's reserve (deferred).",
+	}, []string{labelKind})
+	m.githubRequests = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricNamespace, Name: "github_requests_total", Help: "Requests the collector sent to GitHub.",
+	})
+	m.githubNotModified = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricNamespace, Name: "github_not_modified_total",
+		Help: "Requests to GitHub answered 304 Not Modified, which its rate limit does not count.",
+	})
+	m.githubRemaining = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricNamespace, Name: "github_rate_limit_remaining",
+		Help: "Requests left in GitHub's rate-limit window, as its last response said.",
+	})
 }
 
 // observeRead records one read of a source instance that started at

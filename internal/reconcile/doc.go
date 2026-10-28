@@ -7,13 +7,28 @@
 // name, lists the configured Vikunja projects' tasks changed since the
 // last listing, and collects every root that is new, whose runs changed,
 // whose task changed, whose Kelos gap is open, or that was not read for a
-// refresh interval. The roots webhook deliveries name (Deliveries) are
+// refresh interval.
+//
+// A root's GitHub side has a schedule of its own, since its reads cost
+// the token's rate limit: it is read when a delivery names the root, a
+// run is new or changed, or the task changed. A refresh, or a Kelos gap,
+// keeps the stored records of its last read instead. Past a
+// BackstopInterval with none of those, the backstop asks GitHub, with
+// the ETags of the last read (ConditionalGitHub), whether its lists
+// changed: 304 Not Modified, which the rate limit does not count, closes
+// the coverage there; a change reads it whole. A settled root (task done,
+// pull requests closed or merged, runs finished) gets no backstop unless
+// a gap is open on its GitHub coverage, and no backstop read is made
+// while the rate limit's window has less than githubReserve left. A
+// restart spreads the backstop reads it finds overdue over the interval.
+//
+// The roots webhook deliveries name (Deliveries) are
 // read too, first, at most DeliveryRootsPerCycle a cycle, the others left
 // queued for the next, and each once however many deliveries named it: a
 // delivery cuts the wait for the next cycle short, to DeliveryDelay, but
 // that cycle is a whole one, with its one Kelos read and its project
 // listings. The periodic reads stay authoritative: a lost delivery only
-// delays what they find. Every successful read of a root's source advances
+// delays what they find, on GitHub until the backstop. Every successful read of a root's source advances
 // that source's LastSuccessfulRead; once there is one, a failed read
 // opens a gap, from the last success to the next, with the reason, unless
 // one is open already: a failed Kelos read, which serves every root,

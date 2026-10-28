@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -69,9 +70,15 @@ type Client struct {
 	maxWait    time.Duration
 	maxRetries int
 
+	// requests counts the requests sent, and notModified those answered
+	// 304 Not Modified.
+	requests, notModified atomic.Int64
+
 	mu sync.Mutex
 	// resumeAt is when the rate-limit window, last seen exhausted, resets.
 	resumeAt time.Time
+	// budget is the rate limit the last response reported.
+	budget Budget
 }
 
 // NewClient returns a client for cfg, which must be valid (ConfigFromEnv
@@ -112,20 +119,28 @@ func (c *Client) getOne(ctx context.Context, path string, out any) error {
 
 // listAll reads every page of the list at path.
 func listAll[T any](ctx context.Context, c *Client, path string, query url.Values) ([]T, error) {
+	return listTagged[T](ctx, c, path, query, nil)
+}
+
+// listTagged is listAll, keeping the list's ETag in t unless t is nil.
+func listTagged[T any](ctx context.Context, c *Client, path string, query url.Values, t *tagger) ([]T, error) {
 	var all []T
-	err := paginate(ctx, c, path, query, func(page []T) { all = append(all, page...) })
+	err := paginate(ctx, c, path, query, t, func(page []T) { all = append(all, page...) })
 	return all, err
 }
 
 // paginate reads the list at path page by page, following the Link
-// header's next URL, and passes each page, decoded into a P, to each.
-func paginate[P any](ctx context.Context, c *Client, path string, query url.Values, each func(P)) error {
+// header's next URL, and passes each page, decoded into a P, to each. A
+// non-nil t keeps the list's ETag, as tagger.note says.
+func paginate[P any](ctx context.Context, c *Client, path string, query url.Values, t *tagger,
+	each func(P)) error {
 	q := url.Values{}
 	for k, v := range query {
 		q[k] = v
 	}
 	q.Set("per_page", strconv.Itoa(c.perPage))
-	target := c.apiURL.String() + path + "?" + q.Encode()
+	first := c.apiURL.String() + path + "?" + q.Encode()
+	target := first
 	for n := 1; target != ""; n++ {
 		if n > c.maxPages {
 			return fmt.Errorf("github: GET %s: more than %d pages", path, c.maxPages)
@@ -139,6 +154,7 @@ func paginate[P any](ctx context.Context, c *Client, path string, query url.Valu
 		if target, err = c.nextPage(header, path); err != nil {
 			return err
 		}
+		t.note(c.relative(first), n == 1 && target == "", header)
 	}
 	return nil
 }
@@ -186,7 +202,7 @@ func (c *Client) get(ctx context.Context, path, target string, out any) (http.He
 		if err := c.awaitBudget(ctx, path); err != nil {
 			return nil, wrapContext(path, err)
 		}
-		resp, err := c.send(ctx, path, target)
+		resp, err := c.send(ctx, path, target, "")
 		if err != nil {
 			return nil, err
 		}
@@ -206,7 +222,9 @@ func (c *Client) get(ctx context.Context, path, target string, out any) (http.He
 	}
 }
 
-func (c *Client) send(ctx context.Context, path, target string) (*http.Response, error) {
+// send sends one GET of target, a URL of path, conditional on etag
+// unless it is empty, and counts it and the budget it reports.
+func (c *Client) send(ctx context.Context, path, target, etag string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
 		return nil, fmt.Errorf("github: GET %s: %w", path, err)
@@ -215,10 +233,15 @@ func (c *Client) send(ctx context.Context, path, target string) (*http.Response,
 	req.Header.Set("Accept", mediaType)
 	req.Header.Set(headerAPIVersion, apiVersion)
 	req.Header.Set("User-Agent", userAgent)
+	if etag != "" {
+		req.Header.Set(headerIfNoneMatch, etag)
+	}
+	c.requests.Add(1)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("github: GET %s: %w", path, unwrapURLError(err))
 	}
+	c.noteLimit(resp.Header)
 	return resp, nil
 }
 

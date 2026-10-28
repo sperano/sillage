@@ -28,13 +28,30 @@ type due struct {
 	// delivery is the kind of read a webhook delivery asked for
 	// (deliveryCaused, deliveryCoalesced); empty when none did.
 	delivery string
+	// github is how the read reads the root's GitHub side, and trigger
+	// what made it read it whole. backstopOnly is whether nothing but the
+	// GitHub backstop made the root due.
+	github       githubRead
+	trigger      string
+	backstopOnly bool
 }
 
-// cycleRun is one cycle's collector, over the cycle's one Kelos read, and
-// when that read started.
+// cycleRun is one cycle's collector, over the cycle's one Kelos read,
+// that read, and when it started.
 type cycleRun struct {
 	c       *collector.Collector
+	read    *cycleKelos
 	kelosAt time.Time
+}
+
+// rootCollector returns a collector over the cycle's Kelos read, reading
+// GitHub through gh: one root's.
+func (l *Loop) rootCollector(cr cycleRun, gh *rootGitHub) (*collector.Collector, error) {
+	src := l.cycleSources(cr.read)
+	if src.GitHub != nil {
+		src.GitHub = gh
+	}
+	return collector.New(l.ccfg, src)
 }
 
 // cycle reads what changed and what deliveries asked for, those first,
@@ -43,6 +60,7 @@ type cycleRun struct {
 // two roots or inside one, which then commits nothing.
 func (l *Loop) cycle(ctx context.Context) {
 	start := l.now()
+	l.startGitHubCycle()
 	cr, discovered, err := l.readKelos(ctx)
 	if err != nil {
 		l.log.Error("no cycle: the collector refused its sources", "error", err)
@@ -76,7 +94,8 @@ func (l *Loop) cycle(ctx context.Context) {
 	}
 	l.commitCycle(ctx, marks, incomplete)
 	l.metrics.cycles.Inc()
-	l.log.Info("collection cycle", "due", len(dues), "delivered", delivered, "committed", committed, "duration", l.now().Sub(start))
+	l.log.Info("collection cycle", "due", len(dues), "delivered", delivered, "committed", committed,
+		"duration", l.now().Sub(start), l.endGitHubCycle())
 }
 
 func compareRefs(a, b model.Ref) int {
@@ -98,7 +117,7 @@ func (l *Loop) readKelos(ctx context.Context) (cycleRun, []collector.Discovered,
 	if err != nil {
 		return cycleRun{}, nil, err
 	}
-	cr := cycleRun{c: c, kelosAt: l.now()}
+	cr := cycleRun{c: c, read: read, kelosAt: l.now()}
 	if l.src.Kelos == nil {
 		return cr, nil, nil
 	}
@@ -140,18 +159,28 @@ func (l *Loop) cycleSources(read *cycleKelos) collector.Sources {
 	return s
 }
 
-// kelosDue returns the roots Kelos names that are due: never read, named
-// by other runs than at their last read, with a Kelos gap open (a failed
-// Kelos read or a restart), which this read can close, or not read for a
-// refresh interval.
+// kelosDue returns the roots Kelos names that are due: never read or
+// named by other runs than at their last read, GitHub included; with a
+// Kelos gap open (a failed Kelos read or a restart), which this read can
+// close, or not read for a refresh interval, GitHub kept; or due for the
+// GitHub backstop.
 func (l *Loop) kelosDue(discovered []collector.Discovered) map[model.Ref]*due {
 	dues := make(map[model.Ref]*due)
-	for _, d := range discovered {
-		runs := digest(model.Records{Runs: d.Runs})
-		st := l.roots[d.Root.Ref()]
-		if st == nil || st.KelosRuns != runs || st.kelosGapOpen(l.ccfg.Kelos.Cluster) ||
-			l.now().Sub(st.Read) >= l.jitter(l.cfg.RefreshInterval) {
-			dues[d.Root.Ref()] = &due{root: d.Root, kelosRuns: runs}
+	for _, disc := range discovered {
+		runs := digest(model.Records{Runs: disc.Runs})
+		d := &due{root: disc.Root, kelosRuns: runs}
+		st := l.roots[disc.Root.Ref()]
+		if st == nil || st.KelosRuns != runs {
+			d.readGitHub(triggerRun)
+			dues[disc.Root.Ref()] = d
+			continue
+		}
+		refresh := st.kelosGapOpen(l.ccfg.Kelos.Cluster) || l.now().Sub(st.Read) >= l.jitter(l.cfg.RefreshInterval)
+		if l.backstopDue(st) {
+			d.github, d.backstopOnly = githubBackstop, !refresh
+		}
+		if refresh || d.github != githubKept {
+			dues[disc.Root.Ref()] = d
 		}
 	}
 	return dues

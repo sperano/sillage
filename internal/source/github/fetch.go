@@ -32,6 +32,12 @@ const (
 // is head and whose base repository is base: none, one or several. They
 // come oldest first.
 func (c *Client) FetchBranch(ctx context.Context, base Repository, head Branch) ([]Snapshot, error) {
+	return c.fetchBranch(ctx, base, head, nil)
+}
+
+// fetchBranch is FetchBranch, keeping the ETags of its pulls list and of
+// each pull request's timeline and head check runs in t unless t is nil.
+func (c *Client) fetchBranch(ctx context.Context, base Repository, head Branch, t *tagger) ([]Snapshot, error) {
 	if err := base.validate(); err != nil {
 		return nil, err
 	}
@@ -44,7 +50,7 @@ func (c *Client) FetchBranch(ctx context.Context, base Repository, head Branch) 
 		"sort":      {sortCreated},
 		"direction": {directionAsc},
 	}
-	pulls, err := listAll[PullRequest](ctx, c, base.apiPath()+"/pulls", query)
+	pulls, err := listTagged[PullRequest](ctx, c, base.apiPath()+"/pulls", query, t)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +63,7 @@ func (c *Client) FetchBranch(ctx context.Context, base Repository, head Branch) 
 			continue
 		}
 		seen[pr.Number] = true
-		snap, err := c.fetchDetails(ctx, base, pr)
+		snap, err := c.fetchDetails(ctx, base, pr, t)
 		if err != nil {
 			return nil, err
 		}
@@ -89,17 +95,18 @@ func (c *Client) FetchPR(ctx context.Context, repo Repository, number int) (Snap
 	if pr.Number != number {
 		return Snapshot{}, fmt.Errorf("github: GET %s: answered with pull request %d", path, pr.Number)
 	}
-	return c.fetchDetails(ctx, repo, pr)
+	return c.fetchDetails(ctx, repo, pr, nil)
 }
 
 // fetchDetails reads pr's timeline, comments, inline review comments,
 // reviews and the check runs of every commit the timeline names. A 403 or
 // 404 on the inline review comments or on a commit's check runs is kept
-// in Snapshot.Refused instead of failing the read.
-func (c *Client) fetchDetails(ctx context.Context, repo Repository, pr PullRequest) (Snapshot, error) {
+// in Snapshot.Refused instead of failing the read. A non-nil t keeps the
+// ETags of the timeline and of the head's check runs.
+func (c *Client) fetchDetails(ctx context.Context, repo Repository, pr PullRequest, t *tagger) (Snapshot, error) {
 	snap := Snapshot{Instance: c.instance, Repository: repo, PullRequest: pr}
 	var err error
-	if snap.Timeline, err = listAll[TimelineEvent](ctx, c, timelinePath(repo, pr.Number), nil); err != nil {
+	if snap.Timeline, err = listTagged[TimelineEvent](ctx, c, timelinePath(repo, pr.Number), nil, t); err != nil {
 		return Snapshot{}, err
 	}
 	if snap.Comments, err = listAll[Comment](ctx, c, commentsPath(repo, pr.Number), nil); err != nil {
@@ -114,7 +121,15 @@ func (c *Client) fetchDetails(ctx context.Context, repo Repository, pr PullReque
 	}
 	snap.UncheckedSHAs, snap.SHAs = splitLatest(commitSHAs(snap.Timeline, pr.Head.SHA), maxCheckedCommits)
 	for _, sha := range snap.SHAs {
-		runs, err := c.fetchCheckRuns(ctx, repo, sha)
+		var head *tagger
+		if sha == pr.Head.SHA {
+			head = t
+		}
+		runs, err := c.fetchCheckRuns(ctx, repo, sha, head)
+		if err != nil {
+			// A refused list has no ETag to compare.
+			head.incomplete()
+		}
 		if err = snap.refuse(err, ResourceCheckRuns, sha); err != nil {
 			return Snapshot{}, err
 		}
@@ -167,11 +182,12 @@ func splitLatest(shas []string, limit int) (older, latest []string) {
 	return shas[:cut], shas[cut:]
 }
 
-// fetchCheckRuns reads every check run on sha, re-run attempts included.
-func (c *Client) fetchCheckRuns(ctx context.Context, repo Repository, sha string) ([]CheckRun, error) {
+// fetchCheckRuns reads every check run on sha, re-run attempts included,
+// keeping the list's ETag in t unless t is nil.
+func (c *Client) fetchCheckRuns(ctx context.Context, repo Repository, sha string, t *tagger) ([]CheckRun, error) {
 	var runs []CheckRun
 	path := repo.apiPath() + "/commits/" + url.PathEscape(sha) + "/check-runs"
-	err := paginate(ctx, c, path, url.Values{"filter": {filterAll}}, func(page checkRunsPage) {
+	err := paginate(ctx, c, path, url.Values{"filter": {filterAll}}, t, func(page checkRunsPage) {
 		runs = append(runs, page.CheckRuns...)
 	})
 	return runs, err

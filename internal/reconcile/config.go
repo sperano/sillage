@@ -22,9 +22,19 @@ const (
 	// says it changed, as a Go duration. Unset means
 	// DefaultRefreshInterval.
 	EnvRefreshInterval = "SILLAGE_ROOT_REFRESH_INTERVAL"
-	// DefaultRefreshInterval re-reads such a root once an hour: pull
-	// request reviews and checks, and comments, change no Kelos run.
+	// DefaultRefreshInterval re-reads such a root's task once an hour:
+	// its comments change no Kelos run, and a task outside the listed
+	// projects is listed by none.
 	DefaultRefreshInterval = time.Hour
+	// EnvBackstopInterval names the environment variable holding how long
+	// a root's pull requests are left unread on GitHub when no delivery,
+	// new run or task change says they changed, as a Go duration. Unset
+	// means DefaultBackstopInterval.
+	EnvBackstopInterval = "SILLAGE_GITHUB_BACKSTOP_INTERVAL"
+	// DefaultBackstopInterval asks GitHub once a day whether such a root's
+	// pull requests changed: webhook deliveries say when they do, and the
+	// backstop only catches what a lost delivery did not say.
+	DefaultBackstopInterval = 24 * time.Hour
 	// EnvLockRetryInterval names the environment variable holding how long
 	// a process that could not take the collector lock waits before it
 	// tries again, as a Go duration. Unset means DefaultLockRetryInterval.
@@ -71,8 +81,11 @@ type Config struct {
 	// Interval is the wait between two cycles.
 	Interval time.Duration
 	// RefreshInterval is how long a root Kelos names is left unread when
-	// nothing says it changed.
+	// nothing says it changed; its GitHub side is not read then.
 	RefreshInterval time.Duration
+	// BackstopInterval is how long a root's GitHub side is left unread
+	// when nothing says it changed.
+	BackstopInterval time.Duration
 	// LockRetryInterval is the wait between two attempts at the lock.
 	LockRetryInterval time.Duration
 	// VikunjaProjects are the projects whose changed tasks are read.
@@ -88,8 +101,8 @@ type Config struct {
 // DefaultConfig is the configuration with every default and no project.
 func DefaultConfig() Config {
 	return Config{
-		Interval: DefaultInterval, RefreshInterval: DefaultRefreshInterval, LockRetryInterval: DefaultLockRetryInterval,
-		DeliveryDelay: DefaultDeliveryDelay, DeliveryRootsPerCycle: DefaultDeliveryRootsPerCycle,
+		Interval: DefaultInterval, RefreshInterval: DefaultRefreshInterval, BackstopInterval: DefaultBackstopInterval,
+		LockRetryInterval: DefaultLockRetryInterval, DeliveryDelay: DefaultDeliveryDelay, DeliveryRootsPerCycle: DefaultDeliveryRootsPerCycle,
 	}
 }
 
@@ -104,6 +117,7 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 	}{
 		{EnvInterval, &cfg.Interval},
 		{EnvRefreshInterval, &cfg.RefreshInterval},
+		{EnvBackstopInterval, &cfg.BackstopInterval},
 		{EnvLockRetryInterval, &cfg.LockRetryInterval},
 		{EnvDeliveryDelay, &cfg.DeliveryDelay},
 	} {
@@ -129,7 +143,8 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 // validate reports whether every interval and the deliveries' cap are
 // positive.
 func (c Config) validate() error {
-	if c.Interval <= 0 || c.RefreshInterval <= 0 || c.LockRetryInterval <= 0 || c.DeliveryDelay <= 0 {
+	if c.Interval <= 0 || c.RefreshInterval <= 0 || c.BackstopInterval <= 0 || c.LockRetryInterval <= 0 ||
+		c.DeliveryDelay <= 0 {
 		return errors.New("reconcile: every interval must be positive")
 	}
 	if c.DeliveryRootsPerCycle <= 0 {

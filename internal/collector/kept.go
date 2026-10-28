@@ -23,6 +23,15 @@ type Kept struct {
 	// assembles the phase-markers fixture story: the loop passes none, and
 	// its stories get their phases when the store reads them.
 	Markers []model.Marker
+	// SkipGitHub has GitHub not read: Events' GitHub events, PullRequests
+	// and the Correlations joining one of them to the root stand for its
+	// read, as the store holds them from the last. The story's GitHub
+	// coverage then says nothing of a read; the caller keeps its own.
+	SkipGitHub bool
+	// Events and PullRequests are the story's stored events and pull
+	// requests; only a skipped GitHub read uses them.
+	Events       []model.Event
+	PullRequests []model.PullRequest
 }
 
 // Recollect is Collect for a root whose records a store already holds.
@@ -86,4 +95,27 @@ func (a *assembly) keptMarkers(runs []model.Run) []model.Marker {
 		}
 	}
 	return out
+}
+
+// keepGitHub adds what the kept records hold of GitHub's last read, in
+// place of a read: the pull requests, the GitHub events and the
+// correlations that join a pull request to the root.
+func (a *assembly) keepGitHub() {
+	var b branchRead
+	prs := make(map[model.Ref]bool, len(a.kept.PullRequests))
+	for _, p := range a.kept.PullRequests {
+		b.recs.PullRequests = append(b.recs.PullRequests, p)
+		prs[p.Key.Ref()] = true
+	}
+	for _, e := range a.kept.Events {
+		if e.Source == model.SourceGitHub {
+			b.recs.Events = append(b.recs.Events, e)
+		}
+	}
+	for _, c := range a.kept.Correlations {
+		if (prs[c.From] && c.To == a.rootRef) || (prs[c.To] && c.From == a.rootRef) {
+			b.recs.Correlations = append(b.recs.Correlations, c)
+		}
+	}
+	a.addGitHub(b)
 }

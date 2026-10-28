@@ -11,35 +11,46 @@ import (
 // collectRoot reads one root over what the store holds of it, and commits
 // its records if they changed, its coverage and its state, in one
 // transaction. It reports whether it committed, and whether the root's
-// Vikunja task, if any, was read: a project's mark waits for that.
+// Vikunja task, if any, was read: a project's mark waits for that. A root
+// due for the GitHub backstop alone, which the rate limit's reserve holds
+// back, is not read.
 func (l *Loop) collectRoot(ctx context.Context, cr cycleRun, d *due) (committed, read bool) {
 	prev := l.roots[d.root.Ref()]
 	if prev == nil {
 		prev = newRootState(d.root)
 	}
 	at := l.now()
-	res, ok := l.recollect(ctx, cr, prev)
+	plan, ok := l.planGitHub(ctx, d, prev)
+	if !ok || ctx.Err() != nil {
+		return false, ctx.Err() == nil
+	}
+	res, ok := l.recollect(ctx, cr, prev, plan)
 	if !ok || ctx.Err() != nil {
 		return false, false
 	}
 	next := prev.clone()
 	next.Read = at
-	failed, vikunjaFailed := l.account(next, res, cr.kelosAt)
+	failed, failures := l.account(next, res, cr.kelosAt, plan.kept)
+	failed = l.accountGitHub(next, plan, failures, at) || failed
 	l.refused(next.Root.Ref(), res.Refusals)
 	if d.kelosRuns != "" {
 		next.KelosRuns = d.kelosRuns
 	}
-	if d.updated != nil && !vikunjaFailed {
+	if d.updated != nil && !failures[model.SourceVikunja] {
 		next.Updated = d.updated
+	}
+	if !failed {
+		next.Settled = settled(res.Story, l.now())
 	}
 	if !l.commitRoot(ctx, prev, next, res.Story.Records, failed) {
 		return false, false
 	}
-	return true, !vikunjaFailed
+	return true, !failures[model.SourceVikunja]
 }
 
-// recollect reads prev's root over what the store holds of it.
-func (l *Loop) recollect(ctx context.Context, cr cycleRun, prev *rootState) (collector.Result, bool) {
+// recollect reads prev's root over what the store holds of it, GitHub as
+// plan says.
+func (l *Loop) recollect(ctx context.Context, cr cycleRun, prev *rootState, plan githubPlan) (collector.Result, bool) {
 	ref := prev.Root.Ref()
 	stored, err := l.store.Records(ctx, prev.Root)
 	if err != nil {
@@ -51,16 +62,21 @@ func (l *Loop) recollect(ctx context.Context, cr cycleRun, prev *rootState) (col
 		// This is the first Kelos read of the root, if it succeeds.
 		since = cr.kelosAt
 	}
-	res, err := cr.c.Recollect(ctx, prev.Root, collector.Kept{
-		Runs: stored.Runs, Correlations: stored.Correlations, KelosSince: since,
-	})
-	if err != nil {
-		if ctx.Err() == nil {
-			l.log.Error("the story could not be assembled", "root", ref, "error", err)
+	c, err := l.rootCollector(cr, plan.gh)
+	if err == nil {
+		var res collector.Result
+		res, err = c.Recollect(ctx, prev.Root, collector.Kept{
+			Runs: stored.Runs, Correlations: stored.Correlations, KelosSince: since,
+			SkipGitHub: plan.kept, Events: stored.Events, PullRequests: stored.PullRequests,
+		})
+		if err == nil {
+			return res, true
 		}
-		return collector.Result{}, false
 	}
-	return res, true
+	if ctx.Err() == nil {
+		l.log.Error("the story could not be assembled", "root", ref, "error", err)
+	}
+	return collector.Result{}, false
 }
 
 // commitRoot commits a read of next's root: its records unless their
@@ -89,22 +105,27 @@ func (l *Loop) commitRoot(ctx context.Context, prev, next *rootState, recs model
 }
 
 // account advances each source of the root that was read, and opens a
-// gap for each that failed. Kelos was read once for the cycle, at kelosAt.
-// It reports whether any source failed, and whether Vikunja did.
-func (l *Loop) account(next *rootState, res collector.Result, kelosAt time.Time) (failed, vikunjaFailed bool) {
+// gap for each that failed. Kelos was read once for the cycle, at kelosAt;
+// GitHub not at all when keptGitHub, its state left as it was. It reports
+// whether any source failed, and which.
+func (l *Loop) account(next *rootState, res collector.Result, kelosAt time.Time, keptGitHub bool) (
+	failed bool, sources map[model.Source]bool) {
 	failures := make(map[string]collector.Failure)
 	for _, f := range res.Failures {
 		failures[model.Coverage{Source: f.Source, Instance: f.Instance}.Key()] = f
 	}
+	sources = make(map[model.Source]bool)
 	for _, cov := range res.Story.Coverage {
+		if keptGitHub && cov.Source == model.SourceGitHub {
+			continue
+		}
 		st := next.source(cov)
 		if f, ok := failures[cov.Key()]; ok {
 			reason := reasonOf(f.Err)
 			l.log.Warn("source read failed", "root", next.Root.Ref(), "source", f.Source, "instance", f.Instance,
 				"reason", reason, "error", f.Err)
 			st.fail(failureReason(f.Source, f.Err))
-			failed = true
-			vikunjaFailed = vikunjaFailed || f.Source == model.SourceVikunja
+			failed, sources[f.Source] = true, true
 			continue
 		}
 		if cov.LastSuccessfulRead == nil {
@@ -117,7 +138,7 @@ func (l *Loop) account(next *rootState, res collector.Result, kelosAt time.Time)
 		}
 		st.succeed(at, cov)
 	}
-	return failed, vikunjaFailed
+	return failed, sources
 }
 
 // refused reports each resource and status a source refused in root's
