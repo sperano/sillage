@@ -1,0 +1,5 @@
+{
+  "message": "Resource not accessible by personal access token",
+  "documentation_url": "https://docs.github.example.com/rest/checks/runs#list-check-runs-for-a-git-reference",
+  "status": "403"
+}

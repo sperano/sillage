@@ -130,6 +130,9 @@ func runStory(ctx context.Context, args []string, getenv func(string) string, st
 	for _, f := range res.Failures {
 		fmt.Fprintln(stderr, "sillage: not read:", f)
 	}
+	for _, r := range res.Refusals {
+		fmt.Fprintln(stderr, "sillage: refused:", r)
+	}
 	if len(res.Failures) > 0 {
 		return errPartial
 	}

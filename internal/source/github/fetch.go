@@ -2,7 +2,9 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -91,8 +93,9 @@ func (c *Client) FetchPR(ctx context.Context, repo Repository, number int) (Snap
 }
 
 // fetchDetails reads pr's timeline, comments, inline review comments,
-// reviews and the check runs
-// of every commit the timeline names.
+// reviews and the check runs of every commit the timeline names. A 403 or
+// 404 on the inline review comments or on a commit's check runs is kept
+// in Snapshot.Refused instead of failing the read.
 func (c *Client) fetchDetails(ctx context.Context, repo Repository, pr PullRequest) (Snapshot, error) {
 	snap := Snapshot{Instance: c.instance, Repository: repo, PullRequest: pr}
 	var err error
@@ -102,7 +105,8 @@ func (c *Client) fetchDetails(ctx context.Context, repo Repository, pr PullReque
 	if snap.Comments, err = listAll[Comment](ctx, c, commentsPath(repo, pr.Number), nil); err != nil {
 		return Snapshot{}, err
 	}
-	if snap.ReviewComments, err = listAll[Comment](ctx, c, reviewCommentsPath(repo, pr.Number), nil); err != nil {
+	snap.ReviewComments, err = listAll[Comment](ctx, c, reviewCommentsPath(repo, pr.Number), nil)
+	if err = snap.refuse(err, ResourceReviewComments, ""); err != nil {
 		return Snapshot{}, err
 	}
 	if snap.Reviews, err = listAll[Review](ctx, c, pullPath(repo, pr.Number)+"/reviews", nil); err != nil {
@@ -111,13 +115,25 @@ func (c *Client) fetchDetails(ctx context.Context, repo Repository, pr PullReque
 	snap.UncheckedSHAs, snap.SHAs = splitLatest(commitSHAs(snap.Timeline, pr.Head.SHA), maxCheckedCommits)
 	for _, sha := range snap.SHAs {
 		runs, err := c.fetchCheckRuns(ctx, repo, sha)
-		if err != nil {
+		if err = snap.refuse(err, ResourceCheckRuns, sha); err != nil {
 			return Snapshot{}, err
 		}
 		snap.Checks = append(snap.Checks, runs...)
 	}
 	snap.ObservedAt = c.now()
 	return snap, nil
+}
+
+// refuse keeps err, a sub-read of resource, in s.Refused when GitHub
+// answered it 403 or 404, and returns any other error. A rate limit is a
+// *RateLimitError, never refused.
+func (s *Snapshot) refuse(err error, resource, sha string) error {
+	se, ok := errors.AsType[*StatusError](err)
+	if !ok || (se.Code != http.StatusForbidden && se.Code != http.StatusNotFound) {
+		return err
+	}
+	s.Refused = append(s.Refused, Refusal{Resource: resource, SHA: sha, Path: se.Path, Code: se.Code})
+	return nil
 }
 
 // commitSHAs returns the commits the timeline names (committed, and the

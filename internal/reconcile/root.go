@@ -25,6 +25,7 @@ func (l *Loop) collectRoot(ctx context.Context, cr cycleRun, d *due) (committed,
 	next := prev.clone()
 	next.Read = at
 	failed, vikunjaFailed := l.account(next, res, cr.kelosAt)
+	l.refused(next.Root.Ref(), res.Refusals)
 	if d.kelosRuns != "" {
 		next.KelosRuns = d.kelosRuns
 	}
@@ -117,6 +118,16 @@ func (l *Loop) account(next *rootState, res collector.Result, kelosAt time.Time)
 		st.succeed(at, cov)
 	}
 	return failed, vikunjaFailed
+}
+
+// refused reports each resource and status a source refused in root's
+// read: the read succeeded, and only the story's coverage notes say so.
+func (l *Loop) refused(root model.Ref, refusals []collector.Refusal) {
+	for _, r := range refusals {
+		l.log.Warn("source read refused in part", "root", root, "source", r.Source, "instance", r.Instance,
+			"resource", r.Resource, "code", r.Code, "requests", r.Count)
+		l.metrics.observeRefusal(r)
+	}
 }
 
 // storeFailed reports a failed store operation on root, unless the
