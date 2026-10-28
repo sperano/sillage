@@ -89,3 +89,24 @@ func TestTokenRedacted(t *testing.T) {
 		t.Errorf("LogValue = %q", v)
 	}
 }
+
+func TestInstanceFromEnv(t *testing.T) {
+	tests := []struct {
+		name    string
+		env     map[string]string
+		want    string
+		wantErr bool
+	}{
+		{"github.com without a token", nil, dotComInstance, false},
+		{"enterprise without a token", map[string]string{EnvAPIURL: "https://GHE.example.com/api/v3/"}, "ghe.example.com", false},
+		{"not http", map[string]string{EnvAPIURL: "ftp://ghe.example.com"}, "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := InstanceFromEnv(envOf(tt.env))
+			if got != tt.want || (err != nil) != tt.wantErr {
+				t.Errorf("InstanceFromEnv() = %q, %v; want %q, error %v", got, err, tt.want, tt.wantErr)
+			}
+		})
+	}
+}

@@ -17,6 +17,12 @@
 // committed as soon as it opens, or else with the cycle's end. A read the
 // shutdown interrupts commits nothing.
 //
+// A source that is off (its configuration is incomplete, so it has no
+// client) is never read: with Kelos off no root is named by runs, with
+// Vikunja off no project is listed, and each root read has its coverage
+// say the source was not read, and why. A gap a restart opened on it stays
+// open.
+//
 // One process collects at a time: the loop runs under a lock, and a
 // process that cannot take it reads nothing and says so. Each source read
 // and each store operation has a deadline of its own, so that neither a

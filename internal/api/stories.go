@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -41,9 +42,21 @@ type CoverageResponse struct {
 }
 
 // FreshnessResponse is how recently each source instance was read, across
-// the stored roots. Gaps are per root: see a root's coverage.
+// the stored roots, and which sources sillage does not read. Gaps are per
+// root: see a root's coverage.
 type FreshnessResponse struct {
 	Sources []store.SourceFreshness `json:"sources"`
+	Off     []OffSource             `json:"off"`
+}
+
+// OffSource is a source sillage does not read, and why: its configuration
+// is incomplete or invalid, or the collector as a whole is off.
+type OffSource struct {
+	Source model.Source `json:"source"`
+	// Instance names the source instance; empty when the configuration
+	// does not name it.
+	Instance string `json:"instance,omitempty"`
+	Reason   string `json:"reason"`
 }
 
 // SearchResponse lists the roots a query matches, most recently active
@@ -88,7 +101,7 @@ func (a *api) freshness(r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FreshnessResponse{Sources: nonNil(sources)}, nil
+	return FreshnessResponse{Sources: nonNil(sources), Off: nonNil(slices.Clone(a.cfg.Off))}, nil
 }
 
 // search matches q against the stored roots' titles and keys; an empty

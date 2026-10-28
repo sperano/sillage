@@ -48,6 +48,9 @@ type Config struct {
 	// KelosConsoles is the Kelos console's base URL per cluster name, as
 	// the config endpoint answers it; without one, runs have no link.
 	KelosConsoles map[string]string
+	// Off are the sources the collector does not read, as the freshness
+	// endpoint answers them.
+	Off []OffSource
 	// Timeout bounds each request; DefaultTimeout when zero.
 	Timeout time.Duration
 	// MaxResponseBytes bounds each response's body;

@@ -1,4 +1,4 @@
-<!-- The entry page's freshness block: how far each source has been read. -->
+<!-- The entry page's freshness block: how far each source has been read, and which are off. -->
 <script lang="ts">
 	import type { Api } from '../lib/api';
 	import { load } from '../lib/load.svelte';
@@ -14,7 +14,7 @@
 <section aria-labelledby="{uid}-heading">
 	<h2 id="{uid}-heading">Source freshness</h2>
 	{#if freshness.current.state === 'loaded'}
-		<FreshnessSummary sources={freshness.current.value} />
+		<FreshnessSummary sources={freshness.current.value.sources} off={freshness.current.value.off} />
 	{:else if freshness.current.state === 'failed'}
 		<ErrorNotice
 			error={freshness.current.error}

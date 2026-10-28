@@ -403,13 +403,23 @@ func newHarness(t *testing.T, cfg Config) *harness {
 // sillage, restarted.
 func (h *harness) newLoop(t *testing.T, cfg Config) *Loop {
 	t.Helper()
-	src := Sources{
+	return h.loopOf(t, cfg, testCollectorConfig(), h.sources())
+}
+
+// sources are every fake of h, GitHub's reading nothing.
+func (h *harness) sources() Sources {
+	return Sources{
 		Sources:  collector.Sources{Vikunja: h.vikunja, Kelos: h.kelos, GitHub: noGitHub{}},
 		Projects: h.projects,
 	}
+}
+
+// loopOf returns another loop over h's store, reading src as ccfg says.
+func (h *harness) loopOf(t *testing.T, cfg Config, ccfg collector.Config, src Sources) *Loop {
+	t.Helper()
 	reg := prometheus.NewRegistry()
 	h.reg = reg
-	l, err := New(cfg, testCollectorConfig(), src, h.store, NewMetrics(reg), slog.New(slog.NewTextHandler(h.logs, nil)))
+	l, err := New(cfg, ccfg, src, h.store, NewMetrics(reg), slog.New(slog.NewTextHandler(h.logs, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}

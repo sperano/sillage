@@ -36,20 +36,22 @@ type Loop struct {
 }
 
 // New returns a loop reading src as ccfg describes, into store, each
-// store operation within storeTimeout.
+// store operation within storeTimeout. A source ccfg.Off names, or
+// without a client, is off: never read.
 func New(cfg Config, ccfg collector.Config, src Sources, store Store, m *Metrics, log *slog.Logger) (*Loop, error) {
-	if err := errors.Join(cfg.validate(), src.validate()); err != nil {
+	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
 	if store == nil || m == nil || log == nil {
 		return nil, errors.New("reconcile: a store, metrics and a logger are required")
 	}
-	if _, err := collector.New(ccfg, src.Sources); err != nil {
+	c, err := collector.New(ccfg, src.Sources)
+	if err != nil {
 		return nil, err
 	}
 	return &Loop{
-		cfg: cfg, ccfg: ccfg, src: src, store: boundedStore{s: store, timeout: storeTimeout}, metrics: m, log: log,
-		now: time.Now, jitter: jitter,
+		cfg: cfg, ccfg: ccfg, src: src.without(c.Off()), store: boundedStore{s: store, timeout: storeTimeout},
+		metrics: m, log: log, now: time.Now, jitter: jitter,
 	}, nil
 }
 

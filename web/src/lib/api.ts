@@ -6,9 +6,9 @@
 
 import { DecodeError, decode } from './check';
 import {
+	type Freshness,
 	type Resolution,
 	type RootSummary,
-	type SourceFreshness,
 	configResponse,
 	freshnessResponse,
 	resolution,
@@ -113,8 +113,11 @@ export interface Api {
 	 * recently active first, and what it was read as.
 	 */
 	resolve(url: string, signal?: AbortSignal): Promise<Resolution>;
-	/** How recently each source instance was read, across the stored roots. */
-	freshness(signal?: AbortSignal): Promise<SourceFreshness[]>;
+	/**
+	 * How recently each source instance was read, across the stored roots,
+	 * and which sources are not read.
+	 */
+	freshness(signal?: AbortSignal): Promise<Freshness>;
 	/**
 	 * One page of the overview: the tasks active in the query's window that
 	 * match its filters, after the cursor when one is given.
@@ -154,8 +157,7 @@ export function createApi(options: ApiOptions = {}): Api {
 				.roots,
 		resolve: (url, signal) =>
 			get(`${API_BASE}/resolve${query('url', url)}`, (b) => decode(resolution, b), signal),
-		freshness: async (signal) =>
-			(await get(`${API_BASE}/coverage`, (b) => decode(freshnessResponse, b), signal)).sources,
+		freshness: (signal) => get(`${API_BASE}/coverage`, (b) => decode(freshnessResponse, b), signal),
 		overview: (q, after, signal) => {
 			const params = overviewApiParams(q, after).toString();
 			const path = params ? `${API_BASE}/overview?${params}` : `${API_BASE}/overview`;

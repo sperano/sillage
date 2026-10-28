@@ -85,14 +85,28 @@ func TestMarkerIngestRecordsThroughTheRoutes(t *testing.T) {
 }
 
 func TestMarkerIngestOff(t *testing.T) {
-	h, err := newMarkerIngest(emptyEnv, nil, prometheus.NewRegistry(), podReviewer("agents"))
-	if err != nil {
-		t.Fatal(err)
+	failing := func() (dynamic.Interface, error) { return nil, errors.New("no kubeconfig") }
+	tests := []struct {
+		name      string
+		env       func(string) string
+		st        *store.Store
+		newClient func() (dynamic.Interface, error)
+		want      string
+	}{
+		{"no store", emptyEnv, nil, podReviewer("agents"), store.EnvDatabaseURL},
+		// The store is never used: the handler is not built.
+		{"no Kelos configuration", emptyEnv, &store.Store{}, podReviewer("agents"), kelos.EnvCluster},
+		{"no Kubernetes client", func(k string) string { return ingestEnv()[k] }, &store.Store{}, failing, "no kubeconfig"},
 	}
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, markerRequest())
-	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), store.EnvDatabaseURL) {
-		t.Errorf("status %d (%s), want 503 naming the database", rec.Code, rec.Body)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newMarkerIngest(tt.env, tt.st, prometheus.NewRegistry(), tt.newClient)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, markerRequest())
+			if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), tt.want) {
+				t.Errorf("status %d (%s), want 503 naming %s", rec.Code, rec.Body, tt.want)
+			}
+		})
 	}
 }
 

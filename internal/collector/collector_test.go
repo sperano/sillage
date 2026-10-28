@@ -54,3 +54,73 @@ func TestEveryStoryIsAssembled(t *testing.T) {
 		}
 	}
 }
+
+func TestOffSourceIsNotRead(t *testing.T) {
+	const reason = "SILLAGE_EXAMPLE_TOKEN is not set"
+	tests := []struct {
+		source model.Source
+		// unset removes the source's client; fail sets a failing one,
+		// which only Config.Off turns off.
+		unset  func(*Sources)
+		fail   func(*Sources)
+		absent func(model.Story) bool
+	}{
+		{
+			source: model.SourceVikunja,
+			unset:  func(s *Sources) { s.Vikunja = nil }, fail: func(s *Sources) { s.Vikunja = failingVikunja{} },
+			absent: func(s model.Story) bool { return len(eventsFrom(s, model.SourceVikunja)) == 0 },
+		},
+		{
+			source: model.SourceKelos,
+			unset:  func(s *Sources) { s.Kelos = nil }, fail: func(s *Sources) { s.Kelos = failingKelos{} },
+			absent: func(s model.Story) bool { return len(s.Runs) == 1 && s.Runs[0].Key.Pod != "" },
+		},
+		{
+			source: model.SourceGitHub,
+			unset:  func(s *Sources) { s.GitHub = nil }, fail: func(s *Sources) { s.GitHub = failingGitHub{} },
+			absent: func(s model.Story) bool {
+				return len(s.PullRequests) == 0 && len(eventsFrom(s, model.SourceGitHub)) == 0
+			},
+		},
+	}
+	for _, tt := range tests {
+		for _, variant := range []struct {
+			name       string
+			off        map[model.Source]string
+			mutate     func(*Sources)
+			wantReason string
+		}{
+			{"without a client", nil, tt.unset, NoClient},
+			{"configured off", map[model.Source]string{tt.source: reason}, tt.fail, reason},
+		} {
+			t.Run(string(tt.source)+" "+variant.name, func(t *testing.T) {
+				sc := storyCases["implementation-merged"]
+				src := newStoryCollector(t, sc.Dirs).src
+				variant.mutate(&src)
+				cfg := testConfig()
+				cfg.Off = variant.off
+				c, err := New(cfg, src)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := c.Off()[tt.source]; got != variant.wantReason {
+					t.Errorf("Off()[%s] = %q, want %q", tt.source, got, variant.wantReason)
+				}
+				res, err := c.Collect(t.Context(), sc.Root)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(res.Failures) != 0 {
+					t.Errorf("failures = %v, want none: an off source is not read", res.Failures)
+				}
+				cov := coverageOf(t, res.Story, tt.source)
+				if cov.LastSuccessfulRead != nil || !hasNote(cov, "the source is off") || !hasNote(cov, variant.wantReason) {
+					t.Errorf("%s coverage = %+v, want no read and a note saying it is off and why", tt.source, cov)
+				}
+				if !tt.absent(res.Story) {
+					t.Errorf("the story holds records %s supplies", tt.source)
+				}
+			})
+		}
+	}
+}

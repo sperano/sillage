@@ -28,24 +28,28 @@ import (
 
 func TestNewAPI(t *testing.T) {
 	tests := []struct {
-		name    string
-		env     map[string]string
-		wantErr bool
+		name string
+		env  map[string]string
+		want map[string]string
 	}{
-		{"no console", nil, false},
+		{"no console", nil, map[string]string{}},
 		{"kelos console", map[string]string{
 			kelosConsoleURLEnv: "https://kelos.example.com", kelos.EnvCluster: "cluster-a",
-		}, false},
-		{"kelos console without a cluster", map[string]string{kelosConsoleURLEnv: "https://kelos.example.com"}, true},
+		}, map[string]string{"cluster-a": "https://kelos.example.com"}},
+		{"kelos console without a cluster", map[string]string{kelosConsoleURLEnv: "https://kelos.example.com"},
+			map[string]string{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h, err := newAPI(func(key string) string { return tt.env[key] }, nil)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("err = %v, want error %v", err, tt.wantErr)
+			h := newAPI(func(key string) string { return tt.env[key] }, nil, nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/config", nil))
+			var got api.ConfigResponse
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+				t.Fatalf("GET /api/v1/config: %v (%s)", err, rec.Body)
 			}
-			if err == nil && h == nil {
-				t.Error("no handler")
+			if !maps.Equal(got.KelosConsoles, tt.want) {
+				t.Errorf("consoles = %v, want %v", got.KelosConsoles, tt.want)
 			}
 		})
 	}
@@ -239,11 +243,7 @@ func TestOverviewOverTheCollectedCorpus(t *testing.T) {
 			st := newTestStore(t)
 			collectCorpusStory(t, st, collectortest.Stories[name])
 			checkRootCollected(t, st, collectortest.Stories[name])
-			h, err := newAPI(func(string) string { return "" }, st)
-			if err != nil {
-				t.Fatal(err)
-			}
-			srv := httptest.NewServer(h)
+			srv := httptest.NewServer(newAPI(func(string) string { return "" }, st, nil))
 			t.Cleanup(srv.Close)
 			stories := storedStories(t, st)
 			for _, w := range hoursOf(stories) {

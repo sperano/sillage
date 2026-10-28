@@ -69,18 +69,35 @@ type Config struct {
 // and derives Instance from the API URL.
 func ConfigFromEnv(getenv func(string) string) (Config, error) {
 	cfg := Config{
-		APIURL:     strings.TrimRight(strings.TrimSpace(getenv(EnvAPIURL)), "/"),
+		APIURL:     apiURLFromEnv(getenv),
 		Token:      Token(strings.TrimSpace(getenv(EnvToken))),
 		Announcers: logins(getenv(EnvAnnouncers)),
-	}
-	if cfg.APIURL == "" {
-		cfg.APIURL = DefaultAPIURL
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
 	}
 	cfg.Instance = instanceOf(cfg.APIURL)
 	return cfg, nil
+}
+
+// InstanceFromEnv names the instance the API URL getenv gives belongs to,
+// as ConfigFromEnv does, whether or not a token is set: a caller that
+// cannot read GitHub still names what it does not read.
+func InstanceFromEnv(getenv func(string) string) (string, error) {
+	apiURL := apiURLFromEnv(getenv)
+	if err := validateAPIURL(apiURL); err != nil {
+		return "", err
+	}
+	return instanceOf(apiURL), nil
+}
+
+// apiURLFromEnv is EnvAPIURL without a trailing slash; DefaultAPIURL when
+// unset.
+func apiURLFromEnv(getenv func(string) string) string {
+	if u := strings.TrimRight(strings.TrimSpace(getenv(EnvAPIURL)), "/"); u != "" {
+		return u
+	}
+	return DefaultAPIURL
 }
 
 // logins splits a comma-separated list of logins, dropping blanks.
@@ -105,7 +122,19 @@ func instanceOf(apiURL string) string {
 }
 
 func (c Config) validate() error {
-	u, err := url.Parse(c.APIURL)
+	if err := validateAPIURL(c.APIURL); err != nil {
+		return err
+	}
+	if c.Token == "" {
+		return fmt.Errorf("github: %s is not set", EnvToken)
+	}
+	return nil
+}
+
+// validateAPIURL reports whether apiURL is an http(s) URL without
+// credentials, a query or a fragment.
+func validateAPIURL(apiURL string) error {
+	u, err := url.Parse(apiURL)
 	// The value is left out of these errors: it could carry credentials.
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
 		return fmt.Errorf("github: %s must be an http(s) URL", EnvAPIURL)
@@ -115,9 +144,6 @@ func (c Config) validate() error {
 	}
 	if u.RawQuery != "" || u.Fragment != "" {
 		return fmt.Errorf("github: %s must not have a query or fragment", EnvAPIURL)
-	}
-	if c.Token == "" {
-		return fmt.Errorf("github: %s is not set", EnvToken)
 	}
 	return nil
 }

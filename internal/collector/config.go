@@ -9,6 +9,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/validation"
 
+	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 )
@@ -64,13 +65,52 @@ type Config struct {
 	// KelosTaskTTL is how long Kelos keeps a finished Task: before it,
 	// only runs that left a TaskRecord can still be read.
 	KelosTaskTTL time.Duration
+	// Off says why each source that is off is not read: its configuration
+	// is incomplete or invalid. Its instance is still named, so that its
+	// coverage says so. A source without a client is off too.
+	Off map[model.Source]string
 }
 
-func (c Config) validate() error {
+// Instance names the configured instance of source s.
+func (c Config) Instance(s model.Source) string {
+	switch s {
+	case model.SourceVikunja:
+		return c.VikunjaInstance
+	case model.SourceKelos:
+		return c.Kelos.Cluster
+	case model.SourceGitHub:
+		return c.GitHubInstance
+	}
+	panic("collector: no instance configured for source " + string(s))
+}
+
+// validate reports whether every instance is named, and whether the
+// Kelos settings are complete unless Kelos is off.
+func (c Config) validate(off map[model.Source]string) error {
 	var errs []error
 	if c.VikunjaInstance == "" || c.GitHubInstance == "" {
 		errs = append(errs, errors.New("collector: the Vikunja and GitHub instances are required"))
 	}
+	for s, reason := range c.Off {
+		if !s.Valid() || reason == "" {
+			errs = append(errs, fmt.Errorf("collector: source %q is off without a reason", s))
+		}
+	}
+	if _, ok := off[model.SourceKelos]; ok {
+		if strings.TrimSpace(c.Kelos.Cluster) == "" || strings.TrimSpace(c.Kelos.Cluster) != c.Kelos.Cluster {
+			errs = append(errs, fmt.Errorf("collector: %s must name the Kelos cluster, even when Kelos is off",
+				kelos.EnvCluster))
+		}
+	} else if err := c.kelosValid(); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
+
+// kelosValid reports whether the Kelos settings are complete and agree
+// with the Vikunja instance.
+func (c Config) kelosValid() error {
+	var errs []error
 	if err := c.Kelos.Validate(); err != nil {
 		errs = append(errs, err)
 	}

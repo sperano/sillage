@@ -5,7 +5,10 @@
 // delivery's signature) and the embedded frontend. With
 // SILLAGE_DATABASE_URL set, it migrates and prunes the store at startup,
 // then runs the collector, which keeps the store current; without,
-// nothing is collected and the API answers 503 for what it would read.
+// nothing is collected and the API answers 503 for what it would read. A
+// source whose configuration is incomplete is off: logged at startup, never
+// read, and named by the stories' coverage and the API's freshness. Only a
+// bad listen address or database fails the start.
 // The collector does not take the reads deliveries ask for yet; until it
 // does, the webhook paths answer 503 to every delivery and record nothing.
 // The phase markers that Kelos runs' pods report (internal/ingest/marker,
@@ -125,33 +128,25 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 	if st != nil {
 		defer st.Close()
 	}
-	apiHandler, err := newAPI(getenv, st)
+	metrics, m, reg := newMetrics()
+	// What is configured is read before the collector starts, so that a
+	// failure leaves nothing running. A source, an endpoint or the collector
+	// whose configuration is incomplete is off, and says so: only the
+	// listen address and the database fail the start.
+	col, err := newCollection(getenv, st, m, slog.Default())
 	if err != nil {
 		_ = ln.Close()
 		return err
 	}
+	apiHandler := newAPI(getenv, st, col.off)
 	// The collection loop does not take the reads deliveries ask for (an
 	// ingest.Queue) yet: until it does, the ingest paths refuse every
-	// delivery. The handler is built before the collector starts, so that
-	// its failure leaves nothing running.
-	ingestHandler, err := newIngest(getenv, st, nil, nil)
-	if err != nil {
-		_ = ln.Close()
-		return err
-	}
-	metrics, m, reg := newMetrics()
-	markerHandler, err := newMarkerIngest(getenv, st, reg, kelos.NewDynamicClient)
-	if err != nil {
-		_ = ln.Close()
-		return err
-	}
+	// delivery.
+	ingestHandler := newIngest(getenv, st, nil, nil)
+	markerHandler := newMarkerIngest(getenv, st, reg, kelos.NewDynamicClient)
 	collectCtx, stopCollecting := context.WithCancel(ctx)
 	defer stopCollecting()
-	wait, err := startCollector(collectCtx, getenv, st, m, slog.Default())
-	if err != nil {
-		_ = ln.Close()
-		return err
-	}
+	wait := col.start(collectCtx)
 	err = serve(ctx, ln, newHandler(web.FS(), apiHandler, ingestRoutes(ingestHandler, markerHandler), metrics))
 	// The collector stops before the store closes.
 	stopCollecting()

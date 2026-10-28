@@ -13,10 +13,11 @@ import (
 
 // newIngest returns the handler of the webhook ingest paths over st,
 // asking sched to read the roots deliveries name and counting them in reg.
-// Without a webhook secret, a store or a scheduler, it returns a handler
-// that answers 503 to every request and records nothing, and says why.
+// Without a webhook secret, a store, a scheduler or the sources'
+// configuration, it returns a handler that answers 503 to every request
+// and records nothing, and says why.
 func newIngest(getenv func(string) string, st *store.Store, sched ingest.Scheduler,
-	reg prometheus.Registerer) (http.Handler, error) {
+	reg prometheus.Registerer) http.Handler {
 	secrets := ingest.SecretsFromEnv(getenv)
 	var off string
 	switch {
@@ -27,10 +28,14 @@ func newIngest(getenv func(string) string, st *store.Store, sched ingest.Schedul
 	case sched == nil:
 		off = "the collection loop does not read the roots deliveries name yet"
 	default:
-		return buildIngest(getenv, secrets, st, sched, reg)
+		h, err := buildIngest(getenv, secrets, st, sched, reg)
+		if err == nil {
+			return h
+		}
+		off = err.Error()
 	}
 	slog.Warn("webhook ingestion off: every delivery is refused", "reason", off)
-	return ingestUnavailable(off), nil
+	return ingestUnavailable(off)
 }
 
 // buildIngest returns the ingest handler over st, for the sources the

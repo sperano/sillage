@@ -23,9 +23,13 @@ func markKey(instance string, project int64) string {
 
 // listProjects lists each configured project's tasks changed since its
 // mark, less listingOverlap, and adds to dues each task updated since its
-// last read. It returns each listed project's new mark.
+// last read. It returns each listed project's new mark. Without a
+// project lister (Vikunja off), it lists nothing.
 func (l *Loop) listProjects(ctx context.Context, dues map[model.Ref]*due) map[int64]time.Time {
 	marks := make(map[int64]time.Time)
+	if l.src.Projects == nil {
+		return marks
+	}
 	m := l.meterFor(model.SourceVikunja, l.ccfg.VikunjaInstance)
 	for _, p := range l.cfg.VikunjaProjects {
 		var since time.Time

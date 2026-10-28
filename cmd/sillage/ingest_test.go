@@ -78,15 +78,15 @@ func TestNewIngestUnavailable(t *testing.T) {
 	}{
 		{"no secret", map[string]string{}, &store.Store{}, &recordingScheduler{}, ingest.EnvGitHubSecret},
 		{"no store", ingestEnv(), nil, &recordingScheduler{}, store.EnvDatabaseURL},
-		// The store is never used: newIngest stops at the missing scheduler.
+		// The store is never used: newIngest stops at the missing scheduler,
+		// or at the sources' configuration.
 		{"no scheduler", ingestEnv(), &store.Store{}, nil, "collection loop does not read"},
+		{"no source configured", map[string]string{ingest.EnvVikunjaSecret: testVikunjaSecret}, &store.Store{},
+			&recordingScheduler{}, vikunja.EnvURL},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h, err := newIngest(func(k string) string { return tt.env[k] }, tt.st, tt.sched, prometheus.NewRegistry())
-			if err != nil {
-				t.Fatal(err)
-			}
+			h := newIngest(func(k string) string { return tt.env[k] }, tt.st, tt.sched, prometheus.NewRegistry())
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, ingest.PathVikunja, strings.NewReader("{}")))
 			if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), tt.want) {

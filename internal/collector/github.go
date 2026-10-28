@@ -20,9 +20,12 @@ func taskBranch(id int64) string { return taskBranchPrefix + strconv.FormatInt(i
 
 // readGitHub reads the pull requests of branch, in every state, in each
 // repository the story's runs name and in extra. Without a repository,
-// GitHub is not read, and its coverage says why.
+// GitHub is not read, and its coverage says why; nor is it while off.
 func (a *assembly) readGitHub(ctx context.Context, branch string, extra []github.Repository) {
 	a.source(model.SourceGitHub)
+	if !a.c.on(model.SourceGitHub) {
+		return
+	}
 	repos, unknown := a.repositories(extra)
 	if len(unknown) > 0 {
 		a.note(model.SourceGitHub, "no repository in "+EnvWorkspaces+" for "+strings.Join(unknown, ", ")+

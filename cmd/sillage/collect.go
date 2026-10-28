@@ -3,13 +3,18 @@ package main
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/sperano/sillage/internal/api"
 	"github.com/sperano/sillage/internal/collector"
+	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/reconcile"
 	"github.com/sperano/sillage/internal/reconcile/pglock"
 	"github.com/sperano/sillage/internal/store"
@@ -26,44 +31,87 @@ func newMetrics() (http.Handler, *reconcile.Metrics, prometheus.Registerer) {
 	return promhttp.HandlerFor(reg, promhttp.HandlerOpts{}), m, reg
 }
 
-// startCollector starts the collection loop the environment configures
-// into st, until ctx is done, and returns a function that waits for it to
-// stop. Without a store it starts nothing. The loop's lock is on st's
-// database.
-func startCollector(ctx context.Context, getenv func(string) string, st *store.Store, m *reconcile.Metrics,
-	log *slog.Logger) (func(), error) {
+// collection is the collection loop the environment configures, not yet
+// started, and the sources it does not read.
+type collection struct {
+	// loop and lock are nil when the collector is off as a whole.
+	loop *reconcile.Loop
+	lock reconcile.Locker
+	// off are the sources not read, and why, as the API reports them.
+	off []api.OffSource
+}
+
+// newCollection reads the collection loop's configuration into st. A
+// source whose configuration is incomplete is off, and logged once; a
+// configuration that names no source instance, or no loop setting, turns
+// the collector off as a whole, logged too. Without a store it reads
+// nothing. It fails only when the lock cannot be made on st's database.
+func newCollection(getenv func(string) string, st *store.Store, m *reconcile.Metrics, log *slog.Logger) (
+	collection, error) {
 	if st == nil {
 		log.Info("collector off: no store", "env", store.EnvDatabaseURL)
-		return func() {}, nil
-	}
-	cfg, err := reconcile.ConfigFromEnv(getenv)
-	if err != nil {
-		return nil, err
+		return collection{}, nil
 	}
 	scfg, err := store.ConfigFromEnv(getenv)
 	if err != nil {
-		return nil, err
+		return collection{}, err
 	}
 	lock, err := pglock.New(string(scfg.DatabaseURL))
 	if err != nil {
-		return nil, err
+		return collection{}, err
+	}
+	cfg, err := reconcile.ConfigFromEnv(getenv)
+	if err != nil {
+		return collectorOff(log, err), nil
 	}
 	env, err := collector.ConfigFromEnv(getenv)
 	if err != nil {
-		return nil, err
+		return collectorOff(log, err), nil
 	}
-	clients, err := env.OpenClients()
-	if err != nil {
-		return nil, err
+	clients := env.OpenClients()
+	off := offSources(env.Collector)
+	for _, o := range off {
+		log.Warn("source off: its configuration is incomplete, so it is not read", "source", o.Source,
+			"instance", o.Instance, "reason", o.Reason)
 	}
 	loop, err := reconcile.New(cfg, env.Collector, reconcile.SourcesOf(clients), loopStore{st}, m, log)
 	if err != nil {
-		return nil, err
+		return collectorOff(log, err), nil
+	}
+	return collection{loop: loop, lock: lock, off: off}, nil
+}
+
+// collectorOff logs that the collector is off for err, and returns the
+// collection that reads nothing, every source off for that reason.
+func collectorOff(log *slog.Logger, err error) collection {
+	log.Error("collector off: its configuration is incomplete, so no source is read", "error", err)
+	reason := "the collector is off: " + strings.ReplaceAll(err.Error(), "\n", "; ")
+	var c collection
+	for _, s := range []model.Source{model.SourceGitHub, model.SourceKelos, model.SourceVikunja} {
+		c.off = append(c.off, api.OffSource{Source: s, Reason: reason})
+	}
+	return c
+}
+
+// offSources are the sources cfg leaves off, in source order.
+func offSources(cfg collector.Config) []api.OffSource {
+	var out []api.OffSource
+	for _, s := range slices.Sorted(maps.Keys(cfg.Off)) {
+		out = append(out, api.OffSource{Source: s, Instance: cfg.Instance(s), Reason: cfg.Off[s]})
+	}
+	return out
+}
+
+// start runs the loop until ctx is done, and returns a function that
+// waits for it to stop. With the collector off, it starts nothing.
+func (c collection) start(ctx context.Context) func() {
+	if c.loop == nil {
+		return func() {}
 	}
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		loop.Run(ctx, lock)
+		c.loop.Run(ctx, c.lock)
 	}()
-	return func() { <-done }, nil
+	return func() { <-done }
 }

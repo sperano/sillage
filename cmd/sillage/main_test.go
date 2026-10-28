@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"io"
@@ -12,12 +13,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/sperano/sillage/internal/api"
+	"github.com/sperano/sillage/internal/collector/collectortest"
+	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/source/github"
+	"github.com/sperano/sillage/internal/store"
 	"github.com/sperano/sillage/web"
 )
 
@@ -131,6 +137,97 @@ func TestRunListenError(t *testing.T) {
 	}
 	if errors.Is(err, errUsage) {
 		t.Errorf("err = %v, want a listen error, not a usage error", err)
+	}
+}
+
+// startPoll is how often TestRunServesWithASourceUnset asks whether the
+// server answers yet.
+const startPoll = 20 * time.Millisecond
+
+// TestRunServesWithASourceUnset starts sillage over a database holding a
+// story, with GitHub's token unset and no Kubernetes client: it serves the
+// health check and the story, and its freshness names the sources off.
+func TestRunServesWithASourceUnset(t *testing.T) {
+	dbURL := newTestDatabaseURL(t)
+	story := collectortest.Stories["implementation-merged"]
+	seed, err := store.Open(t.Context(), store.Config{DatabaseURL: store.DatabaseURL(dbURL)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	collectCorpusStory(t, seed, story)
+	seed.Close()
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "missing"))
+	t.Setenv("HOME", t.TempDir())
+	env := ingestEnv()
+	delete(env, github.EnvToken)
+	env[store.EnvDatabaseURL] = dbURL
+	base := "http://" + serveRun(t, func(k string) string { return env[k] })
+
+	client := &http.Client{Timeout: testTimeout}
+	for _, path := range []string{healthzPath, "/api/v1/stories/task/" + story.Root.Task.Instance + "/" +
+		strconv.FormatInt(story.Root.Task.ID, 10)} {
+		resp, err := client.Get(base + path)
+		if err != nil {
+			t.Fatalf("GET %s: %v", path, err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("GET %s: status %d, want %d", path, resp.StatusCode, http.StatusOK)
+		}
+	}
+	resp, err := client.Get(base + "/api/v1/coverage")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var fresh api.FreshnessResponse
+	if err := json.NewDecoder(resp.Body).Decode(&fresh); err != nil {
+		t.Fatal(err)
+	}
+	reasons := make(map[model.Source]string)
+	for _, o := range fresh.Off {
+		reasons[o.Source] = o.Reason
+	}
+	if !strings.Contains(reasons[model.SourceGitHub], github.EnvToken) || reasons[model.SourceKelos] == "" ||
+		len(reasons) != 2 {
+		t.Errorf("off = %+v, want GitHub off for its token and Kelos for its client", fresh.Off)
+	}
+}
+
+// serveRun runs sillage with getenv on a free local port until the test
+// ends, and returns its address once it answers.
+func serveRun(t *testing.T, getenv func(string) string) string {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	_ = ln.Close()
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { done <- run(ctx, []string{"-listen", addr}, getenv, io.Discard) }()
+	t.Cleanup(func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Errorf("run: %v", err)
+		}
+	})
+	client := &http.Client{Timeout: testTimeout}
+	for deadline := time.Now().Add(testTimeout); ; time.Sleep(startPoll) {
+		select {
+		case err := <-done:
+			t.Fatalf("run returned before serving: %v", err)
+		default:
+		}
+		if resp, err := client.Get("http://" + addr + healthzPath); err == nil {
+			_ = resp.Body.Close()
+			return addr
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("sillage did not answer on %s within %s", addr, testTimeout)
+		}
 	}
 }
 
