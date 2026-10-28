@@ -187,17 +187,34 @@ func (noGitHub) FetchBranch(context.Context, github.Repository, github.Branch) (
 }
 
 // fakeProjects lists changes, by project, and records each since asked.
+// While err is set, every listing fails with it.
 type fakeProjects struct {
 	mu      sync.Mutex
 	changes map[int64][]vikunja.TaskChange
 	since   []time.Time
+	err     error
 }
 
 func (f *fakeProjects) ChangedTasks(_ context.Context, project int64, since time.Time) ([]vikunja.TaskChange, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.since = append(f.since, since)
+	if f.err != nil {
+		return nil, f.err
+	}
 	return slices.Clone(f.changes[project]), nil
+}
+
+func (f *fakeProjects) fail(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.err = err
+}
+
+func (f *fakeProjects) asked() []time.Time {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.since)
 }
 
 func (f *fakeProjects) set(project int64, changes ...vikunja.TaskChange) {
