@@ -26,7 +26,7 @@
 <style>
 	.key,
 	.activity {
-		color: var(--app-muted, #555);
+		color: var(--app-muted);
 		margin-left: 0.5rem;
 	}
 </style>

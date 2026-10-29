@@ -138,9 +138,9 @@
 
 <style>
 	.overview {
-		--ov-bg: #ffffff;
-		--ov-fg: #1d2733;
-		--ov-muted: #5b6b7c;
+		--ov-bg: var(--app-bg);
+		--ov-fg: var(--app-fg);
+		--ov-muted: var(--app-muted);
 		--ov-grid: #d9e0e8;
 		--ov-running: #2a7f86;
 		--ov-on-running: #ffffff;
@@ -157,9 +157,6 @@
 	}
 	@media (prefers-color-scheme: dark) {
 		.overview {
-			--ov-bg: #10161d;
-			--ov-fg: #e3e9ef;
-			--ov-muted: #9aa8b6;
 			--ov-grid: #2b3743;
 			--ov-running: #5cc2ca;
 			--ov-on-running: #10161d;

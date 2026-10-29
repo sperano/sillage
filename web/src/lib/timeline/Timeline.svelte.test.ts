@@ -23,6 +23,7 @@ const STORIES = [
 
 /** A desktop viewport: the default one is a phone's, too narrow for the bars' text. */
 const VIEWPORT = { width: 1280, height: 900 };
+const MAX_ZOOM_IN_STEPS = 12;
 
 beforeEach(async () => {
 	await page.viewport(VIEWPORT.width, VIEWPORT.height);
@@ -275,7 +276,12 @@ describe('interaction', () => {
 		await expect.element(range).not.toHaveTextContent(whole);
 		await expect.element(earlier).toBeEnabled();
 		await earlier.click();
-		for (let i = 0; i < 12; i++) await zoomIn.click({ force: true });
+		const zoomInButton = zoomIn.element();
+		if (!(zoomInButton instanceof HTMLButtonElement)) throw new Error('Zoom in is not a button');
+		for (let i = 0; i < MAX_ZOOM_IN_STEPS; i++) {
+			zoomInButton.click();
+			await tick();
+		}
 		await expect.element(zoomIn).toBeDisabled();
 		await page.getByRole('button', { name: 'Whole story' }).click();
 		await expect.element(range).toHaveTextContent(whole);

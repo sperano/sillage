@@ -1,6 +1,19 @@
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import type { BrowserCommand } from 'vitest/node';
+
+const TEST_TIME_ZONE = 'America/Toronto';
+
+const emulateColorScheme: BrowserCommand<[colorScheme: 'light' | 'dark']> = async (
+	context,
+	colorScheme
+) => {
+	if (context.provider.name !== 'playwright') {
+		throw new Error(`emulateColorScheme requires Playwright, not ${context.provider.name}`);
+	}
+	await context.page.emulateMedia({ colorScheme });
+};
 
 // A static single-page application: the Go binary embeds dist/ and serves
 // it next to its API, so there is no Node server at runtime.
@@ -22,10 +35,10 @@ export default defineConfig({
 					name: 'client',
 					browser: {
 						enabled: true,
-						// A zone other than UTC, with daylight saving time, so that the
-						// tests tell local time from UTC whatever zone the machine runs in.
-						provider: playwright({ contextOptions: { timezoneId: 'America/Toronto' } }),
-						instances: [{ browser: 'chromium', headless: true }]
+						// A zone with daylight saving time tells local time from UTC.
+						provider: playwright({ contextOptions: { timezoneId: TEST_TIME_ZONE } }),
+						instances: [{ browser: 'chromium', headless: true }],
+						commands: { emulateColorScheme }
 					},
 					include: ['src/**/*.svelte.test.ts']
 				}
@@ -36,7 +49,7 @@ export default defineConfig({
 					name: 'node',
 					environment: 'node',
 					// The browser tests' zone, for the same reason.
-					env: { TZ: 'America/Toronto' },
+					env: { TZ: TEST_TIME_ZONE },
 					include: ['src/**/*.test.ts'],
 					exclude: ['src/**/*.svelte.test.ts']
 				}

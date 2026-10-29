@@ -247,9 +247,9 @@
 
 <style>
 	.timeline {
-		--tl-bg: #ffffff;
-		--tl-fg: #1d2733;
-		--tl-muted: #5b6b7c;
+		--tl-bg: var(--app-bg);
+		--tl-fg: var(--app-fg);
+		--tl-muted: var(--app-muted);
 		--tl-grid: #d9e0e8;
 		--tl-event: #1f5f9e;
 		--tl-observed: #1f5f9e;
@@ -269,9 +269,6 @@
 	}
 	@media (prefers-color-scheme: dark) {
 		.timeline {
-			--tl-bg: #10161d;
-			--tl-fg: #e3e9ef;
-			--tl-muted: #9aa8b6;
 			--tl-grid: #2b3743;
 			--tl-event: #7ab3ef;
 			--tl-observed: #7ab3ef;
