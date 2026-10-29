@@ -2,6 +2,7 @@ import { tick } from 'svelte';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
+import '../../app.css';
 import { eventKey, runKeyString } from '../keys';
 import type { Story } from '../model';
 import { Selection } from '../selection.svelte';

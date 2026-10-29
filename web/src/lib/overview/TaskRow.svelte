@@ -78,7 +78,7 @@
 		grid-template-columns: var(--ov-name-width) 1fr var(--ov-state-width);
 		gap: 0.5rem;
 		padding: 0.4rem 0;
-		border-top: 1px solid var(--ov-grid);
+		border-top: 1px solid var(--color-grid);
 		align-items: start;
 	}
 	.name {
@@ -93,7 +93,7 @@
 	}
 	.sub,
 	.lane-label {
-		color: var(--ov-muted);
+		color: var(--color-muted);
 		font-size: 0.7rem;
 	}
 	.toggle {
@@ -113,27 +113,27 @@
 		font-size: 0.7rem;
 		border-radius: 0.6rem;
 		padding: 0 0.45rem;
-		background: color-mix(in srgb, var(--ov-muted) 15%, var(--ov-bg));
+		background: color-mix(in srgb, var(--color-muted) 15%, var(--color-surface));
 	}
 	.chip.running,
 	.chip.waiting {
-		background: color-mix(in srgb, var(--ov-running) 25%, var(--ov-bg));
+		background: color-mix(in srgb, var(--color-running) 25%, var(--color-surface));
 	}
 	.chip.review {
-		background: color-mix(in srgb, var(--ov-review) 25%, var(--ov-bg));
+		background: color-mix(in srgb, var(--color-review) 25%, var(--color-surface));
 	}
 	.chip.failed,
 	.chip.pr-closed,
 	.chip.reopened,
 	.chip.not-done {
-		background: color-mix(in srgb, var(--ov-failure) 20%, var(--ov-bg));
+		background: color-mix(in srgb, var(--color-failure) 20%, var(--color-surface));
 	}
 	.note {
-		color: var(--ov-muted);
+		color: var(--color-muted);
 	}
 	.chip.missing,
 	.chip.unknown {
-		border: 1px dashed var(--ov-unknown);
+		border: 1px dashed var(--color-unknown);
 	}
 	.visually-hidden {
 		position: absolute;

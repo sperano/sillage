@@ -86,13 +86,13 @@
 		outline: none;
 	}
 	.badge .count {
-		fill: var(--tl-bg);
-		stroke: var(--tl-event);
+		fill: var(--color-surface);
+		stroke: var(--color-event);
 		stroke-width: 2;
 	}
 	.focus {
 		fill: none;
-		stroke: var(--tl-focus);
+		stroke: var(--color-focus);
 		stroke-width: 2;
 		stroke-dasharray: 3 2;
 		opacity: 0;
@@ -102,16 +102,16 @@
 		opacity: 1;
 	}
 	.badge text {
-		fill: var(--tl-fg);
+		fill: var(--color-fg);
 		font-size: 10px;
 		font-weight: 700;
 		text-anchor: middle;
 	}
 	.member text {
-		fill: var(--tl-fg);
+		fill: var(--color-fg);
 		font-size: 10px;
 	}
 	.lead {
-		stroke: var(--tl-grid);
+		stroke: var(--color-grid);
 	}
 </style>

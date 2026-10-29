@@ -159,7 +159,7 @@
 	}
 </script>
 
-<section class="timeline" aria-label="Timeline">
+<section class="timeline surface" aria-label="Timeline">
 	<TimelineToolbar
 		bind:zone
 		{view}
@@ -246,11 +246,6 @@
 </section>
 
 <style>
-	.timeline {
-		color: var(--tl-fg);
-		background: var(--tl-bg);
-		font-family: system-ui, sans-serif;
-	}
 	.plot {
 		overflow-x: auto;
 	}
@@ -260,30 +255,30 @@
 		user-select: none;
 	}
 	.section {
-		fill: var(--tl-muted);
+		fill: var(--color-muted);
 		font-size: 11px;
 		font-weight: 700;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
 	}
 	.hatch {
-		stroke: var(--tl-unknown);
+		stroke: var(--color-unknown);
 		stroke-width: 1;
 		opacity: 0.6;
 	}
 	.waiting-bg,
 	.review-bg {
-		fill: var(--tl-bg);
+		fill: var(--color-surface);
 	}
 	.waiting-line {
-		stroke: var(--tl-waiting);
+		stroke: var(--color-waiting);
 		stroke-width: 2;
 	}
 	.review-dot {
-		fill: var(--tl-review);
+		fill: var(--color-review);
 	}
 	.legend {
-		color: var(--tl-muted);
+		color: var(--color-muted);
 		font-size: 0.8rem;
 	}
 </style>

@@ -50,7 +50,7 @@
 	}
 	.focus {
 		fill: none;
-		stroke: var(--tl-focus);
+		stroke: var(--color-focus);
 		stroke-width: 2;
 		stroke-dasharray: 3 2;
 		opacity: 0;
@@ -59,12 +59,12 @@
 		opacity: 1;
 	}
 	.label {
-		fill: var(--tl-fg);
+		fill: var(--color-fg);
 		font-size: 11px;
 		font-weight: 600;
 	}
 	.time {
-		fill: var(--tl-muted);
+		fill: var(--color-muted);
 		font-size: 10px;
 	}
 </style>

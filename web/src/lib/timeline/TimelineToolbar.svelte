@@ -56,26 +56,7 @@
 		display: flex;
 		gap: 0.25rem;
 	}
-	button {
-		font: inherit;
-		color: var(--tl-fg);
-		background: var(--tl-bg);
-		border: 1px solid var(--tl-grid);
-		border-radius: 4px;
-		padding: 0.2rem 0.5rem;
-	}
-	.toolbar :global(select) {
-		font: inherit;
-		color: var(--tl-fg);
-		background: var(--tl-bg);
-		border: 1px solid var(--tl-grid);
-		border-radius: 4px;
-		padding: 0.2rem 0.5rem;
-	}
-	button:disabled {
-		color: var(--tl-muted);
-	}
 	.range {
-		color: var(--tl-muted);
+		color: var(--color-muted);
 	}
 </style>

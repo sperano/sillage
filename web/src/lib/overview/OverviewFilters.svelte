@@ -124,8 +124,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.4rem;
-		border: 1px solid var(--ov-grid);
-		border-radius: 0.4rem;
 	}
 	label {
 		display: inline-flex;

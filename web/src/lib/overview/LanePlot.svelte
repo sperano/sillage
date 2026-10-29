@@ -110,7 +110,7 @@
 		background: repeating-linear-gradient(
 			135deg,
 			transparent 0 4px,
-			color-mix(in srgb, var(--ov-unknown) 45%, transparent) 4px 5px
+			color-mix(in srgb, var(--color-unknown) 45%, transparent) 4px 5px
 		);
 	}
 	.bar {
@@ -128,28 +128,32 @@
 	}
 	.waiting .text,
 	.review .text {
-		background: var(--ov-bg);
+		background: var(--color-surface);
 	}
 	.running {
-		background: var(--ov-running);
-		color: var(--ov-on-running);
+		background: var(--color-running);
+		color: var(--color-on-running);
 	}
 	.running.failed {
-		background: var(--ov-failure);
+		background: var(--color-failure);
 	}
 	.waiting {
-		background: repeating-linear-gradient(0deg, var(--ov-bg) 0 2px, var(--ov-waiting) 2px 4px);
-		color: var(--ov-fg);
+		background: repeating-linear-gradient(
+			0deg,
+			var(--color-surface) 0 2px,
+			var(--color-waiting) 2px 4px
+		);
+		color: var(--color-fg);
 	}
 	.review {
-		background: radial-gradient(var(--ov-review) 1px, var(--ov-bg) 1.5px) 0 0 / 6px 6px;
-		border: 1px dotted var(--ov-review);
-		color: var(--ov-fg);
+		background: radial-gradient(var(--color-review) 1px, var(--color-surface) 1.5px) 0 0 / 6px 6px;
+		border: 1px dotted var(--color-review);
+		color: var(--color-fg);
 	}
 	.pr {
-		background: color-mix(in srgb, var(--ov-pr) 25%, var(--ov-bg));
-		border: 1px solid var(--ov-pr);
-		color: var(--ov-fg);
+		background: color-mix(in srgb, var(--color-pr) 25%, var(--color-surface));
+		border: 1px solid var(--color-pr);
+		color: var(--color-fg);
 	}
 	.open {
 		border-right: none;
@@ -166,7 +170,7 @@
 	.stub-end {
 		width: 1.5rem;
 		background: none;
-		border: 1px dashed var(--ov-unknown);
+		border: 1px dashed var(--color-unknown);
 	}
 	.stub-start {
 		transform: translateX(-100%);
@@ -175,21 +179,21 @@
 		top: 0.15rem;
 		transform: translateX(-50%);
 		font-size: 0.8rem;
-		color: var(--ov-mark);
+		color: var(--color-fg);
 	}
 	.mark.failed {
-		color: var(--ov-failure);
+		color: var(--color-failure);
 	}
 	.cursor {
 		top: 0;
 		bottom: 0;
-		border-left: 2px dashed var(--ov-cursor);
+		border-left: 2px dashed var(--color-cursor);
 	}
 	.note {
 		position: absolute;
 		left: 0.3rem;
 		font-size: 0.7rem;
-		color: var(--ov-muted);
+		color: var(--color-muted);
 		line-height: 1.6rem;
 	}
 </style>

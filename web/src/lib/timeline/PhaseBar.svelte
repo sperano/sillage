@@ -92,10 +92,10 @@
 	.phase {
 		cursor: pointer;
 		outline: none;
-		--phase: var(--tl-running);
+		--phase: var(--color-running);
 	}
 	.uncertain {
-		--phase: var(--tl-unknown);
+		--phase: var(--color-unknown);
 	}
 	.segment {
 		fill: var(--phase);
@@ -114,16 +114,16 @@
 	}
 	.selected .segment,
 	.selected .edge {
-		stroke: var(--tl-selected);
+		stroke: var(--color-selected);
 	}
 	.phase:focus-visible .segment,
 	.phase:focus-visible .edge {
-		stroke: var(--tl-focus);
+		stroke: var(--color-focus);
 		stroke-width: 3;
 	}
 	.inside,
 	.tick-text {
-		fill: var(--tl-muted);
+		fill: var(--color-muted);
 		font-size: 10px;
 	}
 	.uncertain .inside,

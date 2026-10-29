@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
+import './app.css';
 import App from './App.svelte';
 import { API_BASE } from './lib/api';
 import { memoryHistory } from './lib/history';
