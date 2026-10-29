@@ -20,18 +20,25 @@ type ProjectLister interface {
 // Sources are the clients the loop reads through. A source without a
 // client is off, as the collector's are: it is never read, and its
 // coverage of every root read says why. Without Projects, no project is
-// listed.
+// listed; without Hooks or Receipts, or with GitHub off, no hook's
+// delivery log is read.
 type Sources struct {
 	collector.Sources
 	Projects ProjectLister
+	Hooks    HookLog
+	Receipts Receipts
 }
 
-// SourcesOf returns the loop's sources of the live clients. A client that
-// is not set stays nil, so that its source is off.
-func SourcesOf(c collector.Clients) Sources {
-	s := Sources{Sources: c.Sources()}
+// SourcesOf returns the loop's sources of the live clients, with
+// receipts. A client that is not set stays nil, so that its source is
+// off.
+func SourcesOf(c collector.Clients, receipts Receipts) Sources {
+	s := Sources{Sources: c.Sources(), Receipts: receipts}
 	if c.Vikunja != nil {
 		s.Projects = c.Vikunja
+	}
+	if c.GitHub != nil {
+		s.Hooks = c.GitHub
 	}
 	return s
 }
@@ -46,7 +53,7 @@ func (s Sources) without(off map[model.Source]string) Sources {
 		s.Kelos = nil
 	}
 	if _, ok := off[model.SourceGitHub]; ok {
-		s.GitHub = nil
+		s.GitHub, s.Hooks = nil, nil
 	}
 	return s
 }

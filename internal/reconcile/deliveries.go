@@ -83,14 +83,19 @@ func (l *Loop) addDelivered(dues map[model.Ref]*due) {
 	}
 }
 
-// compareDues orders the roots a delivery asked for first, so that a
-// cycle reads them before the periodic reads, then by ref.
+// compareDues orders the roots a delivery asked for, or a lost one
+// named, first, so that a cycle reads them before the periodic reads,
+// then by ref.
 func compareDues(a, b *due) int {
-	if (a.delivery != "") != (b.delivery != "") {
-		if a.delivery != "" {
+	if a.delivered() != b.delivered() {
+		if a.delivered() {
 			return -1
 		}
 		return 1
 	}
 	return compareRefs(a.root.Ref(), b.root.Ref())
 }
+
+// delivered reports whether a delivery asked for d's read, or a lost one
+// named its root.
+func (d *due) delivered() bool { return d.delivery != "" || d.lost != nil }

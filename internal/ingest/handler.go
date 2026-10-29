@@ -42,6 +42,12 @@ type Store interface {
 	AcceptDelivery(ctx context.Context, d model.Delivery, act func() error) error
 	// RecordDelivery records one attempt that was not accepted.
 	RecordDelivery(ctx context.Context, d model.Delivery) error
+	PullRequestRoots
+}
+
+// PullRequestRoots finds the stored stories of a pull request:
+// *store.Store.
+type PullRequestRoots interface {
 	// RootsOfPullRequest returns the stored roots whose stories hold the
 	// pull request.
 	RootsOfPullRequest(ctx context.Context, key model.PRKey) ([]store.RootSummary, error)

@@ -44,6 +44,10 @@ type Loop struct {
 	// unsaved are the roots whose state in roots has gaps the store does
 	// not hold yet: their commit failed.
 	unsaved map[model.Ref]bool
+	// hookMarks are the hooks' marks the store holds, by key, and
+	// hooksChecked when the cycle that last read their logs started.
+	hookMarks    map[string]int64
+	hooksChecked time.Time
 	// collecting is whether the loop holds the lock and has loaded the
 	// store's state.
 	collecting atomic.Bool
@@ -159,6 +163,7 @@ func (l *Loop) load(ctx context.Context) error {
 		return err
 	}
 	l.roots, l.marks, l.unsaved = make(map[model.Ref]*rootState), make(map[int64]time.Time), make(map[model.Ref]bool)
+	l.hookMarks, l.hooksChecked = make(map[string]int64), time.Time{}
 	var lastCycle time.Time
 	if data, ok := cps[heartbeatKey(l.ccfg.Kelos.Cluster)]; ok {
 		if err := json.Unmarshal(data, &lastCycle); err != nil {
@@ -179,6 +184,10 @@ func (l *Loop) load(ctx context.Context) error {
 			l.roots[st.Root.Ref()] = st
 		case strings.HasPrefix(key, projectPrefix+l.ccfg.VikunjaInstance+"/"):
 			if err := l.loadMark(key, data); err != nil {
+				return err
+			}
+		case strings.HasPrefix(key, hookPrefix+l.ccfg.GitHubInstance+"/"):
+			if err := l.loadHookMark(key, data); err != nil {
 				return err
 			}
 		}

@@ -98,7 +98,7 @@ func (c *Client) Unchanged(ctx context.Context, v Validators) (bool, error) {
 		if err := c.awaitBudget(ctx, path); err != nil {
 			return false, wrapContext(path, err)
 		}
-		resp, err := c.send(ctx, path, c.apiURL.String()+target, v[target])
+		resp, err := c.send(ctx, http.MethodGet, path, c.apiURL.String()+target, v[target])
 		if err != nil {
 			return false, err
 		}
