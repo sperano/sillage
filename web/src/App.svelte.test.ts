@@ -18,6 +18,16 @@ const WIDE = { width: 1400, height: 900 };
 const DEFAULT_VIEWPORT = { width: 414, height: 896 };
 /** The narrow pages' column: 60rem at the default 16px font size. */
 const NARROW_PX = 960;
+const LIGHT_THEME = {
+	background: 'rgb(255, 255, 255)',
+	foreground: 'rgb(29, 39, 51)',
+	muted: 'rgb(91, 107, 124)'
+};
+const DARK_THEME = {
+	background: 'rgb(16, 22, 29)',
+	foreground: 'rgb(227, 233, 239)',
+	muted: 'rgb(154, 168, 182)'
+};
 
 afterEach(async () => {
 	await page.viewport(DEFAULT_VIEWPORT.width, DEFAULT_VIEWPORT.height);
@@ -40,6 +50,28 @@ test('/ is the entry page', async () => {
 	await expect.element(page.getByRole('search')).toBeVisible();
 	await expect.element(page.getByRole('heading', { name: 'Open a link' })).toBeVisible();
 	await expect.element(page.getByRole('heading', { name: 'Source freshness' })).toBeVisible();
+});
+
+test('the page follows the system light or dark theme', async () => {
+	await renderAt('/?q=widgets', {
+		[`${API_BASE}/search`]: () =>
+			json({
+				query: 'widgets',
+				roots: [{ root: { task: { instance: 'vikunja.example.com', id: 102 } }, title: 'Widgets' }]
+			})
+	});
+	await expect.element(page.getByRole('link', { name: 'Widgets' })).toBeVisible();
+
+	const expected = window.matchMedia('(prefers-color-scheme: dark)').matches
+		? DARK_THEME
+		: LIGHT_THEME;
+	const rootStyle = getComputedStyle(document.documentElement);
+	const bodyStyle = getComputedStyle(document.body);
+	const mutedStyle = getComputedStyle(document.querySelector<HTMLElement>('.key')!);
+	expect(rootStyle.colorScheme).toBe('light dark');
+	expect(bodyStyle.backgroundColor).toBe(expected.background);
+	expect(bodyStyle.color).toBe(expected.foreground);
+	expect(mutedStyle.color).toBe(expected.muted);
 });
 
 test('a deep link asks for its story once', async () => {
