@@ -1,11 +1,19 @@
 package collector
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"reflect"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/sperano/sillage/internal/collector/collectortest"
 	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/model/storytest"
+	"github.com/sperano/sillage/internal/source/github"
 	"github.com/sperano/sillage/internal/source/kelos"
 	"github.com/sperano/sillage/internal/source/vikunja"
 )
@@ -163,4 +171,74 @@ func TestRecollectPhasesOfKeptMarkers(t *testing.T) {
 	if phases != len(spans) {
 		t.Errorf("phases = %d, want one per span of the story's markers, %d", phases, len(spans))
 	}
+}
+
+// unreadGitHub fails the test if GitHub is read.
+type unreadGitHub struct{ t *testing.T }
+
+func (g unreadGitHub) FetchBranch(context.Context, github.Repository, github.Branch) ([]github.Snapshot, error) {
+	g.t.Error("GitHub was read, but the caller kept its last read")
+	return nil, errors.New("GitHub must not be read")
+}
+
+// A skipped GitHub read keeps what the store holds of the last: every
+// fixture story assembled again over its own records, GitHub unread, has
+// the same records.
+func TestRecollectSkippingGitHubKeepsTheStory(t *testing.T) {
+	for _, name := range storytest.Names() {
+		t.Run(name, func(t *testing.T) {
+			full := collectStory(t, name)
+			sc := storyCases[name]
+			cl := collectortest.New(t, fixturesDir, sc.Dirs, collectortest.Report{Elsewhere: t.Errorf, Broken: t.Errorf})
+			c, err := New(testConfig(), Sources{Vikunja: cl.Vikunja, Kelos: cl.Kelos, GitHub: unreadGitHub{t}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			c.now = func() time.Time { return testNow }
+			res, err := c.Recollect(t.Context(), sc.Root, Kept{
+				Runs: full.Runs, Correlations: full.Correlations, Markers: collectortest.Markers(t, fixturesDir, sc.Dirs),
+				SkipGitHub: true, Events: full.Events, PullRequests: full.PullRequests,
+			}, sc.Repos...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := res.Story
+			for what, same := range map[string]bool{
+				"events":        reflect.DeepEqual(unread(got.Events), unread(full.Events)),
+				"runs":          reflect.DeepEqual(got.Runs, full.Runs),
+				"pull requests": reflect.DeepEqual(got.PullRequests, full.PullRequests),
+				"correlations":  reflect.DeepEqual(got.Correlations, full.Correlations),
+			} {
+				if !same {
+					t.Errorf("%s differ from the full read's", what)
+				}
+			}
+			if cov := coverageOf(t, got, model.SourceGitHub); cov.LastSuccessfulRead != nil || len(cov.Notes) != 0 {
+				t.Errorf("GitHub coverage = %+v, want no read and no note: the caller keeps its own", cov)
+			}
+		})
+	}
+}
+
+// unread returns events apart from when they were read: an observation
+// (no source time) is identified by its read, so it loses its id too.
+func unread(events []model.Event) []model.Event {
+	out := slices.Clone(events)
+	for i := range out {
+		out[i].ObservedAt, out[i].LastObservedAt = time.Time{}, nil
+		if out[i].SourceTime == nil {
+			out[i].ID = ""
+		}
+	}
+	// Observations are ordered by when they were read.
+	slices.SortFunc(out, func(a, b model.Event) int { return bytes.Compare(marshal(a), marshal(b)) })
+	return out
+}
+
+func marshal(e model.Event) []byte {
+	data, err := json.Marshal(e)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }

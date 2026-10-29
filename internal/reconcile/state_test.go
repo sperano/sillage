@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/source/github"
 )
 
 func minute(n int) time.Time { return testStart.Add(time.Duration(n) * time.Minute) }
@@ -101,6 +102,31 @@ func TestRootStateCloneIsDeep(t *testing.T) {
 	c.source(model.Coverage{Source: model.SourceVikunja, Instance: testVikunjaHost}).fail("down")
 	if st.Sources["vikunja/"+testVikunjaHost].Open != nil {
 		t.Error("changing the clone changed the original")
+	}
+}
+
+func TestRootStateCloneCopiesTheGitHubSchedule(t *testing.T) {
+	read := minute(1)
+	st := newRootState(testRoot())
+	st.GitHubRead, st.ETags = &read, github.Validators{"/repos/acme/widgets/pulls": `W/"1"`}
+	c := st.clone()
+	*c.GitHubRead = minute(2)
+	c.ETags["/repos/acme/widgets/pulls"] = `W/"2"`
+	if !st.GitHubRead.Equal(read) || st.ETags["/repos/acme/widgets/pulls"] != `W/"1"` {
+		t.Error("changing the clone's GitHub schedule changed the original's")
+	}
+}
+
+func TestUnchangedKeepsWhatTheLastReadLeftUnknown(t *testing.T) {
+	var st sourceState
+	st.succeed(minute(1), model.Coverage{Notes: []string{"checks forbidden"}})
+	st.fail("down")
+	st.unchanged(minute(3))
+	if st.Open != nil || len(st.Gaps) != 1 || !st.LastSuccess.Equal(minute(3)) {
+		t.Errorf("after an unchanged read, state = %+v: want the gap closed there", st)
+	}
+	if len(st.Notes) != 1 || st.Notes[0] != "checks forbidden" {
+		t.Errorf("notes = %v, want the last read's kept", st.Notes)
 	}
 }
 

@@ -74,9 +74,12 @@ func (l *Loop) addDelivered(dues map[model.Ref]*due) {
 			if d.delivery == "" {
 				d.delivery = deliveryCoalesced
 			}
+			d.readGitHub(triggerDelivery)
 			continue
 		}
-		dues[ref] = &due{root: root, delivery: deliveryCaused}
+		d := &due{root: root, delivery: deliveryCaused}
+		d.readGitHub(triggerDelivery)
+		dues[ref] = d
 	}
 }
 

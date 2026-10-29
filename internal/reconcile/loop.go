@@ -30,6 +30,12 @@ type Loop struct {
 	jitter func(time.Duration) time.Duration
 	// deliveries are the reads webhook deliveries ask for; nil without.
 	deliveries Deliveries
+	// conditional is the GitHub source, when it is a ConditionalGitHub;
+	// spread spreads a restart's overdue backstop reads, and github counts
+	// what the cycle asks of GitHub.
+	conditional ConditionalGitHub
+	spread      func(time.Duration) time.Duration
+	github      githubCycle
 
 	// roots and marks are what the store holds, loaded when the lock is
 	// taken: each root's state, by ref, and each project's listing mark.
@@ -59,10 +65,14 @@ func New(cfg Config, ccfg collector.Config, src Sources, store Store, deliveries
 	if err != nil {
 		return nil, err
 	}
-	return &Loop{
+	l := &Loop{
 		cfg: cfg, ccfg: ccfg, src: src.without(c.Off()), store: boundedStore{s: store, timeout: storeTimeout},
-		deliveries: deliveries, metrics: m, log: log, now: time.Now, jitter: jitter,
-	}, nil
+		deliveries: deliveries, metrics: m, log: log, now: time.Now, jitter: jitter, spread: spread,
+	}
+	if cg, ok := l.src.GitHub.(ConditionalGitHub); ok {
+		l.conditional = cg
+	}
+	return l, nil
 }
 
 // jitter returns d spread by up to jitterFraction either way.
@@ -185,6 +195,10 @@ func (l *Loop) load(ctx context.Context) error {
 	})
 	if err != nil {
 		return fmt.Errorf("committing the restart's gaps: %w", err)
+	}
+	now := l.now()
+	for _, st := range l.roots {
+		l.scheduleLoaded(st, now)
 	}
 	l.metrics.roots.Set(float64(len(l.roots)))
 	l.log.Info("collector started", "roots", len(l.roots), "lastCycle", lastCycle)

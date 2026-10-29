@@ -203,8 +203,17 @@ Each cycle reads the Kelos namespace once, and lists the tasks of the
 configured Vikunja projects changed since the last listing. It reads a
 root that is new, whose Kelos runs changed, whose task changed, or that
 Kelos still names and that has a Kelos gap open or was not read for the
-refresh interval. A story whose records did not change writes none; its
-coverage still advances. Once a source of a root has been read
+refresh interval. A root's GitHub side is read only when a webhook
+delivery names the root, a run is new or changed, or the task changed;
+otherwise its stored records stand. Once a day (the backstop) GitHub is
+asked, with the last read's ETags, whether the root's pull requests
+changed: `304 Not Modified` costs no rate limit and advances the
+coverage, a change reads them whole. A root whose task is done, whose
+pull requests are closed or merged and whose runs finished gets no
+backstop unless its GitHub coverage has a gap open; no backstop read is
+made while less than 20% of the rate limit's window is left, and a
+restart spreads the overdue backstop reads over the interval. A story
+whose records did not change writes none; its coverage still advances. Once a source of a root has been read
 successfully, a failed read leaves a gap, from that source's last
 successful read to its next, with the reason (`timeout`, `rate_limited`,
 `server_error`, `failed`): a failed Kelos read, which serves every root,
@@ -220,7 +229,8 @@ tries again.
 | `SILLAGE_DATABASE_URL` | The store's PostgreSQL URL. Unset, the collector does not run. |
 | `SILLAGE_VIKUNJA_PROJECTS` | Vikunja project ids whose changed tasks are read, comma-separated. Unset, only the tasks Kelos names are. |
 | `SILLAGE_COLLECT_INTERVAL` | Time between two cycles (default `5m`). |
-| `SILLAGE_ROOT_REFRESH_INTERVAL` | How long a root Kelos still names is left unread when nothing says it changed (default `1h`): reviews, checks and comments change no run. |
+| `SILLAGE_ROOT_REFRESH_INTERVAL` | How long a root Kelos still names is left unread when nothing says it changed (default `1h`): task comments change no run. GitHub is not read then. |
+| `SILLAGE_GITHUB_BACKSTOP_INTERVAL` | How long a root's GitHub side is left unread when no delivery, run or task change says it changed (default `24h`). |
 | `SILLAGE_LOCK_RETRY_INTERVAL` | How often a process without the lock tries to take it (default `1m`). |
 
 Every interval is spread by up to 10% either way. `GET /metrics` serves,
@@ -229,7 +239,11 @@ successful read (`sillage_source_last_success_timestamp_seconds`), failed
 reads by reason (`sillage_source_read_errors_total`) and read durations
 (`sillage_source_read_duration_seconds`), the records committed
 (`sillage_records_written_total`), store errors, cycles, roots, whether
-this process holds the lock, and the phase-marker requests by outcome
+this process holds the lock, the roots' GitHub reads by what asked for
+them (`sillage_collector_github_reads_total`), the requests sent to
+GitHub and those answered 304 (`sillage_github_requests_total`,
+`sillage_github_not_modified_total`), the rate limit left
+(`sillage_github_rate_limit_remaining`), and the phase-marker requests by outcome
 (`sillage_phase_markers_total`). Who may reach it is the deployment's decision.
 
 ## Test

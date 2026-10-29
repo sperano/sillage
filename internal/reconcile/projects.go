@@ -79,6 +79,7 @@ func (l *Loop) addChanged(dues map[model.Ref]*due, project int64, ch vikunja.Tas
 		d.updated = &updated
 	}
 	d.projects = append(d.projects, project)
+	d.readGitHub(triggerTask)
 }
 
 // commitCycle commits when the cycle ended, the marks of the projects

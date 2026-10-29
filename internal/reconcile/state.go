@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/source/github"
 )
 
 // The keys of the loop's checkpoints. Every one starts with
@@ -39,6 +40,23 @@ type rootState struct {
 	Updated *time.Time `json:"updated,omitempty"`
 	// Sources are the root's source instances, by coverage key.
 	Sources map[string]*sourceState `json:"sources,omitempty"`
+	// GitHubRead is when the root's pull requests were last read on
+	// GitHub, or found unchanged there, whatever the outcome; nil before,
+	// and in a state kept before GitHub had a schedule of its own.
+	// GitHubFailed is whether that read failed.
+	GitHubRead   *time.Time `json:"githubRead,omitempty"`
+	GitHubFailed bool       `json:"githubFailed,omitempty"`
+	// ETags tell GitHub's lists of the root unchanged since the last
+	// GitHub read that failed nowhere; nil when that read's lists cannot
+	// be compared (see github.Validators).
+	ETags github.Validators `json:"etags,omitempty"`
+	// Settled is whether the last read that failed nowhere saw the task
+	// done, every pull request closed or merged and every run finished.
+	Settled bool `json:"settled,omitempty"`
+
+	// backstop is when the GitHub backstop is due to read the root, as the
+	// loop schedules it; never stored.
+	backstop time.Time
 }
 
 // sourceState is how far one source instance of a root is known.
@@ -89,7 +107,8 @@ func (s *rootState) checkpoint() Checkpoint {
 // the store holds.
 func (s *rootState) clone() *rootState {
 	out := *s
-	out.Updated = clonePointer(s.Updated)
+	out.Updated, out.GitHubRead = clonePointer(s.Updated), clonePointer(s.GitHubRead)
+	out.ETags = maps.Clone(s.ETags)
 	out.Sources = make(map[string]*sourceState, len(s.Sources))
 	for key, st := range s.Sources {
 		c := *st
@@ -150,6 +169,13 @@ func (s *rootState) kelosSince(cluster string) time.Time {
 	return time.Time{}
 }
 
+// githubGapOpen reports whether the root's coverage of GitHub instance
+// has a gap open, which only a GitHub read of the root closes.
+func (s *rootState) githubGapOpen(instance string) bool {
+	st := s.Sources[model.Coverage{Source: model.SourceGitHub, Instance: instance}.Key()]
+	return st != nil && st.Open != nil
+}
+
 // kelosGapOpen reports whether the root's Kelos coverage on cluster has
 // a gap open, which only a read of the root closes.
 func (s *rootState) kelosGapOpen(cluster string) bool {
@@ -182,6 +208,13 @@ func (st *sourceState) succeed(at time.Time, cov model.Coverage) {
 		st.LastSuccess = &at
 	}
 	st.unread(cov)
+}
+
+// unchanged records a read that started at at and found what the last
+// successful one did: it closes the open gap there, and keeps what that
+// read said was unknown.
+func (st *sourceState) unchanged(at time.Time) {
+	st.succeed(at, model.Coverage{Gaps: st.ReadGaps, Notes: st.Notes})
 }
 
 // unread records a read that neither succeeded nor failed (nothing named
