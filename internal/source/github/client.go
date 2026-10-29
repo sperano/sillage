@@ -54,12 +54,16 @@ func (e *StatusError) Error() string {
 }
 
 // Client reads pull requests from one GitHub instance. It only sends GET
-// requests. It holds the token only inside authorize, so printing a Client
-// never prints the token. It is safe for concurrent use.
+// requests to the API it reads; the one POST is the mint of a GitHub App
+// installation token, when the Config has an App. It holds the credential
+// only inside authorize, so printing a Client never prints it. It is safe
+// for concurrent use.
 type Client struct {
-	apiURL    *url.URL
-	instance  string
-	authorize func(*http.Request)
+	apiURL   *url.URL
+	instance string
+	// authorize sets the credential of a request; it fails when an
+	// installation token cannot be minted.
+	authorize func(context.Context, *http.Request) error
 	http      *http.Client
 	now       func() time.Time
 	sleep     func(context.Context, time.Duration) error
@@ -95,11 +99,9 @@ func NewClient(cfg Config, hc *http.Client) (*Client, error) {
 		hc = &http.Client{Timeout: DefaultRequestTimeout}
 	}
 	u, _ := url.Parse(strings.TrimRight(cfg.APIURL, "/"))
-	header := "Bearer " + string(cfg.Token)
-	return &Client{
+	c := &Client{
 		apiURL:     u,
 		instance:   cfg.Instance,
-		authorize:  func(r *http.Request) { r.Header.Set("Authorization", header) },
 		http:       hc,
 		now:        time.Now,
 		sleep:      sleepContext,
@@ -108,7 +110,30 @@ func NewClient(cfg Config, hc *http.Client) (*Client, error) {
 		maxBody:    defaultMaxResponseBytes,
 		maxWait:    DefaultMaxRateLimitWait,
 		maxRetries: defaultMaxRateLimitRetries,
-	}, nil
+	}
+	if err := c.setCredential(cfg); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// setCredential makes c authenticate with cfg's token, or as its App's
+// installation.
+func (c *Client) setCredential(cfg Config) error {
+	if cfg.App == nil {
+		header := "Bearer " + string(cfg.Token)
+		c.authorize = func(_ context.Context, r *http.Request) error {
+			r.Header.Set("Authorization", header)
+			return nil
+		}
+		return nil
+	}
+	tokens, err := newInstallationTokens(c.apiURL.String(), *cfg.App, c.http, func() time.Time { return c.now() })
+	if err != nil {
+		return err
+	}
+	c.authorize = tokens.authorize
+	return nil
 }
 
 // getOne decodes the JSON at path into out.
@@ -229,7 +254,9 @@ func (c *Client) send(ctx context.Context, path, target, etag string) (*http.Res
 	if err != nil {
 		return nil, fmt.Errorf("github: GET %s: %w", path, err)
 	}
-	c.authorize(req)
+	if err := c.authorize(ctx, req); err != nil {
+		return nil, fmt.Errorf("github: GET %s: %w", path, err)
+	}
 	req.Header.Set("Accept", mediaType)
 	req.Header.Set(headerAPIVersion, apiVersion)
 	req.Header.Set("User-Agent", userAgent)

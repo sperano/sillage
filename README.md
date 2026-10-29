@@ -189,7 +189,8 @@ credential:
 | `SILLAGE_KELOS_CLUSTER`, `SILLAGE_KELOS_NAMESPACE` | Name given to the cluster, and the namespace read; the Kubernetes credentials are the in-cluster ones, else the kubeconfig's current context. |
 | `SILLAGE_KELOS_LABEL_DOMAIN`, `SILLAGE_KELOS_VIKUNJA_INSTANCE` | The spawners' label prefix, and the Vikunja host the task label names (must be `SILLAGE_VIKUNJA_URL`'s). |
 | `SILLAGE_KELOS_TASK_TTL` | How long Kelos keeps a finished Task (default `72h`): runs that ended longer ago than that may be missing. |
-| `SILLAGE_GITHUB_TOKEN`, `SILLAGE_GITHUB_API_URL` | A read-only token, and the API (default `https://api.github.com`). |
+| `SILLAGE_GITHUB_APP_ID`, `SILLAGE_GITHUB_APP_INSTALLATION_ID`, `SILLAGE_GITHUB_APP_PRIVATE_KEY` | The recommended GitHub credential: a read-only GitHub App installation. The key is the PEM itself (PKCS#1 `RSA PRIVATE KEY`, as GitHub generates it, or PKCS#8); sillage signs a short-lived JWT with it and exchanges it for an installation token, renewed before it expires. The installation has its own rate limit and, unlike a fine-grained token, Checks read. Grant it Contents, Pull requests, Issues, Checks and Metadata, all read-only. |
+| `SILLAGE_GITHUB_TOKEN`, `SILLAGE_GITHUB_API_URL` | A read-only personal access token instead of the App (set exactly one of the two credentials; for tests and development: a fine-grained token cannot read check runs of private repositories and shares its owner's rate limit), and the API (default `https://api.github.com`). |
 | `SILLAGE_GITHUB_ANNOUNCERS` | GitHub logins whose pull request comments are parsed as start announcements, comma-separated. |
 | `SILLAGE_WORKSPACES` | `<workspace>=<owner>/<repository>` pairs, comma-separated: where a run's workspace (or Vikunja project) works. Without a match and without `-repo`, GitHub is not read. |
 
