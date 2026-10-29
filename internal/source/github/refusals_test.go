@@ -34,7 +34,7 @@ func refusingChecks(t *testing.T, code int) (*Client, *fakeGitHub) {
 // A repository whose check runs were refused is not asked again, yet each
 // commit still has its refusal, from the second read on a remembered one.
 func TestCheckRunsRefusalRemembered(t *testing.T) {
-	for _, code := range []int{http.StatusForbidden, http.StatusNotFound} {
+	for _, code := range []int{http.StatusForbidden} {
 		t.Run(strconv.Itoa(code), func(t *testing.T) {
 			c, f := refusingChecks(t, code)
 			first, err := c.FetchPR(t.Context(), testRepo, 41)
@@ -63,6 +63,30 @@ func TestCheckRunsRefusalRemembered(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A 404 is usually one missing commit: it is not remembered, and each
+// commit is asked.
+func TestCheckRunsNotFoundNotRemembered(t *testing.T) {
+	c, f := refusingChecks(t, http.StatusNotFound)
+	for range 2 {
+		snap, err := c.FetchPR(t.Context(), testRepo, 41)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, r := range snap.Refused {
+			if r.Remembered {
+				t.Errorf("refusal %+v remembered, want a 404 asked again", r)
+			}
+		}
+	}
+	const commits, reads = 2, 2
+	if got := checkRunRequests(f.log.seen()); got != commits*reads {
+		t.Errorf("check-runs requests = %d, want %d", got, commits*reads)
+	}
+	if _, ok := c.rememberedCheckRunsRefusal(testRepo); ok {
+		t.Error("a 404 was remembered")
 	}
 }
 

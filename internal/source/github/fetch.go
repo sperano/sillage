@@ -102,7 +102,7 @@ func (c *Client) FetchPR(ctx context.Context, repo Repository, number int) (Snap
 // reviews and the check runs of every commit the timeline names. A 403 or
 // 404 on the inline review comments or on a commit's check runs is kept
 // in Snapshot.Refused instead of failing the read; a repository whose
-// check runs were refused is not asked again for checkRunsRefusalTTL. A non-nil t keeps the
+// check runs were refused 403 is not asked again for checkRunsRefusalTTL. A non-nil t keeps the
 // ETags of the timeline and of the head's check runs.
 func (c *Client) fetchDetails(ctx context.Context, repo Repository, pr PullRequest, t *tagger) (Snapshot, error) {
 	snap := Snapshot{Instance: c.instance, Repository: repo, PullRequest: pr}
@@ -136,10 +136,10 @@ func (c *Client) fetchDetails(ctx context.Context, repo Repository, pr PullReque
 
 // readCheckRuns adds the check runs of sha to snap.Checks, keeping the
 // list's ETag in head unless it is nil. A repository whose check runs
-// were refused within checkRunsRefusalTTL is not asked again: the refusal
-// is added to snap.Refused as Remembered. A refusal GitHub just answered
-// is added, and remembered, instead of failing the read; any other error
-// is returned.
+// were refused 403 within checkRunsRefusalTTL is not asked again: the refusal
+// is added to snap.Refused as Remembered. A 403 or 404 GitHub just
+// answered is added instead of failing the read, and only a 403 is
+// remembered; any other error is returned.
 func (c *Client) readCheckRuns(ctx context.Context, snap *Snapshot, sha string, head *tagger) error {
 	repo := snap.Repository
 	if code, ok := c.rememberedCheckRunsRefusal(repo); ok {
@@ -159,7 +159,10 @@ func (c *Client) readCheckRuns(ctx context.Context, snap *Snapshot, sha string, 
 	if err = snap.refuse(err, ResourceCheckRuns, sha); err != nil {
 		return err
 	}
-	if len(snap.Refused) > n {
+	// Only a 403 is repository-wide (the credential cannot read checks
+	// there); a 404 is usually one missing commit, and must not hide the
+	// others.
+	if len(snap.Refused) > n && snap.Refused[n].Code == http.StatusForbidden {
 		c.rememberCheckRunsRefusal(repo, snap.Refused[n].Code)
 	}
 	snap.Checks = append(snap.Checks, runs...)

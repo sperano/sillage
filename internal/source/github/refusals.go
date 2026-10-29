@@ -35,6 +35,7 @@ func (c *Client) rememberedCheckRunsRefusal(repo Repository) (int, bool) {
 }
 
 // rememberCheckRunsRefusal remembers that GitHub refused repo's check runs
+// with 403 Forbidden (never a 404: see readCheckRuns)
 // with code, for checkRunsRefusalTTL.
 func (c *Client) rememberCheckRunsRefusal(repo Repository, code int) {
 	c.mu.Lock()

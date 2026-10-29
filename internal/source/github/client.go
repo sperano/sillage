@@ -39,7 +39,7 @@ const (
 	// discarded, so the connection can be reused.
 	drainBytes = 4 << 10
 	// checkRunsRefusalTTL is how long a repository whose check runs were
-	// refused (403 or 404) is not asked for them again: the token or App
+	// refused (403) is not asked for them again: the token or App
 	// lacks Checks read, which does not change from one read to the next.
 	checkRunsRefusalTTL = 24 * time.Hour
 )
