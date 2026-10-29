@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sperano/sillage/internal/source/github"
 )
 
 func TestConfigFromEnv(t *testing.T) {
@@ -20,11 +22,17 @@ func TestConfigFromEnv(t *testing.T) {
 			env: map[string]string{
 				EnvInterval: "1m", EnvRefreshInterval: " 2h ", EnvLockRetryInterval: "30s", EnvVikunjaProjects: "3, 5,3,",
 				EnvDeliveryDelay: "5s", EnvDeliveryRootsPerCycle: " 7 ", EnvBackstopInterval: "12h",
+				EnvGitHubHooks: "acme/widgets:9001, acme/gears:9002,acme/widgets:9001,", EnvHookCheckInterval: "10m",
 			},
 			want: Config{
 				Interval: time.Minute, RefreshInterval: 2 * time.Hour, BackstopInterval: 12 * time.Hour,
 				LockRetryInterval: 30 * time.Second,
 				VikunjaProjects:   []int64{3, 5}, DeliveryDelay: 5 * time.Second, DeliveryRootsPerCycle: 7,
+				GitHubHooks: []github.Hook{
+					{Repository: github.Repository{Owner: "acme", Name: "widgets"}, ID: 9001},
+					{Repository: github.Repository{Owner: "acme", Name: "gears"}, ID: 9002},
+				},
+				HookCheckInterval: 10 * time.Minute,
 			},
 		},
 		{
@@ -32,10 +40,11 @@ func TestConfigFromEnv(t *testing.T) {
 			env: map[string]string{
 				EnvInterval: "0s", EnvRefreshInterval: "soon", EnvLockRetryInterval: "-1m", EnvVikunjaProjects: "3,x",
 				EnvDeliveryDelay: "0", EnvDeliveryRootsPerCycle: "0", EnvBackstopInterval: "daily",
+				EnvGitHubHooks: "acme/widgets", EnvHookCheckInterval: "never",
 			},
 			wantErr: []string{
 				EnvInterval, EnvRefreshInterval, EnvLockRetryInterval, EnvVikunjaProjects, EnvDeliveryDelay,
-				EnvDeliveryRootsPerCycle, EnvBackstopInterval,
+				EnvDeliveryRootsPerCycle, EnvBackstopInterval, EnvGitHubHooks, EnvHookCheckInterval,
 			},
 		},
 		{name: "negative project", env: map[string]string{EnvVikunjaProjects: "-3"}, wantErr: []string{EnvVikunjaProjects}},
@@ -61,7 +70,8 @@ func TestConfigFromEnv(t *testing.T) {
 			if got.Interval != tt.want.Interval || got.RefreshInterval != tt.want.RefreshInterval ||
 				got.BackstopInterval != tt.want.BackstopInterval ||
 				got.LockRetryInterval != tt.want.LockRetryInterval || !slices.Equal(got.VikunjaProjects, tt.want.VikunjaProjects) ||
-				got.DeliveryDelay != tt.want.DeliveryDelay || got.DeliveryRootsPerCycle != tt.want.DeliveryRootsPerCycle {
+				got.DeliveryDelay != tt.want.DeliveryDelay || got.DeliveryRootsPerCycle != tt.want.DeliveryRootsPerCycle ||
+				!slices.Equal(got.GitHubHooks, tt.want.GitHubHooks) || got.HookCheckInterval != tt.want.HookCheckInterval {
 				t.Errorf("ConfigFromEnv() = %+v, want %+v", got, tt.want)
 			}
 		})

@@ -2,6 +2,7 @@ package reconcile
 
 import (
 	"context"
+	"maps"
 	"strconv"
 	"time"
 
@@ -82,10 +83,34 @@ func (l *Loop) addChanged(dues map[model.Ref]*due, project int64, ch vikunja.Tas
 	d.readGitHub(triggerTask)
 }
 
-// commitCycle commits when the cycle ended, the marks of the projects
-// every listed task of which was read, and the root states whose gaps
-// are not committed yet, in one transaction.
-func (l *Loop) commitCycle(ctx context.Context, marks map[int64]time.Time, incomplete map[int64]bool) {
+// cycleMarks are the marks a cycle may advance: each listed project's,
+// unless a task it listed was not read, and each checked hook's, unless
+// a root a lost delivery of its log named was not committed.
+type cycleMarks struct {
+	projects        map[int64]time.Time
+	incomplete      map[int64]bool
+	hooks           map[string]int64
+	hooksIncomplete map[string]bool
+}
+
+// read notes the read of d: whether it committed, and whether it read
+// the root's task.
+func (m cycleMarks) read(d *due, committed, taskRead bool) {
+	if !taskRead {
+		for _, p := range d.projects {
+			m.incomplete[p] = true
+		}
+	}
+	if !committed {
+		for _, key := range d.hooks {
+			m.hooksIncomplete[key] = true
+		}
+	}
+}
+
+// commitCycle commits when the cycle ended, the marks that advanced, and
+// the root states whose gaps are not committed yet, in one transaction.
+func (l *Loop) commitCycle(ctx context.Context, marks cycleMarks) {
 	cluster := l.ccfg.Kelos.Cluster
 	cps := map[string]Checkpoint{
 		heartbeatKey(cluster): {Source: model.SourceKelos, Instance: cluster, Value: encode(l.now())},
@@ -93,7 +118,25 @@ func (l *Loop) commitCycle(ctx context.Context, marks map[int64]time.Time, incom
 	for ref := range l.unsaved {
 		cps[rootKey(l.roots[ref].Root)] = l.roots[ref].checkpoint()
 	}
-	advanced := make(map[int64]time.Time)
+	advanced := l.projectCheckpoints(cps, marks.projects, marks.incomplete)
+	hooks := l.hookCheckpoints(cps, marks.hooks, marks.hooksIncomplete)
+	if err := l.store.Commit(ctx, Commit{Checkpoints: cps}); err != nil {
+		if ctx.Err() == nil {
+			l.metrics.storeErrors.WithLabelValues(operationCommit).Inc()
+			l.log.Error("store commit failed", "error", err)
+		}
+		return
+	}
+	maps.Copy(l.marks, advanced)
+	maps.Copy(l.hookMarks, hooks)
+	clear(l.unsaved)
+}
+
+// projectCheckpoints adds to cps the marks of the projects every listed
+// task of which was read and that advanced, and returns them.
+func (l *Loop) projectCheckpoints(cps map[string]Checkpoint, marks map[int64]time.Time, incomplete map[int64]bool) (
+	advanced map[int64]time.Time) {
+	advanced = make(map[int64]time.Time)
 	for p, mark := range marks {
 		if prev, ok := l.marks[p]; !incomplete[p] && (!ok || mark.After(prev)) {
 			cps[markKey(l.ccfg.VikunjaInstance, p)] = Checkpoint{
@@ -103,15 +146,5 @@ func (l *Loop) commitCycle(ctx context.Context, marks map[int64]time.Time, incom
 			advanced[p] = mark
 		}
 	}
-	if err := l.store.Commit(ctx, Commit{Checkpoints: cps}); err != nil {
-		if ctx.Err() == nil {
-			l.metrics.storeErrors.WithLabelValues(operationCommit).Inc()
-			l.log.Error("store commit failed", "error", err)
-		}
-		return
-	}
-	for p, mark := range advanced {
-		l.marks[p] = mark
-	}
-	clear(l.unsaved)
+	return advanced
 }

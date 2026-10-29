@@ -21,6 +21,7 @@ const (
 	labelOperation  = "operation"
 	labelResource   = "resource"
 	labelCode       = "code"
+	labelOutcome    = "outcome"
 	// The kinds of record written, as labelKind values.
 	kindEvents       = "events"
 	kindRuns         = "runs"
@@ -58,6 +59,9 @@ type Metrics struct {
 	githubRequests    prometheus.Counter
 	githubNotModified prometheus.Counter
 	githubRemaining   prometheus.Gauge
+	// lostDeliveries are the deliveries the hooks' logs showed sillage
+	// did not receive, by outcome.
+	lostDeliveries *prometheus.CounterVec
 }
 
 // NewMetrics registers the loop's metrics with reg.
@@ -111,7 +115,7 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 	m.registerGitHub()
 	reg.MustRegister(m.lastSuccess, m.readErrors, m.refusals, m.readDuration, m.written, m.storeErrors, m.cycles, m.roots,
 		m.lockHeld, m.deliveryReads, m.deliveryCycles, m.githubReads, m.githubRequests, m.githubNotModified,
-		m.githubRemaining)
+		m.githubRemaining, m.lostDeliveries)
 	// Every series exists from the start, so that a rate over it is
 	// defined before the first delivery.
 	for _, kind := range []string{deliveryCaused, deliveryCoalesced} {
@@ -119,6 +123,9 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 	}
 	for _, kind := range githubTriggers {
 		m.githubReads.WithLabelValues(kind)
+	}
+	for _, o := range []string{lostFailed, lostRedelivered, lostUnrecoverable} {
+		m.lostDeliveries.WithLabelValues(o)
 	}
 	return m
 }
@@ -142,6 +149,12 @@ func (m *Metrics) registerGitHub() {
 		Namespace: metricNamespace, Name: "github_rate_limit_remaining",
 		Help: "Requests left in GitHub's rate-limit window, as its last response said.",
 	})
+	m.lostDeliveries = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricNamespace, Name: "collector_lost_deliveries_total",
+		Help: "GitHub webhook deliveries whose hook's delivery log shows sillage did not receive them, by outcome: " +
+			"failed (every one), then redelivered (GitHub asked to send it again) or unrecoverable (GitHub would " +
+			"not, or it was a redelivery already: the roots it names read again, with a gap).",
+	}, []string{labelOutcome})
 }
 
 // observeRead records one read of a source instance that started at

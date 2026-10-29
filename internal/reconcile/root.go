@@ -30,6 +30,7 @@ func (l *Loop) collectRoot(ctx context.Context, cr cycleRun, d *due) (committed,
 	}
 	next := prev.clone()
 	next.Read = at
+	l.loseDelivery(next, d)
 	failed, failures := l.account(next, res, cr.kelosAt, plan.kept)
 	failed = l.accountGitHub(next, plan, failures, at) || failed
 	l.refused(next.Root.Ref(), res.Refusals)

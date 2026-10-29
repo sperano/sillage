@@ -46,6 +46,9 @@ const (
 	triggerTask = "task"
 	// triggerDelivery: a webhook delivery named the root.
 	triggerDelivery = "delivery"
+	// triggerLost: a delivery sillage did not receive, and GitHub would
+	// not send again, named the root.
+	triggerLost = "lost"
 	// triggerBackstop: the backstop read it whole: its lists changed, or
 	// the last read left none to compare.
 	triggerBackstop = "backstop"
@@ -58,7 +61,7 @@ const (
 // githubTriggers are every trigger, in the order the cycle's log names
 // them.
 var githubTriggers = []string{
-	triggerDelivery, triggerRun, triggerTask, triggerBackstop, triggerUnchanged, triggerDeferred,
+	triggerDelivery, triggerLost, triggerRun, triggerTask, triggerBackstop, triggerUnchanged, triggerDeferred,
 }
 
 // githubReserve is the share of GitHub's rate limit the backstop leaves

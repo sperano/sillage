@@ -189,7 +189,7 @@ credential:
 | `SILLAGE_KELOS_CLUSTER`, `SILLAGE_KELOS_NAMESPACE` | Name given to the cluster, and the namespace read; the Kubernetes credentials are the in-cluster ones, else the kubeconfig's current context. |
 | `SILLAGE_KELOS_LABEL_DOMAIN`, `SILLAGE_KELOS_VIKUNJA_INSTANCE` | The spawners' label prefix, and the Vikunja host the task label names (must be `SILLAGE_VIKUNJA_URL`'s). |
 | `SILLAGE_KELOS_TASK_TTL` | How long Kelos keeps a finished Task (default `72h`): runs that ended longer ago than that may be missing. |
-| `SILLAGE_GITHUB_APP_ID`, `SILLAGE_GITHUB_APP_INSTALLATION_ID`, `SILLAGE_GITHUB_APP_PRIVATE_KEY` | The recommended GitHub credential: a read-only GitHub App installation. The key is the PEM itself (PKCS#1 `RSA PRIVATE KEY`, as GitHub generates it, or PKCS#8); sillage signs a short-lived JWT with it and exchanges it for an installation token, renewed before it expires. The installation has its own rate limit and, unlike a fine-grained token, Checks read. Grant it Contents, Pull requests, Issues, Checks and Metadata, all read-only. |
+| `SILLAGE_GITHUB_APP_ID`, `SILLAGE_GITHUB_APP_INSTALLATION_ID`, `SILLAGE_GITHUB_APP_PRIVATE_KEY` | The recommended GitHub credential: a read-only GitHub App installation. The key is the PEM itself (PKCS#1 `RSA PRIVATE KEY`, as GitHub generates it, or PKCS#8); sillage signs a short-lived JWT with it and exchanges it for an installation token, renewed before it expires. The installation has its own rate limit and, unlike a fine-grained token, Checks read. Grant it Contents, Pull requests, Issues, Checks and Metadata, all read-only; with `SILLAGE_GITHUB_HOOKS`, also Webhooks, read and write (write only to redeliver: read alone, lost deliveries are read again instead). |
 | `SILLAGE_GITHUB_TOKEN`, `SILLAGE_GITHUB_API_URL` | A read-only personal access token instead of the App (set exactly one of the two credentials; for tests and development: a fine-grained token cannot read check runs of private repositories and shares its owner's rate limit), and the API (default `https://api.github.com`). |
 | `SILLAGE_GITHUB_ANNOUNCERS` | GitHub logins whose pull request comments are parsed as start announcements, comma-separated. |
 | `SILLAGE_WORKSPACES` | `<workspace>=<owner>/<repository>` pairs, comma-separated: where a run's workspace (or Vikunja project) works. Without a match and without `-repo`, GitHub is not read. |
@@ -225,6 +225,25 @@ has no last successful read. One process collects at a time, under a
 PostgreSQL advisory lock: another reads nothing, says so in its log, and
 tries again.
 
+GitHub does not retry a delivery sillage did not answer with a 2xx (sillage,
+the tunnel or the proxy down, a timeout). With `SILLAGE_GITHUB_HOOKS` set,
+each hook's URL is read once: a hook that does not send to `/ingest/github`
+(another receiver's id, set by mistake) is logged as an error and never
+read nor redelivered to. Then the first cycle after a start and one cycle
+every `SILLAGE_GITHUB_HOOK_CHECK_INTERVAL` read each hook's delivery log, newest
+first, down to the newest attempt the last read handled (kept in the
+store; a hook seen for the first time is read back one backstop interval),
+so a quiet hook costs one request. An attempt that failed, and of whose
+delivery (`X-GitHub-Delivery`) the store holds no accepted attempt, is
+redelivered: the ingest path then records it and reads what it names. If
+GitHub refuses (no Webhooks write), or the attempt was a redelivery
+already, the roots its payload names are read in that cycle, and their
+GitHub coverage gets a gap from when it was sent to that read, unless a
+read since saw it. An attempt that could not be handled (GitHub or the
+store failing) stops the read of that log, and the next one starts from it.
+`sillage_collector_lost_deliveries_total` counts them by outcome:
+`failed`, then `redelivered` or `unrecoverable`.
+
 | Variable | Meaning |
 | --- | --- |
 | `SILLAGE_DATABASE_URL` | The store's PostgreSQL URL. Unset, the collector does not run. |
@@ -233,6 +252,8 @@ tries again.
 | `SILLAGE_ROOT_REFRESH_INTERVAL` | How long a root Kelos still names is left unread when nothing says it changed (default `1h`): task comments change no run. GitHub is not read then. |
 | `SILLAGE_GITHUB_BACKSTOP_INTERVAL` | How long a root's GitHub side is left unread when no delivery, run or task change says it changed (default `24h`). |
 | `SILLAGE_LOCK_RETRY_INTERVAL` | How often a process without the lock tries to take it (default `1m`). |
+| `SILLAGE_GITHUB_HOOKS` | sillage's own GitHub repository webhooks, `owner/name:id`, comma-separated, whose delivery logs are read for the deliveries sillage did not receive. Unset, none is. The GitHub credential needs Webhooks read, and write to redeliver. |
+| `SILLAGE_GITHUB_HOOK_CHECK_INTERVAL` | How long between two reads of those delivery logs (default `5m`); the first cycle after a start reads them. |
 
 Every interval is spread by up to 10% either way. `GET /metrics` serves,
 besides the Go runtime's and the process's, each source instance's last

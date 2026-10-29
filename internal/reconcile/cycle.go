@@ -34,6 +34,11 @@ type due struct {
 	github       githubRead
 	trigger      string
 	backstopOnly bool
+	// lost is the earliest delivery naming the root that GitHub could not
+	// hand to sillage nor send again; nil when none did. hooks are the
+	// keys of the hooks whose logs showed one.
+	lost  *lostDelivery
+	hooks []string
 }
 
 // cycleRun is one cycle's collector, over the cycle's one Kelos read,
@@ -67,9 +72,9 @@ func (l *Loop) cycle(ctx context.Context) {
 		return
 	}
 	dues := l.kelosDue(discovered)
-	marks := l.listProjects(ctx, dues)
+	marks := cycleMarks{projects: l.listProjects(ctx, dues), hooks: l.checkHooks(ctx, dues),
+		incomplete: make(map[int64]bool), hooksIncomplete: make(map[string]bool)}
 	l.addDelivered(dues)
-	incomplete := make(map[int64]bool)
 	committed, delivered := 0, 0
 	for _, d := range slices.SortedFunc(maps.Values(dues), compareDues) {
 		if ctx.Err() != nil {
@@ -83,16 +88,12 @@ func (l *Loop) cycle(ctx context.Context) {
 		if ok {
 			committed++
 		}
-		if !read {
-			for _, p := range d.projects {
-				incomplete[p] = true
-			}
-		}
+		marks.read(d, ok, read)
 	}
 	if ctx.Err() != nil {
 		return
 	}
-	l.commitCycle(ctx, marks, incomplete)
+	l.commitCycle(ctx, marks)
 	l.metrics.cycles.Inc()
 	l.log.Info("collection cycle", "due", len(dues), "delivered", delivered, "committed", committed,
 		"duration", l.now().Sub(start), l.endGitHubCycle())

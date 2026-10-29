@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 
 	"github.com/sperano/sillage/internal/collector"
@@ -98,7 +99,29 @@ func (p githubPayload) branches() (branches []string, numbers []int) {
 // githubParser reads the deliveries of the GitHub instance.
 type githubParser struct {
 	cfg   collector.Config
-	store Store
+	store PullRequestRoots
+}
+
+// GitHubRoots returns the roots a GitHub delivery of event with body
+// names, as POST /ingest/github reads them: none for one that names none
+// or whose body is not JSON. Only st failing is an error. The collector
+// loop reads with it the roots of a delivery GitHub's delivery log shows
+// sillage did not receive.
+func GitHubRoots(ctx context.Context, cfg collector.Config, st PullRequestRoots, event string, body []byte) (
+	[]model.Root, error) {
+	roots, _, err := githubParser{cfg: cfg, store: st}.roots(ctx, event, body)
+	if errors.Is(err, errNotJSON) {
+		return nil, nil
+	}
+	return roots, err
+}
+
+// SendsToGitHub reports whether a webhook whose URL is hookURL sends its
+// deliveries to POST /ingest/github: an http or https URL with that path.
+// The collector loop redelivers only to a hook it does.
+func SendsToGitHub(hookURL string) bool {
+	u, err := url.Parse(hookURL)
+	return err == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Host != "" && u.Path == PathGitHub
 }
 
 func (githubParser) signature(h http.Header) (prefix, value string) {

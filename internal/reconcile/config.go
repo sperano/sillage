@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sperano/sillage/internal/source/github"
 )
 
 const (
@@ -62,6 +64,20 @@ const (
 	// delays the periodic reads of a cycle, which come after theirs; one
 	// change names a few roots at most.
 	DefaultDeliveryRootsPerCycle = 25
+	// EnvGitHubHooks names the environment variable listing sillage's own
+	// GitHub repository webhooks, owner/name:id, comma-separated, whose
+	// delivery logs are read for the deliveries sillage did not receive.
+	// Unset, none is.
+	EnvGitHubHooks = "SILLAGE_GITHUB_HOOKS"
+	// EnvHookCheckInterval names the environment variable holding how long
+	// the loop waits between two reads of the hooks' delivery logs, as a
+	// Go duration. Unset means DefaultHookCheckInterval.
+	EnvHookCheckInterval = "SILLAGE_GITHUB_HOOK_CHECK_INTERVAL"
+	// DefaultHookCheckInterval reads them at most once per cycle of the
+	// default interval: a delivery GitHub could not hand to sillage is
+	// seen within one, and the cycles deliveries start early cost no more
+	// requests.
+	DefaultHookCheckInterval = DefaultInterval
 
 	// jitterFraction spreads every wait by up to this fraction either way,
 	// so that two loops, or a loop and a source's own schedule, drift
@@ -72,8 +88,10 @@ const (
 	// a clock between Vikunja and its database, can be behind it. A task
 	// listed again but unchanged is not read again.
 	listingOverlap = 5 * time.Minute
-	// projectSeparator separates the ids of EnvVikunjaProjects.
-	projectSeparator = ","
+	// projectSeparator separates the ids of EnvVikunjaProjects, and
+	// hookListSeparator the hooks of EnvGitHubHooks.
+	projectSeparator  = ","
+	hookListSeparator = ","
 )
 
 // Config is how often the loop reads, and what besides Kelos it reads.
@@ -96,6 +114,10 @@ type Config struct {
 	// DeliveryRootsPerCycle is how many roots deliveries name a cycle
 	// reads at most; the others wait for the next cycle.
 	DeliveryRootsPerCycle int
+	// GitHubHooks are sillage's own webhooks, whose delivery logs are
+	// read every HookCheckInterval for the deliveries sillage lost.
+	GitHubHooks       []github.Hook
+	HookCheckInterval time.Duration
 }
 
 // DefaultConfig is the configuration with every default and no project.
@@ -103,6 +125,7 @@ func DefaultConfig() Config {
 	return Config{
 		Interval: DefaultInterval, RefreshInterval: DefaultRefreshInterval, BackstopInterval: DefaultBackstopInterval,
 		LockRetryInterval: DefaultLockRetryInterval, DeliveryDelay: DefaultDeliveryDelay, DeliveryRootsPerCycle: DefaultDeliveryRootsPerCycle,
+		HookCheckInterval: DefaultHookCheckInterval,
 	}
 }
 
@@ -120,6 +143,7 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 		{EnvBackstopInterval, &cfg.BackstopInterval},
 		{EnvLockRetryInterval, &cfg.LockRetryInterval},
 		{EnvDeliveryDelay, &cfg.DeliveryDelay},
+		{EnvHookCheckInterval, &cfg.HookCheckInterval},
 	} {
 		if err := parseDuration(getenv(d.env), d.env, d.dst); err != nil {
 			errs = append(errs, err)
@@ -134,6 +158,11 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 		errs = append(errs, err)
 	}
 	cfg.VikunjaProjects = projects
+	hooks, err := parseHooks(getenv(EnvGitHubHooks))
+	if err != nil {
+		errs = append(errs, err)
+	}
+	cfg.GitHubHooks = hooks
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, err
 	}
@@ -144,7 +173,7 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 // positive.
 func (c Config) validate() error {
 	if c.Interval <= 0 || c.RefreshInterval <= 0 || c.BackstopInterval <= 0 || c.LockRetryInterval <= 0 ||
-		c.DeliveryDelay <= 0 {
+		c.DeliveryDelay <= 0 || (len(c.GitHubHooks) > 0 && c.HookCheckInterval <= 0) {
 		return errors.New("reconcile: every interval must be positive")
 	}
 	if c.DeliveryRootsPerCycle <= 0 {
@@ -194,6 +223,24 @@ func parseProjects(value string) ([]int64, error) {
 		}
 		if !slices.Contains(out, id) {
 			out = append(out, id)
+		}
+	}
+	return out, nil
+}
+
+// parseHooks parses EnvGitHubHooks: owner/name:id, each once.
+func parseHooks(value string) ([]github.Hook, error) {
+	var out []github.Hook
+	for item := range strings.SplitSeq(value, hookListSeparator) {
+		if strings.TrimSpace(item) == "" {
+			continue
+		}
+		hook, err := github.ParseHook(item)
+		if err != nil {
+			return nil, fmt.Errorf("reconcile: %s: %w", EnvGitHubHooks, err)
+		}
+		if !slices.Contains(out, hook) {
+			out = append(out, hook)
 		}
 	}
 	return out, nil

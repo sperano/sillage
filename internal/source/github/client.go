@@ -1,6 +1,7 @@
 package github
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -44,8 +45,11 @@ const (
 	checkRunsRefusalTTL = 24 * time.Hour
 )
 
-// StatusError is a response other than 200 OK that is not a rate limit.
+// StatusError is a response other than the one expected (200 OK, or 202
+// Accepted for a redelivery) that is not a rate limit.
 type StatusError struct {
+	// Method is the request's method; "" for GET.
+	Method string
 	// Path is the API path requested, without the base URL and query.
 	Path string
 	// Code is the HTTP status code; Status its full text ("404 Not Found").
@@ -54,12 +58,21 @@ type StatusError struct {
 }
 
 func (e *StatusError) Error() string {
-	return "github: GET " + e.Path + ": " + e.Status
+	return "github: " + cmp.Or(e.Method, http.MethodGet) + " " + e.Path + ": " + e.Status
 }
 
-// Client reads pull requests from one GitHub instance. It only sends GET
-// requests to the API it reads; the one POST is the mint of a GitHub App
-// installation token, when the Config has an App. It holds the credential
+// Refused reports whether err is GitHub refusing the request itself (a
+// 4xx other than a rate limit), which asking again will not change.
+func Refused(err error) bool {
+	se, ok := errors.AsType[*StatusError](err)
+	return ok && se.Code >= http.StatusBadRequest && se.Code < http.StatusInternalServerError
+}
+
+// Client reads pull requests from one GitHub instance, and the delivery
+// logs of sillage's own webhooks. It only sends GET requests to the API it
+// reads, but for two POSTs: the mint of a GitHub App installation token,
+// when the Config has an App, and Redeliver, which asks GitHub to send a
+// delivery sillage lost to sillage's own webhook again. It holds the credential
 // only inside authorize, so printing a Client never prints it. It is safe
 // for concurrent use.
 type Client struct {
@@ -166,6 +179,16 @@ func listTagged[T any](ctx context.Context, c *Client, path string, query url.Va
 // non-nil t keeps the list's ETag, as tagger.note says.
 func paginate[P any](ctx context.Context, c *Client, path string, query url.Values, t *tagger,
 	each func(P)) error {
+	return paginateWhile(ctx, c, path, query, t, func(page P) bool {
+		each(page)
+		return true
+	})
+}
+
+// paginateWhile is paginate, stopping after the first page each returns
+// false for: a list it stopped is incomplete to t.
+func paginateWhile[P any](ctx context.Context, c *Client, path string, query url.Values, t *tagger,
+	each func(P) bool) error {
 	q := url.Values{}
 	for k, v := range query {
 		q[k] = v
@@ -182,7 +205,10 @@ func paginate[P any](ctx context.Context, c *Client, path string, query url.Valu
 		if err != nil {
 			return err
 		}
-		each(page)
+		if !each(page) {
+			t.incomplete()
+			return nil
+		}
 		if target, err = c.nextPage(header, path); err != nil {
 			return err
 		}
@@ -234,7 +260,7 @@ func (c *Client) get(ctx context.Context, path, target string, out any) (http.He
 		if err := c.awaitBudget(ctx, path); err != nil {
 			return nil, wrapContext(path, err)
 		}
-		resp, err := c.send(ctx, path, target, "")
+		resp, err := c.send(ctx, http.MethodGet, path, target, "")
 		if err != nil {
 			return nil, err
 		}
@@ -254,15 +280,16 @@ func (c *Client) get(ctx context.Context, path, target string, out any) (http.He
 	}
 }
 
-// send sends one GET of target, a URL of path, conditional on etag
-// unless it is empty, and counts it and the budget it reports.
-func (c *Client) send(ctx context.Context, path, target, etag string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+// send sends one request of method, without a body, to target, a URL of
+// path, conditional on etag unless it is empty, and counts it and the
+// budget it reports.
+func (c *Client) send(ctx context.Context, method, path, target, etag string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, target, nil)
 	if err != nil {
-		return nil, fmt.Errorf("github: GET %s: %w", path, err)
+		return nil, fmt.Errorf("github: %s %s: %w", method, path, err)
 	}
 	if err := c.authorize(ctx, req); err != nil {
-		return nil, fmt.Errorf("github: GET %s: %w", path, err)
+		return nil, fmt.Errorf("github: %s %s: %w", method, path, err)
 	}
 	req.Header.Set("Accept", mediaType)
 	req.Header.Set(headerAPIVersion, apiVersion)
@@ -273,7 +300,7 @@ func (c *Client) send(ctx context.Context, path, target, etag string) (*http.Res
 	c.requests.Add(1)
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("github: GET %s: %w", path, unwrapURLError(err))
+		return nil, fmt.Errorf("github: %s %s: %w", method, path, unwrapURLError(err))
 	}
 	c.noteLimit(resp.Header)
 	return resp, nil
