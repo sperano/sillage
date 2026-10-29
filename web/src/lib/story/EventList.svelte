@@ -84,7 +84,7 @@
 	}
 </script>
 
-<section class="event-list" aria-labelledby="event-list-heading">
+<section class="event-list surface" aria-labelledby="event-list-heading">
 	<h2 id="event-list-heading">Events</h2>
 	<p class="hint" id="event-list-hint">
 		Up and down arrows move the selection, Home and End go to the first and last. Each source link
@@ -138,12 +138,12 @@
 	}
 
 	li {
-		border-block-end: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+		border-block-end: 1px solid var(--color-border);
 		padding: 0.25rem 0;
 	}
 
 	li.selected {
-		background: color-mix(in srgb, Highlight 20%, transparent);
+		background: color-mix(in srgb, var(--color-selected) 20%, var(--color-surface));
 	}
 
 	button {
@@ -161,7 +161,6 @@
 	}
 
 	button:focus-visible {
-		outline: 2px solid Highlight;
 		outline-offset: -2px;
 	}
 

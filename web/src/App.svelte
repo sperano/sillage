@@ -45,9 +45,9 @@
 <svelte:document onclick={(event) => router.handleClick(event)} />
 
 {#if route.name !== 'home'}
-	<header class:narrow><a href="/">Sillage</a></header>
+	<header class="app-header"><a href="/">Sillage</a></header>
 {/if}
-<main bind:this={main} class:narrow>
+<main bind:this={main} class="app-main" class:narrow>
 	{#if route.name === 'home'}
 		<EntryPage {api} {router} query={route.query} />
 	{:else if route.name === 'task'}
@@ -60,10 +60,3 @@
 		<NotFoundPage path={route.path} />
 	{/if}
 </main>
-
-<style>
-	.narrow {
-		margin: 0 auto;
-		max-width: 60rem;
-	}
-</style>

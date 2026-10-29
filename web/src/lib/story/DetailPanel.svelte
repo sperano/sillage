@@ -25,7 +25,7 @@
 	const item = $derived(selection.current && findItem(items, selection.current));
 </script>
 
-<section class="detail-panel" aria-labelledby="detail-heading">
+<section class="detail-panel surface" aria-labelledby="detail-heading">
 	<h2 id="detail-heading">Detail</h2>
 	{#if !item}
 		<p>Select an event, a run, a check or a phase to see its details.</p>

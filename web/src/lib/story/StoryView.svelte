@@ -46,9 +46,14 @@
 </div>
 
 <style>
-	.layout {
+	.story,
+	.layout,
+	.panels {
 		display: grid;
-		gap: 1rem;
+		gap: var(--space-4);
+	}
+	.panels {
+		align-content: start;
 	}
 
 	/* Wide: the graph, then the panels beside it in one column. */
@@ -58,9 +63,7 @@
 
 	/* No graph: the list and the detail side by side. */
 	.layout:not(.with-graph) .panels {
-		display: grid;
 		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		gap: 1rem;
 	}
 
 	/* Narrow (below 48rem): everything in one column, the panels under the graph. */

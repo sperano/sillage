@@ -41,7 +41,7 @@
 	};
 </script>
 
-<section class="chart" aria-label="Tasks over time">
+<section class="chart surface" aria-label="Tasks over time">
 	<div class="head">
 		<span>{grouping === 'executor' ? 'Executor' : 'Task'}</span>
 		<div class="axis" aria-hidden="true">
@@ -111,7 +111,7 @@
 		gap: 0.5rem;
 		align-items: center;
 		font-size: 0.75rem;
-		color: var(--ov-muted);
+		color: var(--color-muted);
 	}
 	.axis {
 		position: relative;
@@ -132,7 +132,7 @@
 		padding: 0;
 	}
 	.legend {
-		color: var(--ov-muted);
+		color: var(--color-muted);
 		font-size: 0.75rem;
 	}
 </style>

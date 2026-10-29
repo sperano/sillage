@@ -60,24 +60,24 @@
 
 <style>
 	.glyph {
-		--glyph: var(--tl-event);
+		--glyph: var(--color-event);
 	}
 	.observed {
-		--glyph: var(--tl-observed);
+		--glyph: var(--color-event);
 	}
 	.task-done,
 	.check-success {
-		--glyph: var(--tl-success);
+		--glyph: var(--color-success);
 	}
 	.check-end,
 	.pr-closed {
-		--glyph: var(--tl-failure);
+		--glyph: var(--color-failure);
 	}
 	.pr-merged {
-		--glyph: var(--tl-merged);
+		--glyph: var(--color-merged);
 	}
 	.run-exit {
-		--glyph: var(--tl-fg);
+		--glyph: var(--color-fg);
 	}
 	.solid {
 		fill: var(--glyph);
@@ -85,14 +85,14 @@
 		stroke-width: 2;
 	}
 	.hollow {
-		fill: var(--tl-bg);
+		fill: var(--color-surface);
 		stroke: var(--glyph);
 		stroke-width: 2;
 	}
 	.tick,
 	.cross {
 		fill: none;
-		stroke: var(--tl-bg);
+		stroke: var(--color-surface);
 		stroke-width: 1.6;
 	}
 	.cross {
@@ -103,7 +103,7 @@
 	}
 	.ring {
 		fill: none;
-		stroke: var(--tl-selected);
+		stroke: var(--color-selected);
 		stroke-width: 2.5;
 	}
 </style>

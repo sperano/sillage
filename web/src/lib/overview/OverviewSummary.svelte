@@ -37,7 +37,7 @@
 </script>
 
 <div class="cards">
-	<section class="card" aria-label="At the cursor">
+	<section class="card surface" aria-label="At the cursor">
 		<h2>At the cursor · {formatMinute(cursor, zone)} {zoneName(zone)}</h2>
 		<p class="big">{count(runs, 'run')} executing</p>
 		<p>
@@ -51,7 +51,7 @@
 			<p class="unknown">Unknown then: {names(instant.unknown)}</p>
 		{/if}
 	</section>
-	<section class="card" aria-label="At the window's end">
+	<section class="card surface" aria-label="At the window's end">
 		<h2>At the window's end · {formatMinute(range.end, zone)} {zoneName(zone)}</h2>
 		<p class="big">{count(reviewing.length, 'task')} with a review requested</p>
 		<p>
@@ -67,7 +67,7 @@
 			<p class="unknown">Review answer unknown: {names(reviewUnknown)}</p>
 		{/if}
 	</section>
-	<section class="card" aria-label="Coverage">
+	<section class="card surface" aria-label="Coverage">
 		<h2>Coverage</h2>
 		<p class="big">{count(missing.length, 'task')} with incomplete history</p>
 		<p>
@@ -84,18 +84,14 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
 		gap: 0.5rem;
-	}
-	.card {
-		border: 1px solid var(--ov-grid);
-		border-radius: 0.4rem;
-		padding: 0.4rem 0.6rem;
+		margin-bottom: var(--space-4);
 	}
 	h2 {
 		font-size: 0.7rem;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
 		margin: 0;
-		color: var(--ov-muted);
+		color: var(--color-muted);
 	}
 	p {
 		margin: 0.1rem 0;
@@ -107,7 +103,7 @@
 	}
 	.unknown,
 	.partial {
-		color: var(--ov-muted);
+		color: var(--color-muted);
 		font-size: 0.75rem;
 	}
 </style>

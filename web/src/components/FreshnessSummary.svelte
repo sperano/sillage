@@ -86,6 +86,6 @@
 	}
 	.instance {
 		font-weight: normal;
-		color: var(--app-muted);
+		color: var(--color-muted);
 	}
 </style>

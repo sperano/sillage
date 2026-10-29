@@ -8,7 +8,7 @@
 	const uncovered = $derived(uncoveredSources(story));
 </script>
 
-<section class="coverage" aria-labelledby="coverage-heading">
+<section class="coverage surface" aria-labelledby="coverage-heading">
 	<h2 id="coverage-heading">Coverage</h2>
 	{#if story.coverage.length === 0 && uncovered.length === 0}
 		<p>No source has been read yet: nothing is known.</p>

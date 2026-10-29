@@ -16,7 +16,7 @@
 	{/if}
 {/snippet}
 
-<section class="next-action" aria-labelledby="next-action-heading">
+<section class="next-action surface" aria-labelledby="next-action-heading">
 	<h2 id="next-action-heading">Next action</h2>
 	{#if actions.length === 0}
 		<p>Unknown: no pending review request and no unanswered agent request in the evidence.</p>

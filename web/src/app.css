@@ -1,68 +1,94 @@
+/*
+ * The one theme. Every colour the frontend draws is a token here, light on
+ * :root and redefined for a dark system theme below; components use the
+ * tokens and never a colour of their own (`npm run lint:colors`). Both
+ * schemes are contrast-checked by src/App.theme.svelte.test.ts.
+ *
+ * The shell follows the original design's mocks: a dark header band, a
+ * light page with white surfaces (cards) holding the graphs and panels,
+ * navy text, small uppercase section labels.
+ */
 :root {
 	color-scheme: light dark;
 
-	--app-bg: #ffffff;
-	--app-fg: #1d2733;
-	--app-muted: #5b6b7c;
-	--graph-grid: #d9e0e8;
-	--graph-accent: #1f5f9e;
-	--graph-success: #1b7a4c;
-	--graph-failure: #b3261e;
-	--graph-review: #6f42c1;
-	--graph-running: #2a7f86;
-	--graph-on-running: var(--app-bg);
-	--graph-waiting: #a86b00;
-	--graph-unknown: #8a96a3;
-	--graph-selected: #d97706;
-	--graph-focus: #0b57d0;
+	/* Page and text. */
+	--color-bg: #f3f5f7;
+	--color-surface: #ffffff;
+	--color-fg: #172a3a;
+	--color-muted: #536373;
+	--color-border: #d5dde5;
+	--color-control-border: #7b8794;
+	--color-link: #1f5f9e;
+	--color-focus: #0b57d0;
+	--color-header-bg: #172a3a;
+	--color-header-fg: #ffffff;
 
-	--tl-bg: var(--app-bg);
-	--tl-fg: var(--app-fg);
-	--tl-muted: var(--app-muted);
-	--tl-grid: var(--graph-grid);
-	--tl-event: var(--graph-accent);
-	--tl-observed: var(--graph-accent);
-	--tl-success: var(--graph-success);
-	--tl-failure: var(--graph-failure);
-	--tl-merged: var(--graph-review);
-	--tl-running: var(--graph-running);
-	--tl-waiting: var(--graph-waiting);
-	--tl-review: var(--graph-review);
-	--tl-check: var(--graph-accent);
-	--tl-unknown: var(--graph-unknown);
-	--tl-selected: var(--graph-selected);
-	--tl-focus: var(--graph-focus);
+	/* What the graphs mean: each defined once, used by the story's timeline
+	   and the overview alike. Patterns and text tell waiting, running and
+	   review apart too, never colour alone. */
+	--color-event: #2f6aa3;
+	--color-running: #6247c4;
+	--color-on-running: var(--color-surface);
+	--color-waiting: #8f5f00;
+	--color-review: #c03f0c;
+	--color-pr: var(--color-event);
+	--color-success: #1b7a4c;
+	--color-failure: #b3261e;
+	--color-merged: #9c2f80;
+	--color-unknown: #75818d;
+	--color-selected: #0f766e;
+	--color-cursor: #1f5f9e;
+	--color-grid: #d9e0e8;
 
-	--ov-bg: var(--app-bg);
-	--ov-fg: var(--app-fg);
-	--ov-muted: var(--app-muted);
-	--ov-grid: var(--graph-grid);
-	--ov-running: var(--graph-running);
-	--ov-on-running: var(--graph-on-running);
-	--ov-waiting: var(--graph-waiting);
-	--ov-review: var(--graph-review);
-	--ov-pr: var(--graph-accent);
-	--ov-failure: var(--graph-failure);
-	--ov-unknown: var(--graph-unknown);
-	--ov-mark: var(--app-fg);
-	--ov-cursor: var(--graph-selected);
+	/* Typography. */
+	--font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	--font-size-xs: 0.75rem;
+	--font-size-sm: 0.875rem;
+	--font-size-md: 1rem;
+	--font-size-lg: 1.25rem;
+	--font-size-xl: 1.75rem;
+	--line-height: 1.5;
+	--line-height-tight: 1.2;
+
+	/* Spacing, radii, the focus ring. */
+	--space-1: 0.25rem;
+	--space-2: 0.5rem;
+	--space-3: 0.75rem;
+	--space-4: 1rem;
+	--space-6: 1.5rem;
+	--radius-sm: 4px;
+	--radius: 0.5rem;
+	--focus-ring: 2px solid var(--color-focus);
+	--focus-offset: 2px;
+
+	/* The shell: the narrow column of the text pages. */
+	--page-narrow: 60rem;
 }
 
 @media (prefers-color-scheme: dark) {
 	:root {
-		--app-bg: #10161d;
-		--app-fg: #e3e9ef;
-		--app-muted: #9aa8b6;
-		--graph-grid: #2b3743;
-		--graph-accent: #7ab3ef;
-		--graph-success: #5cc98f;
-		--graph-failure: #f2867e;
-		--graph-review: #b99af0;
-		--graph-running: #5cc2ca;
-		--graph-waiting: #e0a84a;
-		--graph-unknown: #6b7884;
-		--graph-selected: #f59e0b;
-		--graph-focus: #8ab4f8;
+		--color-bg: #0f161d;
+		--color-surface: #17212b;
+		--color-fg: #e3e9ef;
+		--color-muted: #9fadba;
+		--color-border: #2d3a47;
+		--color-control-border: #7d8b99;
+		--color-link: #8cbcf2;
+		--color-focus: #8ab4f8;
+		--color-header-bg: #0a1016;
+		--color-header-fg: #e3e9ef;
+
+		--color-event: #7ab3ef;
+		--color-running: #a99af2;
+		--color-waiting: #e0b04a;
+		--color-review: #f59152;
+		--color-success: #5cc98f;
+		--color-failure: #f2867e;
+		--color-merged: #e486c9;
+		--color-unknown: #7f8c99;
+		--color-selected: #3fd0bd;
+		--color-cursor: #8cbcf2;
+		--color-grid: #2b3743;
 	}
 }
 
@@ -70,9 +96,108 @@ body {
 	box-sizing: border-box;
 	min-height: 100vh;
 	margin: 0;
-	padding: 1rem;
-	background: var(--app-bg);
-	color: var(--app-fg);
-	font-family: system-ui, sans-serif;
-	line-height: 1.5;
+	background: var(--color-bg);
+	color: var(--color-fg);
+	font-family: var(--font-sans);
+	font-size: var(--font-size-md);
+	line-height: var(--line-height);
+}
+
+/* Typography. */
+h1,
+h2,
+h3 {
+	line-height: var(--line-height-tight);
+}
+h1 {
+	font-size: var(--font-size-xl);
+	margin: var(--space-4) 0 var(--space-2);
+}
+h2 {
+	font-size: var(--font-size-lg);
+}
+h3 {
+	font-size: var(--font-size-md);
+}
+.surface > h2:first-child {
+	margin: 0 0 var(--space-2);
+	color: var(--color-muted);
+	font-size: var(--font-size-xs);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+a {
+	color: var(--color-link);
+}
+
+:focus-visible {
+	outline: var(--focus-ring);
+	outline-offset: var(--focus-offset);
+}
+
+/* Form controls: the page's colours, never the browser's own. */
+button,
+input,
+select,
+textarea {
+	font: inherit;
+	color: var(--color-fg);
+	background: var(--color-surface);
+	border: 1px solid var(--color-control-border);
+	border-radius: var(--radius-sm);
+	padding: var(--space-1) var(--space-2);
+}
+button {
+	cursor: pointer;
+}
+button:disabled {
+	color: var(--color-muted);
+	cursor: default;
+}
+input[type='range'],
+input[type='checkbox'],
+input[type='radio'] {
+	accent-color: var(--color-event);
+	padding: 0;
+	border: none;
+}
+fieldset {
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius);
+}
+
+/* A card: a graph, a panel or a summary on the page. */
+.surface {
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius);
+	padding: var(--space-3) var(--space-4);
+}
+
+/* The shell: the header band, then the page, narrow for the text pages
+   and the whole width for the story and the overview. */
+.app-header {
+	background: var(--color-header-bg);
+	border-bottom: 1px solid var(--color-border);
+	color: var(--color-header-fg);
+	padding: var(--space-3) var(--space-6);
+}
+.app-header a {
+	color: inherit;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-decoration: none;
+	text-transform: uppercase;
+}
+.app-header a:hover {
+	text-decoration: underline;
+}
+.app-main {
+	box-sizing: border-box;
+	padding: var(--space-4) var(--space-6);
+}
+.app-main.narrow {
+	margin: 0 auto;
+	max-width: var(--page-narrow);
 }

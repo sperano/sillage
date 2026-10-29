@@ -41,6 +41,7 @@ shows the timeline graph, the event list and the detail panel.
 | `internal/ingest/marker/` | `POST /ingest/marker`, on the in-cluster Service only: the phase markers (`model.Marker`) that wrappers in a Kelos run's pod report, authenticated by a TokenReview of the pod's projected ServiceAccount token (audience `sillage`), the verdict cached by token hash until it expires. The sender is the reviewed pod, never the body. Stored as evidence, apart from every story; it asks for no read. |
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests; `overview/`, the overview's set of overlapping stories and its golden overview; `api/`, the API's search, resolve, freshness and configuration bodies. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
+| `web/src/app.css` | The one theme: every colour as a token on `:root`, light and redefined for `prefers-color-scheme: dark`, the semantic colours the timeline and the overview share, typography, spacing, the focus ring, form controls and the app shell (header, page widths, `.surface` cards). No colour anywhere else in `web/src` (`npm run lint:colors`); both schemes are contrast-checked by `App.theme.svelte.test.ts`. |
 | `web/src/lib/` | The story types (`model.ts`), their key strings (`keys.ts`) and their runtime decoder, the read API client and its search, resolve, freshness and configuration responses' decoder (`decodeApi.ts`), the routes and the router. |
 | `web/src/lib/selection.svelte.ts` | The selected event, run, check or review wait (`ItemRef`, `timeline.ts`), one instance shared by the timeline graph, the event list and the detail panel. |
 | `web/src/lib/timeline/` | The single-task timeline graph (SVG): lanes, intervals, a run's phases on sub-tracks under its bar, coverage shading, zoom and pan. Layout is pure TypeScript; the components draw it and handle zoom, pan, selection and group expansion. |
@@ -131,7 +132,7 @@ Web, from `web/`:
 npm ci
 npx playwright install --with-deps chromium   # CI only: agent images ship Chromium
 npm run check    # svelte-check: TypeScript and Svelte diagnostics
-npm run lint     # prettier --check, then eslint
+npm run lint     # prettier --check, eslint, then lint:colors (no colour outside app.css)
 npm test         # vitest: *.svelte.test.ts in Chromium, other *.test.ts in Node
 npm run build    # vite build into web/dist
 ```
