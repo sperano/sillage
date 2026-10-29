@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vitest';
 import { commands, page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import App from './App.svelte';
@@ -19,6 +19,10 @@ const THEMES = {
 		muted: 'rgb(154, 168, 182)'
 	}
 };
+
+afterEach(async () => {
+	await commands.emulateColorScheme(null);
+});
 
 test.each([
 	{ colorScheme: 'light' as const, expected: THEMES.light },

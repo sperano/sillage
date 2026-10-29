@@ -5,7 +5,7 @@ import type { BrowserCommand } from 'vitest/node';
 
 const TEST_TIME_ZONE = 'America/Toronto';
 
-const emulateColorScheme: BrowserCommand<[colorScheme: 'light' | 'dark']> = async (
+const emulateColorScheme: BrowserCommand<[colorScheme: 'light' | 'dark' | null]> = async (
 	context,
 	colorScheme
 ) => {
