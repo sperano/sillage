@@ -156,11 +156,12 @@ func (m *Metrics) observeRead(src model.Source, instance string, start, end time
 	}
 }
 
-// observeRefusal counts the requests of r. Its resource, "check runs",
+// observeRefusal counts the requests of r that were sent and refused, not
+// those the client remembered. Its resource, "check runs",
 // is labeled check_runs.
 func (m *Metrics) observeRefusal(r collector.Refusal) {
 	resource := strings.ReplaceAll(r.Resource, " ", "_")
-	m.refusals.WithLabelValues(string(r.Source), r.Instance, resource, strconv.Itoa(r.Code)).Add(float64(r.Count))
+	m.refusals.WithLabelValues(string(r.Source), r.Instance, resource, strconv.Itoa(r.Code)).Add(float64(r.Sent()))
 }
 
 // observeWritten counts the records of a commit.

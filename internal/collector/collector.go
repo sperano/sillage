@@ -111,12 +111,24 @@ type Refusal struct {
 	// github.ResourceReviewComments.
 	Resource string
 	// Code is the HTTP status the source answered; Count how many of the
-	// read's requests it answered with it.
+	// read's requests it answered with it, those remembered included.
 	Code  int
 	Count int
+	// Remembered is how many of Count the client did not send, as it
+	// remembered the refusal of an earlier read: Count-Remembered were
+	// refused just now.
+	Remembered int
 }
 
+// Sent is how many requests the source refused in this read: Count less
+// those remembered.
+func (r Refusal) Sent() int { return r.Count - r.Remembered }
+
 func (r Refusal) String() string {
+	if r.Remembered > 0 {
+		return fmt.Sprintf("%s %s: %s: %d on %d requests (%d remembered)",
+			r.Source, r.Instance, r.Resource, r.Code, r.Count, r.Remembered)
+	}
 	return fmt.Sprintf("%s %s: %s: %d on %d requests", r.Source, r.Instance, r.Resource, r.Code, r.Count)
 }
 

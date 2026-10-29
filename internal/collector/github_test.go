@@ -114,6 +114,27 @@ func TestRefusalsCounted(t *testing.T) {
 	}
 }
 
+// Refusals the client only remembered are counted in the coverage notes'
+// totals but told apart from those GitHub just answered.
+func TestRememberedRefusalsCounted(t *testing.T) {
+	branch := taskBranch(104)
+	pr := pullRequest(7, branch)
+	pr.Refused = []github.Refusal{
+		{Resource: github.ResourceCheckRuns, SHA: "a", Code: http.StatusForbidden},
+		{Resource: github.ResourceCheckRuns, SHA: "b", Code: http.StatusForbidden, Remembered: true},
+	}
+	src := emptySources()
+	src.Vikunja = fixedVikunja{announcedTask(104, "", nil)}
+	src.GitHub = fixedGitHub{[]github.Snapshot{pr}}
+	res := collectWith(t, testConfig(), src, taskRoot(104), testRepo)
+	if len(res.Refusals) != 1 {
+		t.Fatalf("refusals = %+v, want one", res.Refusals)
+	}
+	if r := res.Refusals[0]; r.Count != 2 || r.Remembered != 1 || r.Sent() != 1 {
+		t.Errorf("refusal = %+v, want 2 requests of which 1 remembered", r)
+	}
+}
+
 func TestPRRunsByBranchAndName(t *testing.T) {
 	branch := taskBranch(104)
 	followUp := map[string]string{

@@ -12,8 +12,12 @@ const (
 	// base URL: https://api.github.com, or https://<host>/api/v3 for GitHub
 	// Enterprise Server. Unset means DefaultAPIURL.
 	EnvAPIURL = "SILLAGE_GITHUB_API_URL"
-	// EnvToken names the environment variable holding a GitHub token with
-	// read-only access to pull requests, issues and checks.
+	// EnvToken names the environment variable holding a GitHub personal
+	// access token with read-only access to pull requests and issues. A
+	// fine-grained token cannot be granted Checks read, so the check runs
+	// of a private repository answer 403: prefer a GitHub App
+	// (EnvAppID), which has Checks read and its own rate limit. Exactly
+	// one of EnvToken and the App settings is set.
 	EnvToken = "SILLAGE_GITHUB_TOKEN"
 	// EnvAnnouncers names the environment variable holding the logins,
 	// comma-separated, whose conversation comments are parsed as Kelos
@@ -59,7 +63,11 @@ type Config struct {
 	// (github.com, or the Enterprise Server's host), not the API host.
 	Instance string
 	// Token is sent as a bearer token. It must only grant read access.
+	// Exactly one of Token and App is set.
 	Token Token
+	// App, when set, authenticates as a GitHub App installation instead of
+	// with Token. The installation must only grant read access.
+	App *AppCredentials
 	// Announcers are the logins whose conversation comments are parsed
 	// as start announcements; hand them to Normalize.
 	Announcers []string
@@ -68,10 +76,15 @@ type Config struct {
 // ConfigFromEnv reads a Config through getenv (os.Getenv in production)
 // and derives Instance from the API URL.
 func ConfigFromEnv(getenv func(string) string) (Config, error) {
+	app, appErr := appFromEnv(getenv)
 	cfg := Config{
 		APIURL:     apiURLFromEnv(getenv),
 		Token:      Token(strings.TrimSpace(getenv(EnvToken))),
+		App:        app,
 		Announcers: logins(getenv(EnvAnnouncers)),
+	}
+	if appErr != nil {
+		return Config{}, appErr
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
@@ -125,10 +138,21 @@ func (c Config) validate() error {
 	if err := validateAPIURL(c.APIURL); err != nil {
 		return err
 	}
-	if c.Token == "" {
-		return fmt.Errorf("github: %s is not set", EnvToken)
+	return c.validateCredentials()
+}
+
+// validateCredentials reports whether exactly one of Token and App is set,
+// and App complete. No error repeats a credential.
+func (c Config) validateCredentials() error {
+	switch {
+	case c.Token != "" && c.App != nil:
+		return fmt.Errorf("github: set either %s or the GitHub App settings (%s), not both", EnvToken, EnvAppID)
+	case c.Token != "":
+		return nil
+	case c.App != nil:
+		return c.App.validate()
 	}
-	return nil
+	return fmt.Errorf("github: %s is not set (nor %s, for a GitHub App)", EnvToken, EnvAppID)
 }
 
 // validateAPIURL reports whether apiURL is an http(s) URL without
