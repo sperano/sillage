@@ -135,38 +135,3 @@
 		<p role="status">Loading the overview…</p>
 	{/if}
 </div>
-
-<style>
-	.overview {
-		--ov-bg: var(--app-bg);
-		--ov-fg: var(--app-fg);
-		--ov-muted: var(--app-muted);
-		--ov-grid: #d9e0e8;
-		--ov-running: #2a7f86;
-		--ov-on-running: #ffffff;
-		--ov-waiting: #a86b00;
-		--ov-review: #6f42c1;
-		--ov-pr: #1f5f9e;
-		--ov-failure: #b3261e;
-		--ov-unknown: #8a96a3;
-		--ov-mark: #1d2733;
-		--ov-cursor: #d97706;
-		color-scheme: light dark;
-		color: var(--ov-fg);
-		background: var(--ov-bg);
-	}
-	@media (prefers-color-scheme: dark) {
-		.overview {
-			--ov-grid: #2b3743;
-			--ov-running: #5cc2ca;
-			--ov-on-running: #10161d;
-			--ov-waiting: #e0a84a;
-			--ov-review: #b99af0;
-			--ov-pr: #7ab3ef;
-			--ov-failure: #f2867e;
-			--ov-unknown: #6b7884;
-			--ov-mark: #e3e9ef;
-			--ov-cursor: #f59e0b;
-		}
-	}
-</style>

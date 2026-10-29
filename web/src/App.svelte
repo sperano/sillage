@@ -62,32 +62,6 @@
 </main>
 
 <style>
-	:global(:root) {
-		--app-bg: #ffffff;
-		--app-fg: #1d2733;
-		--app-muted: #5b6b7c;
-		color-scheme: light dark;
-	}
-
-	@media (prefers-color-scheme: dark) {
-		:global(:root) {
-			--app-bg: #10161d;
-			--app-fg: #e3e9ef;
-			--app-muted: #9aa8b6;
-		}
-	}
-
-	:global(body) {
-		background: var(--app-bg);
-		color: var(--app-fg);
-		font-family: system-ui, sans-serif;
-		line-height: 1.5;
-		margin: 0;
-		min-height: 100vh;
-		padding: 1rem;
-		box-sizing: border-box;
-	}
-
 	.narrow {
 		margin: 0 auto;
 		max-width: 60rem;

@@ -1,4 +1,5 @@
 import { mount } from 'svelte';
+import './app.css';
 import App from './App.svelte';
 import { createApi } from './lib/api';
 import { browserHistory } from './lib/history';
