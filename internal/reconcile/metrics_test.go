@@ -106,6 +106,28 @@ func TestRefusalsLoggedAndCounted(t *testing.T) {
 	}
 }
 
+// A refusal the client only remembered is neither logged nor counted: the
+// pull request's commits are all remembered, as on a later read.
+func TestRememberedRefusalsNeitherLoggedNorCounted(t *testing.T) {
+	repo := github.Repository{Owner: "acme", Name: "widgets"}
+	h := newHarness(t, everyCycle)
+	h.ccfg.Workspaces = map[string]github.Repository{"widgets": repo}
+	snap := refusedChecks(repo, "kelos/vikunja-"+strconv.Itoa(testTaskID))
+	for i := range snap.Refused {
+		snap.Refused[i].Remembered = true
+	}
+	h.github.snaps = []github.Snapshot{snap}
+	h.loop = h.newLoop(t, everyCycle)
+	h.loop.cycle(t.Context())
+	gh := string(model.SourceGitHub)
+	if got := testutil.ToFloat64(h.loop.metrics.refusals.WithLabelValues(gh, testGitHubHost, "check_runs", "403")); got != 0 {
+		t.Errorf("refused check runs = %v, want none counted", got)
+	}
+	if strings.Contains(h.logs.String(), "source read refused in part") {
+		t.Errorf("logs warn of a remembered refusal:\n%s", h.logs)
+	}
+}
+
 // refusedChecks is a pull request of branch in repo whose two commits'
 // check runs GitHub answered 403.
 func refusedChecks(repo github.Repository, branch string) github.Snapshot {

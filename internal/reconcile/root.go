@@ -142,11 +142,17 @@ func (l *Loop) account(next *rootState, res collector.Result, kelosAt time.Time,
 }
 
 // refused reports each resource and status a source refused in root's
-// read: the read succeeded, and only the story's coverage notes say so.
+// read: the read succeeded, and only the story's coverage notes say so. A
+// refusal the client only remembered is neither logged nor counted: no
+// request was refused, and the one that was is logged once per repository
+// per interval.
 func (l *Loop) refused(root model.Ref, refusals []collector.Refusal) {
 	for _, r := range refusals {
+		if r.Sent() == 0 {
+			continue
+		}
 		l.log.Warn("source read refused in part", "root", root, "source", r.Source, "instance", r.Instance,
-			"resource", r.Resource, "code", r.Code, "requests", r.Count)
+			"resource", r.Resource, "code", r.Code, "requests", r.Sent())
 		l.metrics.observeRefusal(r)
 	}
 }

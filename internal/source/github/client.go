@@ -38,6 +38,10 @@ const (
 	// limit from another refusal, and how much of any response's tail is
 	// discarded, so the connection can be reused.
 	drainBytes = 4 << 10
+	// checkRunsRefusalTTL is how long a repository whose check runs were
+	// refused (403 or 404) is not asked for them again: the token or App
+	// lacks Checks read, which does not change from one read to the next.
+	checkRunsRefusalTTL = 24 * time.Hour
 )
 
 // StatusError is a response other than 200 OK that is not a rate limit.
@@ -83,6 +87,9 @@ type Client struct {
 	resumeAt time.Time
 	// budget is the rate limit the last response reported.
 	budget Budget
+	// checkRunsRefused holds, per repository (lower-cased owner/name), the
+	// refusal of its check runs that is remembered.
+	checkRunsRefused map[string]checkRunsRefusal
 }
 
 // NewClient returns a client for cfg, which must be valid (ConfigFromEnv

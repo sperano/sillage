@@ -148,6 +148,9 @@ func refusalsOf(instance string, refused []github.Refusal) []Refusal {
 			})
 		}
 		out[i].Count++
+		if r.Remembered {
+			out[i].Remembered++
+		}
 	}
 	return out
 }
