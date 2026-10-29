@@ -18,7 +18,6 @@ const WIDE = { width: 1400, height: 900 };
 const DEFAULT_VIEWPORT = { width: 414, height: 896 };
 /** The narrow pages' column: 60rem at the default 16px font size. */
 const NARROW_PX = 960;
-
 afterEach(async () => {
 	await page.viewport(DEFAULT_VIEWPORT.width, DEFAULT_VIEWPORT.height);
 });

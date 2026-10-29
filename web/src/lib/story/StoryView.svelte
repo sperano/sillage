@@ -46,10 +46,6 @@
 </div>
 
 <style>
-	.story {
-		color-scheme: light dark;
-	}
-
 	.layout {
 		display: grid;
 		gap: 1rem;

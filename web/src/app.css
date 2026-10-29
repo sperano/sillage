@@ -1,0 +1,78 @@
+:root {
+	color-scheme: light dark;
+
+	--app-bg: #ffffff;
+	--app-fg: #1d2733;
+	--app-muted: #5b6b7c;
+	--graph-grid: #d9e0e8;
+	--graph-accent: #1f5f9e;
+	--graph-success: #1b7a4c;
+	--graph-failure: #b3261e;
+	--graph-review: #6f42c1;
+	--graph-running: #2a7f86;
+	--graph-on-running: var(--app-bg);
+	--graph-waiting: #a86b00;
+	--graph-unknown: #8a96a3;
+	--graph-selected: #d97706;
+	--graph-focus: #0b57d0;
+
+	--tl-bg: var(--app-bg);
+	--tl-fg: var(--app-fg);
+	--tl-muted: var(--app-muted);
+	--tl-grid: var(--graph-grid);
+	--tl-event: var(--graph-accent);
+	--tl-observed: var(--graph-accent);
+	--tl-success: var(--graph-success);
+	--tl-failure: var(--graph-failure);
+	--tl-merged: var(--graph-review);
+	--tl-running: var(--graph-running);
+	--tl-waiting: var(--graph-waiting);
+	--tl-review: var(--graph-review);
+	--tl-check: var(--graph-accent);
+	--tl-unknown: var(--graph-unknown);
+	--tl-selected: var(--graph-selected);
+	--tl-focus: var(--graph-focus);
+
+	--ov-bg: var(--app-bg);
+	--ov-fg: var(--app-fg);
+	--ov-muted: var(--app-muted);
+	--ov-grid: var(--graph-grid);
+	--ov-running: var(--graph-running);
+	--ov-on-running: var(--graph-on-running);
+	--ov-waiting: var(--graph-waiting);
+	--ov-review: var(--graph-review);
+	--ov-pr: var(--graph-accent);
+	--ov-failure: var(--graph-failure);
+	--ov-unknown: var(--graph-unknown);
+	--ov-mark: var(--app-fg);
+	--ov-cursor: var(--graph-selected);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--app-bg: #10161d;
+		--app-fg: #e3e9ef;
+		--app-muted: #9aa8b6;
+		--graph-grid: #2b3743;
+		--graph-accent: #7ab3ef;
+		--graph-success: #5cc98f;
+		--graph-failure: #f2867e;
+		--graph-review: #b99af0;
+		--graph-running: #5cc2ca;
+		--graph-waiting: #e0a84a;
+		--graph-unknown: #6b7884;
+		--graph-selected: #f59e0b;
+		--graph-focus: #8ab4f8;
+	}
+}
+
+body {
+	box-sizing: border-box;
+	min-height: 100vh;
+	margin: 0;
+	padding: 1rem;
+	background: var(--app-bg);
+	color: var(--app-fg);
+	font-family: system-ui, sans-serif;
+	line-height: 1.5;
+}

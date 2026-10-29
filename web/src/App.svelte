@@ -62,13 +62,6 @@
 </main>
 
 <style>
-	:global(body) {
-		font-family: system-ui, sans-serif;
-		line-height: 1.5;
-		margin: 0;
-		padding: 1rem;
-	}
-
 	.narrow {
 		margin: 0 auto;
 		max-width: 60rem;

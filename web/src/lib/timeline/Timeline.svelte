@@ -247,45 +247,9 @@
 
 <style>
 	.timeline {
-		--tl-bg: #ffffff;
-		--tl-fg: #1d2733;
-		--tl-muted: #5b6b7c;
-		--tl-grid: #d9e0e8;
-		--tl-event: #1f5f9e;
-		--tl-observed: #1f5f9e;
-		--tl-success: #1b7a4c;
-		--tl-failure: #b3261e;
-		--tl-merged: #6f42c1;
-		--tl-running: #2a7f86;
-		--tl-waiting: #a86b00;
-		--tl-review: #6f42c1;
-		--tl-check: #1f5f9e;
-		--tl-unknown: #8a96a3;
-		--tl-selected: #d97706;
-		--tl-focus: #0b57d0;
 		color: var(--tl-fg);
 		background: var(--tl-bg);
 		font-family: system-ui, sans-serif;
-	}
-	@media (prefers-color-scheme: dark) {
-		.timeline {
-			--tl-bg: #10161d;
-			--tl-fg: #e3e9ef;
-			--tl-muted: #9aa8b6;
-			--tl-grid: #2b3743;
-			--tl-event: #7ab3ef;
-			--tl-observed: #7ab3ef;
-			--tl-success: #5cc98f;
-			--tl-failure: #f2867e;
-			--tl-merged: #b99af0;
-			--tl-running: #5cc2ca;
-			--tl-waiting: #e0a84a;
-			--tl-review: #b99af0;
-			--tl-check: #7ab3ef;
-			--tl-unknown: #6b7884;
-			--tl-selected: #f59e0b;
-			--tl-focus: #8ab4f8;
-		}
 	}
 	.plot {
 		overflow-x: auto;
