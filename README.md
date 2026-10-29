@@ -227,8 +227,10 @@ tries again.
 
 GitHub does not retry a delivery sillage did not answer with a 2xx (sillage,
 the tunnel or the proxy down, a timeout). With `SILLAGE_GITHUB_HOOKS` set,
-the first cycle after a start and then one cycle every
-`SILLAGE_GITHUB_HOOK_CHECK_INTERVAL` read each hook's delivery log, newest
+each hook's URL is read once: a hook that does not send to `/ingest/github`
+(another receiver's id, set by mistake) is logged as an error and never
+read nor redelivered to. Then the first cycle after a start and one cycle
+every `SILLAGE_GITHUB_HOOK_CHECK_INTERVAL` read each hook's delivery log, newest
 first, down to the newest attempt the last read handled (kept in the
 store; a hook seen for the first time is read back one backstop interval),
 so a quiet hook costs one request. An attempt that failed, and of whose

@@ -48,6 +48,9 @@ type Loop struct {
 	// hooksChecked when the cycle that last read their logs started.
 	hookMarks    map[string]int64
 	hooksChecked time.Time
+	// hookOwners are whether each hook, by key, sends to sillage, once
+	// GitHub said where it sends.
+	hookOwners map[string]bool
 	// collecting is whether the loop holds the lock and has loaded the
 	// store's state.
 	collecting atomic.Bool
@@ -72,6 +75,7 @@ func New(cfg Config, ccfg collector.Config, src Sources, store Store, deliveries
 	l := &Loop{
 		cfg: cfg, ccfg: ccfg, src: src.without(c.Off()), store: boundedStore{s: store, timeout: storeTimeout},
 		deliveries: deliveries, metrics: m, log: log, now: time.Now, jitter: jitter, spread: spread,
+		hookOwners: make(map[string]bool),
 	}
 	if cg, ok := l.src.GitHub.(ConditionalGitHub); ok {
 		l.conditional = cg

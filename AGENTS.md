@@ -191,8 +191,10 @@ and render it, so a change to the overview's JSON also changes
   Kubernetes, and credentials are requested with read scopes
   only. The one exception: the GitHub client asks GitHub to redeliver a
   delivery of sillage's own webhook that sillage did not receive
-  (`Redeliver`), which needs Webhooks write and sends only to sillage;
-  without it, GitHub refuses and the roots are read again instead.
+  (`Redeliver`), which needs Webhooks write and sends only to sillage:
+  the loop reads a configured hook's log, and redelivers to it, only once
+  GitHub says its URL is sillage's `/ingest/github`. Without Webhooks
+  write, GitHub refuses and the roots are read again instead.
 - **A run is identified by cluster + namespace + Task UID**, never by Task
   name or branch: a retry reuses both, and must stay a separate run.
 - **An unknown interval stays unknown.** A gap between two records is never

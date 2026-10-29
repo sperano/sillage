@@ -118,3 +118,22 @@ func TestExportedGitHubRoots(t *testing.T) {
 		t.Errorf("GitHubRoots() error = %v, want the store's", err)
 	}
 }
+
+// The loop redelivers only to a hook that sends to POST /ingest/github.
+func TestSendsToGitHub(t *testing.T) {
+	for hookURL, want := range map[string]bool{
+		"https://sillage.example.com/ingest/github":     true,
+		"http://sillage.example.com:8080/ingest/github": true,
+		"https://spawner.example.com/webhook/github":    false,
+		"https://sillage.example.com/ingest/vikunja":    false,
+		"https://sillage.example.com/ingest/github/x":   false,
+		"https://sillage.example.com/x/ingest/github":   false,
+		"ftp://sillage.example.com/ingest/github":       false,
+		"/ingest/github": false,
+		"":               false,
+	} {
+		if got := SendsToGitHub(hookURL); got != want {
+			t.Errorf("SendsToGitHub(%q) = %v, want %v", hookURL, got, want)
+		}
+	}
+}

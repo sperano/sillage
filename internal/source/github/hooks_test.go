@@ -182,3 +182,22 @@ func TestRedeliver(t *testing.T) {
 		}
 	}
 }
+
+func TestHookURL(t *testing.T) {
+	c := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != testRepoPath+"/hooks/7001" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":7001,"active":true,"events":["pull_request"],` +
+			`"config":{"url":"https://sillage.example.com/ingest/github","content_type":"json","secret":"********"}}`))
+	}))
+	got, err := c.HookURL(t.Context(), testHook)
+	if err != nil || got != "https://sillage.example.com/ingest/github" {
+		t.Errorf("HookURL = %q, %v; want the hook's config.url", got, err)
+	}
+	_, err = c.HookURL(t.Context(), Hook{Repository: testRepo, ID: 7002})
+	if !Refused(err) {
+		t.Errorf("a missing hook: error %v, want a refusal", err)
+	}
+}

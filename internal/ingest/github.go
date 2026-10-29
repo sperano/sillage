@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 
 	"github.com/sperano/sillage/internal/collector"
@@ -113,6 +114,14 @@ func GitHubRoots(ctx context.Context, cfg collector.Config, st PullRequestRoots,
 		return nil, nil
 	}
 	return roots, err
+}
+
+// SendsToGitHub reports whether a webhook whose URL is hookURL sends its
+// deliveries to POST /ingest/github: an http or https URL with that path.
+// The collector loop redelivers only to a hook it does.
+func SendsToGitHub(hookURL string) bool {
+	u, err := url.Parse(hookURL)
+	return err == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Host != "" && u.Path == PathGitHub
 }
 
 func (githubParser) signature(h http.Header) (prefix, value string) {

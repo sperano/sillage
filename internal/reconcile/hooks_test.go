@@ -28,6 +28,10 @@ var errForbidden = &github.StatusError{
 	Code: http.StatusForbidden, Status: "403 Forbidden",
 }
 
+// sillageHookURL is where testHook sends its deliveries, unless a test
+// says otherwise.
+const sillageHookURL = "https://sillage.example.com/ingest/github"
+
 // errBadGateway is GitHub failing a request, which asking again may not.
 var errBadGateway = &github.StatusError{Path: "/repos/acme/widgets/hooks/9001/deliveries", Code: http.StatusBadGateway,
 	Status: "502 Bad Gateway"}
@@ -41,6 +45,11 @@ type fakeHookLog struct {
 	tasks    map[int64]int64
 	// redeliverErr answers every redelivery while set.
 	redeliverErr error
+	// url is where the hook sends, sillageHookURL when empty; urlErr
+	// answers every read of it while set, and urlReads counts them.
+	url      string
+	urlErr   error
+	urlReads int
 	// asked are the marks each read of the log was asked from, since the
 	// times; redelivered the attempts GitHub was asked to send again.
 	asked       []int64
@@ -109,6 +118,31 @@ func (f *fakeHookLog) HookPayload(_ context.Context, _ github.Hook, id int64) (s
 	return "pull_request", []byte(strconv.FormatInt(task, 10)), nil
 }
 
+func (f *fakeHookLog) HookURL(_ context.Context, _ github.Hook) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.urlReads++
+	if f.urlErr != nil {
+		return "", f.urlErr
+	}
+	if f.url == "" {
+		return sillageHookURL, nil
+	}
+	return f.url, nil
+}
+
+func (f *fakeHookLog) setURLErr(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.urlErr = err
+}
+
+func (f *fakeHookLog) urlsRead() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.urlReads
+}
+
 func (f *fakeHookLog) setRedeliverErr(err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -156,6 +190,8 @@ func (r *fakeReceipts) Roots(_ context.Context, _ string, payload []byte) ([]mod
 	}
 	return []model.Root{taskRoot(task)}, nil
 }
+
+func (r *fakeReceipts) Ours(hookURL string) bool { return hookURL == sillageHookURL }
 
 // hookHarness is a githubHarness whose loop reads testHook's log.
 type hookHarness struct {
@@ -340,5 +376,51 @@ func TestHooksAreNotReadWithoutReceipts(t *testing.T) {
 	h.loop.cycle(t.Context())
 	if asked := h.log.marks(); len(asked) != 0 {
 		t.Errorf("the log was read without receipts to match it against: %v", asked)
+	}
+}
+
+func TestHookURLIsReadOnce(t *testing.T) {
+	h := newHookHarness(t, rarelyChecked())
+	h.loop.cycle(t.Context())
+	h.loop.cycle(t.Context())
+	if n := h.log.urlsRead(); n != 1 {
+		t.Errorf("the hook's URL was read %d times in two checks, want once", n)
+	}
+	if n := len(h.log.marks()); n != 2 {
+		t.Errorf("the log was read %d times in two checks, want twice", n)
+	}
+}
+
+// A hook id that names another receiver's webhook, the spawner's, is
+// never redelivered to: nothing of its log is about sillage.
+func TestHookNotSillagesIsNeverRedeliveredTo(t *testing.T) {
+	h := newHookHarness(t, rarelyChecked())
+	h.log.url = "https://spawner.example.com/webhook/github"
+	h.log.fail(105, "guid-105", time.Now(), testTaskID, false)
+	h.loop.cycle(t.Context())
+	h.loop.cycle(t.Context())
+	if got := h.log.redeliveries(); len(got) != 0 {
+		t.Errorf("redelivered %v to a hook that does not send to sillage", got)
+	}
+	if asked := h.log.marks(); len(asked) != 0 {
+		t.Errorf("the log of a hook that does not send to sillage was read: %v", asked)
+	}
+	if n := h.log.urlsRead(); n != 1 {
+		t.Errorf("the hook's URL was read %d times, want once", n)
+	}
+}
+
+func TestHookURLNotReadIsReadAtTheNextCheck(t *testing.T) {
+	h := newHookHarness(t, rarelyChecked())
+	h.log.setURLErr(errBadGateway)
+	h.log.fail(105, "guid-105", time.Now(), testTaskID, false)
+	h.loop.cycle(t.Context())
+	if got := h.log.redeliveries(); len(got) != 0 || len(h.log.marks()) != 0 {
+		t.Errorf("redelivered %v, log read %v, before the hook's URL was read", got, h.log.marks())
+	}
+	h.log.setURLErr(nil)
+	h.loop.cycle(t.Context())
+	if got := h.log.redeliveries(); len(got) != 1 || got[0] != 105 {
+		t.Errorf("redelivered %v once the hook's URL was read, want 105", got)
 	}
 }

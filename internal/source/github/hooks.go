@@ -43,9 +43,32 @@ func ParseHook(s string) (Hook, error) {
 	return Hook{Repository: r, ID: n}, nil
 }
 
+// hookPath returns the REST path of the hook.
+func (h Hook) hookPath() string {
+	return h.Repository.apiPath() + "/hooks/" + strconv.FormatInt(h.ID, 10)
+}
+
 // apiPath returns the REST path of the hook's delivery log.
 func (h Hook) apiPath() string {
-	return h.Repository.apiPath() + "/hooks/" + strconv.FormatInt(h.ID, 10) + "/deliveries"
+	return h.hookPath() + "/deliveries"
+}
+
+// hookConfig is a hook as GET /repos/{owner}/{repo}/hooks/{hook_id}
+// returns it, with where it sends its deliveries.
+type hookConfig struct {
+	Config struct {
+		URL string `json:"url"`
+	} `json:"config"`
+}
+
+// HookURL returns the URL hook sends its deliveries to, which tells
+// whether it is sillage's before anything is redelivered to it.
+func (c *Client) HookURL(ctx context.Context, hook Hook) (string, error) {
+	var h hookConfig
+	if err := c.getOne(ctx, hook.hookPath(), &h); err != nil {
+		return "", err
+	}
+	return h.Config.URL, nil
 }
 
 // HookDelivery is one attempt in a hook's delivery log, from GET
@@ -115,7 +138,8 @@ func (c *Client) HookPayload(ctx context.Context, hook Hook, id int64) (event st
 // Redeliver asks GitHub to send hook's attempt id again; GitHub answers
 // 202 Accepted and sends it shortly after, a new attempt of the same GUID.
 // It is the one request the client sends that changes anything on
-// GitHub, and only to send a delivery to sillage's own webhook: the
+// GitHub, and only to send a delivery to sillage's own webhook (its
+// caller checks the hook's HookURL first): the
 // credential needs write access to the repository's webhooks, without
 // which GitHub refuses it (see Refused). A rate limit is a
 // *RateLimitError, never waited out; any other answer a *StatusError.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"slices"
 	"strconv"
 	"time"
@@ -24,6 +25,8 @@ type HookLog interface {
 	Redeliver(ctx context.Context, hook github.Hook, id int64) error
 	// HookPayload returns an attempt's event and payload.
 	HookPayload(ctx context.Context, hook github.Hook, id int64) (event string, payload []byte, err error)
+	// HookURL returns the URL the hook sends its deliveries to.
+	HookURL(ctx context.Context, hook github.Hook) (string, error)
 }
 
 // Receipts are what sillage knows of the GitHub deliveries it received:
@@ -36,6 +39,9 @@ type Receipts interface {
 	// Roots returns the roots a GitHub delivery of event with payload
 	// names, as the ingest path reads them.
 	Roots(ctx context.Context, event string, payload []byte) ([]model.Root, error)
+	// Ours reports whether a webhook sending to hookURL sends to
+	// sillage's ingest path.
+	Ours(hookURL string) bool
 }
 
 // The outcomes of a delivery GitHub could not hand to sillage, as
@@ -81,7 +87,8 @@ func (l *Loop) hooksOn() bool {
 // checkHooks reads each hook's delivery log since its mark, at the first
 // cycle and then once every HookCheckInterval, and handles every attempt
 // sillage lost: it asks GitHub to send it again, or adds the roots it
-// names to dues, with a gap. It returns the marks it advanced, by key.
+// names to dues, with a gap. A hook not known to send to sillage is
+// skipped. It returns the marks it advanced, by key.
 func (l *Loop) checkHooks(ctx context.Context, dues map[model.Ref]*due) map[string]int64 {
 	marks := make(map[string]int64)
 	now := l.now()
@@ -91,6 +98,9 @@ func (l *Loop) checkHooks(ctx context.Context, dues map[model.Ref]*due) map[stri
 	l.hooksChecked = now
 	for _, hook := range l.cfg.GitHubHooks {
 		key := hookKey(l.ccfg.GitHubInstance, hook)
+		if !l.ownHook(ctx, hook, key) {
+			continue
+		}
 		if newest, ok := l.checkHook(ctx, hook, key, dues); ok {
 			marks[key] = newest
 		}
@@ -99,6 +109,45 @@ func (l *Loop) checkHooks(ctx context.Context, dues map[model.Ref]*due) map[stri
 		}
 	}
 	return marks
+}
+
+// ownHook reports whether hook sends its deliveries to sillage, asking
+// GitHub the first time: a hook that does not, another receiver's whose
+// id was configured by mistake, is never read nor redelivered to, and
+// said so once. A failed read leaves it unknown until the next check.
+func (l *Loop) ownHook(ctx context.Context, hook github.Hook, key string) bool {
+	if ours, ok := l.hookOwners[key]; ok {
+		return ours
+	}
+	m := l.meterFor(model.SourceGitHub, l.ccfg.GitHubInstance)
+	hookURL, err := timed(ctx, m, func(ctx context.Context) (string, error) {
+		return l.src.Hooks.HookURL(ctx, hook)
+	})
+	if err != nil {
+		if ctx.Err() == nil {
+			l.log.Warn("source read failed: the webhook's URL, its delivery log not read", "source",
+				model.SourceGitHub, "instance", l.ccfg.GitHubInstance, "hook", hook, "reason", reasonOf(err),
+				"error", err)
+		}
+		return false
+	}
+	ours := l.src.Receipts.Ours(hookURL)
+	l.hookOwners[key] = ours
+	if !ours {
+		l.log.Error("webhook does not send to sillage: its delivery log is never read, nothing redelivered to it",
+			"source", model.SourceGitHub, "instance", l.ccfg.GitHubInstance, "hook", hook, "path", urlPath(hookURL))
+	}
+	return ours
+}
+
+// urlPath is hookURL's path, which the log names instead of the URL in
+// case its query holds a secret.
+func urlPath(hookURL string) string {
+	u, err := url.Parse(hookURL)
+	if err != nil {
+		return "(not a URL)"
+	}
+	return u.Path
 }
 
 // checkHook handles hook's attempts newer than its mark, oldest first,

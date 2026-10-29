@@ -30,3 +30,9 @@ func (r receipts) Accepted(ctx context.Context, guid string) (bool, error) {
 func (r receipts) Roots(ctx context.Context, event string, payload []byte) ([]model.Root, error) {
 	return ingest.GitHubRoots(ctx, r.cfg, r.st, event, payload)
 }
+
+// Ours reports whether a webhook sending to hookURL sends to POST
+// /ingest/github.
+func (receipts) Ours(hookURL string) bool {
+	return ingest.SendsToGitHub(hookURL)
+}
