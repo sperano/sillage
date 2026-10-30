@@ -126,6 +126,39 @@ func TestCatchUpSpreadsOverWindows(t *testing.T) {
 	}
 }
 
+// With the GitHub source off, a GitHub read owed since before a restart
+// waits for it to come back: the root is not read again every cycle.
+func TestOwedReadWaitsForGitHub(t *testing.T) {
+	h, gh := githubHarness(t, rarely)
+	runsOf(h, testTaskID+1)
+	gh.failing = map[string]error{testRepo.String(): &github.RateLimitError{Path: "/repos/acme/widgets/pulls",
+		Wait: rateLimitWait}}
+	h.loop.cycle(t.Context())
+	owed := rootOf(testTaskID + 1)
+	if st := h.loop.roots[owed.Ref()]; st == nil || st.GitHubOwed == nil {
+		t.Fatalf("the root left due = %+v, want it owed its GitHub read", st)
+	}
+
+	src := h.sources()
+	src.GitHub = nil
+	h.loop = h.loopOf(t, rarely, h.ccfg, src)
+	h.loop.cycle(t.Context())
+	reads := h.vikunja.count()
+	h.loop.cycle(t.Context())
+	h.loop.cycle(t.Context())
+	if got := h.vikunja.count(); got != reads {
+		t.Errorf("Vikunja read %d times in the cycles after the first without GitHub, want none",
+			got-reads)
+	}
+	var st rootState
+	if err := json.Unmarshal(h.store.cps[rootKey(owed)], &st); err != nil {
+		t.Fatal(err)
+	}
+	if st.GitHubOwed == nil {
+		t.Errorf("the stored root state owes nothing, want its GitHub read kept for when GitHub is back")
+	}
+}
+
 // A cycle reads the deliveries' roots first, then the other triggers',
 // then the periodic reads; the GitHub reads owed longest first within
 // each.

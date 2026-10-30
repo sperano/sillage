@@ -216,7 +216,8 @@ made while less than 20% of the rate limit's window is left, and a
 restart spreads the overdue backstop reads over the interval. The reads
 a delivery, a run or a task change asks for stop at 10%: the rest are
 owed (kept in the root's state) and read in later cycles, the longest
-owed first, so a catch-up spreads over several windows. Once GitHub
+owed first, so a catch-up spreads over several windows (with the GitHub
+source off, they wait until it is configured again). Once GitHub
 refuses a request for its rate limit, no GitHub request is made until
 the wait it asked for is over, and the roots whose read it refused
 retry spread over the hour that follows. A root whose read could not be

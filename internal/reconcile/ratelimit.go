@@ -100,8 +100,12 @@ func (l *Loop) retryAfterRateLimit(st *rootState) {
 }
 
 // addOwed adds to dues the GitHub read each root is owed, since when: a
-// root due for nothing else is due for that alone.
+// root due for nothing else is due for that alone. With the GitHub source
+// off, an owed read waits for it to come back: no read could clear it.
 func (l *Loop) addOwed(dues map[model.Ref]*due) {
+	if l.src.GitHub == nil {
+		return
+	}
 	for ref, st := range l.roots {
 		if st.GitHubOwed == nil {
 			continue

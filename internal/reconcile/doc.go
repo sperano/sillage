@@ -26,7 +26,8 @@
 //
 // The reads a delivery, a run or a task change asks for stop at
 // githubTriggerReserve: the others are owed (the root's state keeps
-// them) and read in later cycles, the longest owed first. Once GitHub
+// them) and read in later cycles, the longest owed first, or once the
+// GitHub source is configured again when it is off. Once GitHub
 // refuses a request for its rate limit, no GitHub request is made until
 // the wait it asked for is over: the roots still due are owed their read,
 // or keep their backstop due, and those whose read it refused retry
