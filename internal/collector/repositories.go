@@ -10,32 +10,58 @@ import (
 	"github.com/sperano/sillage/internal/source/github"
 )
 
-// repository is a repository the story's branch is read in, and why: the
-// evidence each pull request read there is joined to the root with,
-// besides its head branch. A run's Origin, workspace or project label, or
-// the caller, names a repository without evidence of its own.
+// repositoryKind is what led to a repository, strongest first.
+type repositoryKind int
+
+const (
+	// namedRepository is named by a run's Origin, workspace or project
+	// label, or by the caller.
+	namedRepository repositoryKind = iota
+	// derivedRepository is the task's by a record of the story: a Task
+	// name's project, a pull request a store kept.
+	derivedRepository
+	// linkedRepository is linked from a comment of the task, which can
+	// name any pull request, the task's or not.
+	linkedRepository
+	// searchedRepository is one EnvWorkspaces maps to, read because no
+	// record of the story names the task's.
+	searchedRepository
+)
+
+// repository is a repository the story's branch is read in, and why: what
+// led to it, and the evidence each pull request read there is joined to
+// the root with, besides its head branch. A named repository has no
+// evidence of its own.
 type repository struct {
 	github.Repository
+	kind     repositoryKind
 	evidence []model.Evidence
 }
 
 // repositorySet gathers repositories, each once whatever its case, with
-// the evidence of the first that named it.
+// the strongest kind that named it and the evidence of the first.
 type repositorySet struct {
 	repos []repository
-	seen  map[string]bool
+	at    map[string]int
 }
 
-func (s *repositorySet) add(repo github.Repository, evidence ...model.Evidence) {
+func (s *repositorySet) add(repo github.Repository, kind repositoryKind, evidence ...model.Evidence) {
 	key := strings.ToLower(repo.String())
-	if s.seen == nil {
-		s.seen = make(map[string]bool)
+	if s.at == nil {
+		s.at = make(map[string]int)
 	}
-	if s.seen[key] {
+	if i, ok := s.at[key]; ok {
+		s.repos[i].kind = min(s.repos[i].kind, kind)
 		return
 	}
-	s.seen[key] = true
-	s.repos = append(s.repos, repository{Repository: repo, evidence: evidence})
+	s.at[key] = len(s.repos)
+	s.repos = append(s.repos, repository{Repository: repo, kind: kind, evidence: evidence})
+}
+
+// has reports whether s holds repo, whatever its case.
+func (s *repositorySet) has(repo github.Repository) bool {
+	_, ok := s.at[strings.ToLower(repo.String())]
+	return ok
 }
 
 // sorted returns the repositories by name.
@@ -56,18 +82,18 @@ func (a *assembly) repositories(branch string, extra []github.Repository) ([]rep
 	var unknown []string
 	for _, r := range a.runs {
 		if repo, ok := a.originRepository(r); ok {
-			set.add(repo)
+			set.add(repo, namedRepository)
 		}
 	}
 	for _, name := range a.workspaceNames() {
 		if r, ok := a.cfg.Workspaces[name]; ok {
-			set.add(r)
+			set.add(r, namedRepository)
 		} else if !slices.Contains(unknown, name) {
 			unknown = append(unknown, name)
 		}
 	}
 	for _, r := range extra {
-		set.add(r)
+		set.add(r, namedRepository)
 	}
 	a.linkedRepositories(&set)
 	a.namedProjects(&set)
@@ -110,7 +136,7 @@ func (a *assembly) workspaceOf(r model.Run) string {
 // task's comments link to on the GitHub instance.
 func (a *assembly) linkedRepositories(set *repositorySet) {
 	for _, l := range a.prLinks {
-		set.add(l.repo, l.evidence)
+		set.add(l.repo, linkedRepository, l.evidence)
 	}
 }
 
@@ -127,7 +153,8 @@ func (a *assembly) namedProjects(set *repositorySet) {
 		}
 		for _, p := range projectsOfName(name, id, a.cfg.Workspaces) {
 			repo := a.cfg.Workspaces[p]
-			set.add(repo, a.announcementEvidence(e, "names Kelos Task "+name+", "+projectNote(p, repo)))
+			set.add(repo, derivedRepository,
+				a.announcementEvidence(e, "names Kelos Task "+name+", "+projectNote(p, repo)))
 		}
 	}
 	for _, r := range a.runs {
@@ -137,7 +164,7 @@ func (a *assembly) namedProjects(set *repositorySet) {
 		for _, p := range projectsOfName(r.TaskName, id, a.cfg.Workspaces) {
 			repo, ev := a.cfg.Workspaces[p], r.Evidence[0]
 			ev.Note = "Task name " + r.TaskName + ", " + projectNote(p, repo)
-			set.add(repo, ev)
+			set.add(repo, derivedRepository, ev)
 		}
 	}
 }
@@ -160,7 +187,7 @@ func (a *assembly) keptRepositories(set *repositorySet, branch string) {
 		if err != nil {
 			continue
 		}
-		set.add(repo, model.Evidence{
+		set.add(repo, derivedRepository, model.Evidence{
 			Source: model.SourceGitHub, Instance: a.cfg.GitHubInstance, Ref: pullsRef(repo, branch),
 			Note: "the store holds pull request #" + strconv.Itoa(p.Key.Number) + " of this repository from an " +
 				"earlier read of the story",
@@ -168,13 +195,26 @@ func (a *assembly) keptRepositories(set *repositorySet, branch string) {
 	}
 }
 
-// searched returns every repository EnvWorkspaces maps to, for a story
-// none of whose records names one: its branch is looked for in each.
-func (a *assembly) searched(branch string) []repository {
-	var set repositorySet
+// namesTask reports whether a record of the story names the task's
+// repository among repos: a comment's link alone can name another's.
+func namesTask(repos []repository) bool {
+	return slices.ContainsFunc(repos, func(r repository) bool { return r.kind < linkedRepository })
+}
+
+// searched returns every repository EnvWorkspaces maps to but those in
+// read, for a story no record of which names the task's repository: its
+// branch is looked for in each.
+func (a *assembly) searched(branch string, read []repository) []repository {
+	var skip, set repositorySet
+	for _, r := range read {
+		skip.add(r.Repository, r.kind)
+	}
 	for _, name := range slices.Sorted(maps.Keys(a.cfg.Workspaces)) {
 		repo := a.cfg.Workspaces[name]
-		set.add(repo, model.Evidence{
+		if skip.has(repo) {
+			continue
+		}
+		set.add(repo, searchedRepository, model.Evidence{
 			Source: model.SourceGitHub, Instance: a.cfg.GitHubInstance, Ref: pullsRef(repo, branch),
 			Note: "no record of the story names its repository, so branch " + branch +
 				" was looked for in each repository " + EnvWorkspaces + " lists",

@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -20,10 +21,11 @@ const taskBranchPrefix = "kelos/vikunja-"
 func taskBranch(id int64) string { return taskBranchPrefix + strconv.FormatInt(id, 10) }
 
 // readGitHub reads the pull requests of branch, in every state, in each
-// repository the story's records name and in extra; when none names one,
-// in every repository EnvWorkspaces maps to. Without a repository,
-// GitHub is not read, and its coverage says why; nor is it while off, nor
-// when the caller keeps its last read (Kept.SkipGitHub).
+// repository the story's records name and in extra; when none names the
+// task's, and those its comments link to have none, in every other
+// repository EnvWorkspaces maps to. Without a repository, GitHub is not
+// read, and its coverage says why; nor is it while off, nor when the
+// caller keeps its last read (Kept.SkipGitHub).
 func (a *assembly) readGitHub(ctx context.Context, branch string, extra []github.Repository) {
 	a.source(model.SourceGitHub)
 	if !a.c.on(model.SourceGitHub) {
@@ -38,36 +40,88 @@ func (a *assembly) readGitHub(ctx context.Context, branch string, extra []github
 		a.note(model.SourceGitHub, "no repository in "+EnvWorkspaces+" for "+strings.Join(unknown, ", ")+
 			": the pull requests of their branch "+branch+" were not read")
 	}
-	search := len(repos) == 0
-	if search {
-		repos = a.searched(branch)
+	var searched []repository
+	if !namesTask(repos) {
+		searched = a.searched(branch, repos)
 	}
-	if len(repos) == 0 {
+	if len(repos)+len(searched) == 0 {
 		a.note(model.SourceGitHub, "no repository known for the story's branch "+branch+
 			": GitHub was not read (name one with "+EnvWorkspaces+" or the repo flag)")
 		return
 	}
 	at := a.c.now()
-	var all branchRead
-	for _, repo := range repos {
-		if search {
-			a.searches++
-		}
-		r, err := a.branchRecords(ctx, repo, branch)
-		if err != nil {
-			a.fail(model.SourceGitHub, err)
-			return
-		}
-		all.add(r)
+	all, err := a.readBranch(ctx, repos, branch)
+	if err == nil && len(searched) > 0 && len(all.recs.PullRequests) == 0 {
+		var found branchRead
+		found, err = a.readBranch(ctx, searched, branch)
+		all.add(found)
+	}
+	if err != nil {
+		a.fail(model.SourceGitHub, err)
+		return
 	}
 	a.read(model.SourceGitHub, at)
-	if search && len(all.recs.PullRequests) == 0 {
-		a.note(model.SourceGitHub, fmt.Sprintf("no record of the story names its repository, and none of the %d "+
-			"repositories %s lists has a pull request of its branch %s: one in another repository is unknown",
-			len(repos), EnvWorkspaces, branch))
+	if !namesTask(repos) && len(all.recs.PullRequests) == 0 {
+		a.note(model.SourceGitHub, notFoundNote(len(repos), len(searched), branch))
 	}
 	a.refusals = append(a.refusals, refusalsOf(a.source(model.SourceGitHub).cov.Instance, all.refused)...)
 	a.addGitHub(all)
+}
+
+// notFoundNote says that none of the linked repositories a story's
+// comments link to and the searched ones EnvWorkspaces lists has a pull
+// request of branch.
+func notFoundNote(linked, searched int, branch string) string {
+	where := EnvWorkspaces + " lists"
+	if linked > 0 {
+		where = "its comments link to or " + where
+	}
+	return fmt.Sprintf("no record of the story names its repository, and none of the %d repositories %s "+
+		"has a pull request of its branch %s: one in another repository is unknown", linked+searched, where, branch)
+}
+
+// readBranch reads branch's pull requests in each of repos. A repository
+// that a record of the story led to, rather than named, and that GitHub
+// does not let the credential read is noted, and the others still read:
+// a comment can link to any repository. Any other error ends the read.
+func (a *assembly) readBranch(ctx context.Context, repos []repository, branch string) (branchRead, error) {
+	var all branchRead
+	for _, repo := range repos {
+		if repo.kind == searchedRepository {
+			a.searches++
+		}
+		r, err := a.branchRecords(ctx, repo, branch)
+		if se, ok := unreadable(err); ok && repo.kind != namedRepository {
+			all.notes = append(all.notes, unreadableNote(repo, branch, se))
+			continue
+		}
+		if err != nil {
+			return branchRead{}, err
+		}
+		all.add(r)
+	}
+	return all, nil
+}
+
+// unreadable returns err's refusal when GitHub answered it 403 or 404:
+// the credential cannot see the repository, or it does not exist.
+func unreadable(err error) (*github.StatusError, bool) {
+	se, ok := errors.AsType[*github.StatusError](err)
+	if !ok || (se.Code != http.StatusForbidden && se.Code != http.StatusNotFound) {
+		return nil, false
+	}
+	return se, true
+}
+
+// unreadableNote says that branch's pull requests in repo are unknown,
+// GitHub having refused se, and what led to repo.
+func unreadableNote(repo repository, branch string, se *github.StatusError) string {
+	n := fmt.Sprintf("repository %s is not readable (GitHub answered %s to GET %s): the pull requests of "+
+		"branch %s there are unknown", repo, se.Status, se.Path, branch)
+	if len(repo.evidence) > 0 {
+		n += "; it was read because " + repo.evidence[0].Note
+	}
+	return n
 }
 
 // addGitHub adds what the branches' reads hold to the story.

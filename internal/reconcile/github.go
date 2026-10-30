@@ -254,6 +254,9 @@ func (g *rootGitHub) FetchBranch(ctx context.Context, base github.Repository, he
 	return timed(ctx, g.meter, func(ctx context.Context) ([]github.Snapshot, error) {
 		snaps, v, err := g.cond.FetchBranchValidated(ctx, base, head)
 		if err != nil {
+			// The collector can go on without this repository: the
+			// backstop must not then take the others' lists for all.
+			g.unvalidated = true
 			return nil, err
 		}
 		if v == nil {

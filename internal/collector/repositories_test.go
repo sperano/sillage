@@ -2,7 +2,9 @@ package collector
 
 import (
 	"context"
+	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -15,32 +17,39 @@ import (
 // gadgetsRepo is a second repository a workspace maps to.
 var gadgetsRepo = github.Repository{Owner: "example-org", Name: "gadgets"}
 
-// askedGitHub answers every branch read with snaps in found, nothing in
-// the others, and records the repositories it was asked about.
+// askedGitHub answers every branch read with snaps in found, the status
+// in refused, nothing in the others, and records the repositories it was
+// asked about.
 type askedGitHub struct {
-	found map[string][]github.Snapshot
-	asked *[]string
+	found   map[string][]github.Snapshot
+	refused map[string]int
+	asked   *[]string
 }
 
 func newAskedGitHub(found map[string][]github.Snapshot) askedGitHub {
-	return askedGitHub{found: found, asked: new([]string)}
+	return askedGitHub{found: found, refused: make(map[string]int), asked: new([]string)}
 }
 
 func (g askedGitHub) FetchBranch(_ context.Context, base github.Repository, _ github.Branch) (
 	[]github.Snapshot, error) {
 	*g.asked = append(*g.asked, base.String())
+	if code, ok := g.refused[base.String()]; ok {
+		path := "/repos/" + base.String() + "/pulls"
+		return nil, &github.StatusError{Path: path, Code: code, Status: strconv.Itoa(code) + " " + http.StatusText(code)}
+	}
 	return g.found[base.String()], nil
 }
 
 // collectAsked assembles task 104's story from vk, recalling kept, with
-// GitHub answered by gh, over cfg.
-func collectAsked(t *testing.T, cfg Config, vk vikunja.Snapshot, kept Kept, gh askedGitHub) Result {
+// GitHub answered by gh, over cfg, also in repos.
+func collectAsked(t *testing.T, cfg Config, vk vikunja.Snapshot, kept Kept, gh askedGitHub,
+	repos ...github.Repository) Result {
 	t.Helper()
 	c, err := New(cfg, Sources{Vikunja: fixedVikunja{vk}, Kelos: fixedKelos{kelos.Snapshot{}}, GitHub: gh})
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := c.Recollect(t.Context(), taskRoot(104), kept)
+	res, err := c.Recollect(t.Context(), taskRoot(104), kept, repos...)
 	if err != nil {
 		t.Fatal(err)
 	}
