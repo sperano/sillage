@@ -29,13 +29,14 @@ var testValidators = github.Validators{"/repos/acme/widgets/pulls?per_page=100":
 
 // conditionalGitHub is fakeGitHub as a ConditionalGitHub: its reads keep
 // validators, unless it has none; Unchanged answers !changed, or
-// checkErr; and it reports budget.
+// checkErr; and it reports budget, each whole read costing it cost.
 type conditionalGitHub struct {
 	*fakeGitHub
 	validators github.Validators
 	changed    bool
 	checkErr   error
 	budget     github.Budget
+	cost       int
 	checks     int
 	// failing answers each repository's read with its error.
 	failing map[string]error
@@ -48,6 +49,7 @@ func (g *conditionalGitHub) FetchBranchValidated(ctx context.Context, base githu
 	snaps, err := g.FetchBranch(ctx, base, head)
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	g.budget.Remaining -= g.cost
 	if err := g.failing[base.String()]; err != nil {
 		return nil, nil, err
 	}
@@ -302,8 +304,9 @@ func TestBackstopCheckFailureOpensAGap(t *testing.T) {
 	if !st.githubGapOpen(testGitHubHost) || !st.GitHubFailed {
 		t.Fatalf("after the failed check, GitHub state = %+v: want a gap open and the read failed", st)
 	}
-	if got, want := st.backstop.Sub(*st.GitHubRead), rarely.RefreshInterval; got != want {
-		t.Errorf("next backstop %v after the failure, want a refresh interval %v", got, want)
+	if wait := st.backstop.Sub(*st.GitHubRead); wait < time.Hour {
+		t.Errorf("next backstop %v after the rate-limited check, want no earlier than the hour GitHub asked for",
+			wait)
 	}
 	if got := testutil.ToFloat64(h.loop.metrics.readErrors.WithLabelValues("github", testGitHubHost,
 		reasonRateLimited)); got != 1 {

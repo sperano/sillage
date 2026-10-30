@@ -29,11 +29,14 @@ type due struct {
 	// (deliveryCaused, deliveryCoalesced); empty when none did.
 	delivery string
 	// github is how the read reads the root's GitHub side, and trigger
-	// what made it read it whole. backstopOnly is whether nothing but the
-	// GitHub backstop made the root due.
-	github       githubRead
-	trigger      string
-	backstopOnly bool
+	// what made it read it whole. githubOnly is whether nothing but its
+	// GitHub side (the backstop, an owed read) made the root due.
+	github     githubRead
+	trigger    string
+	githubOnly bool
+	// owed is since when the root is owed the GitHub read a trigger asked
+	// for and the rate limit deferred; nil when it is owed none.
+	owed *time.Time
 	// lost is the earliest delivery naming the root that GitHub could not
 	// hand to sillage nor send again; nil when none did. hooks are the
 	// keys of the hooks whose logs showed one.
@@ -59,10 +62,11 @@ func (l *Loop) rootCollector(cr cycleRun, gh *rootGitHub) (*collector.Collector,
 	return collector.New(l.ccfg, src)
 }
 
-// cycle reads what changed and what deliveries asked for, those first,
-// and commits each root it read, then the project marks and when the
-// cycle ended. The shutdown stops it between
-// two roots or inside one, which then commits nothing.
+// cycle reads what changed, what deliveries asked for and the GitHub
+// reads owed, in compareDues' order, and commits each root it read, then
+// the project marks and when the cycle ended. A root backing off is not
+// read. The shutdown stops it between two roots or inside one, which then
+// commits nothing.
 func (l *Loop) cycle(ctx context.Context) {
 	start := l.now()
 	l.startGitHubCycle()
@@ -75,10 +79,15 @@ func (l *Loop) cycle(ctx context.Context) {
 	marks := cycleMarks{projects: l.listProjects(ctx, dues), hooks: l.checkHooks(ctx, dues),
 		incomplete: make(map[int64]bool), hooksIncomplete: make(map[string]bool)}
 	l.addDelivered(dues)
+	l.addOwed(dues)
 	committed, delivered := 0, 0
 	for _, d := range slices.SortedFunc(maps.Values(dues), compareDues) {
 		if ctx.Err() != nil {
 			return
+		}
+		if l.backingOff(d) {
+			marks.read(d, false, false)
+			continue
 		}
 		if d.delivery != "" {
 			delivered++
@@ -96,7 +105,7 @@ func (l *Loop) cycle(ctx context.Context) {
 	l.commitCycle(ctx, marks)
 	l.metrics.cycles.Inc()
 	l.log.Info("collection cycle", "due", len(dues), "delivered", delivered, "committed", committed,
-		"duration", l.now().Sub(start), l.endGitHubCycle())
+		"backoff", len(l.backoffs), "duration", l.now().Sub(start), l.endGitHubCycle())
 }
 
 func compareRefs(a, b model.Ref) int {
@@ -178,7 +187,7 @@ func (l *Loop) kelosDue(discovered []collector.Discovered) map[model.Ref]*due {
 		}
 		refresh := st.kelosGapOpen(l.ccfg.Kelos.Cluster) || l.now().Sub(st.Read) >= l.jitter(l.cfg.RefreshInterval)
 		if l.backstopDue(st) {
-			d.github, d.backstopOnly = githubBackstop, !refresh
+			d.github, d.githubOnly = githubBackstop, !refresh
 		}
 		if refresh || d.github != githubKept {
 			dues[disc.Root.Ref()] = d

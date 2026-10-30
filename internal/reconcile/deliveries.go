@@ -1,6 +1,7 @@
 package reconcile
 
 import (
+	"cmp"
 	"context"
 	"time"
 
@@ -62,13 +63,15 @@ func (l *Loop) wait(ctx context.Context) bool {
 }
 
 // addDelivered takes at most DeliveryRootsPerCycle of the roots
-// deliveries ask for and adds them to dues: one read of a root already
-// due serves both. The others stay queued for the next cycle.
+// deliveries ask for and adds them to dues, with those a delivery asked
+// for while they backed off: one read of a root already due serves both.
+// The others stay queued for the next cycle.
 func (l *Loop) addDelivered(dues map[model.Ref]*due) {
-	if l.deliveries == nil {
-		return
+	roots := l.deliveredAfterBackoff()
+	if l.deliveries != nil {
+		roots = append(roots, l.deliveries.Take(l.cfg.DeliveryRootsPerCycle)...)
 	}
-	for _, root := range l.deliveries.Take(l.cfg.DeliveryRootsPerCycle) {
+	for _, root := range roots {
 		ref := root.Ref()
 		if d, ok := dues[ref]; ok {
 			if d.delivery == "" {
@@ -84,16 +87,46 @@ func (l *Loop) addDelivered(dues map[model.Ref]*due) {
 }
 
 // compareDues orders the roots a delivery asked for, or a lost one
-// named, first, so that a cycle reads them before the periodic reads,
-// then by ref.
+// named, first, so that a cycle reads them before the periodic reads;
+// then those another trigger has read GitHub, before the backstop and
+// the refreshes, so that the reserve defers these first; within each,
+// the GitHub reads owed longest first, then by ref.
 func compareDues(a, b *due) int {
-	if a.delivered() != b.delivered() {
-		if a.delivered() {
-			return -1
-		}
-		return 1
+	return cmp.Or(cmp.Compare(a.rank(), b.rank()), compareOwed(a.owed, b.owed), compareRefs(a.root.Ref(), b.root.Ref()))
+}
+
+// The ranks of compareDues.
+const (
+	rankDelivered = iota
+	rankTriggered
+	rankPeriodic
+)
+
+// rank is d's rank in a cycle's order: a delivery's read (asked for this
+// cycle, or owed since an earlier one), another trigger's, or a periodic
+// read.
+func (d *due) rank() int {
+	switch {
+	case d.delivered() || (d.github == githubFull && (d.trigger == triggerDelivery || d.trigger == triggerLost)):
+		return rankDelivered
+	case d.github == githubFull:
+		return rankTriggered
 	}
-	return compareRefs(a.root.Ref(), b.root.Ref())
+	return rankPeriodic
+}
+
+// compareOwed orders the earliest of two owed reads' starts first, and
+// a read owed before one that is not.
+func compareOwed(a, b *time.Time) int {
+	switch {
+	case a == nil && b == nil:
+		return 0
+	case a == nil:
+		return 1
+	case b == nil:
+		return -1
+	}
+	return a.Compare(*b)
 }
 
 // delivered reports whether a delivery asked for d's read, or a lost one

@@ -213,7 +213,16 @@ coverage, a change reads them whole. A root whose task is done, whose
 pull requests are closed or merged and whose runs finished gets no
 backstop unless its GitHub coverage has a gap open; no backstop read is
 made while less than 20% of the rate limit's window is left, and a
-restart spreads the overdue backstop reads over the interval. A story
+restart spreads the overdue backstop reads over the interval. The reads
+a delivery, a run or a task change asks for stop at 10%: the rest are
+owed (kept in the root's state) and read in later cycles, the longest
+owed first, so a catch-up spreads over several windows. Once GitHub
+refuses a request for its rate limit, no GitHub request is made until
+the wait it asked for is over, and the roots whose read it refused
+retry spread over the hour that follows. A root whose read could not be
+saved (its story not assembled, or the store failing) is left unread
+for one cycle interval, twice as long after each failure in a row, at
+most 4 hours; the log says so once per error. A story
 whose records did not change writes none; its coverage still advances. Once a source of a root has been read
 successfully, a failed read leaves a gap, from that source's last
 successful read to its next, with the reason (`timeout`, `rate_limited`,
@@ -260,9 +269,10 @@ besides the Go runtime's and the process's, each source instance's last
 successful read (`sillage_source_last_success_timestamp_seconds`), failed
 reads by reason (`sillage_source_read_errors_total`) and read durations
 (`sillage_source_read_duration_seconds`), the records committed
-(`sillage_records_written_total`), store errors, cycles, roots, whether
+(`sillage_records_written_total`), store errors, cycles, roots, the roots backing off
+(`sillage_collector_roots_backing_off`), whether
 this process holds the lock, the roots' GitHub reads by what asked for
-them (`sillage_collector_github_reads_total`), the repositories a
+them, or deferred them (`sillage_collector_github_reads_total`), the repositories a
 root's branch was looked for in because none of its records named one
 (`sillage_collector_github_branch_searches_total`), the requests sent to
 GitHub and those answered 304 (`sillage_github_requests_total`,

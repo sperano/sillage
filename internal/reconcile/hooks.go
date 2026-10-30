@@ -88,11 +88,13 @@ func (l *Loop) hooksOn() bool {
 // cycle and then once every HookCheckInterval, and handles every attempt
 // sillage lost: it asks GitHub to send it again, or adds the roots it
 // names to dues, with a gap. A hook not known to send to sillage is
-// skipped. It returns the marks it advanced, by key.
+// skipped, and none is read while a GitHub rate limit is waited out. It
+// returns the marks it advanced, by key.
 func (l *Loop) checkHooks(ctx context.Context, dues map[model.Ref]*due) map[string]int64 {
 	marks := make(map[string]int64)
 	now := l.now()
-	if !l.hooksOn() || (!l.hooksChecked.IsZero() && now.Sub(l.hooksChecked) < l.cfg.HookCheckInterval) {
+	if !l.hooksOn() || l.githubPaused() ||
+		(!l.hooksChecked.IsZero() && now.Sub(l.hooksChecked) < l.cfg.HookCheckInterval) {
 		return marks
 	}
 	l.hooksChecked = now
@@ -125,6 +127,7 @@ func (l *Loop) ownHook(ctx context.Context, hook github.Hook, key string) bool {
 	})
 	if err != nil {
 		if ctx.Err() == nil {
+			l.noteGitHubError(err)
 			l.log.Warn("source read failed: the webhook's URL, its delivery log not read", "source",
 				model.SourceGitHub, "instance", l.ccfg.GitHubInstance, "hook", hook, "reason", reasonOf(err),
 				"error", err)
@@ -167,6 +170,7 @@ func (l *Loop) checkHook(ctx context.Context, hook github.Hook, key string, dues
 	})
 	if err != nil {
 		if ctx.Err() == nil {
+			l.noteGitHubError(err)
 			l.log.Warn("source read failed: the webhook's delivery log", "source", model.SourceGitHub,
 				"instance", l.ccfg.GitHubInstance, "hook", hook, "reason", reasonOf(err), "error", err)
 		}
