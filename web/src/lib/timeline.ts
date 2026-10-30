@@ -5,14 +5,16 @@ import { intervalAnchor, parseTime } from './time';
 
 /**
  * What can be selected on the timeline: an event, a run, a check, a review
- * wait or a run's phase. Events and runs use the ids correlation refs
- * carry, so a correlation's end can be selected; a check has no ref and
- * gets its pull request's key and id; a review wait, drawn only by the
- * graph, gets the key of the review request it starts at; a phase, its
- * run's key, its pod's UID and its span.
+ * wait, a run's phase or a webhook delivery. Events and runs use the ids
+ * correlation refs carry, so a correlation's end can be selected; a check
+ * has no ref and gets its pull request's key and id; a review wait, drawn
+ * only by the graph, gets the key of the review request it starts at; a
+ * phase, its run's key, its pod's UID and its span; a delivery, apart from
+ * the story and never in its list of items, its attempt's key
+ * (deliveries.ts).
  */
 export interface ItemRef {
-	kind: 'event' | 'run' | 'check' | 'review-wait' | 'phase';
+	kind: 'event' | 'run' | 'check' | 'review-wait' | 'phase' | 'delivery';
 	id: string;
 }
 

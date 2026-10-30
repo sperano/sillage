@@ -50,6 +50,9 @@
 			d="M 0 {-R - DIAMOND_GROW_PX} L {R + DIAMOND_GROW_PX} 0 L 0 {R + DIAMOND_GROW_PX} L {-R -
 				DIAMOND_GROW_PX} 0 Z"
 		/>
+	{:else if mark === 'delivery'}
+		<!-- A small hollow triangle pointing down: something arrived. -->
+		<path class="hollow" d="M {-R} {-R * 0.7} L {R} {-R * 0.7} L 0 {R * 0.9} Z" />
 	{:else if mark === 'pr-closed'}
 		<rect class="hollow" x={-R} y={-R} width={R * 2} height={R * 2} />
 		<path class="cross" d="M {-R} {-R} L {R} {R} M {R} {-R} L {-R} {R}" />
@@ -78,6 +81,9 @@
 	}
 	.run-exit {
 		--glyph: var(--color-fg);
+	}
+	.delivery {
+		--glyph: var(--color-muted);
 	}
 	.solid {
 		fill: var(--glyph);

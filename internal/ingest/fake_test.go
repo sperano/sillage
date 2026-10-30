@@ -56,6 +56,8 @@ func refs(roots []model.Root) []string {
 type fakeStore struct {
 	mu       sync.Mutex
 	attempts []model.Delivery
+	// named are the roots each attempt was recorded with, by its index.
+	named [][]model.Root
 	// prRoots are the stored roots of each pull request, by key string.
 	prRoots map[string][]model.Root
 	// readErr fails DeliveryAccepted and RootsOfPullRequest, recordErr
@@ -84,7 +86,7 @@ func (s *fakeStore) acceptedLocked(source model.Source, instance, id string) boo
 	return false
 }
 
-func (s *fakeStore) AcceptDelivery(_ context.Context, d model.Delivery, act func() error) error {
+func (s *fakeStore) AcceptDelivery(_ context.Context, d model.Delivery, roots []model.Root, act func() error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.recordErr != nil {
@@ -104,10 +106,11 @@ func (s *fakeStore) AcceptDelivery(_ context.Context, d model.Delivery, act func
 		return err
 	}
 	s.attempts = append(s.attempts, d)
+	s.named = append(s.named, roots)
 	return nil
 }
 
-func (s *fakeStore) RecordDelivery(_ context.Context, d model.Delivery) error {
+func (s *fakeStore) RecordDelivery(_ context.Context, d model.Delivery, roots []model.Root) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.recordErr != nil {
@@ -120,6 +123,7 @@ func (s *fakeStore) RecordDelivery(_ context.Context, d model.Delivery) error {
 		return err
 	}
 	s.attempts = append(s.attempts, d)
+	s.named = append(s.named, roots)
 	return nil
 }
 
@@ -140,6 +144,18 @@ func (s *fakeStore) recorded() []model.Delivery {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]model.Delivery(nil), s.attempts...)
+}
+
+// recordedRoots returns the refs of the roots each attempt was recorded
+// with, in the order recorded.
+func (s *fakeStore) recordedRoots() [][]string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([][]string, 0, len(s.named))
+	for _, roots := range s.named {
+		out = append(out, refs(roots))
+	}
+	return out
 }
 
 // fakeScheduler records the roots scheduled; full refuses them.

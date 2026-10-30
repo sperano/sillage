@@ -1,14 +1,17 @@
 <script lang="ts">
 	import type { Attachment } from 'svelte/attachments';
 	import { SvelteSet } from 'svelte/reactivity';
+	import type { Delivery } from '../decodeApi';
+	import { receivedTime } from '../deliveries';
 	import type { Story } from '../model';
 	import type { Selection } from '../selection.svelte';
 	import { layoutChart } from './chart';
 	import CoverageBand from './CoverageBand.svelte';
 	import { storySources } from './coverage';
+	import { DELIVERY_MARKS_MAX_SPAN_MS, deliveryRow } from './deliveries';
 	import { buildRows } from './lanes';
 	import { TITLE_X_PX } from './layout';
-	import { formatClock, type Zone } from './time';
+	import { formatClock, formatDuration, type Zone } from './time';
 	import TimelineAxis from './TimelineAxis.svelte';
 	import TimelineRow from './TimelineRow.svelte';
 	import TimelineToolbar from './TimelineToolbar.svelte';
@@ -18,7 +21,8 @@
 		ZOOM_STEP,
 		pan,
 		scaleOf,
-		storyDomain,
+		storyTimes,
+		windowAround,
 		zoom,
 		type TimeWindow
 	} from './view';
@@ -29,9 +33,11 @@
 		selection: Selection;
 		/** The zone of every time on the timeline. */
 		zone?: Zone;
+		/** The webhook deliveries sillage received for the story's root, on the Sillage lane. */
+		deliveries?: readonly Delivery[];
 	}
 
-	let { story, selection, zone = $bindable('local') }: Props = $props();
+	let { story, selection, zone = $bindable('local'), deliveries = [] }: Props = $props();
 
 	const LABEL_COLUMN_PX = 250;
 	const RIGHT_PAD_PX = 24;
@@ -51,11 +57,18 @@
 	const FILL_TILE_PX = 6;
 
 	const ids = $props.id();
-	const rows = $derived(buildRows(story));
 	const phased = $derived(story.runs.some((r) => r.phases !== undefined));
-	const domain = $derived(storyDomain(story));
+	const domain = $derived(
+		windowAround([...storyTimes(story), ...deliveries.map(receivedTime).filter(Number.isFinite)])
+	);
 	// Showing another story shows the whole of it again.
 	let view = $derived(domain);
+	const span = $derived(view.end - view.start);
+	const domainSpan = $derived(domain.end - domain.start);
+	// The deliveries' row draws them only in a narrow enough window.
+	const storyRows = $derived(buildRows(story));
+	const sillageRow = $derived(deliveryRow(deliveries, span));
+	const rows = $derived(sillageRow ? [...storyRows, sillageRow] : storyRows);
 	let width = $state(DEFAULT_WIDTH_PX);
 	const expanded = new SvelteSet<string>();
 	const scale = $derived(
@@ -83,8 +96,6 @@
 			timeText: (t) => formatClock(t, zone)
 		})
 	);
-	const span = $derived(view.end - view.start);
-	const domainSpan = $derived(domain.end - domain.start);
 
 	function zoomBy(factor: number, center = (view.start + view.end) / 2) {
 		view = zoom(view, factor, center, domain);
@@ -236,6 +247,14 @@
 		recorded; chevron: not ended at the last read; dashed stub: one end unknown. Hatched: no records
 		known. Ctrl + wheel zooms, Shift + wheel or drag pans.
 	</p>
+	{#if deliveries.length > 0}
+		<p class="legend" data-delivery-legend>
+			Sillage lane (triangle): a webhook delivery sillage recorded receiving, drawn when the window
+			spans {formatDuration(DELIVERY_MARKS_MAX_SPAN_MS)} or less. It is not evidence that Kelos received
+			its own delivery, nor of what caused a change; a request sillage refused, or answered while not
+			collecting, was not recorded, so a stretch without one does not mean none was sent.
+		</p>
+	{/if}
 	{#if phased}
 		<p class="legend" data-phase-legend>
 			Under a run: the phases its pod reported. Dashed segment: both ends recorded; tick: one end

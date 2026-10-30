@@ -69,7 +69,7 @@ func (*acceptingStore) DeliveryAccepted(context.Context, model.Source, string, s
 	return false, nil
 }
 
-func (s *acceptingStore) AcceptDelivery(_ context.Context, d model.Delivery, act func() error) error {
+func (s *acceptingStore) AcceptDelivery(_ context.Context, d model.Delivery, _ []model.Root, act func() error) error {
 	if err := act(); err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (s *acceptingStore) AcceptDelivery(_ context.Context, d model.Delivery, act
 	return nil
 }
 
-func (s *acceptingStore) RecordDelivery(_ context.Context, d model.Delivery) error {
+func (s *acceptingStore) RecordDelivery(_ context.Context, d model.Delivery, _ []model.Root) error {
 	s.recorded = append(s.recorded, d)
 	return nil
 }

@@ -2,6 +2,8 @@
 // a run's exit, a check's success, a pull request closed and one merged are
 // never drawn as one "done".
 
+import type { Delivery } from '../decodeApi';
+import { deliveryLabel, receivedTime } from '../deliveries';
 import { eventTime, type CheckConclusion, type Event, type Outcome } from '../model';
 import { formatFull, type Zone } from './time';
 
@@ -17,7 +19,8 @@ export type MarkKind =
 	| 'check-success'
 	| 'check-end'
 	| 'pr-merged'
-	| 'pr-closed';
+	| 'pr-closed'
+	| 'delivery';
 
 /** Half a glyph's size. */
 export const GLYPH_R_PX = 5;
@@ -111,6 +114,11 @@ export function actorLabel(e: Event): string {
 export function eventName(e: Event, zone: Zone): string {
 	const observed = e.sourceTime === undefined ? ', observed time' : '';
 	return `${eventLabel(e)}, ${actorLabel(e)}, ${formatFull(eventTime(e), zone)}${observed}`;
+}
+
+/** Everything a delivery's mark says: what sillage received, what it did with it, and when. */
+export function deliveryName(d: Delivery, zone: Zone): string {
+	return `Webhook delivery received by sillage: ${deliveryLabel(d)}, ${d.outcome}, ${formatFull(receivedTime(d), zone)}`;
 }
 
 /** The text of a run's exit: how it ended. */

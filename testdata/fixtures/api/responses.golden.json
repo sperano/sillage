@@ -43,6 +43,89 @@
       }
     ]
   },
+  "/api/v1/deliveries/task/vikunja.example.com/101": {
+    "root": {
+      "task": {
+        "instance": "vikunja.example.com",
+        "id": 101
+      }
+    },
+    "deliveries": []
+  },
+  "/api/v1/deliveries/task/vikunja.example.com/102": {
+    "root": {
+      "task": {
+        "instance": "vikunja.example.com",
+        "id": 102
+      }
+    },
+    "deliveries": [
+      {
+        "source": "github",
+        "instance": "github.example.com",
+        "id": "00000000-0000-4000-8000-00000000d001",
+        "event": "pull_request",
+        "receivedAt": "2026-03-03T18:24:03Z",
+        "outcome": "accepted",
+        "nextRead": "2026-03-03T18:25:00Z"
+      },
+      {
+        "source": "github",
+        "instance": "github.example.com",
+        "id": "00000000-0000-4000-8000-00000000d002",
+        "event": "pull_request_review",
+        "receivedAt": "2026-03-03T19:10:01Z",
+        "outcome": "accepted",
+        "nextRead": "2026-03-03T19:11:00Z"
+      },
+      {
+        "source": "github",
+        "instance": "github.example.com",
+        "id": "00000000-0000-4000-8000-00000000d003",
+        "event": "pull_request",
+        "receivedAt": "2026-03-03T19:12:01Z",
+        "outcome": "failed",
+        "detail": "the collector's queue of reads is full: its next periodic read catches up",
+        "nextRead": "2026-03-03T19:13:00Z"
+      },
+      {
+        "source": "github",
+        "instance": "github.example.com",
+        "id": "00000000-0000-4000-8000-00000000d003",
+        "event": "pull_request",
+        "receivedAt": "2026-03-03T19:14:30Z",
+        "outcome": "accepted",
+        "nextRead": "2026-03-03T19:15:00Z"
+      },
+      {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "id": "5e0c0de0000000000000000000000000000000000000000000000000000d0005",
+        "event": "task.updated",
+        "receivedAt": "2026-03-03T19:25:04Z",
+        "outcome": "accepted",
+        "nextRead": "2026-03-03T19:30:00Z"
+      },
+      {
+        "source": "github",
+        "instance": "github.example.com",
+        "id": "00000000-0000-4000-8000-00000000d002",
+        "event": "pull_request_review",
+        "receivedAt": "2026-03-03T19:40:00Z",
+        "outcome": "ignored",
+        "detail": "duplicate: an earlier attempt of this delivery was accepted",
+        "nextRead": "2026-03-03T20:00:00Z"
+      },
+      {
+        "source": "vikunja",
+        "instance": "vikunja.example.com",
+        "id": "5e0c0de0000000000000000000000000000000000000000000000000000d0007",
+        "event": "task.comment.created",
+        "receivedAt": "2026-03-03T20:00:30Z",
+        "outcome": "accepted"
+      }
+    ]
+  },
   "/api/v1/resolve?url=https%3A%2F%2Fgithub.example.com%2Fexample-org%2Fwidgets%2Fpull%2F7": {
     "kind": "github-pull-request",
     "roots": [

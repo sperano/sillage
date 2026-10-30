@@ -18,12 +18,12 @@ func TestReceipts(t *testing.T) {
 		Source: model.SourceGitHub, Instance: cfg.GitHubInstance, ID: "guid-accepted", Event: "pull_request",
 		ReceivedAt: time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC), Outcome: model.DeliveryAccepted,
 	}
-	if err := st.AcceptDelivery(t.Context(), d, func() error { return nil }); err != nil {
+	if err := st.AcceptDelivery(t.Context(), d, nil, func() error { return nil }); err != nil {
 		t.Fatal(err)
 	}
 	failed := d
 	failed.ID, failed.Outcome, failed.Detail = "guid-failed", model.DeliveryFailed, "the queue is full"
-	if err := st.RecordDelivery(t.Context(), failed); err != nil {
+	if err := st.RecordDelivery(t.Context(), failed, nil); err != nil {
 		t.Fatal(err)
 	}
 	for guid, want := range map[string]bool{"guid-accepted": true, "guid-failed": false, "guid-unseen": false} {

@@ -55,6 +55,14 @@ describe('requests', () => {
 		await expect(createApi({ fetch: fetchFn }).story(other)).rejects.toThrow(InvalidResponseError);
 	});
 
+	test('deliveries of another root are an invalid response', async () => {
+		const fetchFn = answering(() => json({ root: OTHER_TASK, deliveries: [] }));
+		await expect(createApi({ fetch: fetchFn }).deliveries(TASK)).rejects.toThrow(
+			InvalidResponseError
+		);
+		expect(requested(fetchFn)).toEqual([`${API_BASE}/deliveries/task/vikunja.example.com/102`]);
+	});
+
 	test('search and resolve encode their parameter', async () => {
 		const searchFetch = answering(() =>
 			json({
@@ -249,6 +257,8 @@ describe('the Go responses', () => {
 			[
 				`${API_BASE}/config`,
 				`${API_BASE}/coverage`,
+				`${API_BASE}/deliveries/task/vikunja.example.com/101`,
+				`${API_BASE}/deliveries/task/vikunja.example.com/102`,
 				`${API_BASE}/resolve?${new URLSearchParams({ url: PULL_LINK })}`,
 				`${API_BASE}/search?q=nothing-matches`,
 				`${API_BASE}/search?q=retry`
@@ -291,6 +301,24 @@ describe('the Go responses', () => {
 		expect(sources.every((s) => s.newestRead !== undefined && s.oldestRead !== undefined)).toBe(
 			true
 		);
+	});
+
+	test("a task's deliveries decode, oldest first, and none is an empty list", async () => {
+		const api = createApi({ fetch: answeringGolden() });
+		const { deliveries, truncated } = await api.deliveries(TASK);
+		expect(truncated).toBeUndefined();
+		expect(deliveries.map((d) => [d.source, d.event, d.outcome])).toEqual([
+			['github', 'pull_request', 'accepted'],
+			['github', 'pull_request_review', 'accepted'],
+			['github', 'pull_request', 'failed'],
+			['github', 'pull_request', 'accepted'],
+			['vikunja', 'task.updated', 'accepted'],
+			['github', 'pull_request_review', 'ignored'],
+			['vikunja', 'task.comment.created', 'accepted']
+		]);
+		expect(deliveries.at(-1)?.nextRead).toBeUndefined();
+		const none = await api.deliveries({ task: { instance: 'vikunja.example.com', id: 101 } });
+		expect(none.deliveries).toEqual([]);
 	});
 
 	test('the configuration decodes, the console keyed by cluster', async () => {

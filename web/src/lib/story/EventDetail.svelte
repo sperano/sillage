@@ -1,5 +1,8 @@
 <script lang="ts">
-	import type { Event, Story } from '../model';
+	import type { Deliveries } from '../decodeApi';
+	import { isStateChange } from '../deliveries';
+	import type { Load } from '../load.svelte';
+	import { eventTime, type Event, type Story } from '../model';
 	import type { Selection } from '../selection.svelte';
 	import type { TimelineItem } from '../timeline';
 	import { eventRef } from '../timeline';
@@ -8,6 +11,7 @@
 	import { attributionUncertain } from '../attribution';
 	import Correlations from './Correlations.svelte';
 	import EvidenceList from './EvidenceList.svelte';
+	import NearbyDeliveries from './NearbyDeliveries.svelte';
 	import SourceLinkView from './SourceLinkView.svelte';
 	import Time from './Time.svelte';
 
@@ -17,7 +21,8 @@
 		selection,
 		event,
 		links,
-		timeZone
+		timeZone,
+		deliveries = { state: 'idle' }
 	}: {
 		story: Story;
 		items: TimelineItem[];
@@ -25,6 +30,8 @@
 		event: Event;
 		links: LinkConfig;
 		timeZone: string;
+		/** The root's webhook deliveries, listed around a state change. */
+		deliveries?: Load<Deliveries>;
 	} = $props();
 
 	const uncertain = $derived(attributionUncertain(story, event));
@@ -81,3 +88,6 @@
 <h4>Evidence</h4>
 <EvidenceList evidence={[event.evidence]} />
 <Correlations {story} {items} {selection} subject={eventRef(event)} />
+{#if isStateChange(event)}
+	<NearbyDeliveries {deliveries} at={eventTime(event)} {selection} {timeZone} />
+{/if}

@@ -3,7 +3,7 @@
 	import EventGlyph from './EventGlyph.svelte';
 	import { activation } from './keys';
 	import { LINE_PX, type Point } from './layout';
-	import { eventName, FOCUS_RING_R_PX } from './marks';
+	import { FOCUS_RING_R_PX } from './marks';
 	import { formatClock, formatFull, type Zone } from './time';
 
 	interface Props {
@@ -30,8 +30,11 @@
 
 	const first = $derived(members[0]!);
 	const last = $derived(members[members.length - 1]!);
+	const noun = $derived(
+		members.every((m) => m.selected.kind === 'delivery') ? 'deliveries' : 'events'
+	);
 	const name = $derived(
-		`${members.length} events from ${formatFull(first.at, zone)} to ${formatFull(last.at, zone)}`
+		`${members.length} ${noun} from ${formatFull(first.at, zone)} to ${formatFull(last.at, zone)}`
 	);
 	const toggle = () => ontoggle(id);
 </script>
@@ -56,14 +59,15 @@
 			{@const select = () => selection.select(m.selected)}
 			{@const selected = selection.isSelected(m.selected)}
 			{@const lineY = listY + i * LINE_PX}
-			{@const name = eventName(m.event, zone)}
+			{@const name = m.name(zone)}
 			<g
 				class="member"
 				role="button"
 				tabindex="0"
 				aria-label={name}
 				aria-pressed={selected}
-				data-event={m.key}
+				data-event={m.selected.kind === 'event' ? m.key : undefined}
+				data-delivery={m.selected.kind === 'delivery' ? m.key : undefined}
 				onclick={select}
 				{...activation(select)}
 			>

@@ -56,3 +56,30 @@ func TestDeliveryOutcomeValid(t *testing.T) {
 		t.Error(`"".Valid() = true`)
 	}
 }
+
+func TestRootDeliveryValidate(t *testing.T) {
+	received := testDelivery().ReceivedAt
+	before, after := received.Add(-time.Second), received.Add(time.Minute)
+	tests := []struct {
+		name string
+		d    RootDelivery
+		want string
+	}{
+		{"not read yet", RootDelivery{Delivery: testDelivery()}, ""},
+		{"read when received", RootDelivery{Delivery: testDelivery(), NextRead: &received}, ""},
+		{"read after", RootDelivery{Delivery: testDelivery(), NextRead: &after}, ""},
+		{"read before", RootDelivery{Delivery: testDelivery(), NextRead: &before}, "before it was received"},
+		{"invalid delivery", RootDelivery{Delivery: Delivery{ID: "d"}}, "known source"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.d.Validate()
+			switch {
+			case tt.want == "" && err != nil:
+				t.Errorf("Validate() = %v, want nil", err)
+			case tt.want != "" && (err == nil || !strings.Contains(err.Error(), tt.want)):
+				t.Errorf("Validate() = %v, want an error containing %q", err, tt.want)
+			}
+		})
+	}
+}
