@@ -192,7 +192,7 @@ credential:
 | `SILLAGE_GITHUB_APP_ID`, `SILLAGE_GITHUB_APP_INSTALLATION_ID`, `SILLAGE_GITHUB_APP_PRIVATE_KEY` | The recommended GitHub credential: a read-only GitHub App installation. The key is the PEM itself (PKCS#1 `RSA PRIVATE KEY`, as GitHub generates it, or PKCS#8); sillage signs a short-lived JWT with it and exchanges it for an installation token, renewed before it expires. The installation has its own rate limit and, unlike a fine-grained token, Checks read. Grant it Contents, Pull requests, Issues, Checks and Metadata, all read-only; with `SILLAGE_GITHUB_HOOKS`, also Webhooks, read and write (write only to redeliver: read alone, lost deliveries are read again instead). |
 | `SILLAGE_GITHUB_TOKEN`, `SILLAGE_GITHUB_API_URL` | A read-only personal access token instead of the App (set exactly one of the two credentials; for tests and development: a fine-grained token cannot read check runs of private repositories and shares its owner's rate limit), and the API (default `https://api.github.com`). |
 | `SILLAGE_GITHUB_ANNOUNCERS` | GitHub logins whose pull request comments are parsed as start announcements, comma-separated. |
-| `SILLAGE_WORKSPACES` | `<workspace>=<owner>/<repository>` pairs, comma-separated: where a run's workspace (or Vikunja project) works. Without a match and without `-repo`, GitHub is not read. |
+| `SILLAGE_WORKSPACES` | `<workspace>=<owner>/<repository>` pairs, comma-separated: where a run's workspace (or Vikunja project) works. A task's branch is read in the repository its runs' labels map to, a pull request link in its comments names, the project of an announced Task name (`vikunja-<project>-…`) maps to, or a stored pull request of it was read from; when none names one, it is looked for in every repository listed here. Unset, and without `-repo` or such a record, GitHub is not read. |
 
 ## Collect into the store
 
@@ -262,7 +262,9 @@ reads by reason (`sillage_source_read_errors_total`) and read durations
 (`sillage_source_read_duration_seconds`), the records committed
 (`sillage_records_written_total`), store errors, cycles, roots, whether
 this process holds the lock, the roots' GitHub reads by what asked for
-them (`sillage_collector_github_reads_total`), the requests sent to
+them (`sillage_collector_github_reads_total`), the repositories a
+root's branch was looked for in because none of its records named one
+(`sillage_collector_github_branch_searches_total`), the requests sent to
 GitHub and those answered 304 (`sillage_github_requests_total`,
 `sillage_github_not_modified_total`), the rate limit left
 (`sillage_github_rate_limit_remaining`), and the phase-marker requests by outcome

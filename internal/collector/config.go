@@ -23,8 +23,10 @@ const (
 	//
 	// A Vikunja project's runs carry its project name, not its workspace's,
 	// so a project named differently from its workspace needs a pair of
-	// its own. Unset, no repository is known and GitHub is not read unless
-	// one is asked for.
+	// its own; so does the project an announced Task's name carries. A
+	// story none of whose records names a repository has its branch looked
+	// for in every repository listed. Unset, no repository is known and
+	// GitHub is not read unless one is asked for or a record links one.
 	EnvWorkspaces = "SILLAGE_WORKSPACES"
 	// EnvVikunjaAgentUsers names the environment variable listing the
 	// Vikunja usernames of the agents' accounts, comma-separated: their

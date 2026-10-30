@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -150,8 +151,22 @@ func TestFreshness(t *testing.T) {
 		}
 	}
 	kelos := byKey["kelos/"+fixtureCluster]
-	if kelos.Roots != 7 || kelos.NeverRead != 1 || kelos.NewestRead == nil || kelos.OldestRead == nil ||
+	roots := kelosCoveredFixtures(t) + 1
+	if kelos.Roots != roots || kelos.NeverRead != 1 || kelos.NewestRead == nil || kelos.OldestRead == nil ||
 		kelos.OldestRead.After(*kelos.NewestRead) {
-		t.Errorf("kelos = %+v, want 7 roots, 1 never read, oldest read not after newest", kelos)
+		t.Errorf("kelos = %+v, want %d roots, 1 never read, oldest read not after newest", kelos, roots)
 	}
+}
+
+// kelosCoveredFixtures counts the fixture stories with a Kelos coverage.
+func kelosCoveredFixtures(t *testing.T) int {
+	t.Helper()
+	n := 0
+	for _, name := range fixtureNames(t) {
+		f, _ := loadFixture(t, name)
+		if slices.ContainsFunc(f.Records.Coverage, func(c model.Coverage) bool { return c.Source == model.SourceKelos }) {
+			n++
+		}
+	}
+	return n
 }

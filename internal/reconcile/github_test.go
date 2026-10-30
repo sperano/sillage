@@ -3,6 +3,7 @@ package reconcile
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"strconv"
 	"strings"
 	"testing"
@@ -36,6 +37,8 @@ type conditionalGitHub struct {
 	checkErr   error
 	budget     github.Budget
 	checks     int
+	// failing answers each repository's read with its error.
+	failing map[string]error
 	// asked are the validators each Unchanged was asked about.
 	asked []github.Validators
 }
@@ -45,6 +48,9 @@ func (g *conditionalGitHub) FetchBranchValidated(ctx context.Context, base githu
 	snaps, err := g.FetchBranch(ctx, base, head)
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	if err := g.failing[base.String()]; err != nil {
+		return nil, nil, err
+	}
 	return snaps, g.validators, err
 }
 
@@ -258,6 +264,29 @@ func TestBackstopWithoutValidatorsReadsWhole(t *testing.T) {
 	plain.loop.cycle(t.Context())
 	if plain.github.fetches != 2 {
 		t.Errorf("GitHub read %d times through a plain source, want twice", plain.github.fetches)
+	}
+}
+
+// A root whose read went on past a repository GitHub refused keeps no
+// validators: the backstop must read it whole, not take the others' lists
+// for all of its branch's.
+func TestRefusedRepositoryLeavesNoValidators(t *testing.T) {
+	h, gh := githubHarness(t, rarely)
+	private := github.Repository{Owner: "acme", Name: "private"}
+	gh.failing = map[string]error{private.String(): &github.StatusError{Path: "/repos/acme/private/pulls",
+		Code: http.StatusNotFound, Status: "404 Not Found"}}
+	g := &rootGitHub{
+		meteredGitHub: meteredGitHub{src: gh, meter: h.loop.meterFor(model.SourceGitHub, h.ccfg.GitHubInstance)},
+		cond:          gh, tags: make(github.Validators),
+	}
+	if _, err := g.FetchBranch(t.Context(), testRepo, github.Branch{Repository: testRepo, Name: testBranch}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.FetchBranch(t.Context(), private, github.Branch{Repository: private, Name: testBranch}); err == nil {
+		t.Fatal("the refused repository's read succeeded")
+	}
+	if v := g.validators(); v != nil {
+		t.Errorf("validators = %v, want none", v)
 	}
 }
 

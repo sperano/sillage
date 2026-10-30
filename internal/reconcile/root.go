@@ -28,6 +28,7 @@ func (l *Loop) collectRoot(ctx context.Context, cr cycleRun, d *due) (committed,
 	if !ok || ctx.Err() != nil {
 		return false, false
 	}
+	l.countSearches(res.Searches)
 	next := prev.clone()
 	next.Read = at
 	l.loseDelivery(next, d)

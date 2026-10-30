@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"regexp"
 	"time"
 
 	"github.com/sperano/sillage/internal/model"
@@ -48,6 +49,8 @@ type Collector struct {
 	now func() time.Time
 	// origins keeps and recalls the Tasks' origins; nil without one.
 	origins OriginMemory
+	// prLink matches a link to a pull request on the GitHub instance.
+	prLink *regexp.Regexp
 }
 
 // New returns a collector reading src as cfg describes. A source cfg.Off
@@ -57,7 +60,7 @@ func New(cfg Config, src Sources, opts ...Option) (*Collector, error) {
 	if err := cfg.validate(off); err != nil {
 		return nil, err
 	}
-	c := &Collector{cfg: cfg, src: src, off: off, now: time.Now}
+	c := &Collector{cfg: cfg, src: src, off: off, now: time.Now, prLink: prLinkPattern(cfg.GitHubInstance)}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -138,6 +141,10 @@ type Result struct {
 	Story    model.Story
 	Failures []Failure
 	Refusals []Refusal
+	// Searches counts the repositories whose pull requests of the story's
+	// branch were listed because none of its records named a repository:
+	// one listing each, of every repository EnvWorkspaces maps to.
+	Searches int
 }
 
 // Collect reads root's records from every source and assembles its story.
@@ -165,5 +172,5 @@ func (c *Collector) collect(ctx context.Context, root model.Root, kept Kept, rep
 	if err != nil {
 		return Result{}, fmt.Errorf("collector: the assembled records are invalid (a collector bug): %w", err)
 	}
-	return Result{Story: story, Failures: a.failures, Refusals: a.refusals}, nil
+	return Result{Story: story, Failures: a.failures, Refusals: a.refusals, Searches: a.searches}, nil
 }

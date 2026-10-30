@@ -254,6 +254,9 @@ func (g *rootGitHub) FetchBranch(ctx context.Context, base github.Repository, he
 	return timed(ctx, g.meter, func(ctx context.Context) ([]github.Snapshot, error) {
 		snaps, v, err := g.cond.FetchBranchValidated(ctx, base, head)
 		if err != nil {
+			// The collector can go on without this repository: the
+			// backstop must not then take the others' lists for all.
+			g.unvalidated = true
 			return nil, err
 		}
 		if v == nil {
@@ -274,16 +277,25 @@ func (g *rootGitHub) validators() github.Validators {
 }
 
 // githubCycle is what one cycle asked of GitHub: its roots' GitHub sides
-// by kind, and the client's usage when it started.
+// by kind, the repositories their branches were searched for in, and the
+// client's usage when it started.
 type githubCycle struct {
-	reads map[string]int
-	start github.Usage
+	reads    map[string]int
+	searches int
+	start    github.Usage
 }
 
 // countGitHub counts one root's GitHub side, of kind.
 func (l *Loop) countGitHub(kind string) {
 	l.metrics.githubReads.WithLabelValues(kind).Inc()
 	l.github.reads[kind]++
+}
+
+// countSearches counts the repositories one root's read looked for its
+// branch in, as no record of the root named one.
+func (l *Loop) countSearches(n int) {
+	l.metrics.githubSearches.Add(float64(n))
+	l.github.searches += n
 }
 
 // startGitHubCycle starts counting a cycle's GitHub reads and requests.
@@ -307,7 +319,7 @@ func (l *Loop) endGitHubCycle() slog.Attr {
 			l.metrics.githubRemaining.Set(float64(u.Budget.Remaining))
 		}
 	}
-	args := []any{"requests", requests, "notModified", notModified}
+	args := []any{"requests", requests, "notModified", notModified, "searches", l.github.searches}
 	for _, kind := range githubTriggers {
 		args = append(args, kind, l.github.reads[kind])
 	}

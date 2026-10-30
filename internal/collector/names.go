@@ -2,9 +2,12 @@ package collector
 
 import (
 	"regexp"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/source/github"
 )
 
 // The Kelos Task names the Hollingsworth spawners give, as patterns. A
@@ -96,4 +99,45 @@ func roleOfName(name string) model.RunRole {
 func parseID(s string) (int64, bool) {
 	id, err := strconv.ParseInt(s, 10, 64)
 	return id, err == nil
+}
+
+// The rest of a task's Task name after vikunja-[discuss-]<project>- and
+// after vikunja-fu-<project>-, its task id captured.
+var (
+	taskRunRest      = regexp.MustCompile(`^` + k8sLabelPattern + `-(` + idPattern + `)$`)
+	taskFollowUpRest = regexp.MustCompile(`^(` + idPattern + `)-c` + idPattern + retrySuffix + `$`)
+)
+
+// projectsOfName returns the names among projects that a Task name of
+// task id names as its project by the task and comment spawners'
+// conventions, sorted. A project name may hold dashes, so several can
+// match.
+func projectsOfName(name string, id int64, projects map[string]github.Repository) []string {
+	var out []string
+	for p := range projects {
+		if nameOfProject(name, p, id) {
+			out = append(out, p)
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// nameOfProject reports whether name is the name of a Task of task id in
+// project p.
+func nameOfProject(name, p string, id int64) bool {
+	for prefix, rest := range map[string]*regexp.Regexp{
+		"vikunja-": taskRunRest, "vikunja-discuss-": taskRunRest, "vikunja-fu-": taskFollowUpRest,
+	} {
+		tail, ok := strings.CutPrefix(name, prefix+p+"-")
+		if !ok {
+			continue
+		}
+		if m := rest.FindStringSubmatch(tail); m != nil {
+			if n, ok := parseID(m[1]); ok && n == id {
+				return true
+			}
+		}
+	}
+	return false
 }
