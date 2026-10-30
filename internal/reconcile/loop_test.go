@@ -211,6 +211,7 @@ func TestFailedCommitIsReadAgain(t *testing.T) {
 	h.store.setCommitErr(errors.New("fabricated database outage"))
 	h.loop.cycle(t.Context())
 	h.store.setCommitErr(nil)
+	endBackoff(h)
 	h.loop.cycle(t.Context())
 	if c := h.store.lastCommit(t); written(c) == 0 {
 		t.Error("after a failed commit, the next read wrote nothing: its records are lost")

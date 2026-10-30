@@ -44,6 +44,12 @@ type Loop struct {
 	// unsaved are the roots whose state in roots has gaps the store does
 	// not hold yet: their commit failed.
 	unsaved map[model.Ref]bool
+	// backoffs are the roots whose last read could not be saved, left
+	// unread for a while.
+	backoffs map[model.Ref]*backoff
+	// githubResume is when the wait a GitHub rate limit asked for is over:
+	// until then, no GitHub request is made.
+	githubResume time.Time
 	// hookMarks are the hooks' marks the store holds, by key, and
 	// hooksChecked when the cycle that last read their logs started.
 	hookMarks    map[string]int64
@@ -167,6 +173,8 @@ func (l *Loop) load(ctx context.Context) error {
 		return err
 	}
 	l.roots, l.marks, l.unsaved = make(map[model.Ref]*rootState), make(map[int64]time.Time), make(map[model.Ref]bool)
+	l.backoffs = make(map[model.Ref]*backoff)
+	l.metrics.backoffRoots.Set(0)
 	l.hookMarks, l.hooksChecked = make(map[string]int64), time.Time{}
 	var lastCycle time.Time
 	if data, ok := cps[heartbeatKey(l.ccfg.Kelos.Cluster)]; ok {

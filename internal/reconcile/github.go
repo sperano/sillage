@@ -64,14 +64,9 @@ var githubTriggers = []string{
 	triggerDelivery, triggerLost, triggerRun, triggerTask, triggerBackstop, triggerUnchanged, triggerDeferred,
 }
 
-// githubReserve is the share of GitHub's rate limit the backstop leaves
-// to the reads deliveries, runs and task changes ask for, and to the
-// other clients of the same token: below it, no backstop read is made.
-const githubReserve = 0.2
-
 // readGitHub has d read its root's GitHub side whole, for trigger.
 func (d *due) readGitHub(trigger string) {
-	d.github, d.trigger, d.backstopOnly = githubFull, trigger, false
+	d.github, d.trigger, d.githubOnly = githubFull, trigger, false
 }
 
 // spread returns a random duration in [0, d): a restart's overdue
@@ -90,7 +85,7 @@ func (l *Loop) backstopDue(st *rootState) bool {
 
 // scheduleBackstop sets when the backstop next reads st's root: a backstop
 // interval after its last GitHub read, or a refresh interval after a
-// failed one.
+// failed one; one a rate limit failed, retryAfterRateLimit reschedules.
 func (l *Loop) scheduleBackstop(st *rootState) {
 	if st.GitHubRead == nil {
 		st.backstop = time.Time{}
@@ -129,19 +124,6 @@ func (l *Loop) checkable(st *rootState) bool {
 	return l.conditional != nil && len(st.ETags) > 0 && st.githubGapOpen(l.ccfg.GitHubInstance)
 }
 
-// backstopAllowed reports whether the rate limit's window leaves more
-// than its reserve. An unknown window, or one past its reset, allows.
-func (l *Loop) backstopAllowed() bool {
-	if l.conditional == nil {
-		return true
-	}
-	b := l.conditional.Usage().Budget
-	if b.Limit <= 0 || !l.now().Before(b.Reset) {
-		return true
-	}
-	return float64(b.Remaining) >= githubReserve*float64(b.Limit)
-}
-
 // githubPlan is how one root's read reads its GitHub side, as decided
 // before the read.
 type githubPlan struct {
@@ -152,14 +134,18 @@ type githubPlan struct {
 	checked   bool
 	unchanged bool
 	checkErr  error
+	// deferred is the trigger of a read the rate limit deferred; empty
+	// when none was.
+	deferred string
 	// gh is the root's GitHub source, which keeps the read's validators.
 	gh *rootGitHub
 }
 
 // planGitHub decides how d's read reads GitHub, asking it whether the
-// lists changed for the backstop. It reports false when the root is not
-// to be read at all: due for the backstop alone, which the reserve holds
-// back.
+// lists changed for the backstop. A rate limit being waited out, or a
+// window below its reserve, defers the read: a trigger's is then owed,
+// and the backstop's stays due. It reports false when the root is not to
+// be read at all: due for its GitHub side alone, which is deferred.
 func (l *Loop) planGitHub(ctx context.Context, d *due, prev *rootState) (githubPlan, bool) {
 	p := githubPlan{gh: &rootGitHub{
 		meteredGitHub: meteredGitHub{src: l.src.GitHub, meter: l.meterFor(model.SourceGitHub, l.ccfg.GitHubInstance)},
@@ -172,12 +158,17 @@ func (l *Loop) planGitHub(ctx context.Context, d *due, prev *rootState) (githubP
 	case githubKept:
 		p.kept = true
 	case githubFull:
+		if !l.githubAllowed(githubTriggerReserve) {
+			l.countGitHub(triggerDeferred)
+			p.kept, p.deferred = true, d.trigger
+			return p, !d.githubOnly
+		}
 		l.countGitHub(d.trigger)
 	case githubBackstop:
-		if !l.backstopAllowed() {
+		if !l.githubAllowed(githubReserve) {
 			l.countGitHub(triggerDeferred)
 			p.kept = true
-			return p, !d.backstopOnly
+			return p, !d.githubOnly
 		}
 		l.checkBackstop(ctx, &p, prev)
 	}
@@ -209,30 +200,42 @@ func (l *Loop) checkBackstop(ctx context.Context, p *githubPlan, prev *rootState
 
 // accountGitHub records on next what its read did with GitHub, at at,
 // and reports whether it failed; a failure of the collector's own read
-// is account's. It schedules the next backstop read.
-func (l *Loop) accountGitHub(next *rootState, p githubPlan, failures map[model.Source]bool, at time.Time) bool {
-	if l.src.GitHub == nil || (p.kept && !p.checked) {
+// is account's. A deferred read is owed; a read made clears what was. It
+// schedules the next backstop read: after a rate limit, within the window
+// that follows its pause.
+func (l *Loop) accountGitHub(next *rootState, p githubPlan, failures map[model.Source]error, at time.Time) bool {
+	if l.src.GitHub == nil {
+		return false
+	}
+	if p.deferred != "" {
+		next.owe(p.deferred, at)
+		return false
+	}
+	if p.kept && !p.checked {
 		return false
 	}
 	cov := model.Coverage{Source: model.SourceGitHub, Instance: l.ccfg.GitHubInstance}
-	failed := false
+	var err error
 	switch {
 	case p.checkErr != nil:
+		err = p.checkErr
 		l.log.Warn("source read failed", "root", next.Root.Ref(), "source", model.SourceGitHub,
-			"instance", cov.Instance, "reason", reasonOf(p.checkErr), "error", p.checkErr)
-		next.source(cov).fail(failureReason(model.SourceGitHub, p.checkErr))
-		failed = true
+			"instance", cov.Instance, "reason", reasonOf(err), "error", err)
+		next.source(cov).fail(failureReason(model.SourceGitHub, err))
 	case p.unchanged:
 		next.source(cov).unchanged(at)
 	default:
-		failed = failures[model.SourceGitHub]
-		if !failed {
+		err = failures[model.SourceGitHub]
+		if err == nil {
 			next.ETags = p.gh.validators()
 		}
 	}
-	next.GitHubRead, next.GitHubFailed = &at, failed
+	next.GitHubRead, next.GitHubFailed, next.GitHubOwed = &at, err != nil, nil
 	l.scheduleBackstop(next)
-	return failed
+	if l.noteGitHubError(err) {
+		l.retryAfterRateLimit(next)
+	}
+	return err != nil
 }
 
 // rootGitHub reads GitHub for one root's read, metered, and keeps the

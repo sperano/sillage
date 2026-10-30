@@ -47,6 +47,9 @@ type Metrics struct {
 	storeErrors  *prometheus.CounterVec
 	cycles       prometheus.Counter
 	roots        prometheus.Gauge
+	// backoffRoots are the roots backing off: their last read could not
+	// be saved.
+	backoffRoots prometheus.Gauge
 	lockHeld     prometheus.Gauge
 	// deliveryReads and deliveryCycles are what webhook deliveries asked
 	// of the loop.
@@ -100,6 +103,11 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 		roots: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: metricNamespace, Name: "collector_roots", Help: "Roots the collector has read at least once.",
 		}),
+		backoffRoots: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: metricNamespace, Name: "collector_roots_backing_off",
+			Help: "Roots left unread for a while because their last read could not be saved (its records read, " +
+				"its story assembled or its commit), the wait doubling at each failure in a row.",
+		}),
 		lockHeld: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: metricNamespace, Name: "collector_lock_held",
 			Help: "1 while this process holds the collector lock and collects, 0 while another does.",
@@ -116,7 +124,7 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 	}
 	m.registerGitHub()
 	reg.MustRegister(m.lastSuccess, m.readErrors, m.refusals, m.readDuration, m.written, m.storeErrors, m.cycles, m.roots,
-		m.lockHeld, m.deliveryReads, m.deliveryCycles, m.githubReads, m.githubSearches, m.githubRequests,
+		m.backoffRoots, m.lockHeld, m.deliveryReads, m.deliveryCycles, m.githubReads, m.githubSearches, m.githubRequests,
 		m.githubNotModified, m.githubRemaining, m.lostDeliveries)
 	// Every series exists from the start, so that a rate over it is
 	// defined before the first delivery.
@@ -137,8 +145,8 @@ func (m *Metrics) registerGitHub() {
 	m.githubReads = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metricNamespace, Name: "collector_github_reads_total",
 		Help: "Root reads' GitHub sides, by kind: read for a delivery, a run (a new root or changed runs) or a task " +
-			"change; by the backstop, whole (backstop) or found unchanged from 304s (unchanged); or held back by " +
-			"the rate limit's reserve (deferred).",
+			"change; by the backstop, whole (backstop) or found unchanged from 304s (unchanged); or deferred, a " +
+			"backstop's or a trigger's, for a rate limit being waited out or the window's reserve (deferred).",
 	}, []string{labelKind})
 	m.githubSearches = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: metricNamespace, Name: "collector_github_branch_searches_total",

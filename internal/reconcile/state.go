@@ -50,6 +50,9 @@ type rootState struct {
 	// GitHub read that failed nowhere; nil when that read's lists cannot
 	// be compared (see github.Validators).
 	ETags github.Validators `json:"etags,omitempty"`
+	// GitHubOwed is the read of the root's GitHub side a trigger asked
+	// for and the rate limit deferred; nil when none is owed.
+	GitHubOwed *owedGitHub `json:"githubOwed,omitempty"`
 	// Settled is whether the last read that failed nowhere saw the task
 	// done, every pull request closed or merged and every run finished.
 	Settled bool `json:"settled,omitempty"`
@@ -108,6 +111,7 @@ func (s *rootState) checkpoint() Checkpoint {
 func (s *rootState) clone() *rootState {
 	out := *s
 	out.Updated, out.GitHubRead = clonePointer(s.Updated), clonePointer(s.GitHubRead)
+	out.GitHubOwed = clonePointer(s.GitHubOwed)
 	out.ETags = maps.Clone(s.ETags)
 	out.Sources = make(map[string]*sourceState, len(s.Sources))
 	for key, st := range s.Sources {

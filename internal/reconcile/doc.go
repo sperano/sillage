@@ -24,6 +24,21 @@
 // RefreshInterval, closing their restart gap on GitHub, and spreads the
 // other overdue backstop reads over the BackstopInterval.
 //
+// The reads a delivery, a run or a task change asks for stop at
+// githubTriggerReserve: the others are owed (the root's state keeps
+// them) and read in later cycles, the longest owed first, or once the
+// GitHub source is configured again when it is off. Once GitHub
+// refuses a request for its rate limit, no GitHub request is made until
+// the wait it asked for is over: the roots still due are owed their read,
+// or keep their backstop due, and those whose read it refused retry
+// spread over the window that follows.
+//
+// A root whose read could not be saved (its stored records not read, its
+// story not assembled, its commit refused) would be due again at once,
+// its state unsaved: it backs off instead, a cycle interval at first,
+// doubled at each failure in a row up to maxBackoff, until a read of it
+// is committed.
+//
 // The roots webhook deliveries name (Deliveries) are
 // read too, first, at most DeliveryRootsPerCycle a cycle, the others left
 // queued for the next, and each once however many deliveries named it: a
