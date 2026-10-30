@@ -271,32 +271,6 @@ func (a *assembly) announcementEvidence(e model.Event, note string) model.Eviden
 	return model.Evidence{Source: e.Source, Instance: e.Instance, Ref: e.Evidence.Ref, Note: e.ID + " " + note}
 }
 
-// workspaceNames lists the workspace, else the project, of every run of
-// the story whose Origin names no repository.
-func (a *assembly) workspaceNames() []string {
-	var names []string
-	for _, r := range a.runs {
-		if _, ok := a.originRepository(r); ok {
-			continue
-		}
-		if a.kelos != nil {
-			if ws := a.kelos.placements[r.Key].Workspace; ws != "" {
-				names = append(names, ws)
-				continue
-			}
-		}
-		if r.Project != "" {
-			names = append(names, r.Project)
-		}
-	}
-	for _, e := range a.eventsOf(model.KindRunAnnounced) {
-		if ws := e.Details[detailWorkspace]; ws != "" {
-			names = append(names, ws)
-		}
-	}
-	return names
-}
-
 // relatedRef is the task or pull request a record names.
 func relatedRef(r model.Related) (model.Ref, bool) {
 	switch {

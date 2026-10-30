@@ -20,7 +20,8 @@ const taskBranchPrefix = "kelos/vikunja-"
 func taskBranch(id int64) string { return taskBranchPrefix + strconv.FormatInt(id, 10) }
 
 // readGitHub reads the pull requests of branch, in every state, in each
-// repository the story's runs name and in extra. Without a repository,
+// repository the story's records name and in extra; when none names one,
+// in every repository EnvWorkspaces maps to. Without a repository,
 // GitHub is not read, and its coverage says why; nor is it while off, nor
 // when the caller keeps its last read (Kept.SkipGitHub).
 func (a *assembly) readGitHub(ctx context.Context, branch string, extra []github.Repository) {
@@ -32,10 +33,14 @@ func (a *assembly) readGitHub(ctx context.Context, branch string, extra []github
 		a.keepGitHub()
 		return
 	}
-	repos, unknown := a.repositories(extra)
+	repos, unknown := a.repositories(branch, extra)
 	if len(unknown) > 0 {
 		a.note(model.SourceGitHub, "no repository in "+EnvWorkspaces+" for "+strings.Join(unknown, ", ")+
 			": the pull requests of their branch "+branch+" were not read")
+	}
+	search := len(repos) == 0
+	if search {
+		repos = a.searched(branch)
 	}
 	if len(repos) == 0 {
 		a.note(model.SourceGitHub, "no repository known for the story's branch "+branch+
@@ -45,6 +50,9 @@ func (a *assembly) readGitHub(ctx context.Context, branch string, extra []github
 	at := a.c.now()
 	var all branchRead
 	for _, repo := range repos {
+		if search {
+			a.searches++
+		}
 		r, err := a.branchRecords(ctx, repo, branch)
 		if err != nil {
 			a.fail(model.SourceGitHub, err)
@@ -53,6 +61,11 @@ func (a *assembly) readGitHub(ctx context.Context, branch string, extra []github
 		all.add(r)
 	}
 	a.read(model.SourceGitHub, at)
+	if search && len(all.recs.PullRequests) == 0 {
+		a.note(model.SourceGitHub, fmt.Sprintf("no record of the story names its repository, and none of the %d "+
+			"repositories %s lists has a pull request of its branch %s: one in another repository is unknown",
+			len(repos), EnvWorkspaces, branch))
+	}
 	a.refusals = append(a.refusals, refusalsOf(a.source(model.SourceGitHub).cov.Instance, all.refused)...)
 	a.addGitHub(all)
 }
@@ -91,16 +104,20 @@ func (b *branchRead) add(r branchRead) {
 }
 
 // branchRecords reads and normalizes branch's pull requests in repo, each
-// joined to the root by its head branch, and notes the commits whose
-// checks were not read and the sub-reads GitHub refused.
-func (a *assembly) branchRecords(ctx context.Context, repo github.Repository, branch string) (branchRead, error) {
-	snaps, err := a.c.src.GitHub.FetchBranch(ctx, repo, github.Branch{Repository: repo, Name: branch})
+// joined to the root by its head branch and what named repo, and notes
+// the commits whose checks were not read and the sub-reads GitHub
+// refused.
+func (a *assembly) branchRecords(ctx context.Context, repo repository, branch string) (branchRead, error) {
+	snaps, err := a.c.src.GitHub.FetchBranch(ctx, repo.Repository, github.Branch{Repository: repo.Repository, Name: branch})
 	if err != nil {
 		return branchRead{}, fmt.Errorf("%s branch %s: %w", repo, branch, err)
 	}
 	var b branchRead
 	out := &b.recs
-	ref := "GET /repos/" + repo.String() + "/pulls?state=all&head=" + repo.Owner + ":" + branch
+	head := model.Evidence{
+		Source: model.SourceGitHub, Instance: a.cfg.GitHubInstance, Ref: pullsRef(repo.Repository, branch),
+		Note: "head branch " + branch,
+	}
 	for _, s := range snaps {
 		b.refused = append(b.refused, s.Refused...)
 		recs, err := github.Normalize(s, a.cfg.GitHubAnnouncers)
@@ -110,11 +127,10 @@ func (a *assembly) branchRecords(ctx context.Context, repo github.Repository, br
 		out.Events = append(out.Events, recs.Events...)
 		out.PullRequests = append(out.PullRequests, recs.PullRequests...)
 		for _, p := range recs.PullRequests {
+			head.Instance = p.Key.Instance
 			out.Correlations = append(out.Correlations, model.Correlation{
 				From: p.Key.Ref(), To: a.rootRef, Confidence: model.ConfidenceIdentifier,
-				Evidence: []model.Evidence{{
-					Source: model.SourceGitHub, Instance: p.Key.Instance, Ref: ref, Note: "head branch " + branch,
-				}},
+				Evidence: append([]model.Evidence{head}, repo.evidence...),
 			})
 			if n := len(s.UncheckedSHAs); n > 0 {
 				b.notes = append(b.notes, fmt.Sprintf("pull request %s: the checks of its %d oldest commits "+
@@ -181,34 +197,6 @@ func refusalNotes(key model.PRKey, s github.Snapshot) []string {
 			key, k.resource, strings.ToLower(http.StatusText(k.code)), answered, unknown))
 	}
 	return notes
-}
-
-// repositories returns the repositories to read, in order: those the
-// Origins of the story's runs name, those the workspaces and projects of
-// the others map to, and extra; and the names that map to none.
-func (a *assembly) repositories(extra []github.Repository) ([]github.Repository, []string) {
-	var repos []github.Repository
-	var unknown []string
-	for _, r := range a.runs {
-		if repo, ok := a.originRepository(r); ok {
-			repos = append(repos, repo)
-		}
-	}
-	for _, name := range a.workspaceNames() {
-		if r, ok := a.cfg.Workspaces[name]; ok {
-			repos = append(repos, r)
-		} else if !slices.Contains(unknown, name) {
-			unknown = append(unknown, name)
-		}
-	}
-	repos = append(repos, extra...)
-	slices.SortFunc(repos, func(x, y github.Repository) int {
-		return strings.Compare(strings.ToLower(x.String()), strings.ToLower(y.String()))
-	})
-	slices.Sort(unknown)
-	return slices.CompactFunc(repos, func(x, y github.Repository) bool {
-		return strings.EqualFold(x.String(), y.String())
-	}), unknown
 }
 
 // followUpRoles are the roles of runs started on a pull request rather

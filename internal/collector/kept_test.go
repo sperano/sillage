@@ -198,7 +198,7 @@ func TestRecollectSkippingGitHubKeepsTheStory(t *testing.T) {
 			res, err := c.Recollect(t.Context(), sc.Root, Kept{
 				Runs: full.Runs, Correlations: full.Correlations, Markers: collectortest.Markers(t, fixturesDir, sc.Dirs),
 				SkipGitHub: true, Events: full.Events, PullRequests: full.PullRequests,
-			}, sc.Repos...)
+			})
 			if err != nil {
 				t.Fatal(err)
 			}

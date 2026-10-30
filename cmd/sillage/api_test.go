@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"testing"
@@ -194,10 +196,53 @@ func recordKeys(recs model.Records) []string {
 	return keys
 }
 
+// checkPullRequestsCollected fails the test unless st holds every pull
+// request of corpus story name, and only those: the loop finds the
+// repository of each, whether or not a run's label names it.
+func checkPullRequestsCollected(t *testing.T, st *store.Store, name string) {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(corpusFixtures, "stories", name, "input.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Root         model.Root          `json:"root"`
+		PullRequests []model.PullRequest `json:"pullRequests"`
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.Story(t.Context(), fixture.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g, w := prKeys(got.PullRequests), prKeys(fixture.PullRequests); !slices.Equal(g, w) {
+		t.Errorf("%s stored with pull requests %v, want the story's %v", rootKey(fixture.Root), g, w)
+	}
+}
+
+// prKeys returns the keys of prs, sorted.
+func prKeys(prs []model.PullRequest) []string {
+	keys := []string{}
+	for _, p := range prs {
+		keys = append(keys, p.Key.String())
+	}
+	slices.Sort(keys)
+	return keys
+}
+
 // liveChecks are what the overview served from a collected corpus story
 // must show beyond what the stored stories build, by story; rowsIn asks
 // the API for the rows of the hour from an RFC 3339 time.
 var liveChecks = map[string]func(t *testing.T, rowsIn func(from string) []overview.Row){
+	// No label of a run names the repository: the announced Task name's
+	// project does.
+	"second-pr-after-close": func(t *testing.T, rowsIn func(string) []overview.Row) {
+		got := rowPRs(t, rowsIn("2026-03-13T09:00:00Z"), "vikunja.example.com/tasks/108")
+		if want := []int{62, 63}; !slices.Equal(got, want) {
+			t.Errorf("task 108's pull requests = %v, want the closed one and its successor %v", got, want)
+		}
+	},
 	"failed-run-retry": func(t *testing.T, rowsIn func(string) []overview.Row) {
 		got := rowRuns(t, rowsIn("2026-03-05T14:00:00Z"), "vikunja.example.com/tasks/104")
 		if want := []string{"00000000-0000-4000-8000-00000000104a", "00000000-0000-4000-8000-00000000104b"}; !slices.Equal(got, want) {
@@ -224,6 +269,24 @@ func rowRuns(t *testing.T, rows []overview.Row, key string) []string {
 	return nil
 }
 
+// rowPRs returns the pull request numbers of the row of root key, sorted,
+// failing the test without one.
+func rowPRs(t *testing.T, rows []overview.Row, key string) []int {
+	t.Helper()
+	for _, row := range rows {
+		if rootKey(row.Root) == key {
+			numbers := []int{}
+			for _, p := range row.PullRequests {
+				numbers = append(numbers, p.Key.Number)
+			}
+			slices.Sort(numbers)
+			return numbers
+		}
+	}
+	t.Fatalf("no row of %s", key)
+	return nil
+}
+
 func rootKey(root model.Root) string {
 	return root.Task.String()
 }
@@ -234,15 +297,18 @@ func rootKey(root model.Root) string {
 // stores each story's root with what the collector assembles of it. The
 // API serves the overview of the stories the store holds, read whole: Activity, over
 // what the loop committed, misses nothing a row needs; a walk of its
-// cursors, one row a page, gives the same rows; and every row says its
-// history is missing, since the loop first read Kelos months after the
-// corpus, past the Task TTL.
+// cursors, one row a page, gives the same rows; and every row of a window
+// that ends a Task TTL before the loop's read says its history is
+// missing, since the loop first read Kelos months after the corpus. A
+// window after that (the records the read observed, today) is covered.
 func TestOverviewOverTheCollectedCorpus(t *testing.T) {
 	for _, name := range storytest.Names() {
 		t.Run(name, func(t *testing.T) {
 			st := newTestStore(t)
+			ttlCutoff := time.Now().Add(-collector.DefaultKelosTaskTTL)
 			collectCorpusStory(t, st, collectortest.Stories[name])
 			checkRootCollected(t, st, collectortest.Stories[name])
+			checkPullRequestsCollected(t, st, name)
 			srv := httptest.NewServer(newAPI(func(string) string { return "" }, st, nil))
 			t.Cleanup(srv.Close)
 			stories := storedStories(t, st)
@@ -252,6 +318,9 @@ func TestOverviewOverTheCollectedCorpus(t *testing.T) {
 					t.Errorf("window %s: served\n%s\nwant the stored stories'\n%s", w.From, g, want)
 				}
 				checkCursorWalk(t, srv.URL, w, got.Rows)
+				if w.To.After(ttlCutoff) {
+					continue
+				}
 				for _, row := range got.Rows {
 					if !row.MissingHistory {
 						t.Errorf("window %s: %s reads as complete before the Task TTL", w.From, rootKey(row.Root))

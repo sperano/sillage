@@ -1,9 +1,11 @@
 package collector
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/sperano/sillage/internal/model"
+	"github.com/sperano/sillage/internal/source/github"
 )
 
 // pastInt64 is a decimal id the name patterns admit but int64 cannot hold.
@@ -76,6 +78,34 @@ func TestRoleOfName(t *testing.T) {
 	for name, want := range tests {
 		if got := roleOfName(name); got != want {
 			t.Errorf("roleOfName(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestProjectsOfName(t *testing.T) {
+	projects := map[string]github.Repository{
+		"widgets": testRepo, "big-widgets": testRepo, "big": testRepo, "discuss": testRepo,
+	}
+	tests := []struct {
+		name string
+		id   int64
+		want []string
+	}{
+		{"vikunja-widgets-agent-opus-102", 102, []string{"widgets"}},
+		{"vikunja-big-widgets-agent-opus-7", 7, []string{"big", "big-widgets"}},
+		{"vikunja-discuss-widgets-agent-opus-101", 101, []string{"discuss", "widgets"}},
+		{"vikunja-fu-widgets-102-c5701-retry2", 102, []string{"widgets"}},
+		{"vikunja-widgets-agent-opus-102", 103, nil},
+		{"vikunja-fu-widgets-102-c5701", 103, nil},
+		{"vikunja-gadgets-agent-opus-102", 102, nil},
+		{"vikunja-merge-widgets-7-true", 7, nil},
+		{"pr-followup-widgets-7-c5701", 7, nil},
+		{"vikunja-widgets-102", 102, nil},
+		{"vikunja-widgets-agent-opus-" + pastInt64, 0, nil},
+	}
+	for _, tt := range tests {
+		if got := projectsOfName(tt.name, tt.id, projects); !slices.Equal(got, tt.want) {
+			t.Errorf("projectsOfName(%q, %d) = %v, want %v", tt.name, tt.id, got, tt.want)
 		}
 	}
 }

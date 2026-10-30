@@ -53,9 +53,11 @@ type Metrics struct {
 	deliveryReads  *prometheus.CounterVec
 	deliveryCycles prometheus.Counter
 	// githubReads are the roots' GitHub sides by what read them, or did
-	// not; githubRequests, githubNotModified and githubRemaining what the
+	// not; githubSearches the repositories a root's branch was looked for
+	// in; githubRequests, githubNotModified and githubRemaining what the
 	// GitHub client asked and was left.
 	githubReads       *prometheus.CounterVec
+	githubSearches    prometheus.Counter
 	githubRequests    prometheus.Counter
 	githubNotModified prometheus.Counter
 	githubRemaining   prometheus.Gauge
@@ -114,8 +116,8 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 	}
 	m.registerGitHub()
 	reg.MustRegister(m.lastSuccess, m.readErrors, m.refusals, m.readDuration, m.written, m.storeErrors, m.cycles, m.roots,
-		m.lockHeld, m.deliveryReads, m.deliveryCycles, m.githubReads, m.githubRequests, m.githubNotModified,
-		m.githubRemaining, m.lostDeliveries)
+		m.lockHeld, m.deliveryReads, m.deliveryCycles, m.githubReads, m.githubSearches, m.githubRequests,
+		m.githubNotModified, m.githubRemaining, m.lostDeliveries)
 	// Every series exists from the start, so that a rate over it is
 	// defined before the first delivery.
 	for _, kind := range []string{deliveryCaused, deliveryCoalesced} {
@@ -138,6 +140,12 @@ func (m *Metrics) registerGitHub() {
 			"change; by the backstop, whole (backstop) or found unchanged from 304s (unchanged); or held back by " +
 			"the rate limit's reserve (deferred).",
 	}, []string{labelKind})
+	m.githubSearches = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricNamespace, Name: "collector_github_branch_searches_total",
+		Help: "Repositories a root's branch was looked for in because none of the root's records named its " +
+			"repository: one pull request listing each, of every repository SILLAGE_WORKSPACES maps to, " +
+			"once per root read.",
+	})
 	m.githubRequests = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: metricNamespace, Name: "github_requests_total", Help: "Requests the collector sent to GitHub.",
 	})

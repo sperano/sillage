@@ -150,3 +150,34 @@ func refusedChecks(repo github.Repository, branch string) github.Snapshot {
 	}
 	return snap
 }
+
+// A root none of whose records names a repository has its branch looked
+// for in each repository the workspaces map to, counted; once the store
+// holds the pull request found, its repository is read and nothing is
+// searched again.
+func TestBranchSearchesCounted(t *testing.T) {
+	h, _ := githubHarness(t, rarely)
+	tools := github.Repository{Owner: "acme", Name: "tools"}
+	// The runs' project, widgets, maps to no repository.
+	h.ccfg.Workspaces = map[string]github.Repository{"gadgets": testRepo, "tools": tools}
+	h.loop = h.newLoop(t, rarely)
+	h.loop.cycle(t.Context())
+	searches := func() float64 { return testutil.ToFloat64(h.loop.metrics.githubSearches) }
+	if got := searches(); got != 2 {
+		t.Errorf("branch searches = %v, want one per repository the workspaces map to", got)
+	}
+	if !strings.Contains(h.logs.String(), "searches=2") {
+		t.Errorf("the cycle's log does not count the searches:\n%s", h.logs)
+	}
+	if s := h.store.story(t, testRoot()); len(s.PullRequests) != 1 {
+		t.Fatalf("pull requests = %v, want the one the search found", s.PullRequests)
+	}
+	h.deliveries.deliver(testRoot())
+	h.loop.cycle(t.Context())
+	if got := githubReads(h, triggerDelivery); got != 1 {
+		t.Fatalf("GitHub reads for a delivery = %v, want the second read whole", got)
+	}
+	if got := searches(); got != 2 {
+		t.Errorf("branch searches = %v after a read with the pull request stored, want no more", got)
+	}
+}
