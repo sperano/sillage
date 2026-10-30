@@ -2,13 +2,16 @@
 // tracks when they overlap, events grouped when they crowd, and labels shown
 // where they fit.
 
+import type { Delivery } from '../decodeApi';
+import { deliveryKey, deliveryRef, receivedTime } from '../deliveries';
 import { eventKey } from '../keys';
 import { eventTime, type Event } from '../model';
 import { eventRef, type ItemRef } from '../timeline';
 import { drawnEnd, type Span } from './intervals';
 import type { Row } from './lanes';
-import { eventLabel, eventMark, type MarkKind } from './marks';
+import { deliveryName, eventLabel, eventMark, eventName, type MarkKind } from './marks';
 import { packPhases, PHASE_TRACK_PX, type PlacedPhase } from './phases';
+import type { Zone } from './time';
 import type { Scale } from './view';
 
 /** Events closer than this, in pixels, are grouped under one count. */
@@ -46,13 +49,15 @@ const CULL_MARGIN_PX = GROUP_GAP_PX;
 /** Text cut shorter than this many characters is left out. */
 const MIN_FIT_CHARS = 3;
 
+/** A mark at one instant: an event, or a webhook delivery sillage received. */
 export interface Point {
 	key: string;
-	event: Event;
 	at: number;
 	x: number;
 	mark: MarkKind;
 	label: string;
+	/** Everything the mark says, in words, with its time in zone: its accessible name and tooltip. */
+	name: (zone: Zone) => string;
 	selected: ItemRef;
 }
 
@@ -144,12 +149,25 @@ function pointOf(event: Event, scale: Scale): Point {
 	const at = eventTime(event);
 	return {
 		key,
-		event,
 		at,
 		x: scale.x(at),
 		mark: eventMark(event),
 		label: eventLabel(event),
+		name: (zone) => eventName(event, zone),
 		selected: eventRef(event)
+	};
+}
+
+function deliveryPoint(d: Delivery, scale: Scale): Point {
+	const at = receivedTime(d);
+	return {
+		key: deliveryKey(d),
+		at,
+		x: scale.x(at),
+		mark: 'delivery',
+		label: d.event ?? 'delivery',
+		name: (zone) => deliveryName(d, zone),
+		selected: deliveryRef(d)
 	};
 }
 
@@ -274,7 +292,10 @@ export function layoutRow(
 	const phases = packPhases(row.phases, scale);
 	const phaseTracks = phases.reduce((n, p) => Math.max(n, p.track + 1), 0);
 	const phasesTop = y + ROW_PAD_PX + tracks * TRACK_PX;
-	const points = row.events.map((e) => pointOf(e, scale)).filter((p) => inView(p.x, p.x, scale));
+	const points = [
+		...row.events.map((e) => pointOf(e, scale)),
+		...row.deliveries.map((d) => deliveryPoint(d, scale))
+	].filter((p) => inView(p.x, p.x, scale));
 	const placed = groupPoints(points, row.id, expanded);
 	const levels = Math.max(1, placeLabels(placed, bars, scale, timeText));
 	const expandedLines = stackLists(placed);

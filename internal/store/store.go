@@ -41,6 +41,10 @@ type Reader interface {
 	// Freshness returns how recently each source instance was read,
 	// across the stored roots.
 	Freshness(ctx context.Context) ([]SourceFreshness, error)
+	// Deliveries returns the latest limit webhook delivery attempts that
+	// named root, oldest first, each with root's next read from its
+	// source, or ErrNotFound.
+	Deliveries(ctx context.Context, root model.Root, limit int) ([]model.RootDelivery, error)
 	// Activity returns the roots that may have been active in a window,
 	// with the records an overview reads of them, or ErrTooManyRoots.
 	Activity(ctx context.Context, q ActivityQuery) ([]RootActivity, error)

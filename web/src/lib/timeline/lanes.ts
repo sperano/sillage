@@ -1,7 +1,9 @@
 // The timeline's rows: the root task, people, agent runs (one row per
-// attempt), automation, and pull requests with their checks per commit.
-// Each event is drawn on exactly one row.
+// attempt), automation, pull requests with their checks per commit, and
+// the webhook deliveries sillage received (deliveries.ts). Each event is
+// drawn on exactly one row.
 
+import type { Delivery } from '../decodeApi';
 import { eventKey, prKeyString, runKeyString, taskKeyString } from '../keys';
 import {
 	boundTime,
@@ -17,7 +19,7 @@ import { checkSpan, hasExtent, reviewWaits, runSpans, type Span } from './interv
 import { phaseSpans, type PhaseSpan } from './phases';
 
 /** The lanes, in the order they are drawn after the root's lane. */
-export const SECTIONS = ['task', 'people', 'runs', 'automation', 'pulls'] as const;
+export const SECTIONS = ['task', 'people', 'runs', 'automation', 'pulls', 'sillage'] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export const SECTION_TITLES: Record<Section, string> = {
@@ -25,7 +27,8 @@ export const SECTION_TITLES: Record<Section, string> = {
 	people: 'People',
 	runs: 'Agent runs',
 	automation: 'Automation',
-	pulls: 'Pull requests'
+	pulls: 'Pull requests',
+	sillage: 'Sillage'
 };
 
 /** The number of a commit's leading hex digits a check row shows. */
@@ -42,6 +45,8 @@ export interface Row {
 	spans: Span[];
 	/** A run's phases, drawn on sub-tracks under its bar; none on other rows. */
 	phases: PhaseSpan[];
+	/** The webhook deliveries drawn on the row: none but on the Sillage lane's. */
+	deliveries: Delivery[];
 	/** Said on the row about what it cannot draw: an interval with no known end. */
 	note?: string;
 	/** Where the row sorts within its section. */
@@ -51,7 +56,7 @@ export interface Row {
 }
 
 /** What a row is created with; the rest fills in as records are placed. */
-type RowInit = Omit<Row, 'id' | 'events' | 'spans' | 'phases' | 'order'>;
+type RowInit = Omit<Row, 'id' | 'events' | 'spans' | 'phases' | 'deliveries' | 'order'>;
 
 /** The kinds of event a conversation posts, drawn on their author's row. */
 const CONVERSATION = new Set<Event['kind']>([
@@ -67,7 +72,15 @@ export function buildRows(story: Story): Row[] {
 	const ensure = (id: string, init: () => RowInit) => {
 		let row = rows.get(id);
 		if (!row) {
-			row = { id, events: [], spans: [], phases: [], order: Number.POSITIVE_INFINITY, ...init() };
+			row = {
+				id,
+				events: [],
+				spans: [],
+				phases: [],
+				deliveries: [],
+				order: Number.POSITIVE_INFINITY,
+				...init()
+			};
 			rows.set(id, row);
 		}
 		return row;

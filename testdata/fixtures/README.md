@@ -31,6 +31,12 @@ the source adapters, the store and the web UI:
 - `story.golden.json`: `model.BuildStory`'s output for it: validated,
   every time in UTC, every list in its deterministic order. Generated;
   never edit it by hand.
+- `deliveries.json` (optional): the webhook delivery attempts that named
+  the root, oldest first, as the store reads them back
+  (`model.RootDelivery`). Not part of the story: the API's fake reader
+  serves them at `/api/v1/deliveries/...`, and `api/responses.golden.json`
+  holds what it answers for `implementation-merged`, which the web tests
+  render.
 
 The Go tests in `internal/model` build each story, compare it with its
 golden file, rebuild it from shuffled inputs to prove the order never

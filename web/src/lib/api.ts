@@ -6,10 +6,12 @@
 
 import { DecodeError, decode } from './check';
 import {
+	type Deliveries,
 	type Freshness,
 	type Resolution,
 	type RootSummary,
 	configResponse,
+	deliveriesResponse,
 	freshnessResponse,
 	resolution,
 	searchResponse
@@ -106,6 +108,11 @@ export function isAbort(err: unknown): boolean {
 export interface Api {
 	/** The story of root. */
 	story(root: Root, signal?: AbortSignal): Promise<Story>;
+	/**
+	 * The webhook deliveries sillage received that named root, apart from
+	 * its story: the latest ones, oldest first.
+	 */
+	deliveries(root: Root, signal?: AbortSignal): Promise<Deliveries>;
 	/** The stored roots whose title or key contains query, most recently active first. */
 	search(query: string, signal?: AbortSignal): Promise<RootSummary[]>;
 	/**
@@ -137,6 +144,11 @@ export function storyPath(root: Root): string {
 	return `${API_BASE}/stories${rootSegments(root)}`;
 }
 
+/** The API's path for the webhook deliveries that named root. */
+export function deliveriesPath(root: Root): string {
+	return `${API_BASE}/deliveries${rootSegments(root)}`;
+}
+
 export function createApi(options: ApiOptions = {}): Api {
 	const fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis);
 	const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
@@ -151,6 +163,14 @@ export function createApi(options: ApiOptions = {}): Api {
 				throw new InvalidResponseError(`GET ${path}`, 'the story is of another root');
 			}
 			return story;
+		},
+		deliveries: async (root, signal) => {
+			const path = deliveriesPath(root);
+			const found = await get(path, (b) => decode(deliveriesResponse, b), signal);
+			if (!sameRoot(found.root, root)) {
+				throw new InvalidResponseError(`GET ${path}`, 'the deliveries are of another root');
+			}
+			return found;
 		},
 		search: async (q, signal) =>
 			(await get(`${API_BASE}/search${query('q', q)}`, (b) => decode(searchResponse, b), signal))

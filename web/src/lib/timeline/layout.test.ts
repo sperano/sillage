@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { eventKey } from '../keys';
+import { eventName } from './marks';
 import { event } from '../testing/builders';
 import type { Span } from './intervals';
 import type { Row } from './lanes';
@@ -86,7 +87,7 @@ function point(x: number): Point {
 	const e = event();
 	return {
 		key: eventKey(e),
-		event: e,
+		name: (zone) => eventName(e, zone),
 		at: scale.time(x),
 		x,
 		mark: 'event',
@@ -118,6 +119,7 @@ describe('layoutRow', () => {
 		events,
 		spans,
 		phases,
+		deliveries: [],
 		order: 0
 	});
 
@@ -168,7 +170,9 @@ describe('layoutRow', () => {
 		];
 		const laid = layoutRow(row([before, across], events), 0, scale, new Set(), String);
 		expect(laid.bars.map((b) => b.span)).toEqual([across]);
-		expect(laid.placed.map((p) => p.kind === 'point' && p.point.event)).toEqual([events[1]]);
+		expect(laid.placed.map((p) => p.kind === 'point' && p.point.key)).toEqual([
+			eventKey(events[1]!)
+		]);
 	});
 
 	test('keeps a bar on its track when panning leaves the bar it overlapped out of view', () => {

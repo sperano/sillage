@@ -74,6 +74,7 @@ stay behind the Authentik forward-auth in front of sillage.
 | --- | --- |
 | `/api/v1/stories/task/{instance}/{id}` | The stored `model.Story`, as the golden files under `testdata/fixtures/stories/` |
 | `/api/v1/coverage/task/{instance}/{id}` | The task's coverage: last successful read and gaps per source |
+| `/api/v1/deliveries/task/{instance}/{id}` | The latest 1000 webhook delivery attempts that named the task, oldest first, apart from its story: source, delivery id, event, received time, outcome and why, and the next read of the task from that source (`truncated` when older ones were left out) |
 | `/api/v1/coverage` | Per source instance, the newest and stalest last read across stored roots |
 | `/api/v1/search?q=&limit=` | Roots by title or key, most recently active first (`q` at most 200 characters) |
 | `/api/v1/resolve?url=` | The task stories that a Vikunja task, GitHub pull request or Kelos Task (`[<namespace>/]<name>`, UID) points to; 404 if none |
@@ -99,8 +100,10 @@ delivery. A request that is too large (25 MB from GitHub, 5 MB from
 Vikunja), unsigned or badly signed is refused, once its body, read up to
 that limit, is checked (unread when it declares a larger one); nothing of
 it is recorded or acted on. Each authenticated
-attempt is recorded as evidence that sillage received it, not that Kelos
-received or acted on its own delivery. It then asks the collector to read
+attempt is recorded, with the tasks it names, as evidence that sillage
+received it, not that Kelos received or acted on its own delivery; the
+story page shows them on a Sillage lane and around each state change, by
+time alone. It then asks the collector to read
 the task it names again; nothing is written from the payload, and the
 periodic reads stay authoritative. A delivery cuts the collection loop's
 wait short: its next cycle starts `SILLAGE_DELIVERY_DELAY` (default `15s`)

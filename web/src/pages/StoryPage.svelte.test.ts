@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
-import { storyPath } from '../lib/api';
+import { deliveriesPath, storyPath } from '../lib/api';
 import { parseStory } from '../lib/decodeModel';
 import type { Root } from '../lib/model';
+import { goldenResponse } from '../lib/testing/apiResponses';
 import { HANG, fakeServer, json, problem } from '../testing/fakeServer';
 import { goldenStories, goldenStory } from '../testing/goldenStories';
 import StoryPage from './StoryPage.svelte';
@@ -132,7 +133,7 @@ test('a server error is shown, not retried', async () => {
 	await expect
 		.element(page.getByRole('alert'))
 		.toHaveTextContent("Sillage's server answered with an error (503 Service Unavailable).");
-	expect(server.requests).toHaveLength(1);
+	expect(server.requests.filter((r) => r.path === storyPath(TASK))).toHaveLength(1);
 });
 
 test('another root aborts the request for the previous one', async () => {
@@ -145,8 +146,83 @@ test('another root aborts the request for the previous one', async () => {
 	await expect.element(page.getByRole('status')).toBeVisible();
 	await rerender({ root: other });
 	await expect.element(page.getByText('5 events')).toBeVisible();
-	expect(server.requests.map((r) => [r.path, r.signal.aborted])).toEqual([
+	const asked = (path: (root: Root) => string) =>
+		server.requests
+			.filter((r) => r.path === path(TASK) || r.path === path(other))
+			.map((r) => [r.path, r.signal.aborted]);
+	expect(asked(storyPath)).toEqual([
 		[storyPath(TASK), true],
 		[storyPath(other), false]
 	]);
+	expect(asked(deliveriesPath)).toEqual([
+		[deliveriesPath(TASK), true],
+		[deliveriesPath(other), false]
+	]);
+});
+
+/** The page showing implementation-merged, and the deliveries the Go handler answers for it. */
+async function showWithDeliveries(deliveries = () => json(goldenResponse(deliveriesPath(TASK)))) {
+	const server = fakeServer({
+		[storyPath(TASK)]: () => json(goldenStory('implementation-merged')),
+		[deliveriesPath(TASK)]: deliveries
+	});
+	await render(StoryPage, { api: server.api, root: TASK });
+	await expect.element(page.getByText('9 events')).toBeVisible();
+}
+
+const sillageRow = () => graph().element().querySelector('[data-row="sillage:deliveries"]');
+
+test('the Sillage lane counts the deliveries, and draws them once zoomed in', async () => {
+	await showWithDeliveries();
+	await expect
+		.poll(() => sillageRow()?.querySelector('[data-note]')?.textContent)
+		.toContain('7 deliveries · zoom in to see them');
+	expect(sillageRow()?.querySelector('[data-delivery]')).toBeNull();
+	await expect.element(page.getByText(/Sillage lane \(triangle\)/)).toBeVisible();
+
+	await graph().getByRole('button', { name: 'Zoom in' }).click();
+	await expect.poll(() => sillageRow()?.querySelector('[data-note]')).toBeNull();
+	const mark = sillageRow()?.querySelector<SVGElement>('[data-delivery]');
+	expect(mark).toBeTruthy();
+	await userEvent.click(mark!);
+	await expect.element(detailHeading()).toHaveTextContent(/^Webhook delivery: /);
+	await expect
+		.element(page.getByRole('region', { name: 'Detail' }))
+		.toHaveTextContent(/not evidence that Kelos received its own delivery/);
+});
+
+test('a state change lists the deliveries received around it, each selectable', async () => {
+	await showWithDeliveries();
+	await page.getByRole('button', { name: /Pull request merged/ }).click();
+	const detail = page.getByRole('region', { name: 'Detail' });
+	await expect.element(detail).toHaveTextContent(/Webhook deliveries around it/);
+	await expect.element(detail).toHaveTextContent(/none is linked to this change/);
+	const listed = detail.getByRole('button', { name: /^GitHub|^Vikunja/ });
+	await expect.element(listed.first()).toBeVisible();
+	// The review, the merge's failed attempt and its redelivery, the task's
+	// update and the review's repeat; not the PR's opening, an hour before.
+	expect(listed.elements().map((b) => b.textContent)).toEqual([
+		'GitHub pull_request_review',
+		'GitHub pull_request',
+		'GitHub pull_request',
+		'Vikunja task.updated',
+		'GitHub pull_request_review'
+	]);
+	await listed.nth(1).click();
+	await expect.element(detailHeading()).toHaveTextContent('Webhook delivery: GitHub pull_request');
+	await expect.element(detailHeading()).toHaveFocus();
+	await expect
+		.element(detail.getByTestId('delivery-outcome'))
+		.toHaveTextContent(/^failed: sillage could not ask for every read/);
+	await expect.element(detail.getByTestId('next-read')).toHaveTextContent(/2026-03-03 19:13:00/);
+});
+
+test('the story shows without its deliveries when they fail', async () => {
+	await showWithDeliveries(() => problem(503, 'Service Unavailable'));
+	await expect.element(page.getByText(/received are not shown/)).toBeVisible();
+	expect(sillageRow()).toBeNull();
+	await page.getByRole('button', { name: /Task marked done/ }).click();
+	await expect
+		.element(page.getByRole('region', { name: 'Detail' }))
+		.toHaveTextContent(/What sillage received is unknown here/);
 });

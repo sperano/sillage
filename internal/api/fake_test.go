@@ -26,12 +26,18 @@ const overviewStoriesDir = "../../testdata/fixtures/overview/stories"
 // goldenFile is each fixture story's model.BuildStory output.
 const goldenFile = "story.golden.json"
 
+// deliveriesFile, beside a fixture story's golden file, holds the webhook
+// delivery attempts that named its root, oldest first, as the store reads
+// them back; a story without one has none.
+const deliveriesFile = "deliveries.json"
+
 // fixture is one fixture story: its name, its golden file's bytes and the
 // story they decode to.
 type fixture struct {
-	name   string
-	golden []byte
-	story  model.Story
+	name       string
+	golden     []byte
+	story      model.Story
+	deliveries []model.RootDelivery
 }
 
 // loadFixtures reads every fixture story's golden file.
@@ -57,10 +63,34 @@ func loadFixtures(t *testing.T) []fixture {
 		if err := json.Unmarshal(data, &f.story); err != nil {
 			t.Fatalf("%s: %v", e.Name(), err)
 		}
+		f.deliveries = loadDeliveries(t, filepath.Join(storiesDir, e.Name(), deliveriesFile))
 		out = append(out, f)
 	}
 	if len(out) == 0 {
 		t.Fatalf("no fixture stories in %s", storiesDir)
+	}
+	return out
+}
+
+// loadDeliveries reads a fixture story's deliveries, each valid; none
+// when the file does not exist.
+func loadDeliveries(t *testing.T, path string) []model.RootDelivery {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []model.RootDelivery
+	if err := json.Unmarshal(data, &out); err != nil {
+		t.Fatalf("%s: %v", path, err)
+	}
+	for _, d := range out {
+		if err := d.Validate(); err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
 	}
 	return out
 }
@@ -145,6 +175,17 @@ func (f *fakeStore) Coverage(_ context.Context, root model.Root) ([]model.Covera
 		return nil, store.ErrNotFound
 	}
 	return s.story.Coverage, nil
+}
+
+// Deliveries returns the latest limit of the story's deliveries, as the
+// store does.
+func (f *fakeStore) Deliveries(_ context.Context, root model.Root, limit int) ([]model.RootDelivery, error) {
+	s, ok := f.find(root)
+	if !ok {
+		return nil, store.ErrNotFound
+	}
+	limit = max(min(limit, len(s.deliveries)), 0)
+	return slices.Clone(s.deliveries[len(s.deliveries)-limit:]), nil
 }
 
 func (f *fakeStore) Root(_ context.Context, root model.Root) (store.RootSummary, error) {

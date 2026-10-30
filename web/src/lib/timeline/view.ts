@@ -58,7 +58,14 @@ function knownBounds(...bounds: Bound[]): number[] {
  * and at least MIN_SPAN_MS wide. A story with no time at all centres on now.
  */
 export function storyDomain(story: Story, now = Date.now()): TimeWindow {
-	const times = storyTimes(story);
+	return windowAround(storyTimes(story), now);
+}
+
+/**
+ * The window of times, padded on each side, and at least MIN_SPAN_MS wide;
+ * centred on now when there is none.
+ */
+export function windowAround(times: readonly number[], now = Date.now()): TimeWindow {
 	// A loop, not Math.min(...times): spreading a long array overflows the stack.
 	const first = times.reduce((a, b) => Math.min(a, b), times[0] ?? now);
 	const last = times.reduce((a, b) => Math.max(a, b), times[0] ?? now);

@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import { decode } from './check';
-import { configResponse, freshnessResponse, resolution, searchResponse } from './decodeApi';
+import {
+	configResponse,
+	deliveriesResponse,
+	freshnessResponse,
+	resolution,
+	searchResponse
+} from './decodeApi';
 
 const TASK = { task: { instance: 'vikunja.example.com', id: 102 } };
 const READ = { newestRead: '2026-03-03T20:00:00Z', oldestRead: '2026-03-02T20:00:00Z' };
@@ -92,6 +98,34 @@ describe('config', () => {
 		);
 		expect(() => decode(configResponse, { kelosConsoles: {}, wiki: 'x' })).toThrow(
 			/unexpected field wiki/
+		);
+	});
+});
+
+describe('deliveries', () => {
+	const RECEIVED = '2026-03-03T19:12:01Z';
+	const attempt = (fields: Record<string, unknown> = {}) => ({
+		source: 'github',
+		instance: 'github.example.com',
+		id: 'd-1',
+		receivedAt: RECEIVED,
+		outcome: 'accepted',
+		...fields
+	});
+	const deliveries = (...list: unknown[]) =>
+		decode(deliveriesResponse, { root: TASK, deliveries: list });
+
+	test('an attempt read when received, or not read yet, decodes', () => {
+		expect(deliveries(attempt({ nextRead: RECEIVED }), attempt()).deliveries).toHaveLength(2);
+	});
+
+	test('a read before the attempt, an unknown outcome or attempts out of order fail', () => {
+		expect(() => deliveries(attempt({ nextRead: '2026-03-03T19:12:00Z' }))).toThrow(
+			/next read started before/
+		);
+		expect(() => deliveries(attempt({ outcome: 'refused' }))).toThrow(/unknown value "refused"/);
+		expect(() => deliveries(attempt({ receivedAt: '2026-03-03T19:13:00Z' }), attempt())).toThrow(
+			/received before the delivery listed before it/
 		);
 	});
 });

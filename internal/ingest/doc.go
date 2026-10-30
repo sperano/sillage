@@ -18,8 +18,8 @@
 // refused once its body, read up to the limit, is checked, and nothing of
 // it is recorded or acted on. Only a few bodies are read at once, so that
 // unauthenticated requests cannot fill the memory. An authenticated
-// attempt is recorded with its outcome (model.Delivery), apart from every
-// story's records.
+// attempt is recorded with its outcome (model.Delivery) and the roots it
+// names, apart from every story's records.
 //
 // Attempts of a delivery accepted already are ignored, so that a
 // redelivery asks for no second read: GitHub's delivery id is its

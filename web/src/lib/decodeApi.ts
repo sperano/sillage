@@ -1,6 +1,6 @@
 // The read API's own responses, besides stories and the overview: what
 // internal/api writes for a search, a resolved link, the sources'
-// freshness and the frontend's configuration, with the runtime checks of that JSON. Each mirrors what the
+// freshness, a root's webhook deliveries and the frontend's configuration, with the runtime checks of that JSON. Each mirrors what the
 // Go handler and store guarantee, so that a body they would never write
 // fails here rather than rendering wrong.
 
@@ -8,6 +8,7 @@ import {
 	type Decoder,
 	anyString,
 	array,
+	bool,
 	compareTimes,
 	fail,
 	nonEmpty,
@@ -146,3 +147,70 @@ export const freshnessResponse: Decoder<Freshness> = object({
 export const configResponse: Decoder<Required<LinkConfig>> = object({
 	kelosConsoles: record(text)
 });
+
+/** What sillage did with a webhook delivery attempt (Go's model.DeliveryOutcome). */
+export const DELIVERY_OUTCOMES = ['accepted', 'ignored', 'rejected', 'failed'] as const;
+export type DeliveryOutcome = (typeof DELIVERY_OUTCOMES)[number];
+
+/**
+ * A webhook delivery attempt sillage received that named a root (Go's
+ * model.RootDelivery): evidence that sillage received it, at receivedAt,
+ * and of nothing else. Not that the source's event happened then, not that
+ * Kelos received its own delivery of the same event, and not that it
+ * caused anything in the story.
+ */
+export interface Delivery {
+	source: Source;
+	instance: string;
+	/** The source's delivery id: a redelivery reuses it. */
+	id: string;
+	/** The source's event name; absent when the body could not be read. */
+	event?: string;
+	receivedAt: string;
+	outcome: DeliveryOutcome;
+	/** Why it was ignored, rejected or failed. */
+	detail?: string;
+	/**
+	 * When the first successful read of the root from the delivery's source
+	 * that started at or after receivedAt started; absent while none has.
+	 */
+	nextRead?: string;
+}
+
+/** The deliveries that named a root, oldest first (Go's api.DeliveriesResponse). */
+export interface Deliveries {
+	root: Root;
+	deliveries: Delivery[];
+	/** More deliveries named the root than the latest ones listed. */
+	truncated?: boolean;
+}
+
+const delivery: Decoder<Delivery> = refine(
+	object(
+		{
+			source,
+			instance: text,
+			id: text,
+			receivedAt: timestamp,
+			outcome: oneOf(DELIVERY_OUTCOMES)
+		},
+		{ event: text, detail: text, nextRead: timestamp }
+	),
+	(d, path) => {
+		if (d.nextRead !== undefined && compareTimes(d.nextRead, d.receivedAt) < 0) {
+			fail(path, 'the next read started before the delivery was received');
+		}
+	}
+);
+
+export const deliveriesResponse: Decoder<Deliveries> = refine(
+	object({ root, deliveries: array(delivery) }, { truncated: bool }),
+	(r, path) => {
+		r.deliveries.forEach((d, i) => {
+			const prev = r.deliveries[i - 1];
+			if (prev && compareTimes(prev.receivedAt, d.receivedAt) > 0) {
+				fail(`${path}.deliveries[${i}]`, 'received before the delivery listed before it');
+			}
+		});
+	}
+);
