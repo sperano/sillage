@@ -12,6 +12,7 @@ import (
 const (
 	retireWikiMigrationVersion          = 7
 	retireWikiRootStateMigrationVersion = 8
+	rootCorrelationBodiesVersion        = 9
 )
 
 func TestEmbeddedMigrationsLoad(t *testing.T) {
@@ -204,6 +205,39 @@ func TestRetireWikiRootStateMigrationDropsWikiSources(t *testing.T) {
 	wantCount(t, pool, `SELECT count(*) FROM checkpoints
 		WHERE scope = 'collector/roots/task:vikunja.example.com/tasks/2' AND value::jsonb -> 'sources' = '{}'::jsonb`, 1)
 	wantCount(t, pool, `SELECT count(*) FROM checkpoints WHERE value = 'W/"not json"'`, 1)
+}
+
+// TestRootCorrelationBodiesMigrationSplitsBodies stores one correlation
+// that two roots hold, ambiguous in one, as 0004 left it: each root takes
+// the correlation's body without its ends, its own ambiguity set only when
+// true, and the correlation keeps only its ends.
+func TestRootCorrelationBodiesMigrationSplitsBodies(t *testing.T) {
+	ctx := t.Context()
+	pool := migratedBefore(t, rootCorrelationBodiesVersion)
+	_, err := pool.Exec(ctx, `
+		INSERT INTO roots (ref, body) VALUES
+			('task:vikunja.example.com/tasks/1', '{"task":{"instance":"vikunja.example.com","id":1}}'),
+			('task:vikunja.example.com/tasks/2', '{"task":{"instance":"vikunja.example.com","id":2}}');
+		INSERT INTO correlations (pair_key, from_ref, to_ref, body) VALUES ('shared', 'event:e', 'run:r',
+			'{"from":{"kind":"event","id":"e"},"to":{"kind":"run","id":"r"},"confidence":"heuristic","evidence":[]}');
+		INSERT INTO root_correlations (root_id, correlation_id, ambiguous)
+		SELECT r.id, c.id, r.ref LIKE '%/1' FROM roots r CROSS JOIN correlations c;
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := migrate(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+
+	wantCount(t, pool, `SELECT count(*) FROM correlations
+		WHERE body = '{"from":{"kind":"event","id":"e"},"to":{"kind":"run","id":"r"}}'::jsonb`, 1)
+	wantCount(t, pool, `SELECT count(*) FROM root_correlations m JOIN roots r ON r.id = m.root_id
+		WHERE r.ref LIKE '%/1' AND m.body = '{"confidence":"heuristic","evidence":[],"ambiguous":true}'::jsonb`, 1)
+	wantCount(t, pool, `SELECT count(*) FROM root_correlations m JOIN roots r ON r.id = m.root_id
+		WHERE r.ref LIKE '%/2' AND m.body = '{"confidence":"heuristic","evidence":[]}'::jsonb`, 1)
+	wantCount(t, pool, `SELECT count(*) FROM information_schema.columns
+		WHERE table_schema = current_schema() AND table_name = 'root_correlations' AND column_name = 'ambiguous'`, 0)
 }
 
 func seedLegacyWikiData(t *testing.T, pool *pgxpool.Pool) {
