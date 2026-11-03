@@ -10,6 +10,7 @@ var testGrammar = NewGrammar(
 	PhraseTaskStartedLowercase, PhraseFollowUpLowercase, PhraseConflictLowercase,
 	PhraseTaskStartedColon, PhraseFollowUpColon, PhraseConflictColon,
 	PhraseTaskStarted, PhraseFollowUp, PhraseConflict,
+	OpenerTaskStarted, OpenerFollowUp,
 )
 
 func TestParseStart(t *testing.T) {
@@ -52,6 +53,29 @@ func TestParseStart(t *testing.T) {
 				Phrase: PhraseConflict, Agent: "agent-sol", TaskName: "pr-conflict-0a1b2c3d-52-4e5f6a7b-8c9d0e1f",
 				Pod: "pr-conflict-0a1b2c3d-52-4e5f6a7b-8c9d0e1f-fghij",
 			},
+		},
+		{
+			name: "short, rendered HTML",
+			text: "THIS ONE HAS THE STUFF!\nMODEL\nexample-model-2[1m]\nKELOS TASK\nvikunja-demo-agent-opus-4240\n" +
+				"NODE\nnode-a\nlucarne sillage\nCOFFEE TIME! REPORT TO FOLLOW.",
+			want: Start{Phrase: OpenerTaskStarted, Model: "example-model-2[1m]", TaskName: "vikunja-demo-agent-opus-4240"},
+		},
+		{
+			name: "short follow-up, Markdown, no model",
+			text: "HEARD YOU LOUD AND CLEAR!\n\n| | |\n|---|---|\n| KELOS TASK | vikunja-fu-demo-4240-c9201 |\n" +
+				"| NODE | node-b |\n\nCOFFEE TIME! REPORT TO FOLLOW.",
+			want: Start{Phrase: OpenerFollowUp, TaskName: "vikunja-fu-demo-4240-c9201"},
+		},
+		{
+			// The long follow-up phrase holds the opener's words, not its "!".
+			name: "location table follow-up, beside the short opener",
+			text: "AGENT agent-sol IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR.\nKELOS TASK\nvikunja-fu-demo-4240-c9204",
+			want: Start{Phrase: PhraseFollowUp, Agent: "agent-sol", TaskName: "vikunja-fu-demo-4240-c9204"},
+		},
+		{
+			name: "location table with a model row, the lead's model first",
+			text: "AGENT agent-opus (MODEL m1) IS ON THE CASE. THIS ONE HAS THE STUFF.\nMODEL\nm2\nKELOS TASK\nvikunja-demo-4244",
+			want: Start{Phrase: PhraseTaskStarted, Agent: "agent-opus", Model: "m1", TaskName: "vikunja-demo-4244"},
 		},
 		{
 			name: "location table, no agent, model or pod",
@@ -139,6 +163,14 @@ func TestParseStartRejects(t *testing.T) {
 			"| KELOS TASK | vikunja-demo-4204 |\n| POD | Not_A_Pod |", ErrUnparsedAnnouncement},
 		{"location table after another paragraph", "THE AGENT IS ON THE CASE. THIS ONE HAS THE STUFF.\nHello.\n" +
 			"KELOS TASK\nvikunja-demo-4204", ErrUnparsedAnnouncement},
+		{"short, no table", "THIS ONE HAS THE STUFF!\nCOFFEE TIME! REPORT TO FOLLOW.", ErrUnparsedAnnouncement},
+		{"short, no Kelos Task", "HEARD YOU LOUD AND CLEAR!\nMODEL\nexample-model-2\nNODE\nnode-a", ErrUnparsedAnnouncement},
+		{"short, model with a space", "THIS ONE HAS THE STUFF!\n| MODEL | example model |\n| KELOS TASK | vikunja-demo-4245 |",
+			ErrUnparsedAnnouncement},
+		{"short, text after the opener", "THIS ONE HAS THE STUFF! REALLY.\nKELOS TASK\nvikunja-demo-4245",
+			ErrUnparsedAnnouncement},
+		{"short, after an agent", "AGENT agent-opus THIS ONE HAS THE STUFF!\nKELOS TASK\nvikunja-demo-4245",
+			ErrUnparsedAnnouncement},
 		// The first form of 2026-10-04 named no agent; it is not parsed.
 		{"Task first", "Kelos Task vikunja-demo-4204 has started working on this task.", ErrUnparsedAnnouncement},
 	}
@@ -158,6 +190,25 @@ func TestGrammarPhrases(t *testing.T) {
 	_, err := g.Parse("THE AGENT IS ON THE CASE. THIS ONE HAS THE STUFF. KELOS TASK vikunja-demo-4204.")
 	if !errors.Is(err, ErrNotAnnouncement) {
 		t.Errorf("another surface's phrase: error %v, want %v", err, ErrNotAnnouncement)
+	}
+}
+
+// A grammar of openers alone reads only the short form, and one without
+// them does not read it.
+func TestGrammarOpeners(t *testing.T) {
+	const short = "HEARD YOU LOUD AND CLEAR!\nKELOS TASK\nvikunja-fu-demo-4246-c9205"
+	got, err := NewGrammar(OpenerFollowUp).Parse(short)
+	if want := (Start{Phrase: OpenerFollowUp, TaskName: "vikunja-fu-demo-4246-c9205"}); err != nil || got != want {
+		t.Errorf("openers alone: Parse = %+v, %v; want %+v", got, err, want)
+	}
+	_, err = NewGrammar(OpenerFollowUp).Parse("THE AGENT IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR!.\n" +
+		"KELOS TASK\nvikunja-fu-demo-4246-c9205")
+	if !errors.Is(err, ErrUnparsedAnnouncement) {
+		t.Errorf("openers alone, a lead: error %v, want %v", err, ErrUnparsedAnnouncement)
+	}
+	_, err = NewGrammar(PhraseFollowUp).Parse(short)
+	if !errors.Is(err, ErrNotAnnouncement) {
+		t.Errorf("no openers: error %v, want %v", err, ErrNotAnnouncement)
 	}
 }
 

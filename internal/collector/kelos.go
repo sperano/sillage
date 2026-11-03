@@ -148,10 +148,8 @@ func (a *assembly) includeRun(ref model.Ref) {
 
 // announcedRuns joins each start announcement to its run, and that run
 // to the record the announcement is a comment on, with the same
-// confidence (announcedPod). An announcement naming no pod is joined to
-// the runs of its Task name in the namespace it names, else in any, a
-// heuristic: a retry reuses the name. Each announcement is joined once,
-// however often it is called: again once more of them are read.
+// confidence (announcedPod, announcedName). Each announcement is joined
+// once, however often it is called: again once more of them are read.
 func (a *assembly) announcedRuns() {
 	for _, e := range a.eventsOf(model.KindRunAnnounced) {
 		if a.joined[e.Ref()] {
@@ -163,15 +161,44 @@ func (a *assembly) announcedRuns() {
 			a.announcedPod(e, ns, name, pod)
 			continue
 		}
-		candidates := a.sameNameRuns(e.Ref(), ns, name, func(model.Run) model.Evidence {
+		a.announcedName(e, ns, name)
+	}
+}
+
+// announcedName joins an announcement naming no pod (the short Vikunja
+// form names none) to the runs of its Task name, in the namespace it
+// names, else in any: those it was posted during, whatever their pod;
+// when none, those whose pod is unknown. Each is a heuristic, ambiguous
+// when there are several: a retry reuses the name.
+func (a *assembly) announcedName(e model.Event, ns, name string) {
+	candidates := a.postedDuring(e, ns, name)
+	for _, r := range candidates {
+		a.addRun(r)
+		a.links.heuristic(e.Ref(), r.Key.Ref(), len(candidates) > 1, a.announcementEvidence(e,
+			"names Kelos Task "+name+" but no pod, and was posted while this run of it was running; "+
+				"a retry reuses the name"))
+	}
+	if len(candidates) == 0 {
+		candidates = a.sameNameRuns(e.Ref(), ns, name, func(model.Run) model.Evidence {
 			return a.announcementEvidence(e, "names Kelos Task "+name+" but no pod; a retry reuses the name")
 		})
-		if on, ev, ok := a.relatedOf(e); ok {
-			for _, r := range candidates {
-				a.links.heuristic(r.Key.Ref(), on, len(candidates) > 1, ev)
-			}
+	}
+	if on, ev, ok := a.relatedOf(e); ok {
+		for _, r := range candidates {
+			a.links.heuristic(r.Key.Ref(), on, len(candidates) > 1, ev)
 		}
 	}
+}
+
+// postedDuring returns the runs of Task name, in namespace ns or in any
+// when ns is empty, that were running when e was posted.
+func (a *assembly) postedDuring(e model.Event, ns, name string) []model.Run {
+	if name == "" || e.SourceTime == nil {
+		return nil
+	}
+	return a.runsWhere(func(r model.Run) bool {
+		return r.TaskName == name && inNamespace(r, ns) && during(r, *e.SourceTime)
+	})
 }
 
 // relatedOf returns the task or pull request announcement e is a

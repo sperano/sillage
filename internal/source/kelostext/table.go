@@ -20,15 +20,19 @@ import (
 // Rendered comment HTML turns into one line per cell, the label
 // then its value; Markdown (GitHub) keeps one line per row, after an empty
 // header row and its separator.
+//
+// The short form's table (Hollingsworth #524) follows its opener and has
+// a MODEL row before the KELOS TASK one, then NODE: no JOB UID or POD.
 const (
-	labelTask = "KELOS TASK"
-	labelJob  = "JOB UID"
-	labelPod  = "POD"
-	labelNode = "NODE"
+	labelModel = "MODEL"
+	labelTask  = "KELOS TASK"
+	labelJob   = "JOB UID"
+	labelPod   = "POD"
+	labelNode  = "NODE"
 )
 
 // tableLabels are the location table's row labels.
-var tableLabels = []string{labelTask, labelJob, labelPod, labelNode}
+var tableLabels = []string{labelModel, labelTask, labelJob, labelPod, labelNode}
 
 // markdownFiller matches a Markdown table cell that holds no row: empty,
 // or a header separator.

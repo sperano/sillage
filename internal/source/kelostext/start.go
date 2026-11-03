@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode"
 )
 
 // A start announcement's first line names the agent, its model and what it
@@ -22,6 +23,10 @@ import (
 // unknown. The action phrase depends on the surface and the run; the
 // constants below list each, by the Hollingsworth change that introduced
 // it (helm/kelos/scripts/). A later paragraph may name the namespace.
+//
+// The short form (Hollingsworth #524) has no such lead: its first line is
+// a bare opener, one of the Opener constants, and the location table
+// names the model and the Kelos Task, never the agent, pod or namespace.
 
 // Action phrases of the first form, lowercase, followed by a colon, until
 // Hollingsworth #292.
@@ -56,6 +61,20 @@ const (
 	// PhraseConflict: a PR's merge conflict resolution.
 	PhraseConflict = "IS RESOLVING THE PULL REQUEST'S MERGE CONFLICT. PUT CAUTION IN THE SHOTGUN SEAT"
 )
+
+// Openers of the short form, Hollingsworth #524: the whole first line, a
+// bare sentence, before the location table. Their exclamation mark keeps
+// them apart from the action phrases above, which end at a period.
+const (
+	// OpenerTaskStarted: a Vikunja task's first run.
+	OpenerTaskStarted = "THIS ONE HAS THE STUFF!"
+	// OpenerFollowUp: a follow-up on a Vikunja task.
+	OpenerFollowUp = "HEARD YOU LOUD AND CLEAR!"
+)
+
+// openers are the Opener constants, which a Grammar matches as a whole
+// first line rather than after an agent.
+var openers = []string{OpenerTaskStarted, OpenerFollowUp}
 
 // K8sLabel matches a DNS label: a namespace, or a workspace name.
 const K8sLabel = `[a-z0-9](?:[a-z0-9-]*[a-z0-9])?`
@@ -92,7 +111,8 @@ var (
 // source must resolve it (the pod name is per attempt) before it
 // identifies a run.
 type Start struct {
-	// Phrase is the action phrase, as one of the Phrase constants.
+	// Phrase is the action phrase, as one of the Phrase constants, or the
+	// short form's opener, as one of the Opener constants.
 	Phrase string
 	// Agent and Model are empty when the announcement does not name them.
 	Agent string
@@ -105,21 +125,46 @@ type Start struct {
 }
 
 // Grammar parses the start announcements of one surface: the first line's
-// form above, with one of the surface's action phrases.
+// form above, with one of the surface's action phrases, or one of its
+// openers alone.
 type Grammar struct {
+	// phrases holds the action phrases and the openers.
 	phrases []string
-	lead    *regexp.Regexp
+	// openers holds the short form's openers among phrases.
+	openers []string
+	// lead and tableLead are nil when phrases holds only openers.
+	lead *regexp.Regexp
 	// tableLead matches a first line followed by the location table.
 	tableLead *regexp.Regexp
 }
 
-// NewGrammar returns the grammar of announcements that use one of phrases.
-// It panics when phrases is empty or holds an empty phrase, which every
-// text would contain.
+// NewGrammar returns the grammar of announcements that use one of phrases,
+// action phrases or openers. It panics when phrases is empty or holds an
+// empty phrase, which every text would contain.
 func NewGrammar(phrases ...string) *Grammar {
 	if len(phrases) == 0 || slices.Contains(phrases, "") {
 		panic("kelostext: NewGrammar needs non-empty phrases")
 	}
+	g := &Grammar{phrases: slices.Clone(phrases)}
+	var actions []string
+	for _, p := range phrases {
+		if slices.Contains(openers, p) {
+			g.openers = append(g.openers, p)
+		} else {
+			actions = append(actions, p)
+		}
+	}
+	if len(actions) > 0 {
+		alternatives := alternation(actions)
+		g.lead = regexp.MustCompile(leadAgent + alternatives + leadTask)
+		g.tableLead = regexp.MustCompile(leadAgent + alternatives + leadTableEnd)
+	}
+	return g
+}
+
+// alternation returns a regular expression group that matches any of
+// phrases, literally.
+func alternation(phrases []string) string {
 	sorted := slices.Clone(phrases)
 	// Longest first, so a phrase that starts another is tried after it.
 	slices.SortFunc(sorted, func(a, b string) int { return cmp.Compare(len(b), len(a)) })
@@ -127,12 +172,7 @@ func NewGrammar(phrases ...string) *Grammar {
 	for i, p := range sorted {
 		quoted[i] = regexp.QuoteMeta(p)
 	}
-	alternatives := `(` + strings.Join(quoted, "|") + `)`
-	return &Grammar{
-		phrases:   sorted,
-		lead:      regexp.MustCompile(leadAgent + alternatives + leadTask),
-		tableLead: regexp.MustCompile(leadAgent + alternatives + leadTableEnd),
-	}
+	return `(` + strings.Join(quoted, "|") + `)`
 }
 
 // Parse parses a comment's plain text, one line per paragraph. It returns
@@ -145,40 +185,55 @@ func (g *Grammar) Parse(text string) (Start, error) {
 	}
 	first, rest, _ := strings.Cut(strings.TrimSpace(text), "\n")
 	first = strings.TrimSpace(first)
+	if slices.Contains(g.openers, first) {
+		if l, ok := location(rest); ok {
+			return Start{Phrase: first, Model: l.model, TaskName: l.task, Namespace: namespace(text)}, nil
+		}
+		return Start{}, ErrUnparsedAnnouncement
+	}
+	if g.lead == nil {
+		return Start{}, ErrUnparsedAnnouncement
+	}
 	if m := g.lead.FindStringSubmatch(first); m != nil {
-		return start(m, m[4], m[5], text), nil
+		return start(m, place{task: m[4], pod: m[5]}, text), nil
 	}
 	if m := g.tableLead.FindStringSubmatch(first); m != nil {
-		if task, pod, ok := location(rest); ok {
-			return start(m, task, pod, text), nil
+		if l, ok := location(rest); ok {
+			return start(m, l, text), nil
 		}
 	}
 	return Start{}, ErrUnparsedAnnouncement
 }
 
+// place is what an announcement names of where its run is.
+type place struct {
+	task, pod, model string
+}
+
 // start is the Start of an announcement whose first line lead matched,
-// naming task and pod.
-func start(lead []string, task, pod, text string) Start {
+// naming the run's place, its model when lead does not.
+func start(lead []string, p place, text string) Start {
 	return Start{
 		Agent:     lead[1],
-		Model:     lead[2],
+		Model:     cmp.Or(lead[2], p.model),
 		Phrase:    lead[3],
-		TaskName:  task,
-		Pod:       pod,
+		TaskName:  p.task,
+		Pod:       p.pod,
 		Namespace: namespace(text),
 	}
 }
 
-// location returns the Kelos Task and pod the location table at the start
-// of rest names. ok is false when rest starts with no table, or one that
-// names no Task or a value that is not an object name.
-func location(rest string) (task, pod string, ok bool) {
+// location returns what the location table at the start of rest names.
+// ok is false when rest starts with no table, or one that names no Task, a
+// Task or pod that is not an object name, or a model with a space.
+func location(rest string) (place, bool) {
 	rows := locationRows(rest)
-	task, pod = rows[labelTask], rows[labelPod]
-	if !wholeK8sName.MatchString(task) || (pod != "" && !wholeK8sName.MatchString(pod)) {
-		return "", "", false
+	p := place{task: rows[labelTask], pod: rows[labelPod], model: rows[labelModel]}
+	if !wholeK8sName.MatchString(p.task) || (p.pod != "" && !wholeK8sName.MatchString(p.pod)) ||
+		strings.ContainsFunc(p.model, unicode.IsSpace) {
+		return place{}, false
 	}
-	return task, pod, true
+	return p, true
 }
 
 // namespace returns the namespace text names, or "".
