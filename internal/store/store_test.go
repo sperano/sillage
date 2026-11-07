@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sperano/sillage/internal/model"
@@ -212,8 +214,12 @@ func TestOpenRefusesNewerSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := open(t.Context(), pc, Retention{}); err == nil || !strings.Contains(err.Error(), "newer") {
+	_, err = open(t.Context(), pc, Retention{})
+	if err == nil || !strings.Contains(err.Error(), "newer") {
 		t.Errorf("open = %v, want a newer-schema error", err)
+	}
+	if errors.Is(err, ErrConnecting) {
+		t.Errorf("newer-schema error marked as ErrConnecting: %v", err)
 	}
 }
 
@@ -228,8 +234,33 @@ func TestOpenRefusesEditedMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := open(t.Context(), pc, Retention{}); err == nil || !strings.Contains(err.Error(), "other SQL") {
+	_, err = open(t.Context(), pc, Retention{})
+	if err == nil || !strings.Contains(err.Error(), "other SQL") {
 		t.Errorf("open = %v, want an edited-migration error", err)
+	}
+	if errors.Is(err, ErrConnecting) {
+		t.Errorf("edited-migration error marked as ErrConnecting: %v", err)
+	}
+}
+
+func TestOpenConfigurationErrorIsNotConnecting(t *testing.T) {
+	_, err := Open(t.Context(), Config{DatabaseURL: DatabaseURL("postgres://[bad")})
+	if err == nil {
+		t.Fatal("Open accepted an invalid database URL")
+	}
+	if errors.Is(err, ErrConnecting) {
+		t.Errorf("configuration error marked as ErrConnecting: %v", err)
+	}
+}
+
+func TestTransientConnectError(t *testing.T) {
+	serverErr := &pgconn.PgError{Code: "28P01", Message: "fabricated authentication failure"}
+	if isTransientConnectError(serverErr) {
+		t.Error("server-reported authentication failure marked transient")
+	}
+	networkErr := &net.DNSError{Err: "fabricated lookup failure", Name: "db.example.com"}
+	if !isTransientConnectError(networkErr) {
+		t.Error("network failure not marked transient")
 	}
 }
 

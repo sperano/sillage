@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sperano/sillage/internal/model"
@@ -79,13 +81,21 @@ func open(ctx context.Context, pc *pgxpool.Config, retention Retention) (*Store,
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
-		return nil, fmt.Errorf("%w: %w", ErrConnecting, err)
+		if isTransientConnectError(err) {
+			return nil, fmt.Errorf("%w: %w", ErrConnecting, err)
+		}
+		return nil, fmt.Errorf("store: connecting: %w", err)
 	}
 	if err := migrate(ctx, pool); err != nil {
 		pool.Close()
 		return nil, err
 	}
 	return &Store{pool: pool, retention: retention}, nil
+}
+
+func isTransientConnectError(err error) bool {
+	var networkError net.Error
+	return errors.As(err, &networkError) || pgconn.Timeout(err) || pgconn.SafeToRetry(err)
 }
 
 // Close closes the connections.
