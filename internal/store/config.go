@@ -60,6 +60,9 @@ func (DatabaseURL) MarshalText() ([]byte, error) { return []byte(redacted), nil 
 type Config struct {
 	DatabaseURL DatabaseURL
 	Retention   Retention
+	// MaxConnectTimeout bounds a connection attempt without extending a
+	// shorter connect_timeout from DatabaseURL. Zero leaves it unchanged.
+	MaxConnectTimeout time.Duration
 }
 
 // ConfigFromEnv reads a Config through getenv (os.Getenv in production).
@@ -87,6 +90,10 @@ func (c Config) poolConfig() (*pgxpool.Config, error) {
 	pc, err := pgxpool.ParseConfig(string(c.DatabaseURL))
 	if err != nil {
 		return nil, fmt.Errorf("store: %s is not a valid PostgreSQL connection string", EnvDatabaseURL)
+	}
+	if c.MaxConnectTimeout > 0 &&
+		(pc.ConnConfig.ConnectTimeout == 0 || pc.ConnConfig.ConnectTimeout > c.MaxConnectTimeout) {
+		pc.ConnConfig.ConnectTimeout = c.MaxConnectTimeout
 	}
 	return pc, nil
 }
