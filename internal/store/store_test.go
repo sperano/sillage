@@ -253,14 +253,48 @@ func TestOpenConfigurationErrorIsNotConnecting(t *testing.T) {
 	}
 }
 
+type safeToRetryError struct{}
+
+func (safeToRetryError) Error() string     { return "fabricated retryable failure" }
+func (safeToRetryError) SafeToRetry() bool { return true }
+
 func TestTransientConnectError(t *testing.T) {
-	serverErr := &pgconn.PgError{Code: "28P01", Message: "fabricated authentication failure"}
-	if isTransientConnectError(serverErr) {
-		t.Error("server-reported authentication failure marked transient")
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"server starting", &pgconn.PgError{Code: postgresCannotConnectNowCode}, true},
+		{"too many connections", &pgconn.PgError{Code: postgresTooManyConnectionsCode}, true},
+		{"authentication", &pgconn.PgError{Code: "28P01"}, false},
+		{"network", &net.DNSError{Err: "fabricated lookup failure", Name: "db.example.com"}, true},
+		{"timeout", context.DeadlineExceeded, true},
+		{"safe to retry", safeToRetryError{}, true},
+		{"plain", errors.New("fabricated permanent failure"), false},
 	}
-	networkErr := &net.DNSError{Err: "fabricated lookup failure", Name: "db.example.com"}
-	if !isTransientConnectError(networkErr) {
-		t.Error("network failure not marked transient")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isTransientConnectError(tt.err); got != tt.want {
+				t.Errorf("isTransientConnectError() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestOpenPingServerErrorIsNotConnecting(t *testing.T) {
+	pc, err := pgxpool.ParseConfig("postgres://db.example.com/sillage")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pc.BeforeConnect = func(context.Context, *pgx.ConnConfig) error {
+		return &pgconn.PgError{Code: "28P01", Message: "fabricated authentication failure"}
+	}
+	_, err = open(t.Context(), pc, Retention{})
+	if err == nil {
+		t.Fatal("open succeeded after a fabricated authentication failure")
+	}
+	if errors.Is(err, ErrConnecting) {
+		t.Errorf("server-reported Ping error marked as ErrConnecting: %v", err)
 	}
 }
 

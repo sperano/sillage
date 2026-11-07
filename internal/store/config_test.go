@@ -58,16 +58,19 @@ func TestConfigFromEnvNotConfigured(t *testing.T) {
 func TestPoolConfigBoundsConnectTimeout(t *testing.T) {
 	const maximum = 5 * time.Second
 	for _, tt := range []struct {
-		name string
-		url  string
-		want time.Duration
+		name    string
+		url     string
+		maximum time.Duration
+		want    time.Duration
 	}{
-		{"default", "postgres://db.example.com/sillage", maximum},
-		{"shorter URL timeout", "postgres://db.example.com/sillage?connect_timeout=1", time.Second},
-		{"longer URL timeout", "postgres://db.example.com/sillage?connect_timeout=30", maximum},
+		{"default", "postgres://db.example.com/sillage", maximum, maximum},
+		{"shorter URL timeout", "postgres://db.example.com/sillage?connect_timeout=1", maximum, time.Second},
+		{"longer URL timeout", "postgres://db.example.com/sillage?connect_timeout=30", maximum, maximum},
+		{"zero preserves URL timeout", "postgres://db.example.com/sillage?connect_timeout=1", 0, time.Second},
+		{"zero preserves default", "postgres://db.example.com/sillage", 0, 0},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			pc, err := (Config{DatabaseURL: DatabaseURL(tt.url), MaxConnectTimeout: maximum}).poolConfig()
+			pc, err := (Config{DatabaseURL: DatabaseURL(tt.url), MaxConnectTimeout: tt.maximum}).poolConfig()
 			if err != nil {
 				t.Fatal(err)
 			}

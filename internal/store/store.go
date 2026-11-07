@@ -16,7 +16,12 @@ import (
 // saveLockID is the transaction advisory lock every write takes, so that
 // the rules that read before they write (re-keying and observation ranges)
 // see one save at a time.
-const saveLockID int64 = 0x5111a6e0002
+const (
+	saveLockID int64 = 0x5111a6e0002
+
+	postgresCannotConnectNowCode   = "57P03"
+	postgresTooManyConnectionsCode = "53300"
+)
 
 // ErrNotFound is returned for a root the store has no story of.
 var ErrNotFound = errors.New("store: not found")
@@ -94,8 +99,13 @@ func open(ctx context.Context, pc *pgxpool.Config, retention Retention) (*Store,
 }
 
 func isTransientConnectError(err error) bool {
+	var serverError *pgconn.PgError
+	if errors.As(err, &serverError) {
+		return serverError.Code == postgresCannotConnectNowCode ||
+			serverError.Code == postgresTooManyConnectionsCode
+	}
 	var networkError net.Error
-	return errors.As(err, &networkError) || pgconn.Timeout(err) || pgconn.SafeToRetry(err)
+	return errors.As(err, &networkError) || pgconn.SafeToRetry(err)
 }
 
 // Close closes the connections.
