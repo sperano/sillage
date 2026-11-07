@@ -14,9 +14,19 @@ import (
 // passes it with collector.WithOriginMemory.
 var _ collector.OriginMemory = (*store.Store)(nil)
 
-// storeOpenTimeout bounds connecting, migrating and pruning at startup, so
-// that an unreachable database fails the start instead of hanging it.
-const storeOpenTimeout = 5 * time.Minute
+const (
+	// storeOpenTimeout bounds connecting, migrating and pruning at startup,
+	// so that an unreachable database fails the start instead of hanging it.
+	storeOpenTimeout = 5 * time.Minute
+	// storeConnectAttempts is the maximum number of initial connection
+	// attempts before startup fails.
+	storeConnectAttempts = 30
+	// storeConnectRetryInterval separates initial connection attempts.
+	storeConnectRetryInterval = 2 * time.Second
+)
+
+type storeOpenFunc func(context.Context, store.Config) (*store.Store, error)
+type storeRetryWait func(context.Context, time.Duration) error
 
 // openStore opens the store, applying its migrations and its retention
 // policy, when store.EnvDatabaseURL is set. Without it, it returns nil:
@@ -32,7 +42,7 @@ func openStore(ctx context.Context, getenv func(string) string) (*store.Store, e
 	}
 	ctx, cancel := context.WithTimeout(ctx, storeOpenTimeout)
 	defer cancel()
-	st, err := store.Open(ctx, cfg)
+	st, err := openStoreRetry(ctx, cfg, store.Open, waitForStoreRetry, slog.Default())
 	if err != nil {
 		return nil, err
 	}
@@ -43,4 +53,33 @@ func openStore(ctx context.Context, getenv func(string) string) (*store.Store, e
 	}
 	slog.Info("store open", "retention", cfg.Retention.String(), "pruned", pruned)
 	return st, nil
+}
+
+func openStoreRetry(ctx context.Context, cfg store.Config, open storeOpenFunc, wait storeRetryWait,
+	log *slog.Logger,
+) (*store.Store, error) {
+	for attempt := 1; attempt <= storeConnectAttempts; attempt++ {
+		st, err := open(ctx, cfg)
+		if err == nil || !errors.Is(err, store.ErrConnecting) || attempt == storeConnectAttempts {
+			return st, err
+		}
+		log.Warn("store connection failed; retrying",
+			"attempt", attempt, "maxAttempts", storeConnectAttempts,
+			"retryIn", storeConnectRetryInterval, "error", err)
+		if err := wait(ctx, storeConnectRetryInterval); err != nil {
+			return nil, err
+		}
+	}
+	panic("unreachable")
+}
+
+func waitForStoreRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

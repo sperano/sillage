@@ -19,6 +19,10 @@ const saveLockID int64 = 0x5111a6e0002
 // ErrNotFound is returned for a root the store has no story of.
 var ErrNotFound = errors.New("store: not found")
 
+// ErrConnecting marks a failure to establish the store's initial database
+// connection. Callers may retry it; other Open errors are not transient.
+var ErrConnecting = errors.New("store: connecting")
+
 // Reader is what the read API needs from the store.
 type Reader interface {
 	// Story returns everything stored about root, as model.BuildStory
@@ -75,7 +79,7 @@ func open(ctx context.Context, pc *pgxpool.Config, retention Retention) (*Store,
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
-		return nil, fmt.Errorf("store: connecting: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrConnecting, err)
 	}
 	if err := migrate(ctx, pool); err != nil {
 		pool.Close()

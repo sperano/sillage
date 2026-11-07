@@ -240,6 +240,9 @@ func TestOpenErrorHidesPassword(t *testing.T) {
 	if err == nil {
 		t.Fatal("Open succeeded against a closed port")
 	}
+	if !errors.Is(err, ErrConnecting) {
+		t.Errorf("error = %v, want ErrConnecting", err)
+	}
 	if strings.Contains(err.Error(), password) {
 		t.Errorf("error %q contains the password", err)
 	}
