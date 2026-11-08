@@ -259,13 +259,17 @@ func (safeToRetryError) Error() string     { return "fabricated retryable failur
 func (safeToRetryError) SafeToRetry() bool { return true }
 
 func TestTransientConnectError(t *testing.T) {
+	const (
+		cannotConnectNowSQLState   = "57P03"
+		tooManyConnectionsSQLState = "53300"
+	)
 	tests := []struct {
 		name string
 		err  error
 		want bool
 	}{
-		{"server starting", &pgconn.PgError{Code: postgresCannotConnectNowCode}, true},
-		{"too many connections", &pgconn.PgError{Code: postgresTooManyConnectionsCode}, true},
+		{"server starting", &pgconn.PgError{Code: cannotConnectNowSQLState}, true},
+		{"too many connections", &pgconn.PgError{Code: tooManyConnectionsSQLState}, true},
 		{"authentication", &pgconn.PgError{Code: "28P01"}, false},
 		{"network", &net.DNSError{Err: "fabricated lookup failure", Name: "db.example.com"}, true},
 		{"timeout", context.DeadlineExceeded, true},
