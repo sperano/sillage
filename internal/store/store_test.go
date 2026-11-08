@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sperano/sillage/internal/model"
@@ -212,8 +214,12 @@ func TestOpenRefusesNewerSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := open(t.Context(), pc, Retention{}); err == nil || !strings.Contains(err.Error(), "newer") {
+	_, err = open(t.Context(), pc, Retention{})
+	if err == nil || !strings.Contains(err.Error(), "newer") {
 		t.Errorf("open = %v, want a newer-schema error", err)
+	}
+	if errors.Is(err, ErrConnecting) {
+		t.Errorf("newer-schema error marked as ErrConnecting: %v", err)
 	}
 }
 
@@ -228,8 +234,71 @@ func TestOpenRefusesEditedMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := open(t.Context(), pc, Retention{}); err == nil || !strings.Contains(err.Error(), "other SQL") {
+	_, err = open(t.Context(), pc, Retention{})
+	if err == nil || !strings.Contains(err.Error(), "other SQL") {
 		t.Errorf("open = %v, want an edited-migration error", err)
+	}
+	if errors.Is(err, ErrConnecting) {
+		t.Errorf("edited-migration error marked as ErrConnecting: %v", err)
+	}
+}
+
+func TestOpenConfigurationErrorIsNotConnecting(t *testing.T) {
+	_, err := Open(t.Context(), Config{DatabaseURL: DatabaseURL("postgres://[bad")})
+	if err == nil {
+		t.Fatal("Open accepted an invalid database URL")
+	}
+	if errors.Is(err, ErrConnecting) {
+		t.Errorf("configuration error marked as ErrConnecting: %v", err)
+	}
+}
+
+type safeToRetryError struct{}
+
+func (safeToRetryError) Error() string     { return "fabricated retryable failure" }
+func (safeToRetryError) SafeToRetry() bool { return true }
+
+func TestTransientConnectError(t *testing.T) {
+	const (
+		cannotConnectNowSQLState   = "57P03"
+		tooManyConnectionsSQLState = "53300"
+	)
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"server starting", &pgconn.PgError{Code: cannotConnectNowSQLState}, true},
+		{"too many connections", &pgconn.PgError{Code: tooManyConnectionsSQLState}, true},
+		{"authentication", &pgconn.PgError{Code: "28P01"}, false},
+		{"network", &net.DNSError{Err: "fabricated lookup failure", Name: "db.example.com"}, true},
+		{"timeout", context.DeadlineExceeded, true},
+		{"safe to retry", safeToRetryError{}, true},
+		{"plain", errors.New("fabricated permanent failure"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isTransientConnectError(tt.err); got != tt.want {
+				t.Errorf("isTransientConnectError() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestOpenPingServerErrorIsNotConnecting(t *testing.T) {
+	pc, err := pgxpool.ParseConfig("postgres://db.example.com/sillage")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pc.BeforeConnect = func(context.Context, *pgx.ConnConfig) error {
+		return &pgconn.PgError{Code: "28P01", Message: "fabricated authentication failure"}
+	}
+	_, err = open(t.Context(), pc, Retention{})
+	if err == nil {
+		t.Fatal("open succeeded after a fabricated authentication failure")
+	}
+	if errors.Is(err, ErrConnecting) {
+		t.Errorf("server-reported Ping error marked as ErrConnecting: %v", err)
 	}
 }
 
@@ -239,6 +308,9 @@ func TestOpenErrorHidesPassword(t *testing.T) {
 	_, err := Open(t.Context(), cfg)
 	if err == nil {
 		t.Fatal("Open succeeded against a closed port")
+	}
+	if !errors.Is(err, ErrConnecting) {
+		t.Errorf("error = %v, want ErrConnecting", err)
 	}
 	if strings.Contains(err.Error(), password) {
 		t.Errorf("error %q contains the password", err)

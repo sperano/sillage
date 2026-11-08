@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sperano/sillage/internal/model"
@@ -14,10 +16,19 @@ import (
 // saveLockID is the transaction advisory lock every write takes, so that
 // the rules that read before they write (re-keying and observation ranges)
 // see one save at a time.
-const saveLockID int64 = 0x5111a6e0002
+const (
+	saveLockID int64 = 0x5111a6e0002
+
+	postgresCannotConnectNowCode   = "57P03"
+	postgresTooManyConnectionsCode = "53300"
+)
 
 // ErrNotFound is returned for a root the store has no story of.
 var ErrNotFound = errors.New("store: not found")
+
+// ErrConnecting marks a failure to establish the store's initial database
+// connection. Callers may retry it; other Open errors are not transient.
+var ErrConnecting = errors.New("store: connecting")
 
 // Reader is what the read API needs from the store.
 type Reader interface {
@@ -75,6 +86,9 @@ func open(ctx context.Context, pc *pgxpool.Config, retention Retention) (*Store,
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
+		if isTransientConnectError(err) {
+			return nil, fmt.Errorf("%w: %w", ErrConnecting, err)
+		}
 		return nil, fmt.Errorf("store: connecting: %w", err)
 	}
 	if err := migrate(ctx, pool); err != nil {
@@ -82,6 +96,16 @@ func open(ctx context.Context, pc *pgxpool.Config, retention Retention) (*Store,
 		return nil, err
 	}
 	return &Store{pool: pool, retention: retention}, nil
+}
+
+func isTransientConnectError(err error) bool {
+	var serverError *pgconn.PgError
+	if errors.As(err, &serverError) {
+		return serverError.Code == postgresCannotConnectNowCode ||
+			serverError.Code == postgresTooManyConnectionsCode
+	}
+	var networkError net.Error
+	return errors.As(err, &networkError) || pgconn.SafeToRetry(err)
 }
 
 // Close closes the connections.
