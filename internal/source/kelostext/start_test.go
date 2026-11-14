@@ -10,7 +10,7 @@ var testGrammar = NewGrammar(
 	PhraseTaskStartedLowercase, PhraseFollowUpLowercase, PhraseConflictLowercase,
 	PhraseTaskStartedColon, PhraseFollowUpColon, PhraseConflictColon,
 	PhraseTaskStarted, PhraseFollowUp, PhraseConflict,
-	OpenerTaskStarted, OpenerFollowUp,
+	OpenerTaskStarted, OpenerFollowUp, OpenerConflict,
 )
 
 func TestParseStart(t *testing.T) {
@@ -65,6 +65,21 @@ func TestParseStart(t *testing.T) {
 			text: "HEARD YOU LOUD AND CLEAR!\n\n| | |\n|---|---|\n| KELOS TASK | vikunja-fu-demo-4240-c9201 |\n" +
 				"| NODE | node-b |\n\nCOFFEE TIME! REPORT TO FOLLOW.",
 			want: Start{Phrase: OpenerFollowUp, TaskName: "vikunja-fu-demo-4240-c9201"},
+		},
+		{
+			name: "short conflict, Markdown, job UID",
+			text: "PUT CAUTION IN THE SHOTGUN SEAT!\n\n| | |\n|---|---|\n| MODEL | example-model-3 |\n" +
+				"| KELOS TASK | pr-conflict-0a1b2c3d-53-4e5f6a7b-8c9d0e1f |\n" +
+				"| JOB UID | 00000000-0000-4000-8000-000000000053 |\n| NODE | node-b |\n\n" +
+				"lucarne / sillage\n\nCOFFEE TIME! REPORT TO FOLLOW.",
+			want: Start{Phrase: OpenerConflict, Model: "example-model-3", TaskName: "pr-conflict-0a1b2c3d-53-4e5f6a7b-8c9d0e1f"},
+		},
+		{
+			// The long conflict phrase holds the opener's words, not its "!".
+			name: "location table conflict, beside the short opener",
+			text: "AGENT agent-sol IS RESOLVING THE PULL REQUEST'S MERGE CONFLICT. PUT CAUTION IN THE SHOTGUN SEAT.\n" +
+				"KELOS TASK\npr-conflict-0a1b2c3d-54-4e5f6a7b-8c9d0e1f",
+			want: Start{Phrase: PhraseConflict, Agent: "agent-sol", TaskName: "pr-conflict-0a1b2c3d-54-4e5f6a7b-8c9d0e1f"},
 		},
 		{
 			// The long follow-up phrase holds the opener's words, not its "!".

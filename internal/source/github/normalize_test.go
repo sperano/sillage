@@ -271,6 +271,13 @@ func TestNormalizeFollowUpAnnounced(t *testing.T) {
 		}, ""},
 		{"issues/comments/5307", model.KindComment, nil, ""},
 		{"issues/comments/5308", model.KindComment, nil, ""},
+		// The short form names no agent, so no executor, and no pod.
+		{"issues/comments/5309", model.KindRunAnnounced, map[string]string{
+			"taskName": "pr-followup-widgets-51-r3601", "model": "example-model-3", "role": "pr-follow-up",
+		}, ""},
+		{"issues/comments/5310", model.KindRunAnnounced, map[string]string{
+			"taskName": "pr-conflict-1a2b3c4d-51-5e6f7a8b-9c0d1e2f", "role": "conflict-fix",
+		}, ""},
 	}
 	for _, tt := range tests {
 		e := eventByID(t, recs, tt.id)

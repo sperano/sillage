@@ -22,7 +22,8 @@ import (
 // header row and its separator.
 //
 // The short form's table (Hollingsworth #524) follows its opener and has
-// a MODEL row before the KELOS TASK one, then NODE: no JOB UID or POD.
+// a MODEL row before the KELOS TASK one, then NODE: no POD, and a JOB UID
+// row before NODE on GitHub only.
 const (
 	labelModel = "MODEL"
 	labelTask  = "KELOS TASK"
