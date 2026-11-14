@@ -30,8 +30,8 @@ import (
 //
 // A conflict run's phrase is the conflict one of the same form. Since
 // Hollingsworth's "kelos: give the GitHub start comment the Vikunja
-// shape" it has the short form instead, an opener alone then the location
-// table, with no agent or pod:
+// shape" both runs' announcements have the short form instead, an opener
+// alone then the location table, with no agent or pod:
 //
 //	HEARD YOU LOUD AND CLEAR!
 //
@@ -44,7 +44,8 @@ import (
 //
 //	COFFEE TIME! REPORT TO FOLLOW.
 //
-// a conflict run's opener being kelostext.OpenerConflict. Since the
+// a follow-up's opener being kelostext.OpenerFollowUp and a conflict
+// run's kelostext.OpenerConflict. Since the
 // account can be the owner's, which also posts requests and replies, a
 // comment is an announcement only when its Task name is one Kelos gives a
 // run on this pull request.
