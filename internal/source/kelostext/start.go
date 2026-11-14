@@ -62,19 +62,23 @@ const (
 	PhraseConflict = "IS RESOLVING THE PULL REQUEST'S MERGE CONFLICT. PUT CAUTION IN THE SHOTGUN SEAT"
 )
 
-// Openers of the short form, Hollingsworth #524: the whole first line, a
-// bare sentence, before the location table. Their exclamation mark keeps
-// them apart from the action phrases above, which end at a period.
+// Openers of the short form, Hollingsworth #524 on Vikunja, then "kelos:
+// give the GitHub start comment the Vikunja shape" on GitHub: the whole
+// first line, a bare sentence, before the location table. Their
+// exclamation mark keeps them apart from the action phrases above, which
+// end at a period.
 const (
 	// OpenerTaskStarted: a Vikunja task's first run.
 	OpenerTaskStarted = "THIS ONE HAS THE STUFF!"
-	// OpenerFollowUp: a follow-up on a Vikunja task.
+	// OpenerFollowUp: a follow-up on a Vikunja task or a PR.
 	OpenerFollowUp = "HEARD YOU LOUD AND CLEAR!"
+	// OpenerConflict: a PR's merge conflict resolution.
+	OpenerConflict = "PUT CAUTION IN THE SHOTGUN SEAT!"
 )
 
 // openers are the Opener constants, which a Grammar matches as a whole
 // first line rather than after an agent.
-var openers = []string{OpenerTaskStarted, OpenerFollowUp}
+var openers = []string{OpenerTaskStarted, OpenerFollowUp, OpenerConflict}
 
 // K8sLabel matches a DNS label: a namespace, or a workspace name.
 const K8sLabel = `[a-z0-9](?:[a-z0-9-]*[a-z0-9])?`

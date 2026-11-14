@@ -338,6 +338,67 @@
         "ref": "GET /repos/example-org/widgets/issues/51/comments",
         "note": "comment 5308"
       }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5309",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-04-05T12:30:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "owner-gh",
+        "kind": "person"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "details": {
+        "model": "example-model-3",
+        "role": "pr-follow-up",
+        "taskName": "pr-followup-widgets-51-r3601"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/51/comments",
+        "note": "comment 5309, and the Kelos Task it names"
+      }
+    },
+    {
+      "source": "github",
+      "instance": "github.example.com",
+      "id": "issues/comments/5310",
+      "idKind": "source",
+      "kind": "run.announced",
+      "sourceTime": "2026-04-05T12:40:00Z",
+      "observedAt": "2026-04-05T12:00:00Z",
+      "actor": {
+        "login": "example-agents[bot]",
+        "kind": "service"
+      },
+      "related": {
+        "pr": {
+          "instance": "github.example.com",
+          "repository": "example-org/widgets",
+          "number": 51
+        }
+      },
+      "details": {
+        "role": "conflict-fix",
+        "taskName": "pr-conflict-1a2b3c4d-51-5e6f7a8b-9c0d1e2f"
+      },
+      "evidence": {
+        "source": "github",
+        "instance": "github.example.com",
+        "ref": "GET /repos/example-org/widgets/issues/51/comments",
+        "note": "comment 5310, and the Kelos Task it names"
+      }
     }
   ],
   "pullRequests": [
