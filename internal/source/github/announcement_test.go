@@ -138,7 +138,8 @@ func TestParseAnnouncementRejects(t *testing.T) {
 			"| KELOS TASK | `pr-followup-widgets-51-c1` |", kelostext.ErrUnparsedAnnouncement},
 		{"short conflict, another pull request", "PUT CAUTION IN THE SHOTGUN SEAT!\n\n| | |\n|---|---|\n" +
 			"| KELOS TASK | `pr-conflict-0a1b2c3d-52-4e5f6a7b-8c9d0e1f` |", kelostext.ErrUnparsedAnnouncement},
-		{"opener then text on its line", "HEARD YOU LOUD AND CLEAR! On it.", kelostext.ErrUnparsedAnnouncement},
+		{"opener then text on its line", "HEARD YOU LOUD AND CLEAR! On it.\n\n| | |\n|---|---|\n" +
+			"| KELOS TASK | `pr-followup-widgets-51-c1` |", kelostext.ErrUnparsedAnnouncement},
 		{"short follow-up, no table", "HEARD YOU LOUD AND CLEAR!\n\nCOFFEE TIME! REPORT TO FOLLOW.",
 			kelostext.ErrUnparsedAnnouncement},
 		{"short conflict, no table", "PUT CAUTION IN THE SHOTGUN SEAT!\n\nCOFFEE TIME! REPORT TO FOLLOW.",
