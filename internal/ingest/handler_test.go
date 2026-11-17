@@ -42,6 +42,9 @@ func TestAcceptedGitHubDelivery(t *testing.T) {
 	if got := hs.sched.roots(); !slices.Equal(got, refs([]model.Root{taskRoot(42)})) {
 		t.Errorf("scheduled %q, want task 42", got)
 	}
+	if got := hs.store.recordedRoots(); len(got) != 1 || !slices.Equal(got[0], refs([]model.Root{taskRoot(42)})) {
+		t.Errorf("recorded with roots %q, want task 42", got)
+	}
 	if got := testutil.ToFloat64(hs.metrics.deliveries.WithLabelValues("github", "accepted")); got != 1 {
 		t.Errorf("accepted deliveries = %v, want 1", got)
 	}
@@ -97,6 +100,11 @@ func TestRetryAfterFailureIsAccepted(t *testing.T) {
 	if len(got) != 2 || got[0].Outcome != model.DeliveryFailed || got[0].Detail != queueFullDetail ||
 		got[1].Outcome != model.DeliveryAccepted {
 		t.Errorf("recorded %+v, want failed then accepted", got)
+	}
+	// The failed attempt names the task it could not ask to read.
+	named := hs.store.recordedRoots()
+	if len(named) != 2 || len(named[0]) != 1 || !slices.Equal(named[0], named[1]) {
+		t.Errorf("recorded with roots %q, want the same task for both attempts", named)
 	}
 }
 

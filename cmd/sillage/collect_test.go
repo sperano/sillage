@@ -41,6 +41,9 @@ func TestNewCollection(t *testing.T) {
 	}
 	noGitHubToken := withDB(ingestEnv())
 	delete(noGitHubToken, github.EnvToken)
+	partialApp := withDB(ingestEnv())
+	delete(partialApp, github.EnvToken)
+	partialApp[github.EnvAppID] = "1"
 	tests := []struct {
 		name string
 		env  map[string]string
@@ -61,6 +64,8 @@ func TestNewCollection(t *testing.T) {
 		},
 		{name: "no GitHub token", env: noGitHubToken, loop: true, off: []model.Source{model.SourceGitHub},
 			offIn: github.EnvToken},
+		{name: "incomplete GitHub App", env: partialApp, loop: true, off: []model.Source{model.SourceGitHub},
+			offIn: github.EnvAppInstallationID},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

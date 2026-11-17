@@ -13,7 +13,7 @@
 		padding: 0;
 		border: none;
 		background: none;
-		color: LinkText;
+		color: var(--color-link);
 		font: inherit;
 		text-decoration: underline;
 		cursor: pointer;

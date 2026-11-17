@@ -27,7 +27,7 @@ func collectStory(t *testing.T, name string) model.Story {
 		t.Fatalf("no story case %s", name)
 	}
 	kept := Kept{Markers: collectortest.Markers(t, fixturesDir, sc.Dirs)}
-	res, err := newStoryCollector(t, sc.Dirs).Recollect(t.Context(), sc.Root, kept, sc.Repos...)
+	res, err := newStoryCollector(t, sc.Dirs).Recollect(t.Context(), sc.Root, kept)
 	if err != nil {
 		t.Fatalf("Recollect: %v", err)
 	}

@@ -7,13 +7,45 @@
 // name, lists the configured Vikunja projects' tasks changed since the
 // last listing, and collects every root that is new, whose runs changed,
 // whose task changed, whose Kelos gap is open, or that was not read for a
-// refresh interval. The roots webhook deliveries name (Deliveries) are
+// refresh interval.
+//
+// A root's GitHub side has a schedule of its own, since its reads cost
+// the token's rate limit: it is read when a delivery names the root, a
+// run is new or changed, or the task changed. A refresh, or a Kelos gap,
+// keeps the stored records of its last read instead. Past a
+// BackstopInterval with none of those, the backstop asks GitHub, with
+// the ETags of the last read (ConditionalGitHub), whether its lists
+// changed: 304 Not Modified, which the rate limit does not count, closes
+// the coverage there; a change reads it whole. A settled root (task done,
+// pull requests closed or merged, runs finished) gets no backstop unless
+// a gap is open on its GitHub coverage, and no backstop read is made
+// while the rate limit's window has less than githubReserve left. A
+// restart checks the roots whose last read left ETags within a
+// RefreshInterval, closing their restart gap on GitHub, and spreads the
+// other overdue backstop reads over the BackstopInterval.
+//
+// The reads a delivery, a run or a task change asks for stop at
+// githubTriggerReserve: the others are owed (the root's state keeps
+// them) and read in later cycles, the longest owed first, or once the
+// GitHub source is configured again when it is off. Once GitHub
+// refuses a request for its rate limit, no GitHub request is made until
+// the wait it asked for is over: the roots still due are owed their read,
+// or keep their backstop due, and those whose read it refused retry
+// spread over the window that follows.
+//
+// A root whose read could not be saved (its stored records not read, its
+// story not assembled, its commit refused) would be due again at once,
+// its state unsaved: it backs off instead, a cycle interval at first,
+// doubled at each failure in a row up to maxBackoff, until a read of it
+// is committed.
+//
+// The roots webhook deliveries name (Deliveries) are
 // read too, first, at most DeliveryRootsPerCycle a cycle, the others left
 // queued for the next, and each once however many deliveries named it: a
 // delivery cuts the wait for the next cycle short, to DeliveryDelay, but
 // that cycle is a whole one, with its one Kelos read and its project
 // listings. The periodic reads stay authoritative: a lost delivery only
-// delays what they find. Every successful read of a root's source advances
+// delays what they find, on GitHub until the backstop. Every successful read of a root's source advances
 // that source's LastSuccessfulRead; once there is one, a failed read
 // opens a gap, from the last success to the next, with the reason, unless
 // one is open already: a failed Kelos read, which serves every root,

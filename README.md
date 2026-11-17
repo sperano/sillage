@@ -74,6 +74,7 @@ stay behind the Authentik forward-auth in front of sillage.
 | --- | --- |
 | `/api/v1/stories/task/{instance}/{id}` | The stored `model.Story`, as the golden files under `testdata/fixtures/stories/` |
 | `/api/v1/coverage/task/{instance}/{id}` | The task's coverage: last successful read and gaps per source |
+| `/api/v1/deliveries/task/{instance}/{id}` | The latest 1000 webhook delivery attempts that named the task, oldest first, apart from its story: source, delivery id, event, received time, outcome and why, and the next read of the task from that source (`truncated` when older ones were left out) |
 | `/api/v1/coverage` | Per source instance, the newest and stalest last read across stored roots |
 | `/api/v1/search?q=&limit=` | Roots by title or key, most recently active first (`q` at most 200 characters) |
 | `/api/v1/resolve?url=` | The task stories that a Vikunja task, GitHub pull request or Kelos Task (`[<namespace>/]<name>`, UID) points to; 404 if none |
@@ -99,8 +100,10 @@ delivery. A request that is too large (25 MB from GitHub, 5 MB from
 Vikunja), unsigned or badly signed is refused, once its body, read up to
 that limit, is checked (unread when it declares a larger one); nothing of
 it is recorded or acted on. Each authenticated
-attempt is recorded as evidence that sillage received it, not that Kelos
-received or acted on its own delivery. It then asks the collector to read
+attempt is recorded, with the tasks it names, as evidence that sillage
+received it, not that Kelos received or acted on its own delivery; the
+story page shows them on a Sillage lane and around each state change, by
+time alone. It then asks the collector to read
 the task it names again; nothing is written from the payload, and the
 periodic reads stay authoritative. A delivery cuts the collection loop's
 wait short: its next cycle starts `SILLAGE_DELIVERY_DELAY` (default `15s`)
@@ -189,9 +192,10 @@ credential:
 | `SILLAGE_KELOS_CLUSTER`, `SILLAGE_KELOS_NAMESPACE` | Name given to the cluster, and the namespace read; the Kubernetes credentials are the in-cluster ones, else the kubeconfig's current context. |
 | `SILLAGE_KELOS_LABEL_DOMAIN`, `SILLAGE_KELOS_VIKUNJA_INSTANCE` | The spawners' label prefix, and the Vikunja host the task label names (must be `SILLAGE_VIKUNJA_URL`'s). |
 | `SILLAGE_KELOS_TASK_TTL` | How long Kelos keeps a finished Task (default `72h`): runs that ended longer ago than that may be missing. |
-| `SILLAGE_GITHUB_TOKEN`, `SILLAGE_GITHUB_API_URL` | A read-only token, and the API (default `https://api.github.com`). |
+| `SILLAGE_GITHUB_APP_ID`, `SILLAGE_GITHUB_APP_INSTALLATION_ID`, `SILLAGE_GITHUB_APP_PRIVATE_KEY` | The recommended GitHub credential: a read-only GitHub App installation. The key is the PEM itself (PKCS#1 `RSA PRIVATE KEY`, as GitHub generates it, or PKCS#8); sillage signs a short-lived JWT with it and exchanges it for an installation token, renewed before it expires. The installation has its own rate limit and, unlike a fine-grained token, Checks read. Grant it Contents, Pull requests, Issues, Checks and Metadata, all read-only; with `SILLAGE_GITHUB_HOOKS`, also Webhooks, read and write (write only to redeliver: read alone, lost deliveries are read again instead). |
+| `SILLAGE_GITHUB_TOKEN`, `SILLAGE_GITHUB_API_URL` | A read-only personal access token instead of the App (set exactly one of the two credentials; for tests and development: a fine-grained token cannot read check runs of private repositories and shares its owner's rate limit), and the API (default `https://api.github.com`). |
 | `SILLAGE_GITHUB_ANNOUNCERS` | GitHub logins whose pull request comments are parsed as start announcements, comma-separated. |
-| `SILLAGE_WORKSPACES` | `<workspace>=<owner>/<repository>` pairs, comma-separated: where a run's workspace (or Vikunja project) works. Without a match and without `-repo`, GitHub is not read. |
+| `SILLAGE_WORKSPACES` | `<workspace>=<owner>/<repository>` pairs, comma-separated: where a run's workspace (or Vikunja project) works. A task's branch is read in the repository its runs' labels map to, a pull request link in its comments names, the project of an announced Task name (`vikunja-<project>-…`) maps to, or a stored pull request of it was read from; when none names one, it is looked for in every repository listed here. Unset, and without `-repo` or such a record, GitHub is not read. |
 
 ## Collect into the store
 
@@ -203,8 +207,27 @@ Each cycle reads the Kelos namespace once, and lists the tasks of the
 configured Vikunja projects changed since the last listing. It reads a
 root that is new, whose Kelos runs changed, whose task changed, or that
 Kelos still names and that has a Kelos gap open or was not read for the
-refresh interval. A story whose records did not change writes none; its
-coverage still advances. Once a source of a root has been read
+refresh interval. A root's GitHub side is read only when a webhook
+delivery names the root, a run is new or changed, or the task changed;
+otherwise its stored records stand. Once a day (the backstop) GitHub is
+asked, with the last read's ETags, whether the root's pull requests
+changed: `304 Not Modified` costs no rate limit and advances the
+coverage, a change reads them whole. A root whose task is done, whose
+pull requests are closed or merged and whose runs finished gets no
+backstop unless its GitHub coverage has a gap open; no backstop read is
+made while less than 20% of the rate limit's window is left, and a
+restart spreads the overdue backstop reads over the interval. The reads
+a delivery, a run or a task change asks for stop at 10%: the rest are
+owed (kept in the root's state) and read in later cycles, the longest
+owed first, so a catch-up spreads over several windows (with the GitHub
+source off, they wait until it is configured again). Once GitHub
+refuses a request for its rate limit, no GitHub request is made until
+the wait it asked for is over, and the roots whose read it refused
+retry spread over the hour that follows. A root whose read could not be
+saved (its story not assembled, or the store failing) is left unread
+for one cycle interval, twice as long after each failure in a row, at
+most 4 hours; the log says so once per error. A story
+whose records did not change writes none; its coverage still advances. Once a source of a root has been read
 successfully, a failed read leaves a gap, from that source's last
 successful read to its next, with the reason (`timeout`, `rate_limited`,
 `server_error`, `failed`): a failed Kelos read, which serves every root,
@@ -215,21 +238,50 @@ has no last successful read. One process collects at a time, under a
 PostgreSQL advisory lock: another reads nothing, says so in its log, and
 tries again.
 
+GitHub does not retry a delivery sillage did not answer with a 2xx (sillage,
+the tunnel or the proxy down, a timeout). With `SILLAGE_GITHUB_HOOKS` set,
+each hook's URL is read once: a hook that does not send to `/ingest/github`
+(another receiver's id, set by mistake) is logged as an error and never
+read nor redelivered to. Then the first cycle after a start and one cycle
+every `SILLAGE_GITHUB_HOOK_CHECK_INTERVAL` read each hook's delivery log, newest
+first, down to the newest attempt the last read handled (kept in the
+store; a hook seen for the first time is read back one backstop interval),
+so a quiet hook costs one request. An attempt that failed, and of whose
+delivery (`X-GitHub-Delivery`) the store holds no accepted attempt, is
+redelivered: the ingest path then records it and reads what it names. If
+GitHub refuses (no Webhooks write), or the attempt was a redelivery
+already, the roots its payload names are read in that cycle, and their
+GitHub coverage gets a gap from when it was sent to that read, unless a
+read since saw it. An attempt that could not be handled (GitHub or the
+store failing) stops the read of that log, and the next one starts from it.
+`sillage_collector_lost_deliveries_total` counts them by outcome:
+`failed`, then `redelivered` or `unrecoverable`.
+
 | Variable | Meaning |
 | --- | --- |
 | `SILLAGE_DATABASE_URL` | The store's PostgreSQL URL. Unset, the collector does not run. |
 | `SILLAGE_VIKUNJA_PROJECTS` | Vikunja project ids whose changed tasks are read, comma-separated. Unset, only the tasks Kelos names are. |
 | `SILLAGE_COLLECT_INTERVAL` | Time between two cycles (default `5m`). |
-| `SILLAGE_ROOT_REFRESH_INTERVAL` | How long a root Kelos still names is left unread when nothing says it changed (default `1h`): reviews, checks and comments change no run. |
+| `SILLAGE_ROOT_REFRESH_INTERVAL` | How long a root Kelos still names is left unread when nothing says it changed (default `1h`): task comments change no run. GitHub is not read then. |
+| `SILLAGE_GITHUB_BACKSTOP_INTERVAL` | How long a root's GitHub side is left unread when no delivery, run or task change says it changed (default `24h`). |
 | `SILLAGE_LOCK_RETRY_INTERVAL` | How often a process without the lock tries to take it (default `1m`). |
+| `SILLAGE_GITHUB_HOOKS` | sillage's own GitHub repository webhooks, `owner/name:id`, comma-separated, whose delivery logs are read for the deliveries sillage did not receive. Unset, none is. The GitHub credential needs Webhooks read, and write to redeliver. |
+| `SILLAGE_GITHUB_HOOK_CHECK_INTERVAL` | How long between two reads of those delivery logs (default `5m`); the first cycle after a start reads them. |
 
 Every interval is spread by up to 10% either way. `GET /metrics` serves,
 besides the Go runtime's and the process's, each source instance's last
 successful read (`sillage_source_last_success_timestamp_seconds`), failed
 reads by reason (`sillage_source_read_errors_total`) and read durations
 (`sillage_source_read_duration_seconds`), the records committed
-(`sillage_records_written_total`), store errors, cycles, roots, whether
-this process holds the lock, and the phase-marker requests by outcome
+(`sillage_records_written_total`), store errors, cycles, roots, the roots backing off
+(`sillage_collector_roots_backing_off`), whether
+this process holds the lock, the roots' GitHub reads by what asked for
+them, or deferred them (`sillage_collector_github_reads_total`), the repositories a
+root's branch was looked for in because none of its records named one
+(`sillage_collector_github_branch_searches_total`), the requests sent to
+GitHub and those answered 304 (`sillage_github_requests_total`,
+`sillage_github_not_modified_total`), the rate limit left
+(`sillage_github_rate_limit_remaining`), and the phase-marker requests by outcome
 (`sillage_phase_markers_total`). Who may reach it is the deployment's decision.
 
 ## Test

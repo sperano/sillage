@@ -117,8 +117,14 @@ func TestCollectRejectsAForeignRoot(t *testing.T) {
 }
 
 func TestGitHubNotReadWithoutRepository(t *testing.T) {
-	cov := coverageOf(t, collectStory(t, "announced-run-only"), model.SourceGitHub)
-	if cov.LastSuccessfulRead != nil || !hasNote(cov, "no repository known") {
+	sc := storyCases["announced-run-only"]
+	c := newStoryCollector(t, sc.Dirs)
+	c.cfg.Workspaces = nil
+	res, err := c.Collect(t.Context(), sc.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cov := coverageOf(t, res.Story, model.SourceGitHub); cov.LastSuccessfulRead != nil || !hasNote(cov, "no repository known") {
 		t.Errorf("github coverage = %+v, want no read and a note saying why", cov)
 	}
 }
@@ -135,6 +141,8 @@ func TestGitHubReadFromARepositoryAskedFor(t *testing.T) {
 	}
 }
 
+// An unmapped workspace is noted; the pull request a comment links to is
+// still read from the repository the link names.
 func TestUnmappedWorkspaceNoted(t *testing.T) {
 	c := newStoryCollector(t, storyCases["implementation-merged"].Dirs)
 	c.cfg.Workspaces = nil
@@ -143,8 +151,12 @@ func TestUnmappedWorkspaceNoted(t *testing.T) {
 		t.Fatal(err)
 	}
 	cov := coverageOf(t, res.Story, model.SourceGitHub)
-	if cov.LastSuccessfulRead != nil || !hasNote(cov, EnvWorkspaces+" for "+testWorkspace) {
-		t.Errorf("github coverage = %+v, want no read and the unmapped workspace named", cov)
+	if cov.LastSuccessfulRead == nil || !hasNote(cov, EnvWorkspaces+" for "+testWorkspace) {
+		t.Errorf("github coverage = %+v, want a read and the unmapped workspace named", cov)
+	}
+	if len(res.Story.PullRequests) != 1 || res.Searches != 0 {
+		t.Errorf("pull requests %v after %d searches, want #7, read from the repository its comment links",
+			res.Story.PullRequests, res.Searches)
 	}
 }
 

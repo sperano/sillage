@@ -60,4 +60,5 @@ func (a *assembly) readTask(ctx context.Context, id int64) {
 	}
 	a.read(model.SourceVikunja, at)
 	a.addEvents(events)
+	a.prLinks = a.pullRequestLinks(snap, events)
 }

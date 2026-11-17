@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import type { Deliveries } from '../decodeApi';
+	import type { Load } from '../load.svelte';
 	import type { Story } from '../model';
 	import type { LinkConfig } from '../links';
 	import { Selection } from '../selection.svelte';
@@ -19,13 +21,16 @@
 		links = {},
 		timeZone = DEFAULT_TIME_ZONE,
 		selection = new Selection(),
-		graph
+		graph,
+		deliveries = { state: 'idle' }
 	}: {
 		story: Story;
 		links?: LinkConfig;
 		timeZone?: string;
 		selection?: Selection;
 		graph?: Snippet<[Selection]>;
+		/** The webhook deliveries sillage received for the story's root, apart from the story. */
+		deliveries?: Load<Deliveries>;
 	} = $props();
 
 	const items = $derived(timelineItems(story));
@@ -40,19 +45,20 @@
 		{/if}
 		<div class="panels">
 			<EventList {story} {items} {selection} {links} {timeZone} />
-			<DetailPanel {story} {items} {selection} {links} {timeZone} />
+			<DetailPanel {story} {items} {selection} {links} {timeZone} {deliveries} />
 		</div>
 	</div>
 </div>
 
 <style>
-	.story {
-		color-scheme: light dark;
-	}
-
-	.layout {
+	.story,
+	.layout,
+	.panels {
 		display: grid;
-		gap: 1rem;
+		gap: var(--space-4);
+	}
+	.panels {
+		align-content: start;
 	}
 
 	/* Wide: the graph, then the panels beside it in one column. */
@@ -62,9 +68,7 @@
 
 	/* No graph: the list and the detail side by side. */
 	.layout:not(.with-graph) .panels {
-		display: grid;
 		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		gap: 1rem;
 	}
 
 	/* Narrow (below 48rem): everything in one column, the panels under the graph. */

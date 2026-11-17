@@ -21,6 +21,7 @@ const (
 	labelOperation  = "operation"
 	labelResource   = "resource"
 	labelCode       = "code"
+	labelOutcome    = "outcome"
 	// The kinds of record written, as labelKind values.
 	kindEvents       = "events"
 	kindRuns         = "runs"
@@ -46,11 +47,26 @@ type Metrics struct {
 	storeErrors  *prometheus.CounterVec
 	cycles       prometheus.Counter
 	roots        prometheus.Gauge
+	// backoffRoots are the roots backing off: their last read could not
+	// be saved.
+	backoffRoots prometheus.Gauge
 	lockHeld     prometheus.Gauge
 	// deliveryReads and deliveryCycles are what webhook deliveries asked
 	// of the loop.
 	deliveryReads  *prometheus.CounterVec
 	deliveryCycles prometheus.Counter
+	// githubReads are the roots' GitHub sides by what read them, or did
+	// not; githubSearches the repositories a root's branch was looked for
+	// in; githubRequests, githubNotModified and githubRemaining what the
+	// GitHub client asked and was left.
+	githubReads       *prometheus.CounterVec
+	githubSearches    prometheus.Counter
+	githubRequests    prometheus.Counter
+	githubNotModified prometheus.Counter
+	githubRemaining   prometheus.Gauge
+	// lostDeliveries are the deliveries the hooks' logs showed sillage
+	// did not receive, by outcome.
+	lostDeliveries *prometheus.CounterVec
 }
 
 // NewMetrics registers the loop's metrics with reg.
@@ -87,6 +103,11 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 		roots: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: metricNamespace, Name: "collector_roots", Help: "Roots the collector has read at least once.",
 		}),
+		backoffRoots: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: metricNamespace, Name: "collector_roots_backing_off",
+			Help: "Roots left unread for a while because their last read could not be saved (its records read, " +
+				"its story assembled or its commit), the wait doubling at each failure in a row.",
+		}),
 		lockHeld: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: metricNamespace, Name: "collector_lock_held",
 			Help: "1 while this process holds the collector lock and collects, 0 while another does.",
@@ -101,14 +122,55 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 			Help: "Collection cycles a webhook delivery started before the interval ended.",
 		}),
 	}
+	m.registerGitHub()
 	reg.MustRegister(m.lastSuccess, m.readErrors, m.refusals, m.readDuration, m.written, m.storeErrors, m.cycles, m.roots,
-		m.lockHeld, m.deliveryReads, m.deliveryCycles)
+		m.backoffRoots, m.lockHeld, m.deliveryReads, m.deliveryCycles, m.githubReads, m.githubSearches, m.githubRequests,
+		m.githubNotModified, m.githubRemaining, m.lostDeliveries)
 	// Every series exists from the start, so that a rate over it is
 	// defined before the first delivery.
 	for _, kind := range []string{deliveryCaused, deliveryCoalesced} {
 		m.deliveryReads.WithLabelValues(kind)
 	}
+	for _, kind := range githubTriggers {
+		m.githubReads.WithLabelValues(kind)
+	}
+	for _, o := range []string{lostFailed, lostRedelivered, lostUnrecoverable} {
+		m.lostDeliveries.WithLabelValues(o)
+	}
 	return m
+}
+
+// registerGitHub makes the metrics of the roots' GitHub sides.
+func (m *Metrics) registerGitHub() {
+	m.githubReads = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricNamespace, Name: "collector_github_reads_total",
+		Help: "Root reads' GitHub sides, by kind: read for a delivery, a run (a new root or changed runs) or a task " +
+			"change; by the backstop, whole (backstop) or found unchanged from 304s (unchanged); or deferred, a " +
+			"backstop's or a trigger's, for a rate limit being waited out or the window's reserve (deferred).",
+	}, []string{labelKind})
+	m.githubSearches = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricNamespace, Name: "collector_github_branch_searches_total",
+		Help: "Repositories a root's branch was looked for in because none of the root's records named its " +
+			"repository: one pull request listing each, of every repository SILLAGE_WORKSPACES maps to, " +
+			"once per root read.",
+	})
+	m.githubRequests = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricNamespace, Name: "github_requests_total", Help: "Requests the collector sent to GitHub.",
+	})
+	m.githubNotModified = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricNamespace, Name: "github_not_modified_total",
+		Help: "Requests to GitHub answered 304 Not Modified, which its rate limit does not count.",
+	})
+	m.githubRemaining = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricNamespace, Name: "github_rate_limit_remaining",
+		Help: "Requests left in GitHub's rate-limit window, as its last response said.",
+	})
+	m.lostDeliveries = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricNamespace, Name: "collector_lost_deliveries_total",
+		Help: "GitHub webhook deliveries whose hook's delivery log shows sillage did not receive them, by outcome: " +
+			"failed (every one), then redelivered (GitHub asked to send it again) or unrecoverable (GitHub would " +
+			"not, or it was a redelivery already: the roots it names read again, with a gap).",
+	}, []string{labelOutcome})
 }
 
 // observeRead records one read of a source instance that started at
@@ -123,11 +185,12 @@ func (m *Metrics) observeRead(src model.Source, instance string, start, end time
 	}
 }
 
-// observeRefusal counts the requests of r. Its resource, "check runs",
+// observeRefusal counts the requests of r that were sent and refused, not
+// those the client remembered. Its resource, "check runs",
 // is labeled check_runs.
 func (m *Metrics) observeRefusal(r collector.Refusal) {
 	resource := strings.ReplaceAll(r.Resource, " ", "_")
-	m.refusals.WithLabelValues(string(r.Source), r.Instance, resource, strconv.Itoa(r.Code)).Add(float64(r.Count))
+	m.refusals.WithLabelValues(string(r.Source), r.Instance, resource, strconv.Itoa(r.Code)).Add(float64(r.Sent()))
 }
 
 // observeWritten counts the records of a commit.

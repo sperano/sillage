@@ -75,7 +75,8 @@ func newCollection(getenv func(string) string, st *store.Store, deliveries recon
 		log.Warn("source off: its configuration is incomplete, so it is not read", "source", o.Source,
 			"instance", o.Instance, "reason", o.Reason)
 	}
-	loop, err := reconcile.New(cfg, env.Collector, reconcile.SourcesOf(clients), loopStore{st}, deliveries, m, log)
+	src := reconcile.SourcesOf(clients, receipts{st: st, cfg: env.Collector})
+	loop, err := reconcile.New(cfg, env.Collector, src, loopStore{st}, deliveries, m, log)
 	if err != nil {
 		return collectorOff(log, err), nil
 	}

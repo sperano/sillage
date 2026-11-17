@@ -121,6 +121,7 @@ func (w *saver) save(title string, story model.Story) error {
 		func() error { return w.savePullRequests(story.PullRequests) },
 		func() error { return w.saveCorrelations(story.Correlations) },
 		func() error { return w.saveCoverage(story.Coverage) },
+		func() error { return markDeliveryReads(w.ctx, w.tx, story.Root, story.Coverage) },
 		w.touchRoots,
 	}
 	for _, step := range steps {

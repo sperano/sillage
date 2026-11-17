@@ -50,6 +50,9 @@
 			d="M 0 {-R - DIAMOND_GROW_PX} L {R + DIAMOND_GROW_PX} 0 L 0 {R + DIAMOND_GROW_PX} L {-R -
 				DIAMOND_GROW_PX} 0 Z"
 		/>
+	{:else if mark === 'delivery'}
+		<!-- A small hollow triangle pointing down: something arrived. -->
+		<path class="hollow" d="M {-R} {-R * 0.7} L {R} {-R * 0.7} L 0 {R * 0.9} Z" />
 	{:else if mark === 'pr-closed'}
 		<rect class="hollow" x={-R} y={-R} width={R * 2} height={R * 2} />
 		<path class="cross" d="M {-R} {-R} L {R} {R} M {R} {-R} L {-R} {R}" />
@@ -60,24 +63,27 @@
 
 <style>
 	.glyph {
-		--glyph: var(--tl-event);
+		--glyph: var(--color-event);
 	}
 	.observed {
-		--glyph: var(--tl-observed);
+		--glyph: var(--color-event);
 	}
 	.task-done,
 	.check-success {
-		--glyph: var(--tl-success);
+		--glyph: var(--color-success);
 	}
 	.check-end,
 	.pr-closed {
-		--glyph: var(--tl-failure);
+		--glyph: var(--color-failure);
 	}
 	.pr-merged {
-		--glyph: var(--tl-merged);
+		--glyph: var(--color-merged);
 	}
 	.run-exit {
-		--glyph: var(--tl-fg);
+		--glyph: var(--color-fg);
+	}
+	.delivery {
+		--glyph: var(--color-muted);
 	}
 	.solid {
 		fill: var(--glyph);
@@ -85,14 +91,14 @@
 		stroke-width: 2;
 	}
 	.hollow {
-		fill: var(--tl-bg);
+		fill: var(--color-surface);
 		stroke: var(--glyph);
 		stroke-width: 2;
 	}
 	.tick,
 	.cross {
 		fill: none;
-		stroke: var(--tl-bg);
+		stroke: var(--color-surface);
 		stroke-width: 1.6;
 	}
 	.cross {
@@ -103,7 +109,7 @@
 	}
 	.ring {
 		fill: none;
-		stroke: var(--tl-selected);
+		stroke: var(--color-selected);
 		stroke-width: 2.5;
 	}
 </style>

@@ -57,7 +57,7 @@
 		grid-template-columns: var(--ov-name-width) 1fr var(--ov-state-width);
 		gap: 0.5rem;
 		padding: 0.4rem 0;
-		border-top: 1px solid var(--ov-grid);
+		border-top: 1px solid var(--color-grid);
 	}
 	.name {
 		display: flex;
@@ -68,7 +68,7 @@
 	}
 	.sub,
 	.lane-label {
-		color: var(--ov-muted);
+		color: var(--color-muted);
 		font-size: 0.7rem;
 	}
 	.lane-label {

@@ -3,7 +3,7 @@
 	import EventGlyph from './EventGlyph.svelte';
 	import { activation } from './keys';
 	import { LABEL_LINE_GAP_PX, type Point } from './layout';
-	import { eventName, FOCUS_RING_R_PX } from './marks';
+	import { FOCUS_RING_R_PX } from './marks';
 	import { formatClock, type Zone } from './time';
 
 	interface Props {
@@ -17,7 +17,8 @@
 
 	let { point, y, label, zone, selection }: Props = $props();
 
-	const name = $derived(eventName(point.event, zone));
+	const name = $derived(point.name(zone));
+	const kind = $derived(point.selected.kind);
 	const selected = $derived(selection.isSelected(point.selected));
 	const select = () => selection.select(point.selected);
 </script>
@@ -28,7 +29,8 @@
 	tabindex="0"
 	aria-label={name}
 	aria-pressed={selected}
-	data-event={point.key}
+	data-event={kind === 'event' ? point.key : undefined}
+	data-delivery={kind === 'delivery' ? point.key : undefined}
 	onclick={select}
 	{...activation(select)}
 >
@@ -50,7 +52,7 @@
 	}
 	.focus {
 		fill: none;
-		stroke: var(--tl-focus);
+		stroke: var(--color-focus);
 		stroke-width: 2;
 		stroke-dasharray: 3 2;
 		opacity: 0;
@@ -59,12 +61,12 @@
 		opacity: 1;
 	}
 	.label {
-		fill: var(--tl-fg);
+		fill: var(--color-fg);
 		font-size: 11px;
 		font-weight: 600;
 	}
 	.time {
-		fill: var(--tl-muted);
+		fill: var(--color-muted);
 		font-size: 10px;
 	}
 </style>

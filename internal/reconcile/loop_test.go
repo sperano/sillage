@@ -15,9 +15,11 @@ import (
 	"github.com/sperano/sillage/internal/source/vikunja"
 )
 
-// everyCycle re-reads every root Kelos names at each cycle.
+// everyCycle re-reads every root Kelos names at each cycle, its GitHub
+// side too.
 var everyCycle = Config{
-	Interval: time.Millisecond, RefreshInterval: time.Nanosecond, LockRetryInterval: time.Millisecond,
+	Interval: time.Millisecond, RefreshInterval: time.Nanosecond, BackstopInterval: time.Nanosecond,
+	LockRetryInterval: time.Millisecond,
 }
 
 func coverageOf(t *testing.T, s model.Story, src model.Source) model.Coverage {
@@ -210,6 +212,7 @@ func TestFailedCommitIsReadAgain(t *testing.T) {
 	h.store.setCommitErr(errors.New("fabricated database outage"))
 	h.loop.cycle(t.Context())
 	h.store.setCommitErr(nil)
+	endBackoff(h)
 	h.loop.cycle(t.Context())
 	if c := h.store.lastCommit(t); written(c) == 0 {
 		t.Error("after a failed commit, the next read wrote nothing: its records are lost")

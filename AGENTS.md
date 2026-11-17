@@ -27,20 +27,21 @@ shows the timeline graph, the event list and the detail panel.
 | `internal/collector/` | Assembles one story from the live sources: reads, correlations with their evidence and confidence, coverage; and names the roots a Kelos read points to. Read once, nothing kept: a caller passes what a store kept back in, its phase markers included. |
 | `internal/collector/collectortest/` | The real source clients answered from `testdata/fixtures/collector/`'s responses, and which responses each fixture story is assembled from: the collector's tests and `cmd/sillage`'s loop-fed overview test read the same corpus. |
 | `internal/source/vikunja/` | Read-only Vikunja client and its normalization into `model`. |
-| `internal/source/github/` | Read-only GitHub client and its normalization into `model`. |
+| `internal/source/github/` | Read-only GitHub client (a GitHub App installation, `SILLAGE_GITHUB_APP_ID` / `_APP_INSTALLATION_ID` / `_APP_PRIVATE_KEY`, or else `SILLAGE_GITHUB_TOKEN`, a PAT: exactly one; the App needs Contents, Pull requests, Issues, Checks and Metadata, read-only, and is recommended for its own rate limit and Checks read) and its normalization into `model`; a branch read's ETags, the conditional requests that tell it unchanged, and the client's request count and rate-limit budget; the delivery logs of sillage's own webhooks, and the one request that changes anything on GitHub: asking it to redeliver a delivery sillage lost (Webhooks read and write on the credential). |
 | `internal/source/kelos/` | Read-only Kelos Task and TaskRecord reader and watcher (list, then watch with persisted checkpoints), and their normalization into `model`, with the identifier correlations the spawners' correlation annotations (a Task's `Origin`) name. Each Task's `run.observed` names the Task's pod at the time (a TaskRecord's names none): a retried Job has two. |
 | `internal/source/htmltext/` | Rendered comment HTML to plain text, shared by the sources that parse comments. |
 | `internal/source/kelostext/` | Requests (`/gordon`, `/kelos`) and Kelos start announcements in every form posted, shared by the sources that parse comments. |
-| `internal/reconcile/` | The collection loop: which roots to read and when (the roots webhook deliveries name among them, first, capped per cycle), one Kelos read per cycle, freshness and gaps per root and source, the Prometheus metrics. Talks to the store through its `Store` and `Locker` interfaces. |
+| `internal/reconcile/` | The collection loop: which roots to read and when (the roots webhook deliveries name among them, first, capped per cycle), when a root's GitHub side is read (a delivery, a run or task change, the daily ETag backstop, which skips settled roots; a rate-limit reserve for each, the trigger reads it defers owed, and no request while a rate limit is waited out) and when its stored records stand, the back-off of a root whose read could not be saved, one Kelos read per cycle, freshness and gaps per root and source, the deliveries sillage's GitHub webhooks' delivery logs show it lost (`SILLAGE_GITHUB_HOOKS`: redelivered, or else the roots they name read again with a gap), the Prometheus metrics. Talks to the store through its `Store` and `Locker` interfaces, and to what the store recorded of deliveries through `Receipts` (`cmd/sillage`'s `receipts`). |
 | `internal/reconcile/pglock/` | The `Locker` as a PostgreSQL session advisory lock: one process collects at a time. |
 | `internal/reconcile/storetest/` | The contract of `reconcile.Store`, asserted of the loop tests' fake and, against PostgreSQL, of `cmd/sillage`'s adapter: a store the loop's tests do not model fails it first. |
 | `internal/store/` | PostgreSQL persistence of `model` records, checkpoints, coverage, Kelos Task origins (kept on first sight: a TaskRecord does not copy annotations), every pod each run was seen with, and phase markers with their join to a run (by pod, else by Task name and time, else unattached and joined again by each save of Kelos records); `migrations/` holds the numbered SQL files embedded and applied at startup (add one, never edit one that shipped). |
 | `internal/overview/` | The multi-task overview of a window: one row per task with its runs, pull requests, review waits and state changes in it, its completion at the window's end when that changed in it, and whether its history is missing; filters and cursor pages. Pure: model records in, rows out. |
-| `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, the sources' freshness and those that are off, search, link resolution, the overview, version, and the frontend's configuration (the Kelos console per cluster, from `SILLAGE_KELOS_CONSOLE_URL`). No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
-| `internal/ingest/` | The webhook receiver: `POST /ingest/vikunja` and `POST /ingest/github`, authenticated by their signatures alone (they bypass the forward-auth). Each authenticated attempt is recorded in the store as evidence that sillage received it (`model.Delivery`), and asks the collector to read the roots it names again; no record comes from a payload. `Queue` is the collector loop's end of those requests. |
+| `internal/api/` | The read-only JSON API over `store.Reader`: stories, coverage, the webhook deliveries that named a task (apart from its story, each with the task's next read from its source), the sources' freshness and those that are off, search, link resolution, the overview, version, and the frontend's configuration (the Kelos console per cluster, from `SILLAGE_KELOS_CONSOLE_URL`). No authentication of its own: `/api/` must stay behind the Authentik forward-auth. Its tests serve every fixture story through a fixture-backed fake reader. |
+| `internal/ingest/` | The webhook receiver: `POST /ingest/vikunja` and `POST /ingest/github`, authenticated by their signatures alone (they bypass the forward-auth). Each authenticated attempt is recorded in the store as evidence that sillage received it (`model.Delivery`), with the roots it names, and asks the collector to read them again; no record comes from a payload. `Queue` is the collector loop's end of those requests. |
 | `internal/ingest/marker/` | `POST /ingest/marker`, on the in-cluster Service only: the phase markers (`model.Marker`) that wrappers in a Kelos run's pod report, authenticated by a TokenReview of the pod's projected ServiceAccount token (audience `sillage`), the verdict cached by token hash until it expires. The sender is the reviewed pod, never the body. Stored as evidence, apart from every story; it asks for no read. |
 | `testdata/fixtures/` | Fabricated source responses and stories, shared by Go and web tests; `overview/`, the overview's set of overlapping stories and its golden overview; `api/`, the API's search, resolve, freshness and configuration bodies. See its README. |
 | `web/` | The frontend: Svelte 5 + Vite static single-page application in TypeScript (strict). `web/src/` is the app; `web/*.go` embed its build into the binary. |
+| `web/src/app.css` | The one theme: every colour as a token on `:root`, light and redefined for `prefers-color-scheme: dark`, the semantic colours the timeline and the overview share, typography, spacing, the focus ring, form controls and the app shell (header, page widths, `.surface` cards). No colour anywhere else in `web/src` (`npm run lint:colors`); both schemes are contrast-checked by `App.theme.svelte.test.ts`. |
 | `web/src/lib/` | The story types (`model.ts`), their key strings (`keys.ts`) and their runtime decoder, the read API client and its search, resolve, freshness and configuration responses' decoder (`decodeApi.ts`), the routes and the router. |
 | `web/src/lib/selection.svelte.ts` | The selected event, run, check or review wait (`ItemRef`, `timeline.ts`), one instance shared by the timeline graph, the event list and the detail panel. |
 | `web/src/lib/timeline/` | The single-task timeline graph (SVG): lanes, intervals, a run's phases on sub-tracks under its bar, coverage shading, zoom and pan. Layout is pure TypeScript; the components draw it and handle zoom, pan, selection and group expansion. |
@@ -131,7 +132,7 @@ Web, from `web/`:
 npm ci
 npx playwright install --with-deps chromium   # CI only: agent images ship Chromium
 npm run check    # svelte-check: TypeScript and Svelte diagnostics
-npm run lint     # prettier --check, then eslint
+npm run lint     # prettier --check, eslint, then lint:colors (no colour outside app.css)
 npm test         # vitest: *.svelte.test.ts in Chromium, other *.test.ts in Node
 npm run build    # vite build into web/dist
 ```
@@ -189,7 +190,12 @@ and render it, so a change to the overview's JSON also changes
   `testdata/fixtures/README.md`.
 - **Sources are read-only.** No source client writes to Vikunja, GitHub or
   Kubernetes, and credentials are requested with read scopes
-  only.
+  only. The one exception: the GitHub client asks GitHub to redeliver a
+  delivery of sillage's own webhook that sillage did not receive
+  (`Redeliver`), which needs Webhooks write and sends only to sillage:
+  the loop reads a configured hook's log, and redelivers to it, only once
+  GitHub says its URL is sillage's `/ingest/github`. Without Webhooks
+  write, GitHub refuses and the roots are read again instead.
 - **A run is identified by cluster + namespace + Task UID**, never by Task
   name or branch: a retry reuses both, and must stay a separate run.
 - **An unknown interval stays unknown.** A gap between two records is never

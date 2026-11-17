@@ -74,3 +74,30 @@ func (d Delivery) Validate() error {
 	}
 	return errors.Join(errs...)
 }
+
+// RootDelivery is a delivery attempt that named a root, read back for
+// that root's story: an attempt that asked for the root's read, or a
+// repeat of a delivery whose accepted attempt did. It is evidence that
+// sillage received it, never that it caused anything in the story.
+type RootDelivery struct {
+	Delivery
+	// NextRead is when the first successful read of the root's records
+	// from the delivery's source instance that started at or after
+	// ReceivedAt, and was stored after the attempt was, started: a read
+	// that saw at least what the delivery announced, whether the delivery
+	// asked for it or it was due anyway. Nil while no such read has
+	// succeeded.
+	NextRead *time.Time `json:"nextRead,omitempty"`
+}
+
+// Validate reports whether the delivery is valid and its next read, if
+// any, did not start before it was received.
+func (d RootDelivery) Validate() error {
+	if err := d.Delivery.Validate(); err != nil {
+		return err
+	}
+	if d.NextRead != nil && d.NextRead.Before(d.ReceivedAt) {
+		return fmt.Errorf("delivery %q: its next read started before it was received", d.ID)
+	}
+	return nil
+}

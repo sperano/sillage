@@ -30,6 +30,12 @@ type Loop struct {
 	jitter func(time.Duration) time.Duration
 	// deliveries are the reads webhook deliveries ask for; nil without.
 	deliveries Deliveries
+	// conditional is the GitHub source, when it is a ConditionalGitHub;
+	// spread spreads a restart's overdue backstop reads, and github counts
+	// what the cycle asks of GitHub.
+	conditional ConditionalGitHub
+	spread      func(time.Duration) time.Duration
+	github      githubCycle
 
 	// roots and marks are what the store holds, loaded when the lock is
 	// taken: each root's state, by ref, and each project's listing mark.
@@ -38,6 +44,19 @@ type Loop struct {
 	// unsaved are the roots whose state in roots has gaps the store does
 	// not hold yet: their commit failed.
 	unsaved map[model.Ref]bool
+	// backoffs are the roots whose last read could not be saved, left
+	// unread for a while.
+	backoffs map[model.Ref]*backoff
+	// githubResume is when the wait a GitHub rate limit asked for is over:
+	// until then, no GitHub request is made.
+	githubResume time.Time
+	// hookMarks are the hooks' marks the store holds, by key, and
+	// hooksChecked when the cycle that last read their logs started.
+	hookMarks    map[string]int64
+	hooksChecked time.Time
+	// hookOwners are whether each hook, by key, sends to sillage, once
+	// GitHub said where it sends.
+	hookOwners map[string]bool
 	// collecting is whether the loop holds the lock and has loaded the
 	// store's state.
 	collecting atomic.Bool
@@ -59,10 +78,15 @@ func New(cfg Config, ccfg collector.Config, src Sources, store Store, deliveries
 	if err != nil {
 		return nil, err
 	}
-	return &Loop{
+	l := &Loop{
 		cfg: cfg, ccfg: ccfg, src: src.without(c.Off()), store: boundedStore{s: store, timeout: storeTimeout},
-		deliveries: deliveries, metrics: m, log: log, now: time.Now, jitter: jitter,
-	}, nil
+		deliveries: deliveries, metrics: m, log: log, now: time.Now, jitter: jitter, spread: spread,
+		hookOwners: make(map[string]bool),
+	}
+	if cg, ok := l.src.GitHub.(ConditionalGitHub); ok {
+		l.conditional = cg
+	}
+	return l, nil
 }
 
 // jitter returns d spread by up to jitterFraction either way.
@@ -149,6 +173,9 @@ func (l *Loop) load(ctx context.Context) error {
 		return err
 	}
 	l.roots, l.marks, l.unsaved = make(map[model.Ref]*rootState), make(map[int64]time.Time), make(map[model.Ref]bool)
+	l.backoffs = make(map[model.Ref]*backoff)
+	l.metrics.backoffRoots.Set(0)
+	l.hookMarks, l.hooksChecked = make(map[string]int64), time.Time{}
 	var lastCycle time.Time
 	if data, ok := cps[heartbeatKey(l.ccfg.Kelos.Cluster)]; ok {
 		if err := json.Unmarshal(data, &lastCycle); err != nil {
@@ -171,6 +198,10 @@ func (l *Loop) load(ctx context.Context) error {
 			if err := l.loadMark(key, data); err != nil {
 				return err
 			}
+		case strings.HasPrefix(key, hookPrefix+l.ccfg.GitHubInstance+"/"):
+			if err := l.loadHookMark(key, data); err != nil {
+				return err
+			}
 		}
 	}
 	for _, source := range slices.Sorted(maps.Keys(retired)) {
@@ -185,6 +216,10 @@ func (l *Loop) load(ctx context.Context) error {
 	})
 	if err != nil {
 		return fmt.Errorf("committing the restart's gaps: %w", err)
+	}
+	now := l.now()
+	for _, st := range l.roots {
+		l.scheduleLoaded(st, now)
 	}
 	l.metrics.roots.Set(float64(len(l.roots)))
 	l.log.Info("collector started", "roots", len(l.roots), "lastCycle", lastCycle)

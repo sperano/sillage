@@ -60,11 +60,11 @@
 
 <style>
 	.title {
-		fill: var(--tl-muted);
+		fill: var(--color-muted);
 		font-size: 10px;
 	}
 	.reason {
-		fill: var(--tl-fg);
+		fill: var(--color-fg);
 		font-size: 10px;
 	}
 </style>

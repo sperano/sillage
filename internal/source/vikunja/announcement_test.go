@@ -9,6 +9,89 @@ import (
 	"github.com/sperano/sillage/internal/source/kelostext"
 )
 
+// shortStart is the short form's comment as Hollingsworth's
+// started_comment posts it, with rows naming model, Task and node, the
+// links paragraph holding links, each of them left out when empty.
+func shortStart(opener, model, task, node, links string) string {
+	row := func(label, value string) string {
+		if value == "" {
+			return ""
+		}
+		return "<tr><td>" + label + "</td><td><code>" + value + "</code></td></tr>"
+	}
+	if links != "" {
+		links = "<p>" + links + "</p>"
+	}
+	return "<p>" + opener + "</p><table><tbody>" + row("MODEL", model) + row("KELOS TASK", task) +
+		row("NODE", node) + "</tbody></table>" + links + "<p>COFFEE TIME! REPORT TO FOLLOW.</p>"
+}
+
+// The short form's links, the Lucarne run and the Sillage story.
+const (
+	lucarneLink = `<a href="https://lucarne.example.com/runs/demo">lucarne</a>`
+	sillageLink = `<a href="https://sillage.example.com/task/vikunja.example.com/4240">sillage</a>`
+)
+
+func TestParseShortAnnouncement(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want announcement
+	}{
+		{
+			name: "implementation, every row and link",
+			body: `<p>THIS ONE HAS THE STUFF!</p><table><tbody><tr><td>MODEL</td><td><code>example-model-2</code></td></tr>` +
+				`<tr><td>KELOS TASK</td><td><code>vikunja-demo-agent-opus-4240</code></td></tr><tr><td>NODE</td>` +
+				`<td><code>node-a</code></td></tr></tbody></table><p>` + lucarneLink + ` ` + sillageLink + `</p>` +
+				`<p>COFFEE TIME! REPORT TO FOLLOW.</p>`,
+			want: announcement{
+				role: model.RoleImplementation, model: "example-model-2", taskName: "vikunja-demo-agent-opus-4240",
+			},
+		},
+		{
+			name: "follow-up, every row and link",
+			body: shortStart("HEARD YOU LOUD AND CLEAR!", "example-model-3[1m]", "vikunja-fu-demo-4240-c9201", "node-b",
+				lucarneLink+" "+sillageLink),
+			want: announcement{
+				role: model.RoleTaskFollowUp, model: "example-model-3[1m]", taskName: "vikunja-fu-demo-4240-c9201",
+			},
+		},
+		{
+			name: "implementation, no model, node or links",
+			body: shortStart("THIS ONE HAS THE STUFF!", "", "vikunja-demo-agent-opus-4241", "", ""),
+			want: announcement{role: model.RoleImplementation, taskName: "vikunja-demo-agent-opus-4241"},
+		},
+		{
+			name: "follow-up, no model or node, one link",
+			body: shortStart("HEARD YOU LOUD AND CLEAR!", "", "vikunja-fu-demo-4241-c9202", "", sillageLink),
+			want: announcement{role: model.RoleTaskFollowUp, taskName: "vikunja-fu-demo-4241-c9202"},
+		},
+		{
+			name: "implementation, model, no node, one link",
+			body: shortStart("THIS ONE HAS THE STUFF!", "example-model-2", "vikunja-demo-agent-opus-4242", "", lucarneLink),
+			want: announcement{
+				role: model.RoleImplementation, model: "example-model-2", taskName: "vikunja-demo-agent-opus-4242",
+			},
+		},
+		{
+			name: "follow-up, node, no model or links",
+			body: shortStart("HEARD YOU LOUD AND CLEAR!", "", "vikunja-fu-demo-4242-c9203", "node-a", ""),
+			want: announcement{role: model.RoleTaskFollowUp, taskName: "vikunja-fu-demo-4242-c9203"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseAnnouncement(htmltext.Plain(tt.body))
+			if err != nil {
+				t.Fatalf("parseAnnouncement: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("got %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseAnnouncement(t *testing.T) {
 	tests := []struct {
 		name string
@@ -137,6 +220,14 @@ func TestParseAnnouncementRejects(t *testing.T) {
 		{"phrase not in the first paragraph", "<p>Hello.</p><p>THE AGENT IS ON THE CASE. THIS ONE HAS THE STUFF. " +
 			"KELOS TASK <code>vikunja-demo-4204</code>.</p>", kelostext.ErrUnparsedAnnouncement},
 		{"invalid Task name", "<p>The agent has started working on this task: Kelos Task <code>Not_A_Name</code>.</p>",
+			kelostext.ErrUnparsedAnnouncement},
+		{"short form, no Kelos Task", shortStart("THIS ONE HAS THE STUFF!", "example-model-2", "", "node-a", ""),
+			kelostext.ErrUnparsedAnnouncement},
+		{"short form, no table", "<p>HEARD YOU LOUD AND CLEAR!</p><p>COFFEE TIME! REPORT TO FOLLOW.</p>",
+			kelostext.ErrUnparsedAnnouncement},
+		{"short form, opener not alone", "<p>WELL, THIS ONE HAS THE STUFF!</p><table><tbody><tr><td>KELOS TASK</td>" +
+			"<td><code>vikunja-demo-4243</code></td></tr></tbody></table>", kelostext.ErrUnparsedAnnouncement},
+		{"short form, opener not first", "<p>Hello.</p>" + shortStart("THIS ONE HAS THE STUFF!", "", "vikunja-demo-4243", "", ""),
 			kelostext.ErrUnparsedAnnouncement},
 	}
 	for _, tt := range tests {

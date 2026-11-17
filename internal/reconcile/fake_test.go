@@ -75,6 +75,8 @@ type fakeVikunja struct {
 	// ids are the tasks read, in order.
 	ids  []int64
 	also []int64
+	// done has every task read done.
+	done bool
 	// during runs inside each read, before it answers.
 	during func(ctx context.Context)
 }
@@ -83,7 +85,7 @@ func (f *fakeVikunja) Fetch(ctx context.Context, id int64) (vikunja.Snapshot, er
 	f.mu.Lock()
 	f.reads++
 	f.ids = append(f.ids, id)
-	err, during, known := f.err, f.during, id == testTaskID || slices.Contains(f.also, id)
+	err, during, done, known := f.err, f.during, f.done, id == testTaskID || slices.Contains(f.also, id)
 	f.mu.Unlock()
 	if !known {
 		return vikunja.Snapshot{}, &vikunja.StatusError{
@@ -99,7 +101,11 @@ func (f *fakeVikunja) Fetch(ctx context.Context, id int64) (vikunja.Snapshot, er
 	if err != nil {
 		return vikunja.Snapshot{}, err
 	}
-	return testTask(id, time.Now()), nil
+	snap := testTask(id, time.Now())
+	if done {
+		snap.Task.Done, snap.Task.DoneAt = true, testStart.Add(2*time.Hour)
+	}
+	return snap, nil
 }
 
 func (f *fakeVikunja) set(err error) {
@@ -190,15 +196,17 @@ func kelosTaskOf(id int64, phase kelos.Phase) kelos.Task {
 	return t
 }
 
-// fakeGitHub answers every branch with snaps.
+// fakeGitHub answers every branch with snaps, and counts the reads.
 type fakeGitHub struct {
-	mu    sync.Mutex
-	snaps []github.Snapshot
+	mu      sync.Mutex
+	snaps   []github.Snapshot
+	fetches int
 }
 
 func (f *fakeGitHub) FetchBranch(context.Context, github.Repository, github.Branch) ([]github.Snapshot, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.fetches++
 	return f.snaps, nil
 }
 
@@ -424,6 +432,9 @@ type harness struct {
 	deliveries *fakeDeliveries
 	reg        *prometheus.Registry
 	logs       *bytes.Buffer
+	// spread spreads the overdue backstop reads of each loop newLoop
+	// starts; nil makes them due at once.
+	spread func(time.Duration) time.Duration
 }
 
 func newHarness(t *testing.T, cfg Config) *harness {
@@ -454,10 +465,13 @@ func (h *harness) sources() Sources {
 }
 
 // withDeliveryDefaults returns cfg, given a delivery delay no test waits
-// for and the default cap where it sets none.
+// for, and the default cap and backstop interval where it sets none.
 func withDeliveryDefaults(cfg Config) Config {
 	if cfg.DeliveryDelay == 0 {
 		cfg.DeliveryDelay = time.Millisecond
+	}
+	if cfg.BackstopInterval == 0 {
+		cfg.BackstopInterval = DefaultBackstopInterval
 	}
 	if cfg.DeliveryRootsPerCycle == 0 {
 		cfg.DeliveryRootsPerCycle = DefaultDeliveryRootsPerCycle
@@ -478,6 +492,10 @@ func (h *harness) loopOf(t *testing.T, cfg Config, ccfg collector.Config, src So
 		t.Fatal(err)
 	}
 	l.jitter = func(d time.Duration) time.Duration { return d }
+	l.spread = h.spread
+	if l.spread == nil {
+		l.spread = func(time.Duration) time.Duration { return 0 }
+	}
 	if err := l.load(t.Context()); err != nil {
 		t.Fatal(err)
 	}

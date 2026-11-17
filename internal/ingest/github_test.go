@@ -99,3 +99,41 @@ func TestGitHubRootsStoreError(t *testing.T) {
 		t.Errorf("roots() error = %v, want a storeError", err)
 	}
 }
+
+// The loop reads a lost delivery's roots as the ingest path does; a body
+// that is not JSON names none.
+func TestExportedGitHubRoots(t *testing.T) {
+	st := &fakeStore{}
+	got, err := GitHubRoots(t.Context(), testCollectorConfig(), st, "pull_request", []byte(githubPRBody))
+	if err != nil || len(got) == 0 {
+		t.Errorf("GitHubRoots() = %q, %v; want the pull request's root", refs(got), err)
+	}
+	if got, err := GitHubRoots(t.Context(), testCollectorConfig(), st, "pull_request", []byte("payload=x")); err != nil ||
+		len(got) != 0 {
+		t.Errorf("GitHubRoots() of a body that is not JSON = %q, %v; want none", refs(got), err)
+	}
+	_, err = GitHubRoots(t.Context(), testCollectorConfig(), &fakeStore{readErr: errFakeStore}, "pull_request",
+		[]byte(githubPRBody))
+	if !errors.Is(err, errFakeStore) {
+		t.Errorf("GitHubRoots() error = %v, want the store's", err)
+	}
+}
+
+// The loop redelivers only to a hook that sends to POST /ingest/github.
+func TestSendsToGitHub(t *testing.T) {
+	for hookURL, want := range map[string]bool{
+		"https://sillage.example.com/ingest/github":     true,
+		"http://sillage.example.com:8080/ingest/github": true,
+		"https://spawner.example.com/webhook/github":    false,
+		"https://sillage.example.com/ingest/vikunja":    false,
+		"https://sillage.example.com/ingest/github/x":   false,
+		"https://sillage.example.com/x/ingest/github":   false,
+		"ftp://sillage.example.com/ingest/github":       false,
+		"/ingest/github": false,
+		"":               false,
+	} {
+		if got := SendsToGitHub(hookURL); got != want {
+			t.Errorf("SendsToGitHub(%q) = %v, want %v", hookURL, got, want)
+		}
+	}
+}

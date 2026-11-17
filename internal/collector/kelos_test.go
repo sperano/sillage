@@ -5,6 +5,7 @@ import (
 
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/source/kelos"
+	"github.com/sperano/sillage/internal/source/vikunja"
 )
 
 const retryName = "vikunja-widgets-agent-opus-104"
@@ -88,13 +89,13 @@ func TestAnnouncementNotJoinedTwice(t *testing.T) {
 	}
 }
 
-func TestAnnouncementWithoutPod(t *testing.T) {
+func TestAnnouncementWithoutPodPostedDuringNoRun(t *testing.T) {
 	labels := taskLabels("104")
-	s := collectAnnounced(t, map[int]string{3: ""}, kelos.Snapshot{Records: []kelos.TaskRecord{
+	s := collectAnnounced(t, map[int]string{30: ""}, kelos.Snapshot{Records: []kelos.TaskRecord{
 		record(retryName, "uid-a", labels, 2, 9),
 		record(retryName, "uid-b", labels, 62, 80),
 	}})
-	got := linksFrom(s, announcementRef(3))
+	got := linksFrom(s, announcementRef(30))
 	if len(got) != 2 {
 		t.Fatalf("announcement links %v, want both attempts of its Task name", got)
 	}
@@ -169,7 +170,7 @@ func TestAnnouncedRunJoinsWhatItIsACommentOn(t *testing.T) {
 
 func TestPodlessAnnouncementJoinsEachSameNameRunToTheTask(t *testing.T) {
 	src := emptySources()
-	src.Vikunja = fixedVikunja{announcedTask(104, customName, map[int]string{3: ""})}
+	src.Vikunja = fixedVikunja{announcedTask(104, customName, map[int]string{30: ""})}
 	src.Kelos = fixedKelos{kelos.Snapshot{Records: []kelos.TaskRecord{
 		record(customName, "uid-a", nil, 2, 9),
 		record(customName, "uid-b", nil, 62, 80),
@@ -180,6 +181,65 @@ func TestPodlessAnnouncementJoinsEachSameNameRunToTheTask(t *testing.T) {
 		if !ok || c.Confidence != model.ConfidenceHeuristic || !c.Ambiguous {
 			t.Errorf("run %s joined to the task by %+v (%v), want an ambiguous heuristic", uid, c, ok)
 		}
+	}
+}
+
+func TestPodlessAnnouncementJoinsTheRunsItWasPostedDuring(t *testing.T) {
+	tests := map[string]struct {
+		snap      kelos.Snapshot
+		ambiguous bool
+		want      []model.Ref
+	}{
+		"one, its pod known": {kelos.Snapshot{
+			Tasks:   []kelos.Task{task(customName, "uid-live", "", nil, 60, 80)},
+			Records: []kelos.TaskRecord{record(customName, "uid-old", nil, 2, 9)},
+		}, false, []model.Ref{runRef("uid-live")}},
+		"one, its pod unknown": {kelos.Snapshot{Records: []kelos.TaskRecord{
+			record(customName, "uid-old", nil, 2, 9), record(customName, "uid-live", nil, 60, 80),
+		}}, false, []model.Ref{runRef("uid-live")}},
+		"two": {kelos.Snapshot{
+			Tasks:   []kelos.Task{task(customName, "uid-live", "", nil, 60, 80)},
+			Records: []kelos.TaskRecord{record(customName, "uid-other", nil, 50, 70)},
+		}, true, []model.Ref{runRef("uid-live"), runRef("uid-other")}},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			src := emptySources()
+			src.Vikunja = fixedVikunja{announcedTask(104, customName, map[int]string{65: ""})}
+			src.Kelos = fixedKelos{tt.snap}
+			s := collectWith(t, testConfig(), src, taskRoot(104)).Story
+			checkLinks(t, s, announcementRef(65), model.ConfidenceHeuristic, tt.ambiguous, tt.want...)
+			checkNotes(t, s, announcementRef(65), "was posted while this run of it was running")
+			for _, w := range tt.want {
+				c, ok := linkBetween(s, w, taskRoot(104).Task.Ref())
+				if !ok || c.Confidence != model.ConfidenceHeuristic || c.Ambiguous != tt.ambiguous {
+					t.Errorf("run %s joined to the task by %+v (%v), want a heuristic, ambiguous %v", w.ID, c, ok, tt.ambiguous)
+				}
+			}
+		})
+	}
+}
+
+// The short Vikunja form names the Task and model, no agent, pod or
+// namespace: its run is the Task's that was running when it was posted.
+func TestShortAnnouncementJoinsItsRun(t *testing.T) {
+	snap := vikunja.Snapshot{
+		Task:       vikunja.Task{ID: 104, Created: at(0), CreatedBy: &vikunja.User{ID: 7, Username: "owner"}},
+		ObservedAt: testNow,
+		Comments: []vikunja.Comment{{
+			ID: 9065, Created: at(65), Updated: at(65), Author: vikunja.User{ID: 23, Username: testServiceAccount},
+			Body: "<p>THIS ONE HAS THE STUFF!</p><table><tbody><tr><td>MODEL</td><td><code>example-model-2</code></td></tr>" +
+				"<tr><td>KELOS TASK</td><td><code>" + retryName + "</code></td></tr></tbody></table>" +
+				"<p>COFFEE TIME! REPORT TO FOLLOW.</p>",
+		}},
+	}
+	src := emptySources()
+	src.Vikunja = fixedVikunja{snap}
+	src.Kelos = fixedKelos{kelos.Snapshot{Tasks: []kelos.Task{task(retryName, "uid-live", "", taskLabels("104"), 60, 80)}}}
+	s := collectWith(t, testConfig(), src, taskRoot(104)).Story
+	checkLinks(t, s, announcementRef(65), model.ConfidenceHeuristic, false, runRef("uid-live"))
+	if len(s.Runs) != 1 || s.Runs[0].Agent != testAgent {
+		t.Errorf("runs = %+v, want the Task's run, its agent from the Task", s.Runs)
 	}
 }
 

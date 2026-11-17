@@ -78,6 +78,7 @@ func TestNoStore(t *testing.T) {
 	for _, path := range []string{
 		"/api/v1/stories/task/vikunja.example.com/101",
 		"/api/v1/coverage/task/vikunja.example.com/101",
+		"/api/v1/deliveries/task/vikunja.example.com/101",
 		"/api/v1/coverage",
 		"/api/v1/resolve?url=https://vikunja.example.com/tasks/101",
 		"/api/v1/search?q=widgets",

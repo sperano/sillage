@@ -16,12 +16,15 @@ const Prefix = "/api/"
 const (
 	RouteTaskStory    = "GET /api/v1/stories/task/{instance}/{id}"
 	RouteTaskCoverage = "GET /api/v1/coverage/task/{instance}/{id}"
-	RouteCoverage     = "GET /api/v1/coverage"
-	RouteResolve      = "GET /api/v1/resolve"
-	RouteSearch       = "GET /api/v1/search"
-	RouteOverview     = "GET /api/v1/overview"
-	RouteVersion      = "GET /api/v1/version"
-	RouteConfig       = "GET /api/v1/config"
+	// RouteTaskDeliveries lists the webhook deliveries that named a task,
+	// apart from its story, whose contract they leave unchanged.
+	RouteTaskDeliveries = "GET /api/v1/deliveries/task/{instance}/{id}"
+	RouteCoverage       = "GET /api/v1/coverage"
+	RouteResolve        = "GET /api/v1/resolve"
+	RouteSearch         = "GET /api/v1/search"
+	RouteOverview       = "GET /api/v1/overview"
+	RouteVersion        = "GET /api/v1/version"
+	RouteConfig         = "GET /api/v1/config"
 )
 
 const (
@@ -85,6 +88,7 @@ func New(cfg Config) http.Handler {
 	mux := http.NewServeMux()
 	a.handle(mux, RouteTaskStory, a.needStore(a.taskStory))
 	a.handle(mux, RouteTaskCoverage, a.needStore(a.taskCoverage))
+	a.handle(mux, RouteTaskDeliveries, a.needStore(a.taskDeliveries))
 	a.handle(mux, RouteCoverage, a.needStore(a.freshness))
 	a.handle(mux, RouteResolve, a.needStore(a.resolve))
 	a.handle(mux, RouteSearch, a.needStore(a.search))

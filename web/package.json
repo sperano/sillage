@@ -11,7 +11,8 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
-		"lint": "prettier --check . && eslint .",
+		"lint": "prettier --check . && eslint . && npm run lint:colors",
+		"lint:colors": "node scripts/check-colors.mjs",
 		"format": "prettier --write .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run"

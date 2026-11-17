@@ -4,4 +4,5 @@ dist/
 test-results/
 playwright-report/
 __screenshots__/
+.vitest-attachments/
 vite.config.*.timestamp-*

@@ -122,6 +122,7 @@ func TestHangingStoreDoesNotStallTheCycle(t *testing.T) {
 				t.Errorf("%s errors = %v, want %v", tc.operation, got, tc.want)
 			}
 			h.loop.store = boundedStore{s: h.store, timeout: storeTimeout}
+			endBackoff(h)
 			h.loop.cycle(t.Context())
 			if c := h.store.lastCommit(t); written(c) == 0 {
 				t.Error("once the store answers again, the next read wrote nothing")

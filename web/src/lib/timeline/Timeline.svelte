@@ -1,14 +1,17 @@
 <script lang="ts">
 	import type { Attachment } from 'svelte/attachments';
 	import { SvelteSet } from 'svelte/reactivity';
+	import type { Delivery } from '../decodeApi';
+	import { receivedTime } from '../deliveries';
 	import type { Story } from '../model';
 	import type { Selection } from '../selection.svelte';
 	import { layoutChart } from './chart';
 	import CoverageBand from './CoverageBand.svelte';
 	import { storySources } from './coverage';
+	import { DELIVERY_MARKS_MAX_SPAN_MS, deliveryRow } from './deliveries';
 	import { buildRows } from './lanes';
 	import { TITLE_X_PX } from './layout';
-	import { formatClock, type Zone } from './time';
+	import { formatClock, formatDuration, type Zone } from './time';
 	import TimelineAxis from './TimelineAxis.svelte';
 	import TimelineRow from './TimelineRow.svelte';
 	import TimelineToolbar from './TimelineToolbar.svelte';
@@ -18,7 +21,8 @@
 		ZOOM_STEP,
 		pan,
 		scaleOf,
-		storyDomain,
+		storyTimes,
+		windowAround,
 		zoom,
 		type TimeWindow
 	} from './view';
@@ -29,9 +33,11 @@
 		selection: Selection;
 		/** The zone of every time on the timeline. */
 		zone?: Zone;
+		/** The webhook deliveries sillage received for the story's root, on the Sillage lane. */
+		deliveries?: readonly Delivery[];
 	}
 
-	let { story, selection, zone = $bindable('local') }: Props = $props();
+	let { story, selection, zone = $bindable('local'), deliveries = [] }: Props = $props();
 
 	const LABEL_COLUMN_PX = 250;
 	const RIGHT_PAD_PX = 24;
@@ -51,11 +57,18 @@
 	const FILL_TILE_PX = 6;
 
 	const ids = $props.id();
-	const rows = $derived(buildRows(story));
 	const phased = $derived(story.runs.some((r) => r.phases !== undefined));
-	const domain = $derived(storyDomain(story));
+	const domain = $derived(
+		windowAround([...storyTimes(story), ...deliveries.map(receivedTime).filter(Number.isFinite)])
+	);
 	// Showing another story shows the whole of it again.
 	let view = $derived(domain);
+	const span = $derived(view.end - view.start);
+	const domainSpan = $derived(domain.end - domain.start);
+	// The deliveries' row draws them only in a narrow enough window.
+	const storyRows = $derived(buildRows(story));
+	const sillageRow = $derived(deliveryRow(deliveries, span));
+	const rows = $derived(sillageRow ? [...storyRows, sillageRow] : storyRows);
 	let width = $state(DEFAULT_WIDTH_PX);
 	const expanded = new SvelteSet<string>();
 	const scale = $derived(
@@ -83,8 +96,6 @@
 			timeText: (t) => formatClock(t, zone)
 		})
 	);
-	const span = $derived(view.end - view.start);
-	const domainSpan = $derived(domain.end - domain.start);
 
 	function zoomBy(factor: number, center = (view.start + view.end) / 2) {
 		view = zoom(view, factor, center, domain);
@@ -159,7 +170,7 @@
 	}
 </script>
 
-<section class="timeline" aria-label="Timeline">
+<section class="timeline surface" aria-label="Timeline">
 	<TimelineToolbar
 		bind:zone
 		{view}
@@ -236,6 +247,14 @@
 		recorded; chevron: not ended at the last read; dashed stub: one end unknown. Hatched: no records
 		known. Ctrl + wheel zooms, Shift + wheel or drag pans.
 	</p>
+	{#if deliveries.length > 0}
+		<p class="legend" data-delivery-legend>
+			Sillage lane (triangle): a webhook delivery sillage recorded receiving, drawn when the window
+			spans {formatDuration(DELIVERY_MARKS_MAX_SPAN_MS)} or less. It is not evidence that Kelos received
+			its own delivery, nor of what caused a change; a request sillage refused, or answered while not
+			collecting, was not recorded, so a stretch without one does not mean none was sent.
+		</p>
+	{/if}
 	{#if phased}
 		<p class="legend" data-phase-legend>
 			Under a run: the phases its pod reported. Dashed segment: both ends recorded; tick: one end
@@ -246,47 +265,6 @@
 </section>
 
 <style>
-	.timeline {
-		--tl-bg: #ffffff;
-		--tl-fg: #1d2733;
-		--tl-muted: #5b6b7c;
-		--tl-grid: #d9e0e8;
-		--tl-event: #1f5f9e;
-		--tl-observed: #1f5f9e;
-		--tl-success: #1b7a4c;
-		--tl-failure: #b3261e;
-		--tl-merged: #6f42c1;
-		--tl-running: #2a7f86;
-		--tl-waiting: #a86b00;
-		--tl-review: #6f42c1;
-		--tl-check: #1f5f9e;
-		--tl-unknown: #8a96a3;
-		--tl-selected: #d97706;
-		--tl-focus: #0b57d0;
-		color: var(--tl-fg);
-		background: var(--tl-bg);
-		font-family: system-ui, sans-serif;
-	}
-	@media (prefers-color-scheme: dark) {
-		.timeline {
-			--tl-bg: #10161d;
-			--tl-fg: #e3e9ef;
-			--tl-muted: #9aa8b6;
-			--tl-grid: #2b3743;
-			--tl-event: #7ab3ef;
-			--tl-observed: #7ab3ef;
-			--tl-success: #5cc98f;
-			--tl-failure: #f2867e;
-			--tl-merged: #b99af0;
-			--tl-running: #5cc2ca;
-			--tl-waiting: #e0a84a;
-			--tl-review: #b99af0;
-			--tl-check: #7ab3ef;
-			--tl-unknown: #6b7884;
-			--tl-selected: #f59e0b;
-			--tl-focus: #8ab4f8;
-		}
-	}
 	.plot {
 		overflow-x: auto;
 	}
@@ -296,30 +274,30 @@
 		user-select: none;
 	}
 	.section {
-		fill: var(--tl-muted);
+		fill: var(--color-muted);
 		font-size: 11px;
 		font-weight: 700;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
 	}
 	.hatch {
-		stroke: var(--tl-unknown);
+		stroke: var(--color-unknown);
 		stroke-width: 1;
 		opacity: 0.6;
 	}
 	.waiting-bg,
 	.review-bg {
-		fill: var(--tl-bg);
+		fill: var(--color-surface);
 	}
 	.waiting-line {
-		stroke: var(--tl-waiting);
+		stroke: var(--color-waiting);
 		stroke-width: 2;
 	}
 	.review-dot {
-		fill: var(--tl-review);
+		fill: var(--color-review);
 	}
 	.legend {
-		color: var(--tl-muted);
+		color: var(--color-muted);
 		font-size: 0.8rem;
 	}
 </style>

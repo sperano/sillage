@@ -40,13 +40,13 @@
 
 <style>
 	.grid {
-		stroke: var(--tl-grid);
+		stroke: var(--color-grid);
 	}
 	.base {
-		stroke: var(--tl-muted);
+		stroke: var(--color-muted);
 	}
 	text {
-		fill: var(--tl-muted);
+		fill: var(--color-muted);
 		font-size: 10px;
 		text-anchor: middle;
 	}

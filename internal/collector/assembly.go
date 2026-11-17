@@ -23,6 +23,10 @@ type assembly struct {
 	sources  map[model.Source]*sourceState
 	failures []Failure
 	refusals []Refusal
+	// prLinks are the task's comments' links to pull requests; searches
+	// counts the repositories its branch was looked for in.
+	prLinks  []prLink
+	searches int
 	// kelos is the namespace's runs; nil until read, and when the read
 	// failed.
 	kelos *kelosView

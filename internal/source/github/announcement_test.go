@@ -47,6 +47,25 @@ func TestParseAnnouncement(t *testing.T) {
 			}},
 		},
 		{
+			name: "short follow-up, job UID, links",
+			body: "HEARD YOU LOUD AND CLEAR!\n\n| | |\n|---|---|\n| MODEL | `example-model-3` |\n" +
+				"| KELOS TASK | `pr-followup-widgets-51-p3701` |\n| JOB UID | `00000000-0000-4000-8000-000000003701` |\n" +
+				"| NODE | `node-a` |\n\n[lucarne](https://lucarne.example.com) / [sillage](https://sillage.example.com)\n\n" +
+				"COFFEE TIME! REPORT TO FOLLOW.",
+			want: announcement{Role: model.RolePRFollowUp, Start: kelostext.Start{
+				Phrase: kelostext.OpenerFollowUp, Model: "example-model-3", TaskName: "pr-followup-widgets-51-p3701",
+			}},
+		},
+		{
+			name: "short conflict, retry, CRLF",
+			body: "PUT CAUTION IN THE SHOTGUN SEAT!\r\n\r\n| | |\r\n|---|---|\r\n| MODEL | `example-model-2[1m]` |\r\n" +
+				"| KELOS TASK | `" + testConflictTask + "-retry2` |\r\n| JOB UID | `00000000-0000-4000-8000-000000003702` |\r\n" +
+				"| NODE | `node-b` |\r\n\r\nCOFFEE TIME! REPORT TO FOLLOW.",
+			want: announcement{Role: model.RoleConflictFix, Start: kelostext.Start{
+				Phrase: kelostext.OpenerConflict, Model: "example-model-2[1m]", TaskName: testConflictTask + "-retry2",
+			}},
+		},
+		{
 			name: "current conflict, retry, CRLF",
 			body: "AGENT `agent-opus` IS RESOLVING THE PULL REQUEST'S MERGE CONFLICT. PUT CAUTION IN THE SHOTGUN SEAT. " +
 				"KELOS TASK `" + testConflictTask + "-retry1`.\r\n\r\nCOFFEE TIME! REPORT TO FOLLOW.",
@@ -111,6 +130,22 @@ func TestParseAnnouncementRejects(t *testing.T) {
 			"KELOS TASK `vikunja-fu-widgets-51-c1`.", kelostext.ErrUnparsedAnnouncement},
 		{"follow-up phrase, conflict Task", "THE AGENT IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR. " +
 			"KELOS TASK `" + testConflictTask + "`.", kelostext.ErrUnparsedAnnouncement},
+		{"short, another pull request", "HEARD YOU LOUD AND CLEAR!\n\n| | |\n|---|---|\n" +
+			"| KELOS TASK | `pr-followup-widgets-52-c1` |", kelostext.ErrUnparsedAnnouncement},
+		{"short follow-up opener, conflict Task", "HEARD YOU LOUD AND CLEAR!\n\n| | |\n|---|---|\n" +
+			"| KELOS TASK | `" + testConflictTask + "` |", kelostext.ErrUnparsedAnnouncement},
+		{"short conflict opener, follow-up Task", "PUT CAUTION IN THE SHOTGUN SEAT!\n\n| | |\n|---|---|\n" +
+			"| KELOS TASK | `pr-followup-widgets-51-c1` |", kelostext.ErrUnparsedAnnouncement},
+		{"short conflict, another pull request", "PUT CAUTION IN THE SHOTGUN SEAT!\n\n| | |\n|---|---|\n" +
+			"| KELOS TASK | `pr-conflict-0a1b2c3d-52-4e5f6a7b-8c9d0e1f` |", kelostext.ErrUnparsedAnnouncement},
+		{"opener then text on its line", "HEARD YOU LOUD AND CLEAR! On it.\n\n| | |\n|---|---|\n" +
+			"| KELOS TASK | `pr-followup-widgets-51-c1` |", kelostext.ErrUnparsedAnnouncement},
+		{"short follow-up, no table", "HEARD YOU LOUD AND CLEAR!\n\nCOFFEE TIME! REPORT TO FOLLOW.",
+			kelostext.ErrUnparsedAnnouncement},
+		{"short conflict, no table", "PUT CAUTION IN THE SHOTGUN SEAT!\n\nCOFFEE TIME! REPORT TO FOLLOW.",
+			kelostext.ErrUnparsedAnnouncement},
+		{"the Vikunja task opener", "THIS ONE HAS THE STUFF!\n\n| | |\n|---|---|\n" +
+			"| KELOS TASK | `pr-followup-widgets-51-c1` |", kelostext.ErrNotAnnouncement},
 		{"quoted", "> THE AGENT IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR. " +
 			"KELOS TASK `pr-followup-widgets-51-c1`.\n\nWhy two?", kelostext.ErrUnparsedAnnouncement},
 	}

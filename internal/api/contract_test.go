@@ -27,13 +27,16 @@ var update = flag.Bool("update", false, "rewrite the API responses' golden file"
 
 // contractPaths are the requests whose bodies responsesGolden holds: a
 // search with a match and one without, a resolved link, the sources'
-// freshness, and the frontend's configuration.
+// freshness, the frontend's configuration, and the deliveries of a task
+// with some and of one with none.
 var contractPaths = []string{
 	"/api/v1/search?q=retry",
 	"/api/v1/search?q=nothing-matches",
 	"/api/v1/resolve?url=" + url.QueryEscape("https://github.example.com/example-org/widgets/pull/7"),
 	"/api/v1/coverage",
 	"/api/v1/config",
+	"/api/v1/deliveries/task/vikunja.example.com/102",
+	"/api/v1/deliveries/task/vikunja.example.com/101",
 }
 
 // contractConsoles is the Kelos console the configuration names, for the

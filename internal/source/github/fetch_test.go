@@ -117,11 +117,13 @@ func refusePath(f *fakeGitHub, path string, code int, header http.Header) {
 }
 
 // A 403 or 404 on a commit's check runs or on the inline review comments
-// is kept as a refusal; the rest of the read, the other commit's checks
-// included, is kept.
+// is kept as a refusal; the rest of the read is kept. The repository's
+// other commit is not asked after a 403, whose refusal is the remembered
+// one; after a 404 its checks are read.
 func TestFetchPRKeepsRefusedSubReads(t *testing.T) {
 	shaA, shaB := strings.Repeat("a", 40), strings.Repeat("b", 40)
 	checksA := testRepoPath + "/commits/" + shaA + "/check-runs"
+	checksB := testRepoPath + "/commits/" + shaB + "/check-runs"
 	reviewComments := testRepoPath + "/pulls/41/comments"
 	for _, code := range []int{http.StatusForbidden, http.StatusNotFound} {
 		t.Run(strconv.Itoa(code), func(t *testing.T) {
@@ -136,11 +138,15 @@ func TestFetchPRKeepsRefusedSubReads(t *testing.T) {
 				{Resource: ResourceReviewComments, Path: reviewComments, Code: code},
 				{Resource: ResourceCheckRuns, SHA: shaA, Path: checksA, Code: code},
 			}
+			if code == http.StatusForbidden {
+				want = append(want, Refusal{Resource: ResourceCheckRuns, SHA: shaB, Path: checksB, Code: code, Remembered: true})
+			}
 			if !slices.Equal(snap.Refused, want) {
 				t.Errorf("refused = %+v, want %+v", snap.Refused, want)
 			}
-			if len(snap.Checks) == 0 || slices.ContainsFunc(snap.Checks, func(c CheckRun) bool { return c.HeadSHA != shaB }) {
-				t.Errorf("checks = %+v, want only those of %s", snap.Checks, shaB)
+			if remembered := code == http.StatusForbidden; remembered == (len(snap.Checks) != 0) ||
+				slices.ContainsFunc(snap.Checks, func(c CheckRun) bool { return c.HeadSHA != shaB }) {
+				t.Errorf("checks = %+v, want only those of %s unless remembered", snap.Checks, shaB)
 			}
 			if len(snap.ReviewComments) != 0 || len(snap.Timeline) == 0 {
 				t.Errorf("review comments %d, timeline %d: want the refused list empty, the timeline read",

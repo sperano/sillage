@@ -172,4 +172,8 @@ type Refusal struct {
 	// Path is the API path refused; Code its HTTP status code.
 	Path string
 	Code int
+	// Remembered says the client did not send this request: it answered
+	// the repository's check runs refused less than checkRunsRefusalTTL
+	// ago, and Code is that answer's. False means GitHub just refused it.
+	Remembered bool
 }

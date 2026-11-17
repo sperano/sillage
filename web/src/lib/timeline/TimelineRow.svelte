@@ -114,19 +114,19 @@
 
 <style>
 	.rule {
-		stroke: var(--tl-grid);
+		stroke: var(--color-grid);
 	}
 	.title {
-		fill: var(--tl-fg);
+		fill: var(--color-fg);
 		font-size: 12px;
 		font-weight: 600;
 	}
 	.subtitle {
-		fill: var(--tl-muted);
+		fill: var(--color-muted);
 		font-size: 10px;
 	}
 	.note {
-		fill: var(--tl-muted);
+		fill: var(--color-muted);
 		font-size: 11px;
 		font-style: italic;
 	}

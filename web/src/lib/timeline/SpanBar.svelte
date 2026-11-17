@@ -117,16 +117,16 @@
 	.span {
 		cursor: pointer;
 		outline: none;
-		--bar: var(--tl-running);
+		--bar: var(--color-running);
 	}
 	.waiting {
-		--bar: var(--tl-waiting);
+		--bar: var(--color-waiting);
 	}
 	.review-wait {
-		--bar: var(--tl-review);
+		--bar: var(--color-review);
 	}
 	.check {
-		--bar: var(--tl-check);
+		--bar: var(--color-pr);
 	}
 	.fill {
 		fill: var(--bar);
@@ -150,29 +150,29 @@
 	.selected .stub,
 	.span:focus-visible .edge,
 	.span:focus-visible .stub {
-		stroke: var(--tl-selected);
+		stroke: var(--color-selected);
 		stroke-width: 3;
 	}
 	.span:focus-visible .edge,
 	.span:focus-visible .stub {
-		stroke: var(--tl-focus);
+		stroke: var(--color-focus);
 	}
 	.inside,
 	.outside {
-		fill: var(--tl-fg);
+		fill: var(--color-fg);
 		font-size: 11px;
 	}
 	.outside {
-		fill: var(--tl-muted);
+		fill: var(--color-muted);
 		font-style: italic;
 	}
 	.label {
-		fill: var(--tl-fg);
+		fill: var(--color-fg);
 		font-size: 11px;
 		font-weight: 600;
 	}
 	.time {
-		fill: var(--tl-muted);
+		fill: var(--color-muted);
 		font-size: 10px;
 	}
 </style>
