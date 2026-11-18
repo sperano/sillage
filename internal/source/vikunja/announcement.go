@@ -20,8 +20,8 @@ import (
 //	<a href="...">sillage</a></p><p>COFFEE TIME! REPORT TO FOLLOW.</p>
 //
 // It names no agent, pod or namespace: the collector joins it to its run by
-// the Task name and when it was posted. A follow-up opens with HEARD YOU
-// LOUD AND CLEAR! instead.
+// the Task name and when it was posted. The first line is chosen per Task
+// from the implementation or task-follow-up opener pool in kelostext.
 //
 // The long form's first paragraph is the lead sentence kelostext parses;
 // a later one names the namespace. Since 2026-10-24 a location table
@@ -43,14 +43,20 @@ import (
 // rolesByPhrase maps each start phrase posted on Vikunja to the run role
 // it announces.
 var rolesByPhrase = map[string]model.RunRole{
-	kelostext.PhraseTaskStartedLowercase: model.RoleImplementation,
-	kelostext.PhraseTaskStartedColon:     model.RoleImplementation,
-	kelostext.PhraseTaskStarted:          model.RoleImplementation,
-	kelostext.OpenerTaskStarted:          model.RoleImplementation,
-	kelostext.PhraseFollowUpLowercase:    model.RoleTaskFollowUp,
-	kelostext.PhraseFollowUpColon:        model.RoleTaskFollowUp,
-	kelostext.PhraseFollowUp:             model.RoleTaskFollowUp,
-	kelostext.OpenerFollowUp:             model.RoleTaskFollowUp,
+	kelostext.PhraseTaskStartedLowercase:    model.RoleImplementation,
+	kelostext.PhraseTaskStartedColon:        model.RoleImplementation,
+	kelostext.PhraseTaskStarted:             model.RoleImplementation,
+	kelostext.OpenerTaskStarted:             model.RoleImplementation,
+	kelostext.OpenerTaskStartedBestPeople:   model.RoleImplementation,
+	kelostext.OpenerTaskStartedBigGuns:      model.RoleImplementation,
+	kelostext.OpenerTaskStartedRealAgent:    model.RoleImplementation,
+	kelostext.PhraseFollowUpLowercase:       model.RoleTaskFollowUp,
+	kelostext.PhraseFollowUpColon:           model.RoleTaskFollowUp,
+	kelostext.PhraseFollowUp:                model.RoleTaskFollowUp,
+	kelostext.OpenerFollowUp:                model.RoleTaskFollowUp,
+	kelostext.OpenerFollowUpHearingAids:     model.RoleTaskFollowUp,
+	kelostext.OpenerFollowUpMessageReceived: model.RoleTaskFollowUp,
+	kelostext.OpenerFollowUpHeardThatOne:    model.RoleTaskFollowUp,
 }
 
 // grammar parses the announcements of rolesByPhrase.

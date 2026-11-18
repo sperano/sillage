@@ -44,23 +44,29 @@ import (
 //
 //	COFFEE TIME! REPORT TO FOLLOW.
 //
-// a follow-up's opener being kelostext.OpenerFollowUp and a conflict
-// run's kelostext.OpenerConflict. Since the
-// account can be the owner's, which also posts requests and replies, a
-// comment is an announcement only when its Task name is one Kelos gives a
-// run on this pull request.
+// The first line is chosen per Task from the PR-follow-up or conflict opener
+// pool in kelostext. Since the account can be the owner's, which also posts
+// requests and replies, a comment is an announcement only when its Task name
+// is one Kelos gives a run on this pull request.
 
 // rolesByPhrase maps each start phrase posted on GitHub to the run role it
 // announces.
 var rolesByPhrase = map[string]model.RunRole{
-	kelostext.PhraseFollowUpLowercase: model.RolePRFollowUp,
-	kelostext.PhraseFollowUpColon:     model.RolePRFollowUp,
-	kelostext.PhraseFollowUp:          model.RolePRFollowUp,
-	kelostext.OpenerFollowUp:          model.RolePRFollowUp,
-	kelostext.PhraseConflictLowercase: model.RoleConflictFix,
-	kelostext.PhraseConflictColon:     model.RoleConflictFix,
-	kelostext.PhraseConflict:          model.RoleConflictFix,
-	kelostext.OpenerConflict:          model.RoleConflictFix,
+	kelostext.PhraseFollowUpLowercase:      model.RolePRFollowUp,
+	kelostext.PhraseFollowUpColon:          model.RolePRFollowUp,
+	kelostext.PhraseFollowUp:               model.RolePRFollowUp,
+	kelostext.OpenerFollowUp:               model.RolePRFollowUp,
+	kelostext.OpenerPRFollowUpStarted:      model.RolePRFollowUp,
+	kelostext.OpenerPRFollowUpBackOnCase:   model.RolePRFollowUp,
+	kelostext.OpenerPRFollowUpNotesIn:      model.RolePRFollowUp,
+	kelostext.OpenerPRFollowUpAnotherRound: model.RolePRFollowUp,
+	kelostext.PhraseConflictLowercase:      model.RoleConflictFix,
+	kelostext.PhraseConflictColon:          model.RoleConflictFix,
+	kelostext.PhraseConflict:               model.RoleConflictFix,
+	kelostext.OpenerConflict:               model.RoleConflictFix,
+	kelostext.OpenerConflictRoadsCrossed:   model.RoleConflictFix,
+	kelostext.OpenerConflictCollision:      model.RoleConflictFix,
+	kelostext.OpenerConflictCatchUp:        model.RoleConflictFix,
 }
 
 const (
