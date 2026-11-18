@@ -92,6 +92,34 @@ func TestParseShortAnnouncement(t *testing.T) {
 	}
 }
 
+func TestParseShortAnnouncementOpenerPools(t *testing.T) {
+	tests := []struct {
+		opener string
+		role   model.RunRole
+		task   string
+	}{
+		{kelostext.OpenerTaskStarted, model.RoleImplementation, "vikunja-demo-agent-sol-4250"},
+		{kelostext.OpenerTaskStartedBestPeople, model.RoleImplementation, "vikunja-demo-agent-sol-4251"},
+		{kelostext.OpenerTaskStartedBigGuns, model.RoleImplementation, "vikunja-demo-agent-sol-4252"},
+		{kelostext.OpenerTaskStartedRealAgent, model.RoleImplementation, "vikunja-demo-agent-sol-4253"},
+		{kelostext.OpenerFollowUp, model.RoleTaskFollowUp, "vikunja-fu-demo-4250-c9250"},
+		{kelostext.OpenerFollowUpHearingAids, model.RoleTaskFollowUp, "vikunja-fu-demo-4251-c9251"},
+		{kelostext.OpenerFollowUpMessageReceived, model.RoleTaskFollowUp, "vikunja-fu-demo-4252-c9252"},
+		{kelostext.OpenerFollowUpHeardThatOne, model.RoleTaskFollowUp, "vikunja-fu-demo-4253-c9253"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.opener, func(t *testing.T) {
+			body := shortStart(tt.opener, "example-model-3", tt.task, "node-a", "") +
+				"<!-- kelos:start task=" + tt.task + " -->"
+			got, err := parseAnnouncement(htmltext.Plain(body))
+			want := announcement{role: tt.role, model: "example-model-3", taskName: tt.task}
+			if err != nil || got != want {
+				t.Errorf("parseAnnouncement = %+v, %v; want %+v", got, err, want)
+			}
+		})
+	}
+}
+
 func TestParseAnnouncement(t *testing.T) {
 	tests := []struct {
 		name string
@@ -229,6 +257,8 @@ func TestParseAnnouncementRejects(t *testing.T) {
 			"<td><code>vikunja-demo-4243</code></td></tr></tbody></table>", kelostext.ErrUnparsedAnnouncement},
 		{"short form, opener not first", "<p>Hello.</p>" + shortStart("THIS ONE HAS THE STUFF!", "", "vikunja-demo-4243", "", ""),
 			kelostext.ErrUnparsedAnnouncement},
+		{"PR follow-up opener", shortStart(kelostext.OpenerPRFollowUpStarted, "", "vikunja-fu-demo-4243-c9204", "", ""),
+			kelostext.ErrNotAnnouncement},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

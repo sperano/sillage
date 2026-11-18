@@ -64,21 +64,67 @@ const (
 
 // Openers of the short form, Hollingsworth #524 on Vikunja, then "kelos:
 // give the GitHub start comment the Vikunja shape" on GitHub: the whole
-// first line, a bare sentence, before the location table. Their
-// exclamation mark keeps them apart from the action phrases above, which
-// end at a period.
+// first line, a bare sentence, before the location table. Hollingsworth
+// later chose one opener per Task from a pool for each event. Whole-line
+// matching keeps period-ending openers apart from the action phrases.
 const (
 	// OpenerTaskStarted: a Vikunja task's first run.
 	OpenerTaskStarted = "THIS ONE HAS THE STUFF!"
-	// OpenerFollowUp: a follow-up on a Vikunja task or a PR.
+	// OpenerTaskStartedBestPeople: a Vikunja task's first run.
+	OpenerTaskStartedBestPeople = "I'VE GOT MY BEST PEOPLE ON THIS."
+	// OpenerTaskStartedBigGuns: a Vikunja task's first run.
+	OpenerTaskStartedBigGuns = "SENDING IN THE BIG GUNS!"
+	// OpenerTaskStartedRealAgent: a Vikunja task's first run.
+	OpenerTaskStartedRealAgent = "THIS IS A JOB FOR A REAL AGENT."
+
+	// OpenerFollowUp: a follow-up on a Vikunja task, and the former PR follow-up opener.
 	OpenerFollowUp = "HEARD YOU LOUD AND CLEAR!"
+	// OpenerFollowUpHearingAids: a follow-up on a Vikunja task.
+	OpenerFollowUpHearingAids = "GOT IT! HEARING AIDS ARE CRANKED UP TO THE MAX!"
+	// OpenerFollowUpMessageReceived: a follow-up on a Vikunja task.
+	OpenerFollowUpMessageReceived = "MESSAGE RECEIVED! NO NEED TO SHOUT!"
+	// OpenerFollowUpHeardThatOne: a follow-up on a Vikunja task.
+	OpenerFollowUpHeardThatOne = "I HEARD THAT ONE!"
+
+	// OpenerPRFollowUpStarted: a PR follow-up.
+	OpenerPRFollowUpStarted = "A KELOS AGENT HAS STARTED THIS FOLLOW-UP ROUND."
+	// OpenerPRFollowUpBackOnCase: a PR follow-up.
+	OpenerPRFollowUpBackOnCase = "BACK ON THE CASE! ANOTHER ROUND COMING UP!"
+	// OpenerPRFollowUpNotesIn: a PR follow-up.
+	OpenerPRFollowUpNotesIn = "YOUR NOTES ARE IN. WE'RE ON IT!"
+	// OpenerPRFollowUpAnotherRound: a PR follow-up.
+	OpenerPRFollowUpAnotherRound = "ANOTHER ROUND! THIS ONE STILL HAS THE STUFF!"
+
 	// OpenerConflict: a PR's merge conflict resolution.
 	OpenerConflict = "PUT CAUTION IN THE SHOTGUN SEAT!"
+	// OpenerConflictRoadsCrossed: a PR's merge conflict resolution.
+	OpenerConflictRoadsCrossed = "TWO ROADS CROSSED ON THIS ONE. EASY DOES IT!"
+	// OpenerConflictCollision: a PR's merge conflict resolution.
+	OpenerConflictCollision = "WE'VE GOT A COLLISION! STEADY HANDS!"
+	// OpenerConflictCatchUp: a PR's merge conflict resolution.
+	OpenerConflictCatchUp = "MAIN MOVED ON US. TIME TO CATCH UP!"
 )
 
 // openers are the Opener constants, which a Grammar matches as a whole
 // first line rather than after an agent.
-var openers = []string{OpenerTaskStarted, OpenerFollowUp, OpenerConflict}
+var openers = []string{
+	OpenerTaskStarted,
+	OpenerTaskStartedBestPeople,
+	OpenerTaskStartedBigGuns,
+	OpenerTaskStartedRealAgent,
+	OpenerFollowUp,
+	OpenerFollowUpHearingAids,
+	OpenerFollowUpMessageReceived,
+	OpenerFollowUpHeardThatOne,
+	OpenerPRFollowUpStarted,
+	OpenerPRFollowUpBackOnCase,
+	OpenerPRFollowUpNotesIn,
+	OpenerPRFollowUpAnotherRound,
+	OpenerConflict,
+	OpenerConflictRoadsCrossed,
+	OpenerConflictCollision,
+	OpenerConflictCatchUp,
+}
 
 // K8sLabel matches a DNS label: a namespace, or a workspace name.
 const K8sLabel = `[a-z0-9](?:[a-z0-9-]*[a-z0-9])?`

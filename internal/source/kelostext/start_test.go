@@ -10,7 +10,10 @@ var testGrammar = NewGrammar(
 	PhraseTaskStartedLowercase, PhraseFollowUpLowercase, PhraseConflictLowercase,
 	PhraseTaskStartedColon, PhraseFollowUpColon, PhraseConflictColon,
 	PhraseTaskStarted, PhraseFollowUp, PhraseConflict,
-	OpenerTaskStarted, OpenerFollowUp, OpenerConflict,
+	OpenerTaskStarted, OpenerTaskStartedBestPeople, OpenerTaskStartedBigGuns, OpenerTaskStartedRealAgent,
+	OpenerFollowUp, OpenerFollowUpHearingAids, OpenerFollowUpMessageReceived, OpenerFollowUpHeardThatOne,
+	OpenerPRFollowUpStarted, OpenerPRFollowUpBackOnCase, OpenerPRFollowUpNotesIn, OpenerPRFollowUpAnotherRound,
+	OpenerConflict, OpenerConflictRoadsCrossed, OpenerConflictCollision, OpenerConflictCatchUp,
 )
 
 func TestParseStart(t *testing.T) {
@@ -150,6 +153,37 @@ func TestParseStart(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("got %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseStartOpenerPools(t *testing.T) {
+	openers := []string{
+		OpenerTaskStarted,
+		OpenerTaskStartedBestPeople,
+		OpenerTaskStartedBigGuns,
+		OpenerTaskStartedRealAgent,
+		OpenerFollowUp,
+		OpenerFollowUpHearingAids,
+		OpenerFollowUpMessageReceived,
+		OpenerFollowUpHeardThatOne,
+		OpenerPRFollowUpStarted,
+		OpenerPRFollowUpBackOnCase,
+		OpenerPRFollowUpNotesIn,
+		OpenerPRFollowUpAnotherRound,
+		OpenerConflict,
+		OpenerConflictRoadsCrossed,
+		OpenerConflictCollision,
+		OpenerConflictCatchUp,
+	}
+	const taskName = "vikunja-demo-agent-sol-4247"
+	for _, opener := range openers {
+		t.Run(opener, func(t *testing.T) {
+			got, err := testGrammar.Parse(opener + "\nKELOS TASK\n" + taskName)
+			want := Start{Phrase: opener, TaskName: taskName}
+			if err != nil || got != want {
+				t.Errorf("Parse = %+v, %v; want %+v", got, err, want)
 			}
 		})
 	}

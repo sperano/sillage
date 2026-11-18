@@ -115,6 +115,36 @@ func TestParseAnnouncement(t *testing.T) {
 	}
 }
 
+func TestParseShortAnnouncementOpenerPools(t *testing.T) {
+	tests := []struct {
+		opener string
+		role   model.RunRole
+		task   string
+	}{
+		{kelostext.OpenerPRFollowUpStarted, model.RolePRFollowUp, "pr-followup-widgets-51-c5401"},
+		{kelostext.OpenerPRFollowUpBackOnCase, model.RolePRFollowUp, "pr-followup-widgets-51-l5402"},
+		{kelostext.OpenerPRFollowUpNotesIn, model.RolePRFollowUp, "pr-followup-widgets-51-r5403"},
+		{kelostext.OpenerPRFollowUpAnotherRound, model.RolePRFollowUp, "pr-followup-widgets-51-p5404"},
+		{kelostext.OpenerConflict, model.RoleConflictFix, testConflictTask},
+		{kelostext.OpenerConflictRoadsCrossed, model.RoleConflictFix, testConflictTask + "-retry1"},
+		{kelostext.OpenerConflictCollision, model.RoleConflictFix, testConflictTask + "-retry2"},
+		{kelostext.OpenerConflictCatchUp, model.RoleConflictFix, testConflictTask + "-retry3"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.opener, func(t *testing.T) {
+			body := tt.opener + "\n\n| | |\n|---|---|\n| MODEL | `example-model-3` |\n" +
+				"| KELOS TASK | `" + tt.task + "` |\n\n<!-- kelos:start task=" + tt.task + " -->"
+			got, err := parseAnnouncement(body, 51)
+			want := announcement{Role: tt.role, Start: kelostext.Start{
+				Phrase: tt.opener, Model: "example-model-3", TaskName: tt.task,
+			}}
+			if err != nil || got != want {
+				t.Errorf("parseAnnouncement = %+v, %v; want %+v", got, err, want)
+			}
+		})
+	}
+}
+
 func TestParseAnnouncementRejects(t *testing.T) {
 	tests := []struct {
 		name string
@@ -145,6 +175,8 @@ func TestParseAnnouncementRejects(t *testing.T) {
 		{"short conflict, no table", "PUT CAUTION IN THE SHOTGUN SEAT!\n\nCOFFEE TIME! REPORT TO FOLLOW.",
 			kelostext.ErrUnparsedAnnouncement},
 		{"the Vikunja task opener", "THIS ONE HAS THE STUFF!\n\n| | |\n|---|---|\n" +
+			"| KELOS TASK | `pr-followup-widgets-51-c1` |", kelostext.ErrNotAnnouncement},
+		{"another Vikunja task opener", kelostext.OpenerTaskStartedBestPeople + "\n\n| | |\n|---|---|\n" +
 			"| KELOS TASK | `pr-followup-widgets-51-c1` |", kelostext.ErrNotAnnouncement},
 		{"quoted", "> THE AGENT IS ON YOUR FOLLOW-UP REQUEST. HEARD YOU LOUD AND CLEAR. " +
 			"KELOS TASK `pr-followup-widgets-51-c1`.\n\nWhy two?", kelostext.ErrUnparsedAnnouncement},
