@@ -53,8 +53,12 @@ func priceEvent(t *Table, e model.UsageEvent) priced {
 		unpriceAll(a, tokens)
 		return priced{acc: a, tier: tier}
 	}
-	// The price is known, even of a response with no tokens.
-	a.priced = true
+	if !a.notes[NoteTokensNotReported] {
+		// Every count was reported: the estimate is known, zero included.
+		// Otherwise it is only what the categories priced below add up to,
+		// and absent, never zero, when none was.
+		a.priced = true
+	}
 	for c, n := range tokens {
 		priceCategory(a, entry, c, n)
 	}

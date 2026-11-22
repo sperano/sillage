@@ -1,6 +1,7 @@
 package loki
 
 import (
+	"errors"
 	"maps"
 	"strings"
 	"testing"
@@ -53,9 +54,6 @@ func TestNormalizeClaudeTokens(t *testing.T) {
 			model.TokenCounts{CacheWrite5m: i64(60), CacheWriteUnknownTTL: i64(30)}, ""},
 		{"split without a total",
 			map[string]string{"cache_creation_1h_tokens": "30"}, model.TokenCounts{CacheWrite1h: i64(30)}, ""},
-		{"split over the total",
-			map[string]string{"cache_creation_tokens": "50", "cache_creation_5m_tokens": "60"}, model.TokenCounts{},
-			"exceed the total (50)"},
 		{"not a number", map[string]string{"input_tokens": "1.5"}, model.TokenCounts{}, "input_tokens"},
 		{"negative", map[string]string{"output_tokens": "-1"}, model.TokenCounts{}, "output_tokens"},
 		{"explicit zero stays zero", map[string]string{"cache_read_tokens": "0"},
@@ -154,14 +152,43 @@ func TestNormalizeClaudeKinds(t *testing.T) {
 	}
 }
 
+func TestNormalizeClaudeSplitOverTheTotal(t *testing.T) {
+	ev, err := normalizeLabels(t, claudeLabels(map[string]string{"cache_creation_tokens": "50",
+		"cache_creation_5m_tokens": "60", "cache_creation_1h_tokens": "5", "input_tokens": "11", "output_tokens": "12",
+		"cost_usd": "0.5"}))
+	var bad *inconsistentError
+	if !errors.As(err, &bad) || !strings.Contains(err.Error(), "cache writes by duration (65) exceed the total (50)") {
+		t.Fatalf("error = %v, want an inconsistentError naming the counts", err)
+	}
+	want := model.TokenCounts{UncachedInput: i64(11), Output: i64(12)}
+	if ev == nil || dump(model.UsageEvent{Tokens: ev.Tokens}) != dump(model.UsageEvent{Tokens: &want}) ||
+		ev.ReportedCostUSD != "0.5" || ev.Stream != "s1" {
+		t.Errorf("event = %+v, want it kept with every cache write unknown", ev)
+	}
+}
+
+func TestResultKeepsInconsistentEntriesAsMalformedEvents(t *testing.T) {
+	var r Result
+	r.add(Config{Cluster: testCluster}, entry{at: entryTime, labels: claudeLabels(map[string]string{
+		"cache_creation_tokens": "1", "cache_creation_5m_tokens": "2"})})
+	r.add(Config{Cluster: testCluster}, entry{at: entryTime, labels: claudeLabels(map[string]string{"event_name": "other"})})
+	if r.Entries != 2 || r.Malformed != 1 || r.Skipped != 1 || len(r.Events) != 1 || len(r.Problems) != 1 ||
+		!strings.Contains(r.Problems[0], "exceed the total (1)") {
+		t.Errorf("result = %+v, want the inconsistent entry kept and counted malformed, the other skipped", r)
+	}
+}
+
 func TestNormalizeMissingIdentity(t *testing.T) {
-	for _, name := range []string{"k8s_pod_uid", "k8s_pod_name", "k8s_namespace_name", "session_id", "event_sequence"} {
-		t.Run(name, func(t *testing.T) {
+	for label, want := range map[string]string{
+		"k8s_pod_uid": "no k8s_pod_uid", "k8s_pod_name": "no k8s_pod_name",
+		"k8s_namespace_name": "no k8s_namespace_name", "session_id": "no stream", "event_sequence": "no sequence",
+	} {
+		t.Run(label, func(t *testing.T) {
 			l := claudeLabels(nil)
-			delete(l, name)
+			delete(l, label)
 			ev, err := normalizeLabels(t, l)
-			if ev != nil || err == nil || !strings.Contains(err.Error(), "no ") {
-				t.Errorf("= %+v, %v; want a malformed entry", ev, err)
+			if ev != nil || err == nil || !strings.HasSuffix(err.Error(), ": "+want) {
+				t.Errorf("= %+v, %v; want a malformed entry ending %q", ev, err, want)
 			}
 		})
 	}
@@ -198,11 +225,16 @@ func TestNormalizeCodexResponse(t *testing.T) {
 			t.Errorf("= %s, %v", dump(*ev), err)
 		}
 	})
-	t.Run("cached and written over the input", func(t *testing.T) {
-		_, err := normalizeLabels(t, resp(map[string]string{"input_token_count": "10", "cached_token_count": "8",
-			"cache_write_token_count": "3"}))
-		if err == nil || !strings.Contains(err.Error(), "less than its cached (8) and cache-written (3)") {
-			t.Errorf("error = %v", err)
+	t.Run("cached and written over the input leaves uncached unknown", func(t *testing.T) {
+		ev, err := normalizeLabels(t, resp(map[string]string{"input_token_count": "10", "cached_token_count": "8",
+			"cache_write_token_count": "3", "output_token_count": "7"}))
+		var bad *inconsistentError
+		if !errors.As(err, &bad) || !strings.Contains(err.Error(), "less than its cached (8) and cache-written (3)") {
+			t.Fatalf("error = %v, want an inconsistentError naming the counts", err)
+		}
+		want := model.TokenCounts{CacheRead: i64(8), CacheWriteUnknownTTL: i64(3), Output: i64(7)}
+		if ev == nil || dump(model.UsageEvent{Tokens: ev.Tokens}) != dump(model.UsageEvent{Tokens: &want}) {
+			t.Errorf("event = %+v, want it kept with tokens %s", ev, dump(model.UsageEvent{Tokens: &want}))
 		}
 	})
 	t.Run("reasoning over the output", func(t *testing.T) {

@@ -1,6 +1,7 @@
 package loki
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -29,9 +30,20 @@ const (
 	httpErrorStatus = 400
 )
 
+// inconsistentError is an entry whose counts disagree: it is still an
+// event, with the counts that disagree left unknown.
+type inconsistentError struct{ msg string }
+
+func (e *inconsistentError) Error() string { return e.msg }
+
+func inconsistent(format string, args ...any) error {
+	return &inconsistentError{msg: fmt.Sprintf(format, args...)}
+}
+
 // normalize turns one entry into a usage event: nil, nil when the entry is
 // of no interest, and an error when it should have been an event and could
-// not be one.
+// not be one. An entry whose counts disagree is both: the event, and an
+// *inconsistentError saying what is left unknown.
 func normalize(cfg Config, e entry) (*model.UsageEvent, error) {
 	a := attrs(e.labels)
 	var ev *model.UsageEvent
@@ -42,7 +54,8 @@ func normalize(cfg Config, e entry) (*model.UsageEvent, error) {
 	case serviceCodex:
 		ev, err = normalizeCodex(a)
 	}
-	if err != nil || ev == nil {
+	var partial *inconsistentError
+	if (err != nil && !errors.As(err, &partial)) || ev == nil {
 		if err != nil {
 			err = fmt.Errorf("%s %s: %w", a["service_name"], a["event_name"], err)
 		}
@@ -53,6 +66,9 @@ func normalize(cfg Config, e entry) (*model.UsageEvent, error) {
 	}
 	if err := ev.Validate(); err != nil {
 		return nil, err
+	}
+	if partial != nil {
+		return ev, fmt.Errorf("%s %s: %w", a["service_name"], a["event_name"], partial)
 	}
 	return ev, nil
 }
@@ -93,14 +109,17 @@ func normalizeClaude(a attrs) (*model.UsageEvent, error) {
 	default:
 		return nil, nil
 	}
-	var err error
-	if ev.Tokens, err = claudeTokens(a); err != nil {
-		return nil, err
+	tokens, partial := claudeTokens(a)
+	var bad *inconsistentError
+	if partial != nil && !errors.As(partial, &bad) {
+		return nil, partial
 	}
+	ev.Tokens = tokens
+	var err error
 	if ev.ReportedCostUSD, err = a.decimal("cost_usd"); err != nil {
 		return nil, err
 	}
-	return ev, nil
+	return ev, partial
 }
 
 func trimPrefix(s, prefix string) string {
@@ -112,7 +131,9 @@ func trimPrefix(s, prefix string) string {
 
 // claudeTokens reads an api_request's counts: input_tokens is uncached,
 // and cache_creation_tokens is the total of the 5-minute and 1-hour
-// writes, when it says which.
+// writes, when it says which. When the writes by duration exceed the
+// total, every cache write count is unknown, and the error is an
+// *inconsistentError.
 func claudeTokens(a attrs) (*model.TokenCounts, error) {
 	var t model.TokenCounts
 	var total *int64
@@ -139,8 +160,10 @@ func claudeTokens(a attrs) (*model.TokenCounts, error) {
 	}
 	rest := *total - deref(t.CacheWrite5m) - deref(t.CacheWrite1h)
 	if rest < 0 {
-		return nil, fmt.Errorf("the cache writes by duration (%d) exceed the total (%d)",
-			*total-rest, *total)
+		byDuration := *total - rest
+		t.CacheWrite5m, t.CacheWrite1h = nil, nil
+		return &t, inconsistent("the cache writes by duration (%d) exceed the total (%d): cache writes unknown",
+			byDuration, *total)
 	}
 	if rest > 0 {
 		t.CacheWriteUnknownTTL = &rest
@@ -201,6 +224,8 @@ func codexFailure(a attrs, ev *model.UsageEvent) (*model.UsageEvent, error) {
 // codexTokens reads a response.completed's counts: input_token_count
 // includes the cached and the cache-written tokens, output_token_count the
 // reasoning ones. tool_token_count is the response's total, and ignored.
+// When the input is less than its cached and written parts, the uncached
+// input is unknown, and the error is an *inconsistentError.
 func codexTokens(a attrs) (*model.TokenCounts, error) {
 	var input, cached, written, output, reasoning *int64
 	for _, f := range []struct {
@@ -220,7 +245,7 @@ func codexTokens(a attrs) (*model.TokenCounts, error) {
 	if input != nil {
 		uncached := *input - deref(cached) - deref(written)
 		if uncached < 0 {
-			return nil, fmt.Errorf("input_token_count %d is less than its cached (%d) and cache-written (%d) tokens",
+			return t, inconsistent("input_token_count %d is less than its cached (%d) and cache-written (%d) tokens: uncached input unknown",
 				*input, deref(cached), deref(written))
 		}
 		t.UncachedInput = &uncached

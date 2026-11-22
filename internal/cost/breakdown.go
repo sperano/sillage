@@ -84,7 +84,6 @@ const (
 	NoteBeforeTelemetry   = "before-telemetry"
 	NoteFeedOff           = "usage-feed-off"
 	NoteInProgress        = "in-progress"
-	NoteNotFinal          = "not-final"
 	NotePriceUnknown      = "price-unknown"
 	NoteTierUnknown       = "tier-unknown"
 	NoteModelNotReported  = "model-not-reported"

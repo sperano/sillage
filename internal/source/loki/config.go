@@ -11,7 +11,7 @@ import (
 
 const (
 	// EnvURL names the environment variable holding Loki's base URL
-	// (http://grafana-loki-gateway.grafana.svc), without the /loki path.
+	// (http://loki.example.com), without the /loki path.
 	EnvURL = "SILLAGE_LOKI_URL"
 	// EnvOrgID names the optional environment variable holding the
 	// X-Scope-OrgID tenant to read; unset, no header is sent (Loki without

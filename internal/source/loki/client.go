@@ -48,7 +48,8 @@ type Result struct {
 	Events []model.UsageEvent
 	// Entries counts the log entries read, Skipped those of no interest
 	// (other events, successful Codex requests), Malformed those that
-	// should have been events but could not be normalized.
+	// should have been events but could not be normalized, and those kept
+	// as events with the counts that disagree unknown.
 	Entries, Skipped, Malformed int
 	// Pages counts the requests made.
 	Pages int
@@ -96,16 +97,17 @@ func (c *Client) Query(ctx context.Context, from, to time.Time) (Result, error) 
 func (r *Result) add(cfg Config, e entry) {
 	r.Entries++
 	ev, err := normalize(cfg, e)
-	switch {
-	case err != nil:
+	if err != nil {
 		r.Malformed++
 		if len(r.Problems) < maxProblems {
 			r.Problems = append(r.Problems, err.Error())
 		}
-	case ev == nil:
-		r.Skipped++
-	default:
+	}
+	switch {
+	case ev != nil:
 		r.Events = append(r.Events, *ev)
+	case err == nil:
+		r.Skipped++
 	}
 }
 

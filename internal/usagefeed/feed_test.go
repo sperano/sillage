@@ -149,20 +149,23 @@ func TestCycleNeverReadsBeforeSince(t *testing.T) {
 	}
 }
 
-func TestCycleReadsNothingWhenCaughtUp(t *testing.T) {
+func TestCycleReReadsOnlyTheOverlapWhenCaughtUp(t *testing.T) {
 	through := clock.Add(-DefaultDelay)
 	src, st := &fakeSource{}, &fakeStore{through: &through}
-	f, _ := newFeed(t, src, st, func(c *Config) { c.Overlap = time.Nanosecond; c.Now = func() time.Time { return clock } })
-	// Within the overlap there is a sliver to re-read: one window.
+	f, _ := newFeed(t, src, st, func(c *Config) { c.Overlap = time.Nanosecond })
 	if err := f.Cycle(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if len(src.windows) != 1 || !st.through.Equal(through) {
-		t.Errorf("windows = %v, read-through = %v", src.windows, st.through)
+	if want := (window{through.Add(-time.Nanosecond), through}); len(src.windows) != 1 || src.windows[0] != want ||
+		!st.through.Equal(through) {
+		t.Errorf("windows = %v, read-through = %v; want only %v, read-through unchanged", src.windows, st.through, want)
 	}
-	src.windows = nil
-	f2, _ := newFeed(t, src, st, func(c *Config) { c.Since = clock; c.Overlap = time.Nanosecond })
-	if err := f2.Cycle(t.Context()); err != nil || len(src.windows) != 0 {
+}
+
+func TestCycleReadsNothingWhenSinceIsPastTheDelay(t *testing.T) {
+	src := &fakeSource{}
+	f, _ := newFeed(t, src, &fakeStore{}, func(c *Config) { c.Since = clock })
+	if err := f.Cycle(t.Context()); err != nil || len(src.windows) != 0 {
 		t.Errorf("a feed that starts after now read %v, %v", src.windows, err)
 	}
 }
@@ -248,18 +251,32 @@ func TestMetricsCountWhatWasRead(t *testing.T) {
 	}
 }
 
-func TestRepeatedCycleSavesEventsOnce(t *testing.T) {
-	src := &fakeSource{results: map[time.Time]loki.Result{since: {Events: []model.UsageEvent{event("1")}}}}
+func TestOverlapReReadSavesEventsOnce(t *testing.T) {
+	// The second cycle starts DefaultOverlap before the first one's end,
+	// and reads the same event again there.
+	reread := clock.Add(-DefaultDelay - DefaultOverlap)
+	src := &fakeSource{results: map[time.Time]loki.Result{
+		since:  {Events: []model.UsageEvent{event("1")}},
+		reread: {Events: []model.UsageEvent{event("1")}},
+	}}
 	st := &fakeStore{}
 	f, m := newFeed(t, src, st, func(c *Config) { c.MaxWindow = 24 * time.Hour })
 	for range 2 {
 		if err := f.Cycle(t.Context()); err != nil {
 			t.Fatal(err)
 		}
-		src.results = map[time.Time]loki.Result{since: {Events: []model.UsageEvent{event("1")}}}
 	}
-	if got := testutil.ToFloat64(m.inserted); got != 1 {
-		t.Errorf("inserted = %v, want 1", got)
+	if len(src.windows) != 2 || src.windows[1].from != reread {
+		t.Fatalf("windows = %v, want the second from %v", src.windows, reread)
+	}
+	for name, c := range map[string]struct{ got, want float64 }{
+		"read":       {testutil.ToFloat64(m.read), 2},
+		"inserted":   {testutil.ToFloat64(m.inserted), 1},
+		"duplicates": {testutil.ToFloat64(m.duplicates), 1},
+	} {
+		if c.got != c.want {
+			t.Errorf("%s = %v, want %v", name, c.got, c.want)
+		}
 	}
 }
 

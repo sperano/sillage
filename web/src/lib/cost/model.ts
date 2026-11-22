@@ -31,7 +31,6 @@ export const COST_NOTES = [
 	'before-telemetry',
 	'usage-feed-off',
 	'in-progress',
-	'not-final',
 	'price-unknown',
 	'tier-unknown',
 	'model-not-reported',

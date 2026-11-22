@@ -9,7 +9,7 @@ import (
 
 func TestConfigFromEnv(t *testing.T) {
 	good := map[string]string{
-		EnvURL: " http://grafana-loki-gateway.grafana.svc/ ", EnvOrgID: "tenant-1",
+		EnvURL: " http://loki.example.com/ ", EnvOrgID: "tenant-1",
 		kelos.EnvCluster: "cluster-a", kelos.EnvNamespace: "kelos-agents",
 	}
 	with := func(k, v string) map[string]string {
@@ -45,7 +45,7 @@ func TestConfigFromEnv(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if cfg.BaseURL != "http://grafana-loki-gateway.grafana.svc" || cfg.OrgID != "tenant-1" ||
+			if cfg.BaseURL != "http://loki.example.com" || cfg.OrgID != "tenant-1" ||
 				cfg.Cluster != "cluster-a" || cfg.Namespace != "kelos-agents" {
 				t.Errorf("config = %+v", cfg)
 			}

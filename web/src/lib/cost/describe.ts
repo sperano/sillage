@@ -57,7 +57,6 @@ const noteTexts: Record<CostNote, string> = {
 	'before-telemetry': "It started before the runners' usage telemetry did.",
 	'usage-feed-off': "Sillage's usage feed is off: no usage is read.",
 	'in-progress': 'It is still running.',
-	'not-final': 'More usage may still arrive.',
 	'price-unknown': 'Some usage is of a model or tier with no known price.',
 	'tier-unknown': 'Some usage reported a tier the price table does not know.',
 	'model-not-reported': 'Some usage did not report its model.',

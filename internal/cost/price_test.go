@@ -45,6 +45,10 @@ func TestPriceEventStatuses(t *testing.T) {
 	fast.Speed = "turbo"
 	codexWrite := response(t, model.RunnerCodex, "gpt-5.6-sol", &model.TokenCounts{
 		UncachedInput: count(1000000), Output: count(0), CacheRead: count(0), CacheWriteUnknownTTL: count(10)})
+	opusFast := response(t, model.RunnerClaudeCode, "claude-opus-5-5", full())
+	opusFast.Speed = "fast"
+	noCounts := response(t, model.RunnerClaudeCode, "claude-opus-5-5", nil)
+	zeroOutputOnly := response(t, model.RunnerClaudeCode, "claude-opus-5-5", &model.TokenCounts{Output: count(0)})
 	cases := []struct {
 		name      string
 		e         model.UsageEvent
@@ -60,6 +64,10 @@ func TestPriceEventStatuses(t *testing.T) {
 		{"unknown model", response(t, model.RunnerClaudeCode, "claude-haiku-5", full()), StatusUnknown, "", []string{NotePriceUnknown}},
 		{"no model", response(t, model.RunnerClaudeCode, "", full()), StatusUnknown, "", []string{NoteModelNotReported}},
 		{"unknown speed", fast, StatusUnknown, "", []string{NoteTierUnknown}},
+		// 1M uncached tokens at $8 per million.
+		{"claude fast tier", opusFast, StatusComplete, "8.000000", nil},
+		{"no token counts has no estimate", noCounts, StatusUnknown, "", []string{NoteTokensNotReported}},
+		{"only zero counts reported has no estimate", zeroOutputOnly, StatusUnknown, "", []string{NoteTokensNotReported}},
 		// Over 272K prompt tokens: the long-context rate.
 		{"cache write of unknown duration", codexWrite, StatusPartial, "8.000000", []string{NoteCacheWriteTTL}},
 	}
@@ -91,5 +99,39 @@ func TestPriceEventFailedAndReported(t *testing.T) {
 		Model: "gpt-5.6-sol", At: at(t, "2026-11-23T10:00:00Z"), ReportedCostUSD: "0.25"})
 	if b := turn.acc.breakdown(); b.EstimatedUSD != "" || b.ReportedUSD != "0.250000" || b.Requests != 0 || turn.tier != TierStandard {
 		t.Errorf("reported cost: got %+v tier %q, want only 0.250000 reported, at the standard tier", b, turn.tier)
+	}
+}
+
+func TestPriceEventTiersAndPromptBands(t *testing.T) {
+	tab := mustTable(t)
+	codex := func(serviceTier string) model.UsageEvent {
+		e := response(t, model.RunnerCodex, "gpt-5.6-sol", &model.TokenCounts{
+			UncachedInput: count(100000), Output: count(1000000), CacheRead: count(0), CacheWriteUnknownTTL: count(0)})
+		e.ServiceTier = serviceTier
+		return e
+	}
+	haiku := func(uncached int64) model.UsageEvent {
+		return response(t, model.RunnerClaudeCode, "claude-haiku-5-5", &model.TokenCounts{
+			UncachedInput: count(uncached), Output: count(1000000), CacheRead: count(0), CacheWrite5m: count(0)})
+	}
+	for _, c := range []struct {
+		name, estimated, entry string
+		e                      model.UsageEvent
+	}{
+		// 100K input at $2 and 1M output at $10 per million.
+		{"codex flex", "10.200000", "openai/gpt-5.6-sol/flex", codex("flex")},
+		// 100K input at $8 and 1M output at $40 per million.
+		{"codex priority is fast", "40.800000", "openai/gpt-5.6-sol/fast", codex("priority")},
+		// A 100K prompt is still under the band: $0.10 and $0.50 per million.
+		{"haiku at the band's edge", "0.510000", "anthropic/claude-haiku-5-5/standard", haiku(100000)},
+		// A 200K prompt is above it: $0.50 and $2.50 per million.
+		{"haiku long context", "2.600000", "anthropic/claude-haiku-5-5/standard/long", haiku(200000)},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			p := priceEvent(tab, c.e)
+			if b := p.acc.breakdown(); b.Status != StatusComplete || b.EstimatedUSD != c.estimated || p.entry != c.entry {
+				t.Errorf("got %s %q at %q, want complete %q at %q", b.Status, b.EstimatedUSD, p.entry, c.estimated, c.entry)
+			}
+		})
 	}
 }
