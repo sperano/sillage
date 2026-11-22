@@ -1,0 +1,56 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "streams",
+    "result": [
+      {
+        "stream": {
+          "service_name": "claude-code",
+          "session_id": "session-aaa",
+          "k8s_namespace_name": "kelos-agents",
+          "k8s_pod_name": "widgets-agent-7-abcde",
+          "k8s_pod_uid": "3f1c2d4e-0000-4000-8000-000000000001",
+          "k8s_job_name": "widgets-agent-7",
+          "k8s_node_name": "node-1.example.com",
+          "kelos_task_name": "widgets-agent-7",
+          "service_version": "1.0.0",
+          "event_name": "api_request",
+          "event_sequence": "2",
+          "event_timestamp": "2026-03-01T12:00:02.Z",
+          "input_tokens": "1",
+          "output_tokens": "1"
+        },
+        "values": [
+          [
+            "1772366402000000000",
+            "{}"
+          ]
+        ]
+      },
+      {
+        "stream": {
+          "service_name": "claude-code",
+          "session_id": "session-aaa",
+          "k8s_namespace_name": "kelos-agents",
+          "k8s_pod_name": "widgets-agent-7-abcde",
+          "k8s_pod_uid": "3f1c2d4e-0000-4000-8000-000000000001",
+          "k8s_job_name": "widgets-agent-7",
+          "k8s_node_name": "node-1.example.com",
+          "kelos_task_name": "widgets-agent-7",
+          "service_version": "1.0.0",
+          "event_name": "api_request",
+          "event_sequence": "3",
+          "event_timestamp": "2026-03-01T12:00:03.Z",
+          "input_tokens": "1",
+          "output_tokens": "1"
+        },
+        "values": [
+          [
+            "1772366403000000000",
+            "{}"
+          ]
+        ]
+      }
+    ]
+  }
+}

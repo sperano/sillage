@@ -17,6 +17,8 @@ import {
 	searchResponse
 } from './decodeApi';
 import { parseStory } from './decodeModel';
+import { parseTaskCost } from './cost/decode';
+import type { TaskCost } from './cost/model';
 import type { LinkConfig } from './links';
 import type { Root, Story } from './model';
 import { rootSegments, sameRoot } from './roots';
@@ -132,6 +134,11 @@ export interface Api {
 	overview(query: OverviewQuery, after?: string, signal?: AbortSignal): Promise<OverviewPage>;
 	/** What the frontend links with: the Kelos console of each cluster. */
 	config(signal?: AbortSignal): Promise<LinkConfig>;
+	/**
+	 * root's estimated API-equivalent cost: what its agents' usage would
+	 * have cost at the providers' public API list prices.
+	 */
+	cost(root: Root, signal?: AbortSignal): Promise<TaskCost>;
 }
 
 export interface ApiOptions {
@@ -147,6 +154,11 @@ export function storyPath(root: Root): string {
 /** The API's path for the webhook deliveries that named root. */
 export function deliveriesPath(root: Root): string {
 	return `${API_BASE}/deliveries${rootSegments(root)}`;
+}
+
+/** The API's path for root's estimated cost. */
+export function costPath(root: Root): string {
+	return `${API_BASE}/cost${rootSegments(root)}`;
 }
 
 export function createApi(options: ApiOptions = {}): Api {
@@ -183,7 +195,15 @@ export function createApi(options: ApiOptions = {}): Api {
 			const path = params ? `${API_BASE}/overview?${params}` : `${API_BASE}/overview`;
 			return get(path, parseOverviewPage, signal);
 		},
-		config: (signal) => get(`${API_BASE}/config`, (b) => decode(configResponse, b), signal)
+		config: (signal) => get(`${API_BASE}/config`, (b) => decode(configResponse, b), signal),
+		cost: async (root, signal) => {
+			const path = costPath(root);
+			const cost = await get(path, parseTaskCost, signal);
+			if (!sameRoot(cost.root, root)) {
+				throw new InvalidResponseError(`GET ${path}`, 'the cost is of another root');
+			}
+			return cost;
+		}
 	};
 }
 

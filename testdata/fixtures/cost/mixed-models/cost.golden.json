@@ -1,0 +1,1324 @@
+{
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 301
+    }
+  },
+  "prices": {
+    "version": "2026-11-22.1",
+    "verifiedAt": "2026-11-22",
+    "sources": [
+      {
+        "provider": "anthropic",
+        "url": "https://platform.claude.com/docs/en/about-claude/pricing",
+        "readAt": "2026-11-22"
+      },
+      {
+        "provider": "openai",
+        "url": "https://developers.openai.com/api/docs/pricing",
+        "readAt": "2026-11-22"
+      }
+    ]
+  },
+  "assumptions": [
+    {
+      "code": "api-equivalent",
+      "text": "An estimate of what the same usage would cost at the providers' public API list prices. It is not what was billed, nor money saved."
+    },
+    {
+      "code": "list-prices",
+      "text": "Standard list prices: no batch, volume or negotiated discount."
+    },
+    {
+      "code": "global-inference",
+      "text": "Global inference: no data-residency or regional multiplier."
+    },
+    {
+      "code": "server-tools-not-reported",
+      "text": "The runners' telemetry does not report server-side tool use (web search), so its per-use charges are not included."
+    },
+    {
+      "code": "failed-requests-unbilled",
+      "text": "A failed request is counted but not priced: it reports no tokens."
+    },
+    {
+      "code": "codex-input-includes-cache",
+      "text": "Codex's input count includes its cached and (inferred) cache-write input; uncached input is what remains."
+    },
+    {
+      "code": "standard-tier-by-default",
+      "text": "A request that reports no speed or service tier is priced at the standard tier."
+    }
+  ],
+  "feed": {
+    "on": true,
+    "since": "2026-11-22T18:00:00Z",
+    "readThrough": "2026-11-23T13:00:00Z"
+  },
+  "final": true,
+  "total": {
+    "status": "partial",
+    "estimatedUSD": "18.886400",
+    "reportedUSD": "15.660000",
+    "requests": 9,
+    "failedRequests": 1,
+    "categories": [
+      {
+        "category": "uncachedInput",
+        "tokens": 2440000,
+        "estimatedUSD": "11.050000"
+      },
+      {
+        "category": "cacheRead",
+        "tokens": 2360000,
+        "estimatedUSD": "0.641400"
+      },
+      {
+        "category": "cacheWrite5m",
+        "tokens": 500000,
+        "estimatedUSD": "2.500000"
+      },
+      {
+        "category": "cacheWrite1h",
+        "tokens": 50000,
+        "estimatedUSD": "0.400000"
+      },
+      {
+        "category": "cacheWriteUnknownTTL",
+        "tokens": 50000,
+        "unpriced": true
+      },
+      {
+        "category": "output",
+        "tokens": 231000,
+        "estimatedUSD": "4.295000"
+      }
+    ],
+    "notes": [
+      "cache-write-ttl-unknown",
+      "failed-run-may-lose-unsent-events"
+    ]
+  },
+  "byRole": [
+    {
+      "role": "automation",
+      "runs": 1,
+      "status": "none",
+      "requests": 0,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 0
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 0
+        }
+      ]
+    },
+    {
+      "role": "implementation",
+      "runs": 2,
+      "status": "partial",
+      "estimatedUSD": "14.546400",
+      "reportedUSD": "13.160000",
+      "requests": 7,
+      "failedRequests": 1,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 2040000,
+          "estimatedUSD": "7.850000"
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 2060000,
+          "estimatedUSD": "0.401400"
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 500000,
+          "estimatedUSD": "2.500000"
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 50000,
+          "estimatedUSD": "0.400000"
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 201000,
+          "estimatedUSD": "3.395000"
+        }
+      ],
+      "notes": [
+        "failed-run-may-lose-unsent-events"
+      ]
+    },
+    {
+      "role": "pr-follow-up",
+      "runs": 1,
+      "status": "partial",
+      "estimatedUSD": "4.340000",
+      "reportedUSD": "2.500000",
+      "requests": 2,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 400000,
+          "estimatedUSD": "3.200000"
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 300000,
+          "estimatedUSD": "0.240000"
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 50000,
+          "unpriced": true
+        },
+        {
+          "category": "output",
+          "tokens": 30000,
+          "estimatedUSD": "0.900000"
+        }
+      ],
+      "notes": [
+        "cache-write-ttl-unknown"
+      ]
+    }
+  ],
+  "byModel": [
+    {
+      "runner": "claude-code",
+      "model": "claude-haiku-5-5",
+      "tier": "standard",
+      "prices": [
+        "anthropic/claude-haiku-5-5/standard",
+        "anthropic/claude-haiku-5-5/standard/long"
+      ],
+      "status": "complete",
+      "estimatedUSD": "0.106400",
+      "reportedUSD": "0.010000",
+      "requests": 2,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 140000,
+          "estimatedUSD": "0.050000"
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 60000,
+          "estimatedUSD": "0.001400"
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 30000,
+          "estimatedUSD": "0.055000"
+        }
+      ]
+    },
+    {
+      "runner": "claude-code",
+      "model": "claude-opus-5-5",
+      "tier": "fast",
+      "prices": [
+        "anthropic/claude-opus-5-5/fast"
+      ],
+      "status": "complete",
+      "estimatedUSD": "0.840000",
+      "requests": 1,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 100000,
+          "estimatedUSD": "0.800000"
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 1000,
+          "estimatedUSD": "0.040000"
+        }
+      ]
+    },
+    {
+      "runner": "claude-code",
+      "model": "claude-opus-5-5",
+      "tier": "standard",
+      "prices": [
+        "anthropic/claude-opus-5-5/standard"
+      ],
+      "status": "complete",
+      "estimatedUSD": "13.300000",
+      "reportedUSD": "13.150000",
+      "requests": 3,
+      "failedRequests": 1,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 1700000,
+          "estimatedUSD": "6.800000"
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 2000000,
+          "estimatedUSD": "0.400000"
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 500000,
+          "estimatedUSD": "2.500000"
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 50000,
+          "estimatedUSD": "0.400000"
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 160000,
+          "estimatedUSD": "3.200000"
+        }
+      ]
+    },
+    {
+      "runner": "claude-code",
+      "model": "claude-sonnet-5",
+      "tier": "standard",
+      "prices": [
+        "anthropic/claude-sonnet-5/standard"
+      ],
+      "status": "complete",
+      "estimatedUSD": "0.300000",
+      "requests": 1,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 100000,
+          "estimatedUSD": "0.200000"
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 10000,
+          "estimatedUSD": "0.100000"
+        }
+      ]
+    },
+    {
+      "runner": "codex",
+      "model": "gpt-5.6-sol",
+      "tier": "standard",
+      "prices": [
+        "openai/gpt-5.6-sol/standard/long"
+      ],
+      "status": "partial",
+      "estimatedUSD": "4.340000",
+      "reportedUSD": "2.500000",
+      "requests": 2,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 400000,
+          "estimatedUSD": "3.200000"
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 300000,
+          "estimatedUSD": "0.240000"
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 50000,
+          "unpriced": true
+        },
+        {
+          "category": "output",
+          "tokens": 30000,
+          "estimatedUSD": "0.900000"
+        }
+      ],
+      "notes": [
+        "cache-write-ttl-unknown"
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000301aa"
+      },
+      "taskName": "vikunja-widgets-agent-opus-301",
+      "role": "implementation",
+      "outcome": "failed",
+      "model": "claude-opus-5-5[1m]",
+      "ended": "2026-11-23T09:20:00Z",
+      "final": true,
+      "status": "partial",
+      "estimatedUSD": "1.000000",
+      "reportedUSD": "1.000000",
+      "requests": 1,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 200000,
+          "estimatedUSD": "0.800000"
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 10000,
+          "estimatedUSD": "0.200000"
+        }
+      ],
+      "notes": [
+        "failed-run-may-lose-unsent-events"
+      ],
+      "attempts": [
+        {
+          "pod": "vikunja-widgets-agent-opus-301-f0f0f",
+          "status": "complete",
+          "estimatedUSD": "1.000000",
+          "reportedUSD": "1.000000",
+          "requests": 1,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 200000,
+              "estimatedUSD": "0.800000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 10000,
+              "estimatedUSD": "0.200000"
+            }
+          ]
+        }
+      ],
+      "models": [
+        {
+          "runner": "claude-code",
+          "model": "claude-opus-5-5",
+          "tier": "standard",
+          "prices": [
+            "anthropic/claude-opus-5-5/standard"
+          ],
+          "status": "complete",
+          "estimatedUSD": "1.000000",
+          "reportedUSD": "1.000000",
+          "requests": 1,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 200000,
+              "estimatedUSD": "0.800000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 10000,
+              "estimatedUSD": "0.200000"
+            }
+          ]
+        }
+      ],
+      "threads": [
+        {
+          "runner": "claude-code",
+          "stream": "session-f1",
+          "status": "complete",
+          "estimatedUSD": "1.000000",
+          "reportedUSD": "1.000000",
+          "requests": 1,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 200000,
+              "estimatedUSD": "0.800000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 10000,
+              "estimatedUSD": "0.200000"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000301ab"
+      },
+      "taskName": "vikunja-widgets-agent-opus-301",
+      "role": "implementation",
+      "outcome": "succeeded",
+      "model": "claude-opus-5-5[1m]",
+      "ended": "2026-11-23T11:00:00Z",
+      "final": true,
+      "status": "complete",
+      "estimatedUSD": "13.546400",
+      "reportedUSD": "12.160000",
+      "requests": 6,
+      "failedRequests": 1,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 1840000,
+          "estimatedUSD": "7.050000"
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 2060000,
+          "estimatedUSD": "0.401400"
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 500000,
+          "estimatedUSD": "2.500000"
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 50000,
+          "estimatedUSD": "0.400000"
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 191000,
+          "estimatedUSD": "3.195000"
+        }
+      ],
+      "attempts": [
+        {
+          "pod": "vikunja-widgets-agent-opus-301-a1b2c",
+          "status": "complete",
+          "estimatedUSD": "12.706400",
+          "reportedUSD": "12.160000",
+          "requests": 5,
+          "failedRequests": 1,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 1740000,
+              "estimatedUSD": "6.250000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 2060000,
+              "estimatedUSD": "0.401400"
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 500000,
+              "estimatedUSD": "2.500000"
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 50000,
+              "estimatedUSD": "0.400000"
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 190000,
+              "estimatedUSD": "3.155000"
+            }
+          ]
+        },
+        {
+          "pod": "vikunja-widgets-agent-opus-301-r2r2r",
+          "status": "complete",
+          "estimatedUSD": "0.840000",
+          "requests": 1,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 100000,
+              "estimatedUSD": "0.800000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 1000,
+              "estimatedUSD": "0.040000"
+            }
+          ]
+        }
+      ],
+      "models": [
+        {
+          "runner": "claude-code",
+          "model": "claude-haiku-5-5",
+          "tier": "standard",
+          "prices": [
+            "anthropic/claude-haiku-5-5/standard",
+            "anthropic/claude-haiku-5-5/standard/long"
+          ],
+          "status": "complete",
+          "estimatedUSD": "0.106400",
+          "reportedUSD": "0.010000",
+          "requests": 2,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 140000,
+              "estimatedUSD": "0.050000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 60000,
+              "estimatedUSD": "0.001400"
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 30000,
+              "estimatedUSD": "0.055000"
+            }
+          ]
+        },
+        {
+          "runner": "claude-code",
+          "model": "claude-opus-5-5",
+          "tier": "fast",
+          "prices": [
+            "anthropic/claude-opus-5-5/fast"
+          ],
+          "status": "complete",
+          "estimatedUSD": "0.840000",
+          "requests": 1,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 100000,
+              "estimatedUSD": "0.800000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 1000,
+              "estimatedUSD": "0.040000"
+            }
+          ]
+        },
+        {
+          "runner": "claude-code",
+          "model": "claude-opus-5-5",
+          "tier": "standard",
+          "prices": [
+            "anthropic/claude-opus-5-5/standard"
+          ],
+          "status": "complete",
+          "estimatedUSD": "12.300000",
+          "reportedUSD": "12.150000",
+          "requests": 2,
+          "failedRequests": 1,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 1500000,
+              "estimatedUSD": "6.000000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 2000000,
+              "estimatedUSD": "0.400000"
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 500000,
+              "estimatedUSD": "2.500000"
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 50000,
+              "estimatedUSD": "0.400000"
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 150000,
+              "estimatedUSD": "3.000000"
+            }
+          ]
+        },
+        {
+          "runner": "claude-code",
+          "model": "claude-sonnet-5",
+          "tier": "standard",
+          "prices": [
+            "anthropic/claude-sonnet-5/standard"
+          ],
+          "status": "complete",
+          "estimatedUSD": "0.300000",
+          "requests": 1,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 100000,
+              "estimatedUSD": "0.200000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 10000,
+              "estimatedUSD": "0.100000"
+            }
+          ]
+        }
+      ],
+      "threads": [
+        {
+          "runner": "claude-code",
+          "stream": "session-a1",
+          "status": "complete",
+          "estimatedUSD": "12.300000",
+          "reportedUSD": "12.150000",
+          "requests": 2,
+          "failedRequests": 1,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 1500000,
+              "estimatedUSD": "6.000000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 2000000,
+              "estimatedUSD": "0.400000"
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 500000,
+              "estimatedUSD": "2.500000"
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 50000,
+              "estimatedUSD": "0.400000"
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 150000,
+              "estimatedUSD": "3.000000"
+            }
+          ]
+        },
+        {
+          "runner": "claude-code",
+          "stream": "session-a1",
+          "agent": "agent-explore-1",
+          "status": "complete",
+          "estimatedUSD": "0.106400",
+          "reportedUSD": "0.010000",
+          "requests": 2,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 140000,
+              "estimatedUSD": "0.050000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 60000,
+              "estimatedUSD": "0.001400"
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 30000,
+              "estimatedUSD": "0.055000"
+            }
+          ]
+        },
+        {
+          "runner": "claude-code",
+          "stream": "session-a1",
+          "agent": "agent-review-2",
+          "parentAgent": "agent-explore-1",
+          "status": "complete",
+          "estimatedUSD": "0.300000",
+          "requests": 1,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 100000,
+              "estimatedUSD": "0.200000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 10000,
+              "estimatedUSD": "0.100000"
+            }
+          ]
+        },
+        {
+          "runner": "claude-code",
+          "stream": "session-a2",
+          "status": "complete",
+          "estimatedUSD": "0.840000",
+          "requests": 1,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 100000,
+              "estimatedUSD": "0.800000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 1000,
+              "estimatedUSD": "0.040000"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000301ad"
+      },
+      "taskName": "pr-open-widgets-77",
+      "role": "automation",
+      "outcome": "succeeded",
+      "ended": "2026-11-23T11:06:00Z",
+      "final": true,
+      "status": "none",
+      "requests": 0,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 0
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 0
+        }
+      ],
+      "attempts": [],
+      "models": [],
+      "threads": []
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000301ac"
+      },
+      "taskName": "pr-fix-widgets-codex-77",
+      "role": "pr-follow-up",
+      "outcome": "succeeded",
+      "model": "gpt-5.6-sol",
+      "ended": "2026-11-23T12:30:00Z",
+      "final": true,
+      "status": "partial",
+      "estimatedUSD": "4.340000",
+      "reportedUSD": "2.500000",
+      "requests": 2,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 400000,
+          "estimatedUSD": "3.200000"
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 300000,
+          "estimatedUSD": "0.240000"
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 50000,
+          "unpriced": true
+        },
+        {
+          "category": "output",
+          "tokens": 30000,
+          "estimatedUSD": "0.900000"
+        }
+      ],
+      "notes": [
+        "cache-write-ttl-unknown"
+      ],
+      "attempts": [
+        {
+          "pod": "pr-fix-widgets-codex-77-c3d4e",
+          "status": "partial",
+          "estimatedUSD": "4.340000",
+          "reportedUSD": "2.500000",
+          "requests": 2,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 400000,
+              "estimatedUSD": "3.200000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 300000,
+              "estimatedUSD": "0.240000"
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 50000,
+              "unpriced": true
+            },
+            {
+              "category": "output",
+              "tokens": 30000,
+              "estimatedUSD": "0.900000"
+            }
+          ],
+          "notes": [
+            "cache-write-ttl-unknown"
+          ]
+        }
+      ],
+      "models": [
+        {
+          "runner": "codex",
+          "model": "gpt-5.6-sol",
+          "tier": "standard",
+          "prices": [
+            "openai/gpt-5.6-sol/standard/long"
+          ],
+          "status": "partial",
+          "estimatedUSD": "4.340000",
+          "reportedUSD": "2.500000",
+          "requests": 2,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 400000,
+              "estimatedUSD": "3.200000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 300000,
+              "estimatedUSD": "0.240000"
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 50000,
+              "unpriced": true
+            },
+            {
+              "category": "output",
+              "tokens": 30000,
+              "estimatedUSD": "0.900000"
+            }
+          ],
+          "notes": [
+            "cache-write-ttl-unknown"
+          ]
+        }
+      ],
+      "threads": [
+        {
+          "runner": "codex",
+          "stream": "conversation-b1",
+          "status": "partial",
+          "estimatedUSD": "1.640000",
+          "reportedUSD": "2.500000",
+          "requests": 1,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 100000,
+              "estimatedUSD": "0.800000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 300000,
+              "estimatedUSD": "0.240000"
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 50000,
+              "unpriced": true
+            },
+            {
+              "category": "output",
+              "tokens": 20000,
+              "estimatedUSD": "0.600000"
+            }
+          ],
+          "notes": [
+            "cache-write-ttl-unknown"
+          ]
+        },
+        {
+          "runner": "codex",
+          "stream": "conversation-b2",
+          "status": "complete",
+          "estimatedUSD": "2.700000",
+          "requests": 1,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 300000,
+              "estimatedUSD": "2.400000"
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 10000,
+              "estimatedUSD": "0.300000"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

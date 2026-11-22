@@ -141,16 +141,19 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 		_ = ln.Close()
 		return err
 	}
-	apiHandler := newAPI(getenv, st, col.off)
+	usage := newUsageFeed(getenv, st, reg, slog.Default())
+	apiHandler := newAPI(getenv, st, col.off, usage.config())
 	ingestHandler := newIngest(getenv, st, queue, col, reg)
 	markerHandler := newMarkerIngest(getenv, st, reg, kelos.NewDynamicClient)
 	collectCtx, stopCollecting := context.WithCancel(ctx)
 	defer stopCollecting()
 	wait := col.start(collectCtx)
+	waitUsage := usage.start(collectCtx)
 	err = serve(ctx, ln, newHandler(web.FS(), apiHandler, ingestRoutes(ingestHandler, markerHandler), metrics))
-	// The collector stops before the store closes.
+	// The collector and the usage feed stop before the store closes.
 	stopCollecting()
 	wait()
+	waitUsage()
 	return err
 }
 

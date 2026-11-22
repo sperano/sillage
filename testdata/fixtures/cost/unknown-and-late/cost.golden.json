@@ -1,0 +1,779 @@
+{
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 302
+    }
+  },
+  "prices": {
+    "version": "2026-11-22.1",
+    "verifiedAt": "2026-11-22",
+    "sources": [
+      {
+        "provider": "anthropic",
+        "url": "https://platform.claude.com/docs/en/about-claude/pricing",
+        "readAt": "2026-11-22"
+      },
+      {
+        "provider": "openai",
+        "url": "https://developers.openai.com/api/docs/pricing",
+        "readAt": "2026-11-22"
+      }
+    ]
+  },
+  "assumptions": [
+    {
+      "code": "api-equivalent",
+      "text": "An estimate of what the same usage would cost at the providers' public API list prices. It is not what was billed, nor money saved."
+    },
+    {
+      "code": "list-prices",
+      "text": "Standard list prices: no batch, volume or negotiated discount."
+    },
+    {
+      "code": "global-inference",
+      "text": "Global inference: no data-residency or regional multiplier."
+    },
+    {
+      "code": "server-tools-not-reported",
+      "text": "The runners' telemetry does not report server-side tool use (web search), so its per-use charges are not included."
+    },
+    {
+      "code": "failed-requests-unbilled",
+      "text": "A failed request is counted but not priced: it reports no tokens."
+    },
+    {
+      "code": "codex-input-includes-cache",
+      "text": "Codex's input count includes its cached and (inferred) cache-write input; uncached input is what remains."
+    },
+    {
+      "code": "standard-tier-by-default",
+      "text": "A request that reports no speed or service tier is priced at the standard tier."
+    }
+  ],
+  "feed": {
+    "on": true,
+    "since": "2026-11-22T18:00:00Z",
+    "readThrough": "2026-11-24T09:40:00Z"
+  },
+  "final": false,
+  "total": {
+    "status": "partial",
+    "estimatedUSD": "0.000150",
+    "reportedUSD": "0.001000",
+    "requests": 4,
+    "failedRequests": 0,
+    "categories": [
+      {
+        "category": "uncachedInput",
+        "tokens": 4000,
+        "estimatedUSD": "0.000100",
+        "unpriced": true
+      },
+      {
+        "category": "cacheRead",
+        "tokens": 0
+      },
+      {
+        "category": "cacheWrite5m",
+        "tokens": 0
+      },
+      {
+        "category": "cacheWrite1h",
+        "tokens": 0
+      },
+      {
+        "category": "cacheWriteUnknownTTL",
+        "tokens": 500,
+        "unpriced": true
+      },
+      {
+        "category": "output",
+        "tokens": 400,
+        "estimatedUSD": "0.000050",
+        "unpriced": true
+      }
+    ],
+    "notes": [
+      "attributed-by-task-name",
+      "before-telemetry",
+      "in-progress",
+      "no-usage-events",
+      "price-unknown",
+      "unattributed-usage"
+    ]
+  },
+  "byRole": [
+    {
+      "role": "implementation",
+      "runs": 1,
+      "status": "unknown",
+      "requests": 0,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 0
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 0
+        }
+      ],
+      "notes": [
+        "before-telemetry",
+        "no-usage-events"
+      ]
+    },
+    {
+      "role": "pr-follow-up",
+      "runs": 1,
+      "status": "unknown",
+      "requests": 1,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 1000,
+          "unpriced": true
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 100,
+          "unpriced": true
+        }
+      ],
+      "notes": [
+        "in-progress",
+        "price-unknown"
+      ]
+    },
+    {
+      "role": "task-follow-up",
+      "runs": 1,
+      "status": "unknown",
+      "reportedUSD": "0.001000",
+      "requests": 2,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 2000,
+          "unpriced": true
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 500,
+          "unpriced": true
+        },
+        {
+          "category": "output",
+          "tokens": 200,
+          "unpriced": true
+        }
+      ],
+      "notes": [
+        "attributed-by-task-name",
+        "price-unknown"
+      ]
+    }
+  ],
+  "byModel": [
+    {
+      "runner": "claude-code",
+      "model": "claude-haiku-5",
+      "tier": "standard",
+      "prices": null,
+      "status": "unknown",
+      "reportedUSD": "0.001000",
+      "requests": 2,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 2000,
+          "unpriced": true
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 500,
+          "unpriced": true
+        },
+        {
+          "category": "output",
+          "tokens": 200,
+          "unpriced": true
+        }
+      ],
+      "notes": [
+        "price-unknown"
+      ]
+    },
+    {
+      "runner": "claude-code",
+      "model": "claude-haiku-5-5",
+      "tier": "standard",
+      "prices": [
+        "anthropic/claude-haiku-5-5/standard"
+      ],
+      "status": "complete",
+      "estimatedUSD": "0.000150",
+      "requests": 1,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 1000,
+          "estimatedUSD": "0.000100"
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 100,
+          "estimatedUSD": "0.000050"
+        }
+      ]
+    },
+    {
+      "runner": "codex",
+      "model": "gpt-5.6-sol",
+      "tier": "standard",
+      "prices": null,
+      "status": "unknown",
+      "requests": 1,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 1000,
+          "unpriced": true
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 100,
+          "unpriced": true
+        }
+      ],
+      "notes": [
+        "price-unknown"
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000302aa"
+      },
+      "taskName": "vikunja-widgets-agent-opus-302",
+      "role": "implementation",
+      "outcome": "succeeded",
+      "model": "claude-opus-5-5[1m]",
+      "ended": "2026-11-20T10:00:00Z",
+      "final": true,
+      "status": "unknown",
+      "requests": 0,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 0
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 0
+        }
+      ],
+      "notes": [
+        "before-telemetry",
+        "no-usage-events"
+      ],
+      "attempts": [],
+      "models": [],
+      "threads": []
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000302ab"
+      },
+      "taskName": "vikunja-widgets-agent-haiku-302",
+      "role": "task-follow-up",
+      "outcome": "succeeded",
+      "model": "claude-haiku-5",
+      "ended": "2026-11-24T09:30:00Z",
+      "final": false,
+      "status": "unknown",
+      "reportedUSD": "0.001000",
+      "requests": 2,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 2000,
+          "unpriced": true
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 500,
+          "unpriced": true
+        },
+        {
+          "category": "output",
+          "tokens": 200,
+          "unpriced": true
+        }
+      ],
+      "notes": [
+        "attributed-by-task-name",
+        "price-unknown"
+      ],
+      "attempts": [
+        {
+          "pod": "vikunja-widgets-agent-haiku-302-h1h1h",
+          "status": "unknown",
+          "reportedUSD": "0.001000",
+          "requests": 2,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 2000,
+              "unpriced": true
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 500,
+              "unpriced": true
+            },
+            {
+              "category": "output",
+              "tokens": 200,
+              "unpriced": true
+            }
+          ],
+          "notes": [
+            "price-unknown"
+          ]
+        }
+      ],
+      "models": [
+        {
+          "runner": "claude-code",
+          "model": "claude-haiku-5",
+          "tier": "standard",
+          "prices": null,
+          "status": "unknown",
+          "reportedUSD": "0.001000",
+          "requests": 2,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 2000,
+              "unpriced": true
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 500,
+              "unpriced": true
+            },
+            {
+              "category": "output",
+              "tokens": 200,
+              "unpriced": true
+            }
+          ],
+          "notes": [
+            "price-unknown"
+          ]
+        }
+      ],
+      "threads": [
+        {
+          "runner": "claude-code",
+          "stream": "session-h1",
+          "status": "unknown",
+          "reportedUSD": "0.001000",
+          "requests": 2,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 2000,
+              "unpriced": true
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 500,
+              "unpriced": true
+            },
+            {
+              "category": "output",
+              "tokens": 200,
+              "unpriced": true
+            }
+          ],
+          "notes": [
+            "price-unknown"
+          ]
+        }
+      ]
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000302ac"
+      },
+      "taskName": "pr-review-widgets-sol-78",
+      "role": "pr-follow-up",
+      "outcome": "running",
+      "model": "gpt-5.6-sol",
+      "final": false,
+      "status": "unknown",
+      "requests": 1,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 1000,
+          "unpriced": true
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 100,
+          "unpriced": true
+        }
+      ],
+      "notes": [
+        "in-progress",
+        "price-unknown"
+      ],
+      "attempts": [
+        {
+          "pod": "pr-review-widgets-sol-78-l1l1l",
+          "status": "unknown",
+          "requests": 1,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 1000,
+              "unpriced": true
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 100,
+              "unpriced": true
+            }
+          ],
+          "notes": [
+            "price-unknown"
+          ]
+        }
+      ],
+      "models": [
+        {
+          "runner": "codex",
+          "model": "gpt-5.6-sol",
+          "tier": "standard",
+          "prices": null,
+          "status": "unknown",
+          "requests": 1,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 1000,
+              "unpriced": true
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 100,
+              "unpriced": true
+            }
+          ],
+          "notes": [
+            "price-unknown"
+          ]
+        }
+      ],
+      "threads": [
+        {
+          "runner": "codex",
+          "stream": "conversation-b1",
+          "status": "unknown",
+          "requests": 1,
+          "failedRequests": 0,
+          "categories": [
+            {
+              "category": "uncachedInput",
+              "tokens": 1000,
+              "unpriced": true
+            },
+            {
+              "category": "cacheRead",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite5m",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWrite1h",
+              "tokens": 0
+            },
+            {
+              "category": "cacheWriteUnknownTTL",
+              "tokens": 0
+            },
+            {
+              "category": "output",
+              "tokens": 100,
+              "unpriced": true
+            }
+          ],
+          "notes": [
+            "price-unknown"
+          ]
+        }
+      ]
+    }
+  ],
+  "unattributed": {
+    "status": "complete",
+    "estimatedUSD": "0.000150",
+    "requests": 1,
+    "failedRequests": 0,
+    "categories": [
+      {
+        "category": "uncachedInput",
+        "tokens": 1000,
+        "estimatedUSD": "0.000100"
+      },
+      {
+        "category": "cacheRead",
+        "tokens": 0
+      },
+      {
+        "category": "cacheWrite5m",
+        "tokens": 0
+      },
+      {
+        "category": "cacheWrite1h",
+        "tokens": 0
+      },
+      {
+        "category": "cacheWriteUnknownTTL",
+        "tokens": 0
+      },
+      {
+        "category": "output",
+        "tokens": 100,
+        "estimatedUSD": "0.000050"
+      }
+    ]
+  }
+}

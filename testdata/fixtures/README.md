@@ -83,12 +83,26 @@ answer, over the fixture stories, for the requests the web client makes
 besides stories and the overview: a search with a match and one without,
 a resolved pull request link, the sources' freshness
 (`GET /api/v1/coverage`), and the frontend's configuration (`GET
-/api/v1/config`, with a fabricated console for `cluster-a`), keyed by path
-and query. Generated (`go test
+/api/v1/config`, with a fabricated console for `cluster-a`), and the
+costs of the `cost/` fixtures of tasks 301 and 302, keyed by path and
+query. Generated (`go test
 ./internal/api -run TestResponsesGolden -update`); never edit it by hand.
 `web/src/lib/api.test.ts` asks for each path through the client and
 decodes the body, so a response shape changed in Go fails the web tests
 until `web/src/lib/decodeApi.ts` follows.
+
+## Cost
+
+`cost/<name>/` holds one fabricated task's usage: `input.json` has its
+`root`, its `runs` (`model.Run`), the `events` its runs' pods exported
+(`model.UsageEvent`, as the store reads them back, repeats included),
+the `pods` each run keyed by Task UID was seen with beyond its own, and
+the usage `feed` (`cost.Feed`); `cost.golden.json` is `cost.Compute`'s
+output under the embedded price table. Generated (`go test
+./internal/cost -run TestCostGolden -update`); never edit it by hand.
+Dates fall after the price table's start (2026-11-22), except where a
+fixture shows a price that does not apply. `usage/loki/` holds the Loki
+`query_range` responses the Loki source's tests answer from.
 
 ## Overview
 

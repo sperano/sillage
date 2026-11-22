@@ -43,7 +43,7 @@ func TestNewAPI(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := newAPI(func(key string) string { return tt.env[key] }, nil, nil)
+			h := newAPI(func(key string) string { return tt.env[key] }, nil, nil, api.UsageConfig{})
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/config", nil))
 			var got api.ConfigResponse
@@ -309,7 +309,7 @@ func TestOverviewOverTheCollectedCorpus(t *testing.T) {
 			collectCorpusStory(t, st, collectortest.Stories[name])
 			checkRootCollected(t, st, collectortest.Stories[name])
 			checkPullRequestsCollected(t, st, name)
-			srv := httptest.NewServer(newAPI(func(string) string { return "" }, st, nil))
+			srv := httptest.NewServer(newAPI(func(string) string { return "" }, st, nil, api.UsageConfig{}))
 			t.Cleanup(srv.Close)
 			stories := storedStories(t, st)
 			for _, w := range hoursOf(stories) {

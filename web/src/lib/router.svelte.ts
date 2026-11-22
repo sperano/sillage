@@ -9,6 +9,11 @@ const PRIMARY_BUTTON = 0;
 export class Router {
 	/** The route the current URL shows. */
 	route: Route = $state.raw({ name: 'home', query: '' });
+	/**
+	 * The current URL's fragment, with its "#" ("" when it has none): the
+	 * anchor a page scrolls to once what it names is drawn.
+	 */
+	hash = $state('');
 	/** How many times the route changed since the first. */
 	navigations = $state(0);
 
@@ -76,6 +81,7 @@ export class Router {
 	#sync(): void {
 		const url = this.#history.location();
 		const at = url.pathname + url.search;
+		this.hash = url.hash;
 		if (at === this.#at) return;
 		if (this.#at !== '') this.navigations++;
 		this.#at = at;

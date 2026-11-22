@@ -1,0 +1,184 @@
+{
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 303
+    }
+  },
+  "prices": {
+    "version": "2026-11-22.1",
+    "verifiedAt": "2026-11-22",
+    "sources": [
+      {
+        "provider": "anthropic",
+        "url": "https://platform.claude.com/docs/en/about-claude/pricing",
+        "readAt": "2026-11-22"
+      },
+      {
+        "provider": "openai",
+        "url": "https://developers.openai.com/api/docs/pricing",
+        "readAt": "2026-11-22"
+      }
+    ]
+  },
+  "assumptions": [
+    {
+      "code": "api-equivalent",
+      "text": "An estimate of what the same usage would cost at the providers' public API list prices. It is not what was billed, nor money saved."
+    },
+    {
+      "code": "list-prices",
+      "text": "Standard list prices: no batch, volume or negotiated discount."
+    },
+    {
+      "code": "global-inference",
+      "text": "Global inference: no data-residency or regional multiplier."
+    },
+    {
+      "code": "server-tools-not-reported",
+      "text": "The runners' telemetry does not report server-side tool use (web search), so its per-use charges are not included."
+    },
+    {
+      "code": "failed-requests-unbilled",
+      "text": "A failed request is counted but not priced: it reports no tokens."
+    },
+    {
+      "code": "codex-input-includes-cache",
+      "text": "Codex's input count includes its cached and (inferred) cache-write input; uncached input is what remains."
+    },
+    {
+      "code": "standard-tier-by-default",
+      "text": "A request that reports no speed or service tier is priced at the standard tier."
+    }
+  ],
+  "feed": {
+    "on": false
+  },
+  "final": false,
+  "total": {
+    "status": "unknown",
+    "requests": 0,
+    "failedRequests": 0,
+    "categories": [
+      {
+        "category": "uncachedInput",
+        "tokens": 0
+      },
+      {
+        "category": "cacheRead",
+        "tokens": 0
+      },
+      {
+        "category": "cacheWrite5m",
+        "tokens": 0
+      },
+      {
+        "category": "cacheWrite1h",
+        "tokens": 0
+      },
+      {
+        "category": "cacheWriteUnknownTTL",
+        "tokens": 0
+      },
+      {
+        "category": "output",
+        "tokens": 0
+      }
+    ],
+    "notes": [
+      "no-usage-events",
+      "usage-feed-off"
+    ]
+  },
+  "byRole": [
+    {
+      "role": "implementation",
+      "runs": 1,
+      "status": "unknown",
+      "requests": 0,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 0
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 0
+        }
+      ],
+      "notes": [
+        "no-usage-events",
+        "usage-feed-off"
+      ]
+    }
+  ],
+  "byModel": [],
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000303aa"
+      },
+      "taskName": "vikunja-widgets-agent-opus-303",
+      "role": "implementation",
+      "outcome": "succeeded",
+      "model": "claude-opus-5-5",
+      "ended": "2026-11-25T09:30:00Z",
+      "final": false,
+      "status": "unknown",
+      "requests": 0,
+      "failedRequests": 0,
+      "categories": [
+        {
+          "category": "uncachedInput",
+          "tokens": 0
+        },
+        {
+          "category": "cacheRead",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite5m",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWrite1h",
+          "tokens": 0
+        },
+        {
+          "category": "cacheWriteUnknownTTL",
+          "tokens": 0
+        },
+        {
+          "category": "output",
+          "tokens": 0
+        }
+      ],
+      "notes": [
+        "no-usage-events",
+        "usage-feed-off"
+      ],
+      "attempts": [],
+      "models": [],
+      "threads": []
+    }
+  ]
+}

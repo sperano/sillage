@@ -79,6 +79,7 @@ stay behind the Authentik forward-auth in front of sillage.
 | `/api/v1/search?q=&limit=` | Roots by title or key, most recently active first (`q` at most 200 characters) |
 | `/api/v1/resolve?url=` | The task stories that a Vikunja task, GitHub pull request or Kelos Task (`[<namespace>/]<name>`, UID) points to; 404 if none |
 | `/api/v1/overview?from=&to=&project=&task=&executor=&review=&failed=&missing=&after=&limit=` | The tasks active in a window (default: the day before now, at most 31 days), one row each with its runs, pull request states, review waits, state changes and coverage; filtered, most recently active first, in pages of at most 200 (`after` is the previous page's `next`, sent with that page's `window` as `from` and `to`: a cursor of another window is a 400) |
+| `/api/v1/cost/task/{instance}/{id}` | The task's estimated API-equivalent cost at the providers' list prices (never what was billed): totals by run, attempt, model, thread, role and category, each `complete`, `partial` (a lower bound) or `unknown`, with the price table's version and date, its assumptions and the usage feed's state |
 | `/api/v1/version` | The binary's version |
 | `/api/v1/config` | The frontend's configuration: the Kelos console's base URL per cluster name (`kelosConsoles`, empty without one) |
 
@@ -267,6 +268,8 @@ store failing) stops the read of that log, and the next one starts from it.
 | `SILLAGE_LOCK_RETRY_INTERVAL` | How often a process without the lock tries to take it (default `1m`). |
 | `SILLAGE_GITHUB_HOOKS` | sillage's own GitHub repository webhooks, `owner/name:id`, comma-separated, whose delivery logs are read for the deliveries sillage did not receive. Unset, none is. The GitHub credential needs Webhooks read, and write to redeliver. |
 | `SILLAGE_GITHUB_HOOK_CHECK_INTERVAL` | How long between two reads of those delivery logs (default `5m`); the first cycle after a start reads them. |
+| `SILLAGE_LOKI_URL`, `SILLAGE_LOKI_ORG_ID` | Loki's base URL, without the `/loki` path, where the runners' usage telemetry is read (the Kelos source's cluster and namespace), and the optional `X-Scope-OrgID` tenant (unset, no header is sent). |
+| `SILLAGE_USAGE_SINCE` | When the runners' usage telemetry started, RFC 3339: the usage feed's first read starts there. The feed is off unless it and `SILLAGE_LOKI_URL` are both set. |
 
 Every interval is spread by up to 10% either way. `GET /metrics` serves,
 besides the Go runtime's and the process's, each source instance's last

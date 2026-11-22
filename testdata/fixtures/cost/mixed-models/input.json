@@ -1,0 +1,403 @@
+{
+  "description": "An implementation on Claude Opus with an Explore subagent on Haiku and one Sonnet request, a request that failed, one event delivered twice; a first attempt that failed after using tokens and its retry, both with the same Task name; a fix on Codex with its own cost estimates and cache writes of unknown duration; a model-free automation run. The feed has read past every end.",
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 301
+    }
+  },
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000301aa"
+      },
+      "taskName": "vikunja-widgets-agent-opus-301",
+      "role": "implementation",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-11-23T09:00:00Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-11-23T09:20:00Z"
+        }
+      },
+      "outcome": "failed",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-widgets-agent-opus-301",
+          "note": "status"
+        }
+      ],
+      "pod": "vikunja-widgets-agent-opus-301-f0f0f",
+      "agent": "agent-opus",
+      "model": "claude-opus-5-5[1m]"
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000301ab"
+      },
+      "taskName": "vikunja-widgets-agent-opus-301",
+      "role": "implementation",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-11-23T10:00:00Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-11-23T11:00:00Z"
+        }
+      },
+      "outcome": "succeeded",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-widgets-agent-opus-301",
+          "note": "status"
+        }
+      ],
+      "pod": "vikunja-widgets-agent-opus-301-a1b2c",
+      "agent": "agent-opus",
+      "model": "claude-opus-5-5[1m]"
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000301ac"
+      },
+      "taskName": "pr-fix-widgets-codex-77",
+      "role": "pr-follow-up",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-11-23T12:00:00Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-11-23T12:30:00Z"
+        }
+      },
+      "outcome": "succeeded",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/pr-fix-widgets-codex-77",
+          "note": "status"
+        }
+      ],
+      "pod": "pr-fix-widgets-codex-77-c3d4e",
+      "agent": "agent-codex",
+      "model": "gpt-5.6-sol"
+    },
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000301ad"
+      },
+      "taskName": "pr-open-widgets-77",
+      "role": "automation",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-11-23T11:05:00Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-11-23T11:06:00Z"
+        }
+      },
+      "outcome": "succeeded",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/pr-open-widgets-77",
+          "note": "status"
+        }
+      ],
+      "pod": "pr-open-widgets-77-x9x9x"
+    }
+  ],
+  "pods": [
+    {
+      "run": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000301ab"
+      },
+      "pods": [
+        "vikunja-widgets-agent-opus-301-a1b2c",
+        "vikunja-widgets-agent-opus-301-r2r2r"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "cluster": "cluster-a",
+      "namespace": "agents",
+      "pod": "vikunja-widgets-agent-opus-301-f0f0f",
+      "podUID": "pod-uid-fail-1",
+      "taskName": "vikunja-widgets-agent-opus-301",
+      "runner": "claude-code",
+      "kind": "response",
+      "event": "api_request",
+      "stream": "session-f1",
+      "seq": "1",
+      "at": "2026-11-23T09:05:00Z",
+      "model": "claude-opus-5-5[1m]",
+      "tokens": {
+        "uncachedInput": 200000,
+        "cacheRead": 0,
+        "output": 10000,
+        "cacheWrite5m": 0,
+        "cacheWrite1h": 0
+      },
+      "reportedCostUSD": "1.000000"
+    },
+    {
+      "cluster": "cluster-a",
+      "namespace": "agents",
+      "pod": "vikunja-widgets-agent-opus-301-a1b2c",
+      "podUID": "pod-uid-impl-1",
+      "taskName": "vikunja-widgets-agent-opus-301",
+      "runner": "claude-code",
+      "kind": "response",
+      "event": "api_request",
+      "stream": "session-a1",
+      "seq": "1",
+      "at": "2026-11-23T10:01:00Z",
+      "model": "claude-opus-5-5[1m]",
+      "tokens": {
+        "uncachedInput": 500000,
+        "cacheRead": 0,
+        "output": 50000,
+        "cacheWrite5m": 400000,
+        "cacheWrite1h": 0
+      },
+      "reportedCostUSD": "5.000000"
+    },
+    {
+      "cluster": "cluster-a",
+      "namespace": "agents",
+      "pod": "vikunja-widgets-agent-opus-301-a1b2c",
+      "podUID": "pod-uid-impl-1",
+      "taskName": "vikunja-widgets-agent-opus-301",
+      "runner": "claude-code",
+      "kind": "response",
+      "event": "api_request",
+      "stream": "session-a1",
+      "seq": "2",
+      "at": "2026-11-23T10:05:00Z",
+      "model": "claude-opus-5-5[1m]",
+      "tokens": {
+        "uncachedInput": 1000000,
+        "cacheRead": 2000000,
+        "output": 100000,
+        "cacheWrite5m": 100000,
+        "cacheWrite1h": 50000
+      },
+      "reportedCostUSD": "7.150000"
+    },
+    {
+      "cluster": "cluster-a",
+      "namespace": "agents",
+      "pod": "vikunja-widgets-agent-opus-301-a1b2c",
+      "podUID": "pod-uid-impl-1",
+      "taskName": "vikunja-widgets-agent-opus-301",
+      "runner": "claude-code",
+      "kind": "response",
+      "event": "api_request",
+      "stream": "session-a1",
+      "seq": "2",
+      "at": "2026-11-23T10:05:00Z",
+      "model": "claude-opus-5-5[1m]",
+      "tokens": {
+        "uncachedInput": 1000000,
+        "cacheRead": 2000000,
+        "output": 100000,
+        "cacheWrite5m": 100000,
+        "cacheWrite1h": 50000
+      },
+      "reportedCostUSD": "7.150000"
+    },
+    {
+      "cluster": "cluster-a",
+      "namespace": "agents",
+      "pod": "vikunja-widgets-agent-opus-301-a1b2c",
+      "podUID": "pod-uid-impl-1",
+      "taskName": "vikunja-widgets-agent-opus-301",
+      "runner": "claude-code",
+      "kind": "response",
+      "event": "api_request",
+      "stream": "session-a1",
+      "seq": "3",
+      "at": "2026-11-23T10:10:00Z",
+      "model": "claude-haiku-5-5",
+      "tokens": {
+        "uncachedInput": 50000,
+        "cacheRead": 40000,
+        "output": 10000,
+        "cacheWrite5m": 0,
+        "cacheWrite1h": 0
+      },
+      "reportedCostUSD": "0.010000",
+      "agent": "agent-explore-1"
+    },
+    {
+      "cluster": "cluster-a",
+      "namespace": "agents",
+      "pod": "vikunja-widgets-agent-opus-301-a1b2c",
+      "podUID": "pod-uid-impl-1",
+      "taskName": "vikunja-widgets-agent-opus-301",
+      "runner": "claude-code",
+      "kind": "response",
+      "event": "api_request",
+      "stream": "session-a1",
+      "seq": "4",
+      "at": "2026-11-23T10:12:00Z",
+      "model": "claude-haiku-5-5",
+      "tokens": {
+        "uncachedInput": 90000,
+        "cacheRead": 20000,
+        "output": 20000,
+        "cacheWrite5m": 0,
+        "cacheWrite1h": 0
+      },
+      "agent": "agent-explore-1"
+    },
+    {
+      "cluster": "cluster-a",
+      "namespace": "agents",
+      "pod": "vikunja-widgets-agent-opus-301-a1b2c",
+      "podUID": "pod-uid-impl-1",
+      "taskName": "vikunja-widgets-agent-opus-301",
+      "runner": "claude-code",
+      "kind": "response",
+      "event": "api_request",
+      "stream": "session-a1",
+      "seq": "5",
+      "at": "2026-11-23T10:20:00Z",
+      "model": "claude-sonnet-5",
+      "tokens": {
+        "uncachedInput": 100000,
+        "cacheRead": 0,
+        "output": 10000,
+        "cacheWrite5m": 0,
+        "cacheWrite1h": 0
+      },
+      "agent": "agent-review-2",
+      "parentAgent": "agent-explore-1"
+    },
+    {
+      "cluster": "cluster-a",
+      "namespace": "agents",
+      "pod": "vikunja-widgets-agent-opus-301-a1b2c",
+      "podUID": "pod-uid-impl-1",
+      "taskName": "vikunja-widgets-agent-opus-301",
+      "runner": "claude-code",
+      "kind": "failed-request",
+      "event": "api_error",
+      "stream": "session-a1",
+      "seq": "6",
+      "at": "2026-11-23T10:21:00Z",
+      "model": "claude-opus-5-5[1m]",
+      "status": "529"
+    },
+    {
+      "cluster": "cluster-a",
+      "namespace": "agents",
+      "pod": "vikunja-widgets-agent-opus-301-r2r2r",
+      "podUID": "pod-uid-impl-2",
+      "taskName": "vikunja-widgets-agent-opus-301",
+      "runner": "claude-code",
+      "kind": "response",
+      "event": "api_request",
+      "stream": "session-a2",
+      "seq": "1",
+      "at": "2026-11-23T10:40:00Z",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncachedInput": 100000,
+        "cacheRead": 0,
+        "output": 1000,
+        "cacheWrite5m": 0,
+        "cacheWrite1h": 0
+      },
+      "speed": "fast"
+    },
+    {
+      "cluster": "cluster-a",
+      "namespace": "agents",
+      "pod": "pr-fix-widgets-codex-77-c3d4e",
+      "podUID": "pod-uid-fix-1",
+      "taskName": "pr-fix-widgets-codex-77",
+      "runner": "codex",
+      "kind": "response",
+      "event": "codex.sse_event",
+      "stream": "conversation-b1",
+      "seq": "2026-11-23T12:05:00.000Z",
+      "at": "2026-11-23T12:05:00.000Z",
+      "model": "gpt-5.6-sol",
+      "tokens": {
+        "uncachedInput": 100000,
+        "cacheRead": 300000,
+        "cacheWriteUnknownTTL": 50000,
+        "output": 20000,
+        "reasoning": 5000
+      }
+    },
+    {
+      "cluster": "cluster-a",
+      "namespace": "agents",
+      "pod": "pr-fix-widgets-codex-77-c3d4e",
+      "podUID": "pod-uid-fix-1",
+      "taskName": "pr-fix-widgets-codex-77",
+      "runner": "codex",
+      "kind": "reported-cost",
+      "event": "codex.turn_cost",
+      "stream": "conversation-b1",
+      "seq": "2026-11-23T12:05:00.000Z",
+      "at": "2026-11-23T12:05:00.000Z",
+      "model": "gpt-5.6-sol",
+      "reportedCostUSD": "2.500000"
+    },
+    {
+      "cluster": "cluster-a",
+      "namespace": "agents",
+      "pod": "pr-fix-widgets-codex-77-c3d4e",
+      "podUID": "pod-uid-fix-1",
+      "taskName": "pr-fix-widgets-codex-77",
+      "runner": "codex",
+      "kind": "response",
+      "event": "codex.sse_event",
+      "stream": "conversation-b2",
+      "seq": "2026-11-23T12:10:00.000Z",
+      "at": "2026-11-23T12:10:00.000Z",
+      "model": "gpt-5.6-sol",
+      "tokens": {
+        "uncachedInput": 300000,
+        "cacheRead": 0,
+        "cacheWriteUnknownTTL": 0,
+        "output": 10000,
+        "reasoning": 0
+      }
+    }
+  ],
+  "feed": {
+    "on": true,
+    "since": "2026-11-22T18:00:00Z",
+    "readThrough": "2026-11-23T13:00:00Z"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "description": "No usage feed: a finished run has no events, and its cost is unknown, not zero.",
+  "root": {
+    "task": {
+      "instance": "vikunja.example.com",
+      "id": 303
+    }
+  },
+  "runs": [
+    {
+      "key": {
+        "cluster": "cluster-a",
+        "namespace": "agents",
+        "uid": "00000000-0000-4000-8000-0000000303aa"
+      },
+      "taskName": "vikunja-widgets-agent-opus-303",
+      "role": "implementation",
+      "interval": {
+        "start": {
+          "state": "known",
+          "at": "2026-11-25T09:00:00Z"
+        },
+        "end": {
+          "state": "known",
+          "at": "2026-11-25T09:30:00Z"
+        }
+      },
+      "outcome": "succeeded",
+      "evidence": [
+        {
+          "source": "kelos",
+          "instance": "cluster-a",
+          "ref": "tasks/agents/vikunja-widgets-agent-opus-303",
+          "note": "status"
+        }
+      ],
+      "pod": "vikunja-widgets-agent-opus-303-q1q1q",
+      "agent": "agent-opus",
+      "model": "claude-opus-5-5"
+    }
+  ],
+  "pods": [],
+  "events": [],
+  "feed": {
+    "on": false
+  }
+}

@@ -30,7 +30,10 @@
 // runs' phases (a batch holds no markers, so a run is saved without
 // its phases). Story and Coverage add to a root's Kelos coverage how many markers
 // of its cluster are unattached, and the pods of its runs that passed the
-// limit of markers. Prune applies the Config's retention policy (by default keep
+// limit of markers. SaveUsage keeps, immutably and once per key, the usage
+// events the usage feed read from the telemetry store, apart from every
+// story; UsageFeed and SetUsageFeed keep how far it read, and UsageOf reads
+// back the events of a story's runs' pods and Task names. Prune applies the Config's retention policy (by default keep
 // everything).
 //
 // Each record is stored as its model JSON, the source of truth read back

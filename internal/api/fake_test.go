@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sperano/sillage/internal/cost"
+	"github.com/sperano/sillage/internal/cost/costtest"
 	"github.com/sperano/sillage/internal/model"
 	"github.com/sperano/sillage/internal/store"
 )
@@ -126,12 +128,15 @@ func loadOverviewFixtures(t *testing.T) []store.RootActivity {
 type fakeStore struct {
 	stories  []fixture
 	overview []store.RootActivity
+	// costs are the cost fixtures: their stories are served, and their
+	// usage, but no search, link or freshness reads them.
+	costs []cost.Input
 }
 
 var _ store.Reader = (*fakeStore)(nil)
 
 func newFakeStore(t *testing.T) *fakeStore {
-	return &fakeStore{stories: loadFixtures(t), overview: loadOverviewFixtures(t)}
+	return &fakeStore{stories: loadFixtures(t), overview: loadOverviewFixtures(t), costs: loadCostFixtures(t)}
 }
 
 func rootKey(r model.Root) string {
@@ -162,11 +167,22 @@ func (f *fakeStore) matching(keep func(model.Story) bool) []store.RootSummary {
 }
 
 func (f *fakeStore) Story(_ context.Context, root model.Root) (model.Story, error) {
-	s, ok := f.find(root)
-	if !ok {
-		return model.Story{}, store.ErrNotFound
+	if s, ok := f.find(root); ok {
+		return s.story, nil
 	}
-	return s.story, nil
+	if c, ok := f.findCost(root); ok {
+		return c.Story, nil
+	}
+	return model.Story{}, store.ErrNotFound
+}
+
+// findCost returns the cost fixture of root.
+func (f *fakeStore) findCost(root model.Root) (cost.Input, bool) {
+	i := slices.IndexFunc(f.costs, func(c cost.Input) bool { return rootKey(c.Story.Root) == rootKey(root) })
+	if i < 0 {
+		return cost.Input{}, false
+	}
+	return f.costs[i], true
 }
 
 func (f *fakeStore) Coverage(_ context.Context, root model.Root) ([]model.Coverage, error) {
@@ -287,4 +303,33 @@ func (f *fakeStore) Activity(_ context.Context, q store.ActivityQuery) ([]store.
 		return nil, store.ErrTooManyRoots
 	}
 	return out, nil
+}
+
+// UsageOf answers a cost fixture's usage, and none of another story.
+func (f *fakeStore) UsageOf(_ context.Context, story model.Story) (store.StoryUsage, error) {
+	c, ok := f.findCost(story.Root)
+	if !ok {
+		return store.StoryUsage{}, nil
+	}
+	return store.StoryUsage{Events: c.Events, Pods: c.Pods, ReadThrough: c.Feed.ReadThrough}, nil
+}
+
+// costFixturesDir holds the cost fixtures.
+const costFixturesDir = "../../testdata/fixtures/cost"
+
+func loadCostFixtures(t *testing.T) []cost.Input {
+	t.Helper()
+	names, err := costtest.Names(costFixturesDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := make([]cost.Input, 0, len(names))
+	for _, n := range names {
+		in, err := costtest.Load(filepath.Join(costFixturesDir, n))
+		if err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, in)
+	}
+	return out
 }

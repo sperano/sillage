@@ -59,6 +59,10 @@ type Reader interface {
 	// Activity returns the roots that may have been active in a window,
 	// with the records an overview reads of them, or ErrTooManyRoots.
 	Activity(ctx context.Context, q ActivityQuery) ([]RootActivity, error)
+	// UsageOf returns the usage events of story's runs, every pod each of
+	// its runs keyed by Task UID was seen with, and how far the usage feed
+	// has read.
+	UsageOf(ctx context.Context, story model.Story) (StoryUsage, error)
 }
 
 var _ Reader = (*Store)(nil)

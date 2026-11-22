@@ -102,3 +102,17 @@ test('navigate with replace drops the current entry', () => {
 	router.navigate('/task/vikunja.example.com/1', { replace: true });
 	expect(history.entries()).toEqual(['/task/vikunja.example.com/1']);
 });
+
+test('hash is the current fragment, through navigations and back', () => {
+	const history = memoryHistory('/task/vikunja.example.com/1#cost');
+	const router = new Router(history);
+	expect(router.hash).toBe('#cost');
+	const stop = router.start();
+	router.navigate('/task/vikunja.example.com/1');
+	expect(router.hash).toBe('');
+	router.navigate('/task/vikunja.example.com/2#cost');
+	expect(router.hash).toBe('#cost');
+	history.back();
+	expect(router.hash).toBe('');
+	stop();
+});

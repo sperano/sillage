@@ -1,6 +1,8 @@
 <!-- /task/...: one task's story, its timeline graph beside its event list and detail. -->
 <script lang="ts">
+	import { tick } from 'svelte';
 	import type { Api } from '../lib/api';
+	import { COST_ANCHOR } from '../lib/cost/model';
 	import { errorText } from '../lib/errorText';
 	import { count } from '../lib/format';
 	import type { LinkConfig } from '../lib/links';
@@ -10,9 +12,21 @@
 	import StoryView from '../lib/story/StoryView.svelte';
 	import Timeline from '../lib/timeline/Timeline.svelte';
 	import { zoneName, type Zone } from '../lib/timeline/time';
+	import CostPanel from '../components/CostPanel.svelte';
 	import ErrorNotice from '../components/ErrorNotice.svelte';
 
-	let { api, root, links = {} }: { api: Api; root: Root; links?: LinkConfig } = $props();
+	let {
+		api,
+		root,
+		links = {},
+		hash = ''
+	}: {
+		api: Api;
+		root: Root;
+		links?: LinkConfig;
+		/** The URL's fragment: #cost scrolls to the cost section once it is drawn. */
+		hash?: string;
+	} = $props();
 
 	const story = load(() => {
 		const r = root;
@@ -26,6 +40,19 @@
 	const received = $derived(
 		deliveries.current.state === 'loaded' ? deliveries.current.value.deliveries : []
 	);
+	// Apart from the story too: its failure is the cost section's alone.
+	const cost = load(() => {
+		const r = root;
+		return (signal) => api.cost(r, signal);
+	});
+	// The section is drawn below the story, so a link to it scrolls once
+	// both settled: before, the story's height would move it.
+	$effect(() => {
+		const drawn = cost.current.state === 'loaded' || cost.current.state === 'failed';
+		const settled = story.current.state === 'loaded' && drawn;
+		if (!settled || hash !== `#${COST_ANCHOR}`) return;
+		void tick().then(() => document.getElementById(COST_ANCHOR)?.scrollIntoView());
+	});
 	// UTC, as the overview, until the reader chooses local time in the graph's toolbar.
 	let zone = $state<Zone>('utc');
 </script>
@@ -51,6 +78,7 @@
 			<Timeline story={s} {selection} bind:zone deliveries={received} />
 		{/snippet}
 	</StoryView>
+	<CostPanel cost={cost.current} {links} timeZone={zoneName(zone)} />
 {:else if story.current.state === 'failed'}
 	<ErrorNotice
 		error={story.current.error}
