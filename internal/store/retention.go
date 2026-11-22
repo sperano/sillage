@@ -26,7 +26,9 @@ var orphanDeletes = []string{
 // it was seen with, goes once it was first seen before the retention and
 // longer ago than Kelos keeps a TaskRecord. Phase markers go once received
 // before the retention, attached or not, and a pod's refusals for the
-// marker limit once the last was. With the default policy it deletes
+// marker limit once the last was. Usage events go once their time is
+// before the retention, as markers do (by their own time, not when they
+// were read: a backfill is read long after it happened). With the default policy it deletes
 // nothing.
 func (s *Store) Prune(ctx context.Context, now time.Time) (int64, error) {
 	cutoff, ok := s.retention.Cutoff(now)
@@ -49,6 +51,9 @@ func (s *Store) Prune(ctx context.Context, now time.Time) (int64, error) {
 			return err
 		}
 		if _, err := tx.Exec(ctx, "DELETE FROM run_origins WHERE first_seen_at < $1", originsCutoff(cutoff, now)); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, "DELETE FROM usage_events WHERE at < $1", cutoff); err != nil {
 			return err
 		}
 		return pruneMarkers(ctx, tx, cutoff, now)

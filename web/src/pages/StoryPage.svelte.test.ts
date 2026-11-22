@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
-import { deliveriesPath, storyPath } from '../lib/api';
+import { costPath, deliveriesPath, storyPath } from '../lib/api';
 import { parseStory } from '../lib/decodeModel';
 import type { Root } from '../lib/model';
 import { goldenResponse } from '../lib/testing/apiResponses';
@@ -158,6 +158,10 @@ test('another root aborts the request for the previous one', async () => {
 		[deliveriesPath(TASK), true],
 		[deliveriesPath(other), false]
 	]);
+	expect(asked(costPath)).toEqual([
+		[costPath(TASK), true],
+		[costPath(other), false]
+	]);
 });
 
 /** The page showing implementation-merged, and the deliveries the Go handler answers for it. */
@@ -225,4 +229,53 @@ test('the story shows without its deliveries when they fail', async () => {
 	await expect
 		.element(page.getByRole('region', { name: 'Detail' }))
 		.toHaveTextContent(/What sillage received is unknown here/);
+});
+
+const COST_TASK: Root = { task: { instance: 'vikunja.example.com', id: 301 } };
+
+/** The golden cost of COST_TASK, as the server would answer it for TASK. */
+function costOfTask() {
+	const body = goldenResponse(costPath(COST_TASK)) as { root: Root };
+	body.root = TASK;
+	return json(body);
+}
+
+/** The page showing implementation-merged, its cost answered by cost, at hash. */
+async function showWithCost(cost: () => Response, hash = '') {
+	const server = fakeServer({
+		[storyPath(TASK)]: () => json(goldenStory('implementation-merged')),
+		[costPath(TASK)]: cost
+	});
+	await render(StoryPage, { api: server.api, root: TASK, hash });
+	await expect.element(page.getByText('9 events')).toBeVisible();
+	return server;
+}
+
+const costSection = () => page.getByRole('region', { name: 'Estimated cost' });
+
+test('the story shows its estimated cost below, in the section #cost', async () => {
+	const server = await showWithCost(costOfTask);
+	await expect
+		.element(costSection().getByTestId('cost-total'))
+		.toHaveTextContent(/^at least US\$18\.8864$/);
+	await expect.element(costSection()).toHaveAttribute('id', 'cost');
+	await expect.element(costSection()).not.toBeInViewport();
+	expect(server.requests.filter((r) => r.path === costPath(TASK))).toHaveLength(1);
+});
+
+test('a link to #cost scrolls to the section once it is drawn', async () => {
+	await showWithCost(costOfTask, '#cost');
+	await expect.element(costSection().getByTestId('cost-total')).toBeVisible();
+	await expect.element(costSection()).toBeInViewport();
+});
+
+test('the story shows without its cost when the cost fails, which is not retried', async () => {
+	const server = await showWithCost(() => problem(503, 'Service Unavailable'));
+	await expect
+		.element(costSection().getByTestId('cost-failed'))
+		.toHaveTextContent(
+			"Sillage's server answered with an error (503 Service Unavailable). The estimated cost is not shown."
+		);
+	await expect.element(graph()).toBeVisible();
+	expect(server.requests.filter((r) => r.path === costPath(TASK))).toHaveLength(1);
 });

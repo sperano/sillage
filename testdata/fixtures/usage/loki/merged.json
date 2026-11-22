@@ -1,0 +1,291 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "streams",
+    "result": [
+      {
+        "stream": {
+          "service_name": "claude-code",
+          "session_id": "session-aaa",
+          "k8s_namespace_name": "kelos-agents",
+          "k8s_pod_name": "widgets-agent-7-abcde",
+          "k8s_pod_uid": "3f1c2d4e-0000-4000-8000-000000000001",
+          "k8s_job_name": "widgets-agent-7",
+          "k8s_node_name": "node-1.example.com",
+          "kelos_task_name": "widgets-agent-7",
+          "service_version": "1.0.0",
+          "event_name": "api_request",
+          "event_sequence": "1",
+          "event_timestamp": "2026-03-01T12:00:00.500Z",
+          "model": "claude-example-1",
+          "input_tokens": "100",
+          "output_tokens": "50",
+          "cache_read_tokens": "2000",
+          "cache_creation_tokens": "300",
+          "cache_creation_5m_tokens": "200",
+          "cache_creation_1h_tokens": "50",
+          "cost_usd": "0.12",
+          "speed": "fast"
+        },
+        "values": [
+          [
+            "1772366401000000000",
+            "{}"
+          ]
+        ]
+      },
+      {
+        "stream": {
+          "service_name": "claude-code",
+          "session_id": "session-aaa",
+          "k8s_namespace_name": "kelos-agents",
+          "k8s_pod_name": "widgets-agent-7-abcde",
+          "k8s_pod_uid": "3f1c2d4e-0000-4000-8000-000000000001",
+          "k8s_job_name": "widgets-agent-7",
+          "k8s_node_name": "node-1.example.com",
+          "kelos_task_name": "widgets-agent-7",
+          "service_version": "1.0.0",
+          "event_name": "api_request",
+          "event_sequence": "2",
+          "event_timestamp": "2026-03-01T12:00:01.500Z",
+          "model": "claude-example-1",
+          "input_tokens": "7",
+          "output_tokens": "9",
+          "cache_read_tokens": "0",
+          "cache_creation_tokens": "40",
+          "agent_id": "agent-sub-1",
+          "parent_agent_id": "agent-main",
+          "cost_usd": "0.000015"
+        },
+        "values": [
+          [
+            "1772366402000000000",
+            "{}"
+          ]
+        ]
+      },
+      {
+        "stream": {
+          "service_name": "claude-code",
+          "session_id": "session-aaa",
+          "k8s_namespace_name": "kelos-agents",
+          "k8s_pod_name": "widgets-agent-7-abcde",
+          "k8s_pod_uid": "3f1c2d4e-0000-4000-8000-000000000001",
+          "k8s_job_name": "widgets-agent-7",
+          "k8s_node_name": "node-1.example.com",
+          "kelos_task_name": "widgets-agent-7",
+          "service_version": "1.0.0",
+          "event_name": "api_error",
+          "event_sequence": "3",
+          "event_timestamp": "2026-03-01T12:00:02.500Z",
+          "model": "claude-example-1",
+          "status_code": "529"
+        },
+        "values": [
+          [
+            "1772366403000000000",
+            "{}"
+          ]
+        ]
+      },
+      {
+        "stream": {
+          "service_name": "claude-code",
+          "session_id": "session-aaa",
+          "k8s_namespace_name": "kelos-agents",
+          "k8s_pod_name": "widgets-agent-7-abcde",
+          "k8s_pod_uid": "3f1c2d4e-0000-4000-8000-000000000001",
+          "k8s_job_name": "widgets-agent-7",
+          "k8s_node_name": "node-1.example.com",
+          "kelos_task_name": "widgets-agent-7",
+          "service_version": "1.0.0",
+          "event_name": "api_request",
+          "event_sequence": "1",
+          "event_timestamp": "2026-03-01T12:00:00.500Z",
+          "model": "claude-example-1",
+          "input_tokens": "100",
+          "output_tokens": "50",
+          "cache_read_tokens": "2000",
+          "cache_creation_tokens": "300",
+          "cache_creation_5m_tokens": "200",
+          "cache_creation_1h_tokens": "50",
+          "cost_usd": "0.12",
+          "speed": "fast"
+        },
+        "values": [
+          [
+            "1772366401000000000",
+            "{}"
+          ]
+        ]
+      },
+      {
+        "stream": {
+          "service_name": "claude-code",
+          "session_id": "session-aaa",
+          "k8s_namespace_name": "kelos-agents",
+          "k8s_pod_name": "widgets-agent-7-abcde",
+          "k8s_pod_uid": "3f1c2d4e-0000-4000-8000-000000000001",
+          "k8s_job_name": "widgets-agent-7",
+          "k8s_node_name": "node-1.example.com",
+          "kelos_task_name": "widgets-agent-7",
+          "service_version": "1.0.0",
+          "event_name": "user_prompt",
+          "event_sequence": "4",
+          "event_timestamp": "2026-03-01T12:00:03.500Z"
+        },
+        "values": [
+          [
+            "1772366404000000000",
+            "{}"
+          ]
+        ]
+      },
+      {
+        "stream": {
+          "service_name": "codex_cli_rs",
+          "conversation_id": "conv-bbb",
+          "k8s_namespace_name": "kelos-agents",
+          "k8s_pod_name": "widgets-agent-8-fghij",
+          "k8s_pod_uid": "3f1c2d4e-0000-4000-8000-000000000002",
+          "k8s_job_name": "widgets-agent-7",
+          "k8s_node_name": "node-1.example.com",
+          "kelos_task_name": "widgets-agent-8",
+          "service_version": "1.0.0",
+          "event_name": "codex.sse_event",
+          "event_kind": "response.completed",
+          "event_timestamp": "2026-03-01T12:00:04.250Z",
+          "model": "gpt-example-1",
+          "service_tier": "priority",
+          "input_token_count": "1000",
+          "cached_token_count": "600",
+          "cache_write_token_count": "100",
+          "output_token_count": "80",
+          "reasoning_token_count": "30",
+          "tool_token_count": "1080"
+        },
+        "values": [
+          [
+            "1772366405000000000",
+            "{}"
+          ]
+        ]
+      },
+      {
+        "stream": {
+          "service_name": "codex_cli_rs",
+          "conversation_id": "conv-bbb",
+          "k8s_namespace_name": "kelos-agents",
+          "k8s_pod_name": "widgets-agent-8-fghij",
+          "k8s_pod_uid": "3f1c2d4e-0000-4000-8000-000000000002",
+          "k8s_job_name": "widgets-agent-7",
+          "k8s_node_name": "node-1.example.com",
+          "kelos_task_name": "widgets-agent-8",
+          "service_version": "1.0.0",
+          "event_name": "codex.sse_event",
+          "event_kind": "response.output_text.delta",
+          "event_timestamp": "2026-03-01T12:00:04.250Z",
+          "model": "gpt-example-1"
+        },
+        "values": [
+          [
+            "1772366405000000000",
+            "{}"
+          ]
+        ]
+      },
+      {
+        "stream": {
+          "service_name": "codex_cli_rs",
+          "conversation_id": "conv-bbb",
+          "k8s_namespace_name": "kelos-agents",
+          "k8s_pod_name": "widgets-agent-8-fghij",
+          "k8s_pod_uid": "3f1c2d4e-0000-4000-8000-000000000002",
+          "k8s_job_name": "widgets-agent-7",
+          "k8s_node_name": "node-1.example.com",
+          "kelos_task_name": "widgets-agent-8",
+          "service_version": "1.0.0",
+          "event_name": "codex.turn_cost",
+          "event_timestamp": "2026-03-01T12:00:04.250Z",
+          "model": "gpt-example-1",
+          "usage_estimated_usd": "0.0345"
+        },
+        "values": [
+          [
+            "1772366405000000000",
+            "{}"
+          ]
+        ]
+      },
+      {
+        "stream": {
+          "service_name": "codex_cli_rs",
+          "conversation_id": "conv-bbb",
+          "k8s_namespace_name": "kelos-agents",
+          "k8s_pod_name": "widgets-agent-8-fghij",
+          "k8s_pod_uid": "3f1c2d4e-0000-4000-8000-000000000002",
+          "k8s_job_name": "widgets-agent-7",
+          "k8s_node_name": "node-1.example.com",
+          "kelos_task_name": "widgets-agent-8",
+          "service_version": "1.0.0",
+          "event_name": "codex.api_request",
+          "event_timestamp": "2026-03-01T12:00:05.250Z",
+          "http_response_status_code": "429",
+          "attempt": "1"
+        },
+        "values": [
+          [
+            "1772366406000000000",
+            "{}"
+          ]
+        ]
+      },
+      {
+        "stream": {
+          "service_name": "codex_cli_rs",
+          "conversation_id": "conv-bbb",
+          "k8s_namespace_name": "kelos-agents",
+          "k8s_pod_name": "widgets-agent-8-fghij",
+          "k8s_pod_uid": "3f1c2d4e-0000-4000-8000-000000000002",
+          "k8s_job_name": "widgets-agent-7",
+          "k8s_node_name": "node-1.example.com",
+          "kelos_task_name": "widgets-agent-8",
+          "service_version": "1.0.0",
+          "event_name": "codex.api_request",
+          "event_timestamp": "2026-03-01T12:00:06.250Z",
+          "http_response_status_code": "200",
+          "attempt": "2"
+        },
+        "values": [
+          [
+            "1772366407000000000",
+            "{}"
+          ]
+        ]
+      },
+      {
+        "stream": {
+          "service_name": "codex_cli_rs",
+          "k8s_namespace_name": "kelos-agents",
+          "k8s_pod_name": "widgets-agent-8-fghij",
+          "k8s_pod_uid": "3f1c2d4e-0000-4000-8000-000000000002",
+          "k8s_job_name": "widgets-agent-7",
+          "k8s_node_name": "node-1.example.com",
+          "kelos_task_name": "widgets-agent-8",
+          "service_version": "1.0.0",
+          "event_name": "codex.sse_event",
+          "event_kind": "response.completed",
+          "event_timestamp": "2026-03-01T12:00:07.250Z",
+          "input_token_count": "10",
+          "output_token_count": "1"
+        },
+        "values": [
+          [
+            "1772366408000000000",
+            "{}"
+          ]
+        ]
+      }
+    ]
+  }
+}

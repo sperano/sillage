@@ -189,12 +189,15 @@ export const interval: Decoder<Interval> = refine(
 // as the Go model's decimalPattern.
 const DECIMAL = /^(0|[1-9][0-9]*)(\.[0-9]+)?$/;
 
+/** A non-negative decimal string, as US dollar amounts are written: "0.42". */
+export const decimal: Decoder<string> = refine(anyString, (s, path) => {
+	if (!DECIMAL.test(s)) fail(path, `${JSON.stringify(s)} is not a non-negative decimal`);
+});
+
 const usage: Decoder<Usage> = object(
 	{},
 	{
-		costUSD: refine(anyString, (s, path) => {
-			if (!DECIMAL.test(s)) fail(path, `${JSON.stringify(s)} is not a non-negative decimal`);
-		}),
+		costUSD: decimal,
 		inputTokens: nonNegativeInteger,
 		outputTokens: nonNegativeInteger
 	}

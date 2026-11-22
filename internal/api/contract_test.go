@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/sperano/sillage/internal/model"
 )
@@ -27,8 +28,9 @@ var update = flag.Bool("update", false, "rewrite the API responses' golden file"
 
 // contractPaths are the requests whose bodies responsesGolden holds: a
 // search with a match and one without, a resolved link, the sources'
-// freshness, the frontend's configuration, and the deliveries of a task
-// with some and of one with none.
+// freshness, the frontend's configuration, the deliveries of a task with
+// some and of one with none, and the costs of a task with mixed models and
+// of one with unknown prices and late usage.
 var contractPaths = []string{
 	"/api/v1/search?q=retry",
 	"/api/v1/search?q=nothing-matches",
@@ -37,7 +39,13 @@ var contractPaths = []string{
 	"/api/v1/config",
 	"/api/v1/deliveries/task/vikunja.example.com/102",
 	"/api/v1/deliveries/task/vikunja.example.com/101",
+	"/api/v1/cost/task/vikunja.example.com/301",
+	"/api/v1/cost/task/vikunja.example.com/302",
 }
+
+// contractUsage is the usage feed the cost responses report on: on, since
+// the telemetry started.
+var contractUsage = UsageConfig{On: true, Since: time.Date(2026, time.November, 22, 18, 0, 0, 0, time.UTC)}
 
 // contractConsoles is the Kelos console the configuration names, for the
 // fixture stories' cluster.
@@ -52,7 +60,7 @@ var contractOff = []OffSource{
 }
 
 func TestResponsesGolden(t *testing.T) {
-	h := New(Config{Store: newFakeStore(t), KelosConsoles: contractConsoles, Off: contractOff})
+	h := New(Config{Store: newFakeStore(t), KelosConsoles: contractConsoles, Off: contractOff, Usage: contractUsage})
 	bodies := make(map[string]json.RawMessage, len(contractPaths))
 	for _, p := range contractPaths {
 		var body json.RawMessage

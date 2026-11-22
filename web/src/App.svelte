@@ -51,7 +51,7 @@
 	{#if route.name === 'home'}
 		<EntryPage {api} {router} query={route.query} />
 	{:else if route.name === 'task'}
-		<StoryPage {api} {links} root={{ task: route.key }} />
+		<StoryPage {api} {links} root={{ task: route.key }} hash={router.hash} />
 	{:else if route.name === 'open'}
 		<OpenPage {api} {router} url={route.url} />
 	{:else if route.name === 'overview'}

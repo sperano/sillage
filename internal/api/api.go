@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/sperano/sillage/internal/cost"
 	"github.com/sperano/sillage/internal/store"
 )
 
@@ -19,12 +20,15 @@ const (
 	// RouteTaskDeliveries lists the webhook deliveries that named a task,
 	// apart from its story, whose contract they leave unchanged.
 	RouteTaskDeliveries = "GET /api/v1/deliveries/task/{instance}/{id}"
-	RouteCoverage       = "GET /api/v1/coverage"
-	RouteResolve        = "GET /api/v1/resolve"
-	RouteSearch         = "GET /api/v1/search"
-	RouteOverview       = "GET /api/v1/overview"
-	RouteVersion        = "GET /api/v1/version"
-	RouteConfig         = "GET /api/v1/config"
+	// RouteTaskCost answers a task's estimated API-equivalent cost, by
+	// run, attempt, model, thread and category (internal/cost).
+	RouteTaskCost = "GET /api/v1/cost/task/{instance}/{id}"
+	RouteCoverage = "GET /api/v1/coverage"
+	RouteResolve  = "GET /api/v1/resolve"
+	RouteSearch   = "GET /api/v1/search"
+	RouteOverview = "GET /api/v1/overview"
+	RouteVersion  = "GET /api/v1/version"
+	RouteConfig   = "GET /api/v1/config"
 )
 
 const (
@@ -54,6 +58,8 @@ type Config struct {
 	// Off are the sources the collector does not read, as the freshness
 	// endpoint answers them.
 	Off []OffSource
+	// Usage is the usage feed the cost endpoint reports on.
+	Usage UsageConfig
 	// Timeout bounds each request; DefaultTimeout when zero.
 	Timeout time.Duration
 	// MaxResponseBytes bounds each response's body;
@@ -67,7 +73,8 @@ type Config struct {
 
 // api serves the routes of one Config.
 type api struct {
-	cfg Config
+	cfg    Config
+	prices *cost.Table
 }
 
 // New returns the API's handler, which serves every path under Prefix.
@@ -84,11 +91,12 @@ func New(cfg Config) http.Handler {
 	if cfg.Now == nil {
 		cfg.Now = time.Now
 	}
-	a := &api{cfg: cfg}
+	a := &api{cfg: cfg, prices: cost.MustDefaultTable()}
 	mux := http.NewServeMux()
 	a.handle(mux, RouteTaskStory, a.needStore(a.taskStory))
 	a.handle(mux, RouteTaskCoverage, a.needStore(a.taskCoverage))
 	a.handle(mux, RouteTaskDeliveries, a.needStore(a.taskDeliveries))
+	a.handle(mux, RouteTaskCost, a.needStore(a.taskCost))
 	a.handle(mux, RouteCoverage, a.needStore(a.freshness))
 	a.handle(mux, RouteResolve, a.needStore(a.resolve))
 	a.handle(mux, RouteSearch, a.needStore(a.search))
@@ -143,4 +151,13 @@ func noStore(h http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		h.ServeHTTP(w, r)
 	})
+}
+
+// UsageConfig is what the cost endpoint says of the usage feed.
+type UsageConfig struct {
+	// On says that this process reads usage events into the store.
+	On bool
+	// Since is when the runners' usage telemetry started: a run that
+	// started before it has no events, and says so.
+	Since time.Time
 }

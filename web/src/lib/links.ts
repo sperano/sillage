@@ -130,7 +130,10 @@ function githubLink(e: Event): SourceLink | undefined {
  * The Kelos console's view of the run's Task logs. The console finds a Task
  * by name, which a retry reuses, and a deleted Task is gone from it.
  */
-export function runLink(run: Run, config: LinkConfig): SourceLink | undefined {
+export function runLink(
+	run: Pick<Run, 'key' | 'taskName'>,
+	config: LinkConfig
+): SourceLink | undefined {
 	const base = config.kelosConsoles?.[run.key.cluster];
 	if (!base || !run.taskName) {
 		return undefined;

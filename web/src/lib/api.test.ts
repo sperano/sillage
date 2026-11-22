@@ -63,6 +63,18 @@ describe('requests', () => {
 		expect(requested(fetchFn)).toEqual([`${API_BASE}/deliveries/task/vikunja.example.com/102`]);
 	});
 
+	test('a cost of another root is an invalid response', async () => {
+		const body = goldenResponse(`${API_BASE}/cost/task/vikunja.example.com/301`);
+		const fetchFn = answering(() => json(body));
+		await expect(createApi({ fetch: fetchFn }).cost(TASK)).rejects.toThrow(
+			new InvalidResponseError(
+				`GET ${API_BASE}/cost/task/vikunja.example.com/102`,
+				'the cost is of another root'
+			)
+		);
+		expect(requested(fetchFn)).toEqual([`${API_BASE}/cost/task/vikunja.example.com/102`]);
+	});
+
 	test('search and resolve encode their parameter', async () => {
 		const searchFetch = answering(() =>
 			json({
@@ -256,6 +268,8 @@ describe('the Go responses', () => {
 		expect([...goldenPaths].sort()).toEqual(
 			[
 				`${API_BASE}/config`,
+				`${API_BASE}/cost/task/vikunja.example.com/301`,
+				`${API_BASE}/cost/task/vikunja.example.com/302`,
 				`${API_BASE}/coverage`,
 				`${API_BASE}/deliveries/task/vikunja.example.com/101`,
 				`${API_BASE}/deliveries/task/vikunja.example.com/102`,
@@ -325,5 +339,21 @@ describe('the Go responses', () => {
 		expect(await createApi({ fetch: answeringGolden() }).config()).toEqual({
 			kelosConsoles: { 'cluster-a': 'https://kelos.example.com' }
 		});
+	});
+
+	test("a task's cost decodes, its runs in the story's order", async () => {
+		const api = createApi({ fetch: answeringGolden() });
+		const cost = await api.cost({ task: { instance: 'vikunja.example.com', id: 301 } });
+		expect([cost.total.status, cost.total.estimatedUSD, cost.final]).toEqual([
+			'partial',
+			'18.886400',
+			true
+		]);
+		expect(cost.runs.map((r) => [r.taskName, r.status])).toEqual([
+			['vikunja-widgets-agent-opus-301', 'partial'],
+			['vikunja-widgets-agent-opus-301', 'complete'],
+			['pr-open-widgets-77', 'none'],
+			['pr-fix-widgets-codex-77', 'partial']
+		]);
 	});
 });
